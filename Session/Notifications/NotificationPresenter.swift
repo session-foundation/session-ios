@@ -149,7 +149,8 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         addNotificationRequest(
             content: content,
-            notificationSettings: notificationSettings
+            notificationSettings: notificationSettings,
+            extensionBaseUnreadCount: nil
         )
 
         Log.debug("presenting notification with identifier: \(identifier)")
@@ -165,7 +166,8 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     
     public func addNotificationRequest(
         content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
     ) {
         var trigger: UNNotificationTrigger?
         let shouldPresentNotification: Bool = shouldPresentNotification(

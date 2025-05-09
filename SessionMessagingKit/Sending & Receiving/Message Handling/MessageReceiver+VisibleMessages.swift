@@ -13,6 +13,7 @@ extension MessageReceiver {
         message: VisibleMessage,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
@@ -154,6 +155,7 @@ extension MessageReceiver {
             messageSentTimestamp: messageSentTimestamp,
             openGroupUrlInfo: openGroupUrlInfo,
             currentUserSessionIds: generateCurrentUserSessionIds(),
+            suppressNotifications: suppressNotifications,
             using: dependencies
         ) {
             return interactionId
@@ -407,17 +409,22 @@ extension MessageReceiver {
         }
         
         // Notify the user if needed
-        guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
+        guard
+            !suppressNotifications &&
+            variant == .standardIncoming &&
+            !interaction.wasRead
+        else { return interactionId }
         
         try? dependencies[singleton: .notificationsManager].notifyUser(
             message: message,
             threadId: threadId,
             threadVariant: threadVariant,
-            interactionId: interactionId,
+            interactionIdentifier: (interaction.serverHash ?? "\(interactionId)"),
             interactionVariant: interaction.variant,
             attachmentDescriptionInfo: attachments.map { $0.descriptionInfo },
             openGroupUrlInfo: openGroupUrlInfo,
             applicationState: (isMainAppActive ? .active : .background),
+            extensionBaseUnreadCount: nil,
             currentUserSessionIds: generateCurrentUserSessionIds(),
             displayNameRetriever: { sessionId in
                 Profile.displayNameNoFallback(
@@ -470,6 +477,7 @@ extension MessageReceiver {
         messageSentTimestamp: TimeInterval,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
         currentUserSessionIds: Set<String>,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> Int64? {
         guard
@@ -526,16 +534,21 @@ extension MessageReceiver {
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
-                if sender != userSessionId.hexString && !timestampAlreadyRead {
+                if
+                    !suppressNotifications &&
+                    sender != userSessionId.hexString &&
+                    !timestampAlreadyRead
+                {
                     try? dependencies[singleton: .notificationsManager].notifyUser(
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,
-                        interactionId: interactionId,
+                        interactionIdentifier: (message.serverHash ?? "\(interactionId)"),
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         openGroupUrlInfo: openGroupUrlInfo,
                         applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
                         currentUserSessionIds: currentUserSessionIds,
                         displayNameRetriever: { sessionId in
                             Profile.displayNameNoFallback(

@@ -29,14 +29,22 @@ private extension Log.Category {
 // MARK: - ExtensionHelper
 
 public class ExtensionHelper: ExtensionHelperType {
+    // stringlint:ignore_start
     private lazy var cacheDirectoryPath: String = "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/extensionCache"
-    private lazy var dedupePath: String = "\(cacheDirectoryPath)/dedupe"
-    private func dumpFilePath(_ hash: [UInt8]) -> String {
-        return "\(cacheDirectoryPath)/\(hash.toHexString())"
-    }
+    private lazy var metadataPath: String = "\(cacheDirectoryPath)/metadata"
+    private lazy var conversationsPath: String = "\(cacheDirectoryPath)/conversations"
+    private let conversationConfigDir: String = "config"
+    private let conversationReadDir: String = "read"
+    private let conversationUnreadDir: String = "unread"
+    private let conversationDedupeDir: String = "dedupe"
     private let encryptionKeyLength: Int = 32
+    // stringlint:ignore_stop
     
     private let dependencies: Dependencies
+    private var messagesLoadedContinuation: AsyncStream<Bool>.Continuation?
+    private lazy var messagesLoadedStream = AsyncStream<Bool> { continuation in
+        messagesLoadedContinuation = continuation
+    }
     
     // MARK: - Initialization
     
@@ -45,6 +53,20 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     // MARK: - File Management
+    
+    // stringlint:ignore_contents
+    private func conversationPath(_ threadId: String) -> String? {
+        guard
+            let data: Data = "ConvoIdSalt-\(threadId)".data(using: .utf8),
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(data))
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationsPath)
+            .appendingPathComponent(hash.toHexString())
+            .path
+    }
     
     private func write(data: Data, to path: String) throws {
         /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
@@ -83,41 +105,93 @@ public class ExtensionHelper: ExtensionHelperType {
         try dependencies[singleton: .fileManager].moveItem(atPath: tmpPath, toPath: path)
     }
     
-    // MARK: - Deduping
-    
-    // stringlint:ignore_contents
-    private func threadDedupeRecordPath(_ threadId: String) -> String? {
+    private func read(from path: String) throws -> Data {
+        /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
         guard
-            let threadIdData: Data = "ConvoIdSalt-\(threadId)".data(using: .utf8),
-            let threadIdHash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(threadIdData))
+            var encKey: [UInt8] = (try? dependencies[singleton: .keychain]
+                .getOrGenerateEncryptionKey(
+                    forKey: .extensionEncryptionKey,
+                    length: encryptionKeyLength,
+                    cat: .cat
+                )).map({ Array($0) })
+        else { throw ExtensionHelperError.noEncryptionKey }
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
+
+        guard
+            let ciphertext: Data = dependencies[singleton: .fileManager]
+                .contents(atPath: path),
+            let plaintext: Data = dependencies[singleton: .crypto].generate(
+                .plaintextWithXChaCha20(
+                    ciphertext: ciphertext,
+                    encKey: encKey
+                )
             )
-        else { return nil }
+        else { throw ExtensionHelperError.failedToReadFromFile }
         
-        return URL(fileURLWithPath: dedupePath)
-            .appendingPathComponent(threadIdHash.toHexString())
-            .path
+        return plaintext
     }
+    
+    private func refreshModifiedDate(at path: String) throws {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return }
+        
+        try dependencies[singleton: .fileManager].setAttributes([.modificationDate : Date()], ofItemAtPath: path)
+    }
+    
+    public func deleteCache() {
+        try? dependencies[singleton: .fileManager].removeItem(atPath: cacheDirectoryPath)
+    }
+    
+    // MARK: - User Metadata
+    
+    public func saveUserMetadata(
+        sessionId: SessionId,
+        ed25519SecretKey: [UInt8],
+        unreadCount: Int?
+    ) throws {
+        let metadata: UserMetadata = UserMetadata(
+            sessionId: sessionId,
+            ed25519SecretKey: ed25519SecretKey,
+            unreadCount: (unreadCount ?? 0)
+        )
+        
+        guard let metadataAsData: Data = try? JSONEncoder(using: dependencies).encode(metadata) else { return }
+        
+        try write(data: metadataAsData, to: metadataPath)
+    }
+    
+    public func loadUserMetadata() -> UserMetadata? {
+        guard let plaintext: Data = try? read(from: metadataPath) else { return nil }
+        
+        return try? JSONDecoder(using: dependencies)
+            .decode(UserMetadata.self, from: plaintext)
+    }
+    
+    // MARK: - Deduping
     
     // stringlint:ignore_contents
     private func dedupeRecordPath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
         guard
-            let threadDedupePath: String = threadDedupeRecordPath(threadId),
-            let uniqueIdData: Data = "UniqueIdSalt-\(uniqueIdentifier)".data(using: .utf8),
-            let uniqueIdHash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(uniqueIdData))
+            let conversationPath: String = conversationPath(threadId),
+            let data: Data = "DedupeRecordSalt-\(uniqueIdentifier)".data(using: .utf8),
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(data))
             )
         else { return nil }
         
-        return URL(fileURLWithPath: threadDedupePath)
-            .appendingPathComponent(uniqueIdHash.toHexString())
+        return URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent(conversationDedupeDir)
+            .appendingPathComponent(hash.toHexString())
             .path
     }
     
     public func hasAtLeastOneDedupeRecord(threadId: String) -> Bool {
-        guard let path: String = threadDedupeRecordPath(threadId) else { return false }
+        guard let conversationPath: String = conversationPath(threadId) else { return false }
         
-        return !dependencies[singleton: .fileManager].isDirectoryEmpty(atPath: path)
+        return !dependencies[singleton: .fileManager].isDirectoryEmpty(
+            atPath: URL(fileURLWithPath: conversationPath)
+                .appendingPathComponent(conversationDedupeDir)
+                .path
+        )
     }
     
     public func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool {
@@ -151,31 +225,358 @@ public class ExtensionHelper: ExtensionHelperType {
         }
     }
     
-    public func deleteAllDedupeRecords() {
-        try? dependencies[singleton: .fileManager].removeItem(atPath: dedupePath)
-    }
-    
     // MARK: - Config Dumps
     
-    private func hash(for sessionId: SessionId, variant: ConfigDump.Variant) -> [UInt8]? {
-        return "\(sessionId.hexString)-\(variant)".data(using: .utf8).map { dataToHash in
-            dependencies[singleton: .crypto].generate(
-                .hash(message: Array(dataToHash))
+    // stringlint:ignore_contents
+    private func dumpFilePath(for sessionId: SessionId, variant: ConfigDump.Variant) -> String? {
+        guard
+            let conversationPath: String = conversationPath(sessionId.hexString),
+            let data: Data = "DumpSalt-\(variant)".data(using: .utf8),
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(data))
             )
-        }
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent("dumps")
+            .appendingPathComponent(hash.toHexString())
+            .path
     }
     
     public func lastUpdatedTimestamp(
         for sessionId: SessionId,
         variant: ConfigDump.Variant
     ) -> TimeInterval {
-        guard let hash: [UInt8] = hash(for: sessionId, variant: variant) else { return 0 }
+        guard let path: String = dumpFilePath(for: sessionId, variant: variant) else { return 0 }
         
         return ((try? dependencies[singleton: .fileManager]
-            .attributesOfItem(atPath: "\(dumpFilePath(hash))")
+            .attributesOfItem(atPath: path)
             .getting(.modificationDate) as? Date)?
             .timeIntervalSince1970)
             .defaulting(to: 0)
+    }
+    
+    public func replicate(dump: ConfigDump?, replaceExisting: Bool) {
+        guard
+            let dump: ConfigDump = dump,
+            let path: String = dumpFilePath(for: dump.sessionId, variant: dump.variant)
+        else { return }
+        
+        /// Only continue if we want to replace an existing dump, or one doesn't exist
+        guard
+            replaceExisting ||
+            !dependencies[singleton: .fileManager].fileExists(atPath: path)
+        else { return }
+        
+        /// Write the dump data to disk
+        do { try write(data: dump.data, to: path) }
+        catch { Log.error(.cat, "Failed to replicate \(dump.variant) dump for \(dump.sessionId.hexString).") }
+    }
+    
+    public func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId) {
+        /// We can be reasonably sure that if the `userProfile` config dump is missing then we probably haven't replicated any
+        /// config dumps yet and should do so
+        guard
+            let path: String = dumpFilePath(for: userSessionId, variant: .userProfile),
+            !dependencies[singleton: .fileManager].fileExists(atPath: path)
+        else { return }
+        
+        /// Load the config dumps from the database
+        let dumps: [ConfigDump] = dependencies[singleton: .storage]
+            .read { db in try ConfigDump.fetchAll(db) }
+            .defaulting(to: [])
+        
+        /// Persist each dump to disk (if there isn't already one there)
+        ///
+        /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
+        /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
+        /// is likely a newer dump
+        dumps.forEach { dump in replicate(dump: dump, replaceExisting: false) }
+    }
+    
+    public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
+        guard let path: String = dumpFilePath(for: sessionId, variant: variant) else { return }
+        
+        try? refreshModifiedDate(at: path)
+    }
+    
+    // MARK: - Messages
+    
+    // stringlint:ignore_contents
+    private func configMessagePath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+        guard
+            let conversationPath: String = conversationPath(threadId),
+            let data: Data = "ConfigMessageSalt-\(uniqueIdentifier)".data(using: .utf8),
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(data))
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent(conversationConfigDir)
+            .appendingPathComponent(hash.toHexString())
+            .path
+    }
+    
+    // stringlint:ignore_contents
+    private func readMessagePath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+        guard
+            let conversationPath: String = conversationPath(threadId),
+            let data: Data = "ReadMessageSalt-\(uniqueIdentifier)".data(using: .utf8),
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(data))
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent(conversationReadDir)
+            .appendingPathComponent(hash.toHexString())
+            .path
+    }
+    
+    // stringlint:ignore_contents
+    private func unreadMessagePath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+        guard
+            let conversationPath: String = conversationPath(threadId),
+            let data: Data = "UnreadMessageSalt-\(uniqueIdentifier)".data(using: .utf8),
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(data))
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent(conversationUnreadDir)
+            .appendingPathComponent(hash.toHexString())
+            .path
+    }
+    
+    public func unreadMessageCount() -> Int? {
+        do {
+            let conversationHashes: [String] = try dependencies[singleton: .fileManager]
+                .contentsOfDirectory(atPath: conversationsPath)
+                .filter({ !$0.starts(with: ".") })   // stringlint:ignore
+            
+            return try conversationHashes.reduce(0) { result, conversationHash in
+                let unreadMessagePath: String = URL(fileURLWithPath: conversationsPath)
+                    .appendingPathComponent(conversationHash)
+                    .appendingPathComponent(conversationUnreadDir)
+                    .path
+                
+                /// Ensure the `unreadMessagePath` exists before trying to count it's contents (if it doesn't then `contentsOfDirectory`
+                /// will throw, but that case is actually a valid `0` result
+                guard dependencies[singleton: .fileManager].fileExists(atPath: unreadMessagePath) else {
+                    return result
+                }
+                
+                let unreadMessageHashes: [String] = try dependencies[singleton: .fileManager]
+                    .contentsOfDirectory(atPath: unreadMessagePath)
+                    .filter { !$0.starts(with: ".") }    // stringlint:ignore
+                
+                return (result + unreadMessageHashes.count)
+            }
+        }
+        catch { return nil }
+    }
+    
+    public func saveMessage(_ message: SnodeReceivedMessage?, isUnread: Bool) throws {
+        guard
+            let message: SnodeReceivedMessage = message,
+            let messageAsData: Data = try? JSONEncoder(using: dependencies).encode(message),
+            let targetPath: String = {
+                switch (message.namespace.isConfigNamespace, isUnread) {
+                    case (true, _): return configMessagePath(message.swarmPublicKey, message.hash)
+                    case (false, true): return unreadMessagePath(message.swarmPublicKey, message.hash)
+                    case (false, false): return readMessagePath(message.swarmPublicKey, message.hash)
+                }
+            }()
+        else { return }
+        
+        try write(data: messageAsData, to: targetPath)
+    }
+    
+    public func willLoadMessages() {
+        messagesLoadedContinuation?.yield(false)
+    }
+    
+    public func loadMessages() async throws {
+        typealias MessageData = (namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        
+        /// Retrieve all conversation file paths
+        ///
+        /// This will ignore any hidden files (just in case) and will also insert the current users conversation (ie. `Note to Self`) at
+        /// the first position as that's where user config messages will be sotred
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let currentUserConversationHash: String? = conversationPath(userSessionId.hexString)
+            .map { URL(fileURLWithPath: $0).lastPathComponent }
+        let conversationHashes: [String] = (try? dependencies[singleton: .fileManager]
+            .contentsOfDirectory(atPath: conversationsPath)
+            .filter { hash in
+                !hash.starts(with: ".") &&    // stringlint:ignore
+                hash != currentUserConversationHash
+            })
+            .defaulting(to: [])
+            .inserting(currentUserConversationHash, at: 0)
+        var successCount: Int = 0
+        var failureCount: Int = 0
+        
+        try await dependencies[singleton: .storage].writeAsync { [weak self, dependencies] db in
+            guard let this = self else { return }
+            
+            /// Process each conversation individually
+            conversationHashes.forEach { conversationHash in
+                /// Retrieve and process any config messages
+                ///
+                /// For config message changes we want to load in every config for a conversation and process them all at once
+                /// to ensure that we don't miss any changes and ensure they are processed in the order they were received, if an
+                /// error occurs then we want to just discard all of the config changes as otherwise we could end up in a weird state
+                let configsPath: String = URL(fileURLWithPath: this.conversationsPath)
+                    .appendingPathComponent(conversationHash)
+                    .appendingPathComponent(this.conversationConfigDir)
+                    .path
+                let configMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
+                    .contentsOfDirectory(atPath: configsPath)
+                    .filter { !$0.starts(with: ".") })    // stringlint:ignore
+                    .defaulting(to: [])
+                
+                do {
+                    let sortedMessages: [MessageData] = try configMessageHashes
+                        .reduce([SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
+                            let path: String = URL(fileURLWithPath: this.conversationsPath)
+                                .appendingPathComponent(conversationHash)
+                                .appendingPathComponent(this.conversationConfigDir)
+                                .appendingPathComponent(hash)
+                                .path
+                            let plaintext: Data = try this.read(from: path)
+                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
+                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            
+                            return result.appending(message, toArrayOn: message.namespace)
+                        }
+                        .map { namespace, messages -> MessageData in (namespace, messages, nil) }
+                        .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
+                    
+                    /// Process the message (inserting into the database if needed (messages are processed per conversaiton so
+                    /// all have the same `swarmPublicKey`)
+                    switch sortedMessages.first?.messages.first?.swarmPublicKey {
+                        case .none: break
+                        case .some(let swarmPublicKey):
+                            SwarmPoller.processPollResponse(
+                                db,
+                                cat: .cat,
+                                source: .pushNotification,
+                                swarmPublicKey: swarmPublicKey,
+                                shouldStoreMessages: true,
+                                ignoreDedupeRecords: true,
+                                forceSynchronousProcessing: true,
+                                sortedMessages: sortedMessages,
+                                using: dependencies
+                            )
+                    }
+                    
+                    successCount += configMessageHashes.count
+                }
+                catch {
+                    failureCount += configMessageHashes.count
+                    Log.error(.cat, "Discarding some config message changes due to error: \(error)")
+                }
+                
+                /// Remove the config message files now that they are processed
+                try? dependencies[singleton: .fileManager].removeItem(atPath: configsPath)
+                
+                /// Retrieve and process any standard messages
+                ///
+                /// Since there is no guarantee that we will have received a push notification for every message, or even that push
+                /// notifications will be received in the correct order, we can just process standard messages individually
+                let readMessagePath: String = URL(fileURLWithPath: this.conversationsPath)
+                    .appendingPathComponent(conversationHash)
+                    .appendingPathComponent(this.conversationReadDir)
+                    .path
+                let unreadMessagePath: String = URL(fileURLWithPath: this.conversationsPath)
+                    .appendingPathComponent(conversationHash)
+                    .appendingPathComponent(this.conversationUnreadDir)
+                    .path
+                let readMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
+                    .contentsOfDirectory(atPath: readMessagePath)
+                    .filter { !$0.starts(with: ".") })    // stringlint:ignore
+                    .defaulting(to: [])
+                let unreadMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
+                    .contentsOfDirectory(atPath: unreadMessagePath)
+                    .filter { !$0.starts(with: ".") })    // stringlint:ignore
+                    .defaulting(to: [])
+                let allMessagePaths: [String] = (
+                    readMessageHashes.map { hash in
+                        URL(fileURLWithPath: this.conversationsPath)
+                            .appendingPathComponent(conversationHash)
+                            .appendingPathComponent(this.conversationReadDir)
+                            .appendingPathComponent(hash)
+                            .path
+                    } +
+                    unreadMessageHashes.map { hash in
+                        URL(fileURLWithPath: this.conversationsPath)
+                            .appendingPathComponent(conversationHash)
+                            .appendingPathComponent(this.conversationUnreadDir)
+                            .appendingPathComponent(hash)
+                            .path
+                    }
+                )
+                
+                allMessagePaths.forEach { path in
+                    do {
+                        let plaintext: Data = try this.read(from: path)
+                        let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
+                            .decode(SnodeReceivedMessage.self, from: plaintext)
+                        
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .cat,
+                            source: .pushNotification,
+                            swarmPublicKey: message.swarmPublicKey,
+                            shouldStoreMessages: true,
+                            ignoreDedupeRecords: true,
+                            forceSynchronousProcessing: true,
+                            sortedMessages: [(message.namespace, [message], nil)],
+                            using: dependencies
+                        )
+                        successCount += 1
+                    }
+                    catch {
+                        failureCount += 1
+                        Log.error(.cat, "Discarding standard message due to error: \(error)")
+                    }
+                }
+                
+                /// Remove the standard message files now that they are processed
+                try? dependencies[singleton: .fileManager].removeItem(atPath: readMessagePath)
+                try? dependencies[singleton: .fileManager].removeItem(atPath: unreadMessagePath)
+            }
+        }
+        
+        Log.info(.cat, "Finished: Successfully processed \(successCount) messages, \(failureCount) messages failed.")
+        messagesLoadedContinuation?.yield(true)
+    }
+    
+    public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async {
+        await withThrowingTaskGroup(of: Void.self) { [weak self] group in
+            group.addTask {
+                _ = await self?.messagesLoadedStream.first { $0 == true }
+            }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+            }
+            
+            _ = await group.nextResult()
+            group.cancelAll()
+        }
+    }
+}
+
+// MARK: - ExtensionHelper.UserMetadata
+
+public extension ExtensionHelper {
+    struct UserMetadata: Codable {
+        public let sessionId: SessionId
+        public let ed25519SecretKey: [UInt8]
+        public let unreadCount: Int
     }
 }
 
@@ -184,6 +585,7 @@ public class ExtensionHelper: ExtensionHelperType {
 public enum ExtensionHelperError: Error, CustomStringConvertible {
     case noEncryptionKey
     case failedToWriteToFile
+    case failedToReadFromFile
     case failedToStoreDedupeRecord
     case failedToRemoveDedupeRecord
     
@@ -192,6 +594,7 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
         switch self {
             case .noEncryptionKey: return "No encryption key available."
             case .failedToWriteToFile: return "Failed to write to file."
+            case .failedToReadFromFile: return "Failed to read from file."
             case .failedToStoreDedupeRecord: return "Failed to store a record for message deduplication."
             case .failedToRemoveDedupeRecord: return "Failed to remove a record for message deduplication."
         }
@@ -201,15 +604,40 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
 // MARK: - ExtensionHelperType
 
 public protocol ExtensionHelperType {
+    func deleteCache()
+    
+    // MARK: - User Metadata
+    
+    func saveUserMetadata(
+        sessionId: SessionId,
+        ed25519SecretKey: [UInt8],
+        unreadCount: Int?
+    ) throws
+    func loadUserMetadata() -> ExtensionHelper.UserMetadata?
+    
     // MARK: - Deduping
     
     func hasAtLeastOneDedupeRecord(threadId: String) -> Bool
     func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool
     func createDedupeRecord(threadId: String, uniqueIdentifier: String) throws
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws
-    func deleteAllDedupeRecords()
     
     // MARK: - Config Dumps
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
+    func replicate(dump: ConfigDump?, replaceExisting: Bool)
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId)
+    func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
+    
+    // MARK: - Messages
+    
+    func unreadMessageCount() -> Int?
+    func saveMessage(_ message: SnodeReceivedMessage?, isUnread: Bool) throws
+    func willLoadMessages()
+    func loadMessages() async throws
+    func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async
+}
+
+public extension ExtensionHelperType {
+    func replicate(dump: ConfigDump?) { replicate(dump: dump, replaceExisting: true) }
 }
