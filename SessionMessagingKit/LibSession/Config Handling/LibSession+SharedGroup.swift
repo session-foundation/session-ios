@@ -316,12 +316,15 @@ internal extension LibSession {
         // Create and save dumps for the configs
         try dependencies.mutate(cache: .libSession) { cache in
             try groupState.forEach { variant, config in
-                try cache.createDump(
+                let dump: ConfigDump? = try cache.createDump(
                     config: config,
                     for: variant,
                     sessionId: SessionId(.group, hex: group.id),
                     timestampMs: Int64(floor(group.formationTimestamp * 1000))
-                )?.upsert(db)
+                )
+                
+                try dump?.upsert(db)
+                Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
             }
         }
         

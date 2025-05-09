@@ -66,8 +66,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         var processedNotification: ProcessedNotification = (self.cachedNotificationInfo, .invalid, "", nil, nil)
         
         do {
-            try performSetup(requestId: request.identifier)
-            notificationInfo = try extractNotificationInfo(notificationInfo)
+            let mainAppUnreadCount: Int = try performSetup(requestId: request.identifier)
+            notificationInfo = try extractNotificationInfo(notificationInfo, mainAppUnreadCount)
             processedNotification = try processNotification(notificationInfo)
             try handleNotification(processedNotification)
         }
@@ -83,37 +83,42 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Setup
 
-    private func performSetup(requestId: String) throws {
+    private func performSetup(requestId: String) throws -> Int {
         Log.info(.cat, "Performing setup for requestId: \(requestId).")
         
+        // stringlint:ignore_start
+        Log.setup(with: Logger(
+            primaryPrefix: "NotificationServiceExtension",
+            customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
+            using: dependencies
+        ))
+        LibSession.setupLogger(using: dependencies)
+        // stringlint:ignore_stop
+        
+        /// Try to load the `UserMetadata` before doing any further setup (if it doesn't exist then there is no need to continue)
+        guard let userMetadata: ExtensionHelper.UserMetadata = dependencies[singleton: .extensionHelper].loadUserMetadata() else {
+            throw NotificationError.notReadyForExtension
+        }
+        
+        /// Setup Version Info and Network
         dependencies.warmCache(cache: .appVersion)
         
+        /// Configure the different targets
+        SNUtilitiesKit.configure(networkMaxFileSize: Network.maxFileSize, using: dependencies)
+        SNMessagingKit.configure(using: dependencies)
+        
+        /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
+        dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
+        
+        /// Cache the users secret key
+        dependencies.mutate(cache: .general) {
+            $0.setSecretKey(ed25519SecretKey: userMetadata.ed25519SecretKey)
+        }
         var migrationResult: Result<Void, Error> = .failure(StorageError.startupFailed)
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         AppSetup.setupEnvironment(
             requestId: requestId,
-            appSpecificBlock: { [dependencies] in
-                // stringlint:ignore_start
-                Log.setup(with: Logger(
-                    primaryPrefix: "NotificationServiceExtension",
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
-                    using: dependencies
-                ))
-                // stringlint:ignore_stop
-                
-                /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
-                dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
-                
-                // Setup LibSession
-                LibSession.setupLogger(using: dependencies)
-                
-                // Configure the different targets
-                SNUtilitiesKit.configure(
-                    networkMaxFileSize: Network.maxFileSize,
-                    using: dependencies
-                )
-                SNMessagingKit.configure(using: dependencies)
-            },
+            appSpecificBlock: { },
             migrationsCompletion: { result in
                 migrationResult = result
                 semaphore.signal()
@@ -132,24 +137,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             throw NotificationError.databaseInvalid
         }
         
-        /// We should never receive a non-voip notification on an app that doesn't support app extensions since we have to inform the
-        /// service we wanted these, so in theory this path should never occur. However, the service does have our push token so it is
-        /// possible that could change in the future. If it does, do nothing and don't disturb the user. Messages will be processed when
-        /// they open the app.
-        guard dependencies[singleton: .storage, key: .isReadyForAppExtensions] else {
-            throw NotificationError.notReadyForExtension
-        }
-        
         /// If the app wasn't ready then mark it as ready now
         if !dependencies[singleton: .appReadiness].isAppReady {
             /// Note that this does much more than set a flag; it will also run all deferred blocks
             dependencies[singleton: .appReadiness].setAppReady()
         }
+        
+        return userMetadata.unreadCount
     }
     
     // MARK: - Notification Handling
     
-    private func extractNotificationInfo(_ info: NotificationInfo) throws -> NotificationInfo {
+    private func extractNotificationInfo(_ info: NotificationInfo, _ mainAppUnreadCount: Int) throws -> NotificationInfo {
         let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
             notificationContent: info.content,
             using: dependencies
@@ -166,7 +165,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     requestId: info.requestId,
                     contentHandler: info.contentHandler,
                     metadata: metadata,
-                    data: data
+                    data: data,
+                    mainAppUnreadCount: mainAppUnreadCount
                 )
                 
             default: throw NotificationError.processingError(result, metadata)
@@ -189,7 +189,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         )
         try MessageDeduplication.ensureMessageIsNotADuplicate(processedMessage, using: dependencies)
         
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         var threadVariant: SessionThread.Variant?
         var threadDisplayName: String?
         
@@ -329,7 +328,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // TODO: [Database Relocation] Handle the LibSession message in a separate PR
                 return handleNotificationViaDatabase(notification)
                 
-            case var callMessage as CallMessage:
+            case let callMessage as CallMessage:
                 switch callMessage.kind {
                     case .preOffer: Log.info(.calls, "Received pre-offer message with uuid: \(callMessage.uuid).")
                     case .offer: Log.info(.calls, "Received offer message.")
@@ -401,35 +400,45 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             default: throw MessageReceiverError.unknownMessage(proto)
         }
         
-        /// Try to show a notification for the message
-        ///
-        /// **Note:** No need to check blinded ids as Communities currently don't support PNs
+        /// No need to check blinded ids as Communities currently don't support PNs
         let currentUserSessionIds: Set<String> = [dependencies[cache: .general].sessionId.hexString]
-        try dependencies[singleton: .notificationsManager].notifyUser(
-            message: messageInfo.message,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            interactionId: 0,
-            interactionVariant: Interaction.Variant(
-                message: messageInfo.message,
-                currentUserSessionIds: currentUserSessionIds
-            ),
-            attachmentDescriptionInfo: proto.dataMessage?.attachments.map { attachment in
-                Attachment.DescriptionInfo(id: "", proto: attachment)
-            },
-            openGroupUrlInfo: nil,  /// Communities currently don't support PNs
-            applicationState: .background,
-            currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: displayNameRetriever,
-            shouldShowForMessageRequest: {
-                !dependencies[singleton: .extensionHelper]
-                    .hasAtLeastOneDedupeRecord(threadId: threadId)
-            }
-        )
         
         /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait
         /// for a poll to return
-        // TODO: [Database Relocation] Add in this logic
+        do {
+            guard let sentTimestamp: Int64 = messageInfo.message.sentTimestampMs.map(Int64.init) else {
+                throw MessageReceiverError.invalidMessage
+            }
+            
+            try dependencies[singleton: .extensionHelper].saveMessage(
+                SnodeReceivedMessage(
+                    snode: nil,
+                    publicKey: notification.info.metadata.accountId,
+                    namespace: notification.info.metadata.namespace,
+                    rawMessage: GetMessagesResponse.RawMessage(
+                        base64EncodedDataString: notification.info.data.base64EncodedString(),
+                        expirationMs: notification.info.metadata.expirationTimestampMs,
+                        hash: notification.info.metadata.hash,
+                        timestampMs: Int64(sentTimestamp)
+                    )
+                ),
+                isUnread: (
+                    Interaction.Variant(
+                        message: messageInfo.message,
+                        currentUserSessionIds: currentUserSessionIds
+                    )?.canBeUnread == true &&
+                    !dependencies.mutate(cache: .libSession, { cache in
+                        cache.timestampAlreadyRead(
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            timestampMs: (messageInfo.message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
+                            openGroupUrlInfo: nil  /// Communities currently don't support PNs
+                        )
+                    })
+                )
+            )
+        }
+        catch { Log.error(.cat, "Failed to save message to disk: \(error).") }
         
         /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
         /// show duplicate PNs
@@ -442,6 +451,30 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 uniqueIdentifier: callMessage.uuid
             )
         }
+        
+        /// Try to show a notification for the message
+        try dependencies[singleton: .notificationsManager].notifyUser(
+            message: messageInfo.message,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIdentifier: notification.info.metadata.hash,
+            interactionVariant: Interaction.Variant(
+                message: messageInfo.message,
+                currentUserSessionIds: currentUserSessionIds
+            ),
+            attachmentDescriptionInfo: proto.dataMessage?.attachments.map { attachment in
+                Attachment.DescriptionInfo(id: "", proto: attachment)
+            },
+            openGroupUrlInfo: nil,  /// Communities currently don't support PNs
+            applicationState: .background,
+            extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever,
+            shouldShowForMessageRequest: {
+                !dependencies[singleton: .extensionHelper]
+                    .hasAtLeastOneDedupeRecord(threadId: threadId)
+            }
+        )
     }
     
     private func handleError(
@@ -602,6 +635,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             message: messageInfo.message,
                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: proto,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                 }
@@ -718,18 +752,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         switch resolution {
             case .ignoreDueToMainAppRunning: break
             default:
-                // TODO: [Database Relocation] Need to get the unread count
-                break
-//                /// Update the app badge in case the unread count changed
-//                if
-//                    let unreadCount: Int = dependencies[singleton: .storage].read({ [dependencies] db in
-//                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-//                    })
-//                {
-//                    silentContent.badge = NSNumber(value: unreadCount)
-//                }
-                
-//                dependencies[singleton: .storage].suspendDatabaseAccess()
+                /// Since we will have already written the message to disk at this stage we can just add the number of unread message files
+                /// directly to the `mainAppUnreadCount` in order to get the updated unread count
+                if let unreadPendingMessageCount: Int = dependencies[singleton: .extensionHelper].unreadMessageCount() {
+                    silentContent.badge = NSNumber(value: info.mainAppUnreadCount + unreadPendingMessageCount)
+                }
         }
         
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
@@ -790,10 +817,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         callMessage: CallMessage,
         displayNameRetriever: (String) -> String?
     ) {
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
-        notificationContent.title = Constants.app_name
-        notificationContent.body = callMessage.sender
+        let content: UNMutableNotificationContent = UNMutableNotificationContent()
+        content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
+        content.title = Constants.app_name
+        content.body = callMessage.sender
             .map { sender in displayNameRetriever(sender) }
             .map { senderDisplayName in
                 "callsIncoming"
@@ -802,15 +829,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             .defaulting(to: "callsIncomingUnknown".localized())
         
-        // TODO: [Database Relocation] Need to get the unread count
-//        /// Update the app badge in case the unread count changed
-//        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
-//            notificationContent.badge = NSNumber(value: unreadCount)
-//        }
+        /// Since we will have already written the message to disk at this stage we can just add the number of unread message files
+        /// directly to the `mainAppUnreadCount` in order to get the updated unread count
+        if let unreadPendingMessageCount: Int = dependencies[singleton: .extensionHelper].unreadMessageCount() {
+            content.badge = NSNumber(value: notification.info.mainAppUnreadCount + unreadPendingMessageCount)
+        }
         
         let request = UNNotificationRequest(
             identifier: notification.info.requestId,
-            content: notificationContent,
+            content: content,
             trigger: nil
         )
         let semaphore = DispatchSemaphore(value: 0)
@@ -900,7 +927,8 @@ private extension NotificationServiceExtension {
             requestId: "N/A", // stringlint:ignore
             contentHandler: { _ in },
             metadata: .invalid,
-            data: Data()
+            data: Data(),
+            mainAppUnreadCount: 0
         )
         
         let content: UNMutableNotificationContent
@@ -908,19 +936,20 @@ private extension NotificationServiceExtension {
         let contentHandler: ((UNNotificationContent) -> Void)
         let metadata: PushNotificationAPI.NotificationMetadata
         let data: Data
+        let mainAppUnreadCount: Int
         
         func with(
-            content: UNMutableNotificationContent? = nil,
             requestId: String? = nil,
             contentHandler: ((UNNotificationContent) -> Void)? = nil,
             metadata: PushNotificationAPI.NotificationMetadata? = nil
         ) -> NotificationInfo {
             return NotificationInfo(
-                content: (content ?? self.content),
+                content: content,
                 requestId: (requestId ?? self.requestId),
                 contentHandler: (contentHandler ?? self.contentHandler),
                 metadata: (metadata ?? self.metadata),
-                data: data
+                data: data,
+                mainAppUnreadCount: mainAppUnreadCount
             )
         }
     }

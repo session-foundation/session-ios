@@ -10,7 +10,6 @@ public struct NotificationContent {
     public let category: NotificationCategory
     public let title: String?
     public let body: String?
-    public let badge: Int?
     public let sound: Preferences.Sound
     public let userInfo: [AnyHashable: Any]
     public let applicationState: UIApplication.State
@@ -24,7 +23,6 @@ public struct NotificationContent {
         category: NotificationCategory,
         title: String? = nil,
         body: String? = nil,
-        badge: Int? = nil,
         sound: Preferences.Sound = .none,
         userInfo: [AnyHashable: Any] = [:],
         applicationState: UIApplication.State
@@ -35,7 +33,6 @@ public struct NotificationContent {
         self.category = category
         self.title = title
         self.body = body
-        self.badge = badge
         self.sound = sound
         self.userInfo = userInfo
         self.applicationState = applicationState
@@ -46,7 +43,6 @@ public struct NotificationContent {
     public func with(
         title: String? = nil,
         body: String? = nil,
-        badge: Int? = nil,
         sound: Preferences.Sound? = nil
     ) -> NotificationContent {
         return NotificationContent(
@@ -56,7 +52,6 @@ public struct NotificationContent {
             category: category,
             title: (title ?? self.title),
             body: (body ?? self.body),
-            badge: (badge ?? self.badge),
             sound: (sound ?? self.sound),
             userInfo: userInfo,
             applicationState: applicationState
@@ -71,7 +66,6 @@ public struct NotificationContent {
         
         if let title: String = title { content.title = title }
         if let body: String = body { content.body = body }
-        if let badge: Int = badge { content.badge = NSNumber(integerLiteral: badge) }
         
         if shouldPlaySound {
             content.sound = sound.notificationSound(isQuiet: (applicationState == .active))

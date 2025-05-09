@@ -850,6 +850,7 @@
 		FDB11A4C2DCC527D00BEF49F /* NotificationContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */; };
 		FDB11A502DCC6ADE00BEF49F /* PriorityVisibilityInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4F2DCC6ADD00BEF49F /* PriorityVisibilityInfo.swift */; };
 		FDB11A522DCC6B0000BEF49F /* OpenGroupUrlInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */; };
+		FDB11A542DCD7A7F00BEF49F /* Task+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */; };
 		FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB348622BE3774000B716C2 /* BezierPathView.swift */; };
 		FDB3486E2BE8457F00B716C2 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */; };
 		FDB3487E2BE856C800B716C2 /* UIBezierPath+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3487D2BE856C800B716C2 /* UIBezierPath+Utilities.swift */; };
@@ -2048,6 +2049,7 @@
 		FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContent.swift; sourceTree = "<group>"; };
 		FDB11A4F2DCC6ADD00BEF49F /* PriorityVisibilityInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriorityVisibilityInfo.swift; sourceTree = "<group>"; };
 		FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupUrlInfo.swift; sourceTree = "<group>"; };
+		FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Task+Utilities.swift"; sourceTree = "<group>"; };
 		FDB348622BE3774000B716C2 /* BezierPathView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		FDB3486C2BE8448500B716C2 /* SessionUtilitiesKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionUtilitiesKit.h; sourceTree = "<group>"; };
 		FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
@@ -3742,6 +3744,7 @@
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
 				FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */,
 				FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */,
+				FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */,
 				FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */,
 				FDE755132C9BC169002A2623 /* UIAlertAction+Utilities.swift */,
 				FDE755152C9BC169002A2623 /* UIApplicationState+Utilities.swift */,
@@ -6058,6 +6061,7 @@
 				FD17D7C727F5207C00122BE0 /* DatabaseMigrator+Utilities.swift in Sources */,
 				FD848B9328420164000E298B /* UnicodeScalar+Utilities.swift in Sources */,
 				FDE754CE2C9BAF37002A2623 /* ImageFormat.swift in Sources */,
+				FDB11A542DCD7A7F00BEF49F /* Task+Utilities.swift in Sources */,
 				FDE7551A2C9BC169002A2623 /* UIApplicationState+Utilities.swift in Sources */,
 				94C58AC92D2E037200609195 /* Permissions.swift in Sources */,
 				FD09796B27F6C67500936362 /* Failable.swift in Sources */,

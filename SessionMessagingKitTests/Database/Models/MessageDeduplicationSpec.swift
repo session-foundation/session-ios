@@ -25,6 +25,7 @@ class MessageDeduplicationSpec: QuickSpec {
         )
         @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
             initialSetup: { helper in
+                helper.when { $0.deleteCache() }.thenReturn(())
                 helper
                     .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
                     .thenReturn(false)
@@ -34,7 +35,6 @@ class MessageDeduplicationSpec: QuickSpec {
                 helper
                     .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                     .thenReturn(())
-                helper.when { $0.deleteAllDedupeRecords() }.thenReturn(())
             }
         )
         @TestState var mockMessage: Message! = {

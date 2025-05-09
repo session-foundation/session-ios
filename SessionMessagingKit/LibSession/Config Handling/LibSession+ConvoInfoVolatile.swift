@@ -86,7 +86,7 @@ internal extension LibSessionCacheType {
                     .filter(Interaction.Columns.timestampMs <= lastReadTimestampMs)
                     .filter(Interaction.Columns.wasRead == false)
                 let interactionInfoToMarkAsRead: [Interaction.ReadInfo] = try interactionQuery
-                    .select(.id, .variant, .timestampMs, .wasRead)
+                    .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
                     .asRequest(of: Interaction.ReadInfo.self)
                     .fetchAll(db)
                 try interactionQuery

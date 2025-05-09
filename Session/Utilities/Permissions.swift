@@ -187,12 +187,12 @@ extension Permissions {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
-                    dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].writeAsync { db in
                         db[.lastSeenHasLocalNetworkPermission] = true
                     }
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
-                    dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].writeAsync { db in
                         db[.lastSeenHasLocalNetworkPermission] = false
                     }
                 }

@@ -6,6 +6,10 @@ import SessionUtilitiesKit
 @testable import SessionMessagingKit
 
 class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
+    func deleteCache() {
+        mockNoReturn()
+    }
+    
     // MARK: - Deduping
     
     func hasAtLeastOneDedupeRecord(threadId: String) -> Bool {
@@ -22,10 +26,6 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
     
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws {
         return try mockThrowing(args: [threadId, uniqueIdentifier])
-    }
-    
-    func deleteAllDedupeRecords() {
-        mockNoReturn()
     }
     
     // MARK: - Config Dumps
