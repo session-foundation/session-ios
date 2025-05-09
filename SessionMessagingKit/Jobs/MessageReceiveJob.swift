@@ -62,6 +62,7 @@ public enum MessageReceiveJob: JobExecutor {
                             message: messageInfo.message,
                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: protoContent,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }

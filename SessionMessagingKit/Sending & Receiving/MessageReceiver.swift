@@ -241,6 +241,7 @@ public enum MessageReceiver {
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -293,6 +294,7 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message,
                     serverExpirationTimestamp: serverExpirationTimestamp,
+                    suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
                 
@@ -332,6 +334,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
                 
@@ -350,6 +353,7 @@ public enum MessageReceiver {
                     message: message,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     associatedWithProto: proto,
+                    suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
             

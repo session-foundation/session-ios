@@ -604,6 +604,88 @@ open class Storage {
         }
     }
     
+    /// This function manually performs `read`/`write` operations via Swift Concurrency and should only be called via the appropriate
+    /// `perform{x}Operation`functions to reduce duplication
+    private static func performOperation<T>(
+        _ info: CallInfo,
+        _ dbWriter: DatabaseWriter,
+        _ operation: @escaping (Database) throws -> T,
+        _ dependencies: Dependencies
+    ) async -> Result<T, Error> {
+        await withThrowingTaskGroup(of: T.self) { group in
+            /// Add the task to perform the actual database operation
+            group.addTask {
+                let trackedOperation: @Sendable (Database) throws -> T = { db in
+                    info.start()
+                    guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
+                    guard info.storage?.isSuspended == false else {
+                        throw StorageError.databaseSuspended
+                    }
+                    
+                    let result: T = try operation(db)
+                    
+                    /// Update the state flags
+                    switch info.isWrite {
+                        case true: info.storage?.hasSuccessfullyWritten = true
+                        case false: info.storage?.hasSuccessfullyRead = true
+                    }
+                    
+                    return result
+                }
+                
+                /// Do this outside of the actually db operation as it's more for debugging queries running on the main thread
+                /// than trying to slow the query itself
+                if dependencies[feature: .forceSlowDatabaseQueries] {
+                    try await Task.sleep(for: .seconds(1))
+                }
+                
+                return (info.isWrite ?
+                    try await dbWriter.write(trackedOperation) :
+                    try await dbWriter.read(trackedOperation)
+                )
+            }
+            
+            /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
+            /// create a deadlock
+            if !info.isAsync {
+                group.addTask {
+                    /// If the debugger is attached then we want to have a lot of shorter sleep iterations as the clock doesn't get
+                    /// paused when stopped on a breakpoint (and we don't want to end up having a bunch of false positive
+                    /// database timeouts while debugging code)
+                    ///
+                    /// **Note:** `isDebuggerAttached` will always return `false` in production builds
+                    if isDebuggerAttached() {
+                        let numIterations: UInt64 = 50
+                        
+                        for _ in (0..<numIterations) {
+                            try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
+                        }
+                    }
+                    else if info.isWrite {
+                        /// This if statement is redundant **but** it means when we get symbolicated crash logs we can distinguish
+                        /// between the database threads which are reading and writing
+                        try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
+                    }
+                    else {
+                        try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
+                    }
+                    throw StorageError.transactionDeadlockTimeout
+                }
+            }
+            
+            /// Wait for the first task to finish
+            ///
+            /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
+            /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
+            let result: Result<T, Error> = await (
+                group.nextResult() ??
+                .failure(StorageError.invalidQueryResult)
+            )
+            group.cancelAll()
+            return result
+        }
+    }
+    
     /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
     /// block the syncrhonous version because `GRDB` has an internal assertion when using it's built-in synchronous `read`/`write`
     /// functions to prevent reentrancy which is unsupported
@@ -616,7 +698,7 @@ open class Storage {
     ///
     /// **Note:** When running a synchronous operation the result will be returned and `asyncCompletion` will not be called, and
     /// vice-versa for an asynchronous operation
-    @discardableResult private static func performOperation<T>(
+    @discardableResult private func performOperation<T>(
         _ info: CallInfo,
         _ dependencies: Dependencies,
         _ operation: @escaping (Database) throws -> T,
@@ -626,7 +708,7 @@ open class Storage {
         let storageState: StorageState = StorageState(info.storage)
         
         guard case .valid(let dbWriter) = storageState else {
-            if info.isAsync { asyncCompletion?(.failure(storageState.forcedError)) }
+            info.errored(storageState.forcedError)
             return .failure(storageState.forcedError)
         }
         
@@ -637,116 +719,39 @@ open class Storage {
         /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
         info.schedule()
         
-        /// We need to prevent the task from starting before it's been added to our tracking (otherwise it will never be removed
-        /// resulting in incorrect logs) so create an `AsyncStream` that the task can wait on
-        var startSignalContinuation: AsyncStream<Void>.Continuation?
-        let startSignalStream = AsyncStream<Void> { continuation in
-            startSignalContinuation = continuation
-        }
-        
         /// Kick off and store the task in case we want to cancel it later
         info.task = Task {
-            _ = await startSignalStream.first { _ in true }
+            info.storage?.addCall(info)
+            defer { info.storage?.removeCall(info) }
             
-            await withThrowingTaskGroup(of: T.self) { group in
-                /// Add the task to perform the actual database operation
-                group.addTask {
-                    let trackedOperation: @Sendable (Database) throws -> T = { db in
-                        info.start()
-                        guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
-                        guard info.storage?.isSuspended == false else {
-                            throw StorageError.databaseSuspended
-                        }
-                        
-                        if dependencies[feature: .forceSlowDatabaseQueries] {
-                            Thread.sleep(forTimeInterval: 1)
-                        }
-                        
-                        let result: T = try operation(db)
-                        
-                        // Update the state flags
-                        switch info.isWrite {
-                            case true: info.storage?.hasSuccessfullyWritten = true
-                            case false: info.storage?.hasSuccessfullyRead = true
-                        }
-                        
-                        return result
-                    }
-                    
-                    return (info.isWrite ?
-                        try await dbWriter.write(trackedOperation) :
-                        try await dbWriter.read(trackedOperation)
-                    )
-                }
+            let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
                 
-                /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
-                /// create a deadlock
-                if !info.isAsync {
-                    group.addTask {
-                        let timeoutNanoseconds: UInt64 = UInt64(Storage.transactionDeadlockTimeoutSeconds * 1_000_000_000)
-                        
-                        /// If the debugger is attached then we want to have a lot of shorter sleep iterations as the clock doesn't get
-                        /// paused when stopped on a breakpoint (and we don't want to end up having a bunch of false positive
-                        /// database timeouts while debugging code)
-                        ///
-                        /// **Note:** `isDebuggerAttached` will always return `false` in production builds
-                        if isDebuggerAttached() {
-                            let numIterations: UInt64 = 50
-                            
-                            for _ in (0..<numIterations) {
-                                try await Task.sleep(nanoseconds: (timeoutNanoseconds / numIterations))
-                            }
-                        }
-                        else if info.isWrite {
-                            /// This if statement is redundant **but** it means when we get symbolicated crash logs we can distinguish
-                            /// between the database threads which are reading and writing
-                            try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                        }
-                        else {
-                            try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                        }
-                        throw StorageError.transactionDeadlockTimeout
-                    }
-                }
-                
-                /// Wait for the first task to finish
-                ///
-                /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
-                /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
-                let result: Result<T, Error> = await (
-                    group.nextResult() ??
-                    .failure(StorageError.invalidQueryResult)
-                )
-                group.cancelAll()
-                
-                /// Log the result
-                switch result {
-                    case .success: info.complete()
-                    case .failure(let error): info.errored(error)
-                }
-                
-                /// Now that we have completed the database operation we don't need to track the task anymore so we can
-                /// remove it
-                ///
-                /// **Note:** we want to remove it before `asyncCompletion` is called just in case that is a long running
-                /// process
-                info.storage?.removeCall(info)
-                
-                /// Send the result back
-                switch info.isAsync {
-                    case true: asyncCompletion?(result)
-                    case false:
-                        syncResultContainer?.value = result
-                        semaphore?.signal()
-                }
+            /// Log the result
+            switch result {
+                case .success: info.complete()
+                case .failure(let error): info.errored(error)
+            }
+            
+            /// Now that we have completed the database operation we don't need to track the task anymore so we can
+            /// remove it
+            ///
+            /// **Note:** we want to remove it before `asyncCompletion` is called just in case that is a long running
+            /// process
+            info.storage?.removeCall(info)
+            
+            /// Send the result back
+            switch info.isAsync {
+                case true: asyncCompletion?(result)
+                case false:
+                    syncResultContainer?.value = result
+                    semaphore?.signal()
             }
         }
-        info.storage?.addCall(info)
-        startSignalContinuation?.yield(())
-        startSignalContinuation?.finish()
         
         /// For the `async` operation the returned value should be ignored so just return the `invalidQueryResult` error
-        guard !info.isAsync else { return .failure(StorageError.invalidQueryResult) }
+        if info.behaviour == .asyncRead || info.behaviour == .asyncWrite{
+            return .failure(StorageError.invalidQueryResult)
+        }
         
         /// Block until we have a result
         semaphore?.wait()
@@ -765,6 +770,9 @@ open class Storage {
         switch StorageState(self) {
             case .invalid(let error): return info.errored(error)
             case .valid:
+                /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
+                info.schedule()
+                
                 /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but it appears to asynchronously
                 /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
                 /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
@@ -777,35 +785,79 @@ open class Storage {
                 return Deferred { [dependencies] in
                     let subject: PassthroughSubject<T, Error> = PassthroughSubject()
                     
-                    Storage.performOperation(info, dependencies, operation) { [weak subject] result in
-                        /// If the query was cancelled then we shouldn't try to propagate the result (as it may result in
-                        /// interacting with deallocated objects)
-                        guard !info.cancelledViaCombine else { return }
+                    /// Kick off and store the task in case we want to cancel it later
+                    info.task = Task { [weak subject] in
+                        info.storage?.addCall(info)
+                        defer { info.storage?.removeCall(info) }
                         
+                        /// Ensure we are in a valid state
+                        let storageState: StorageState = StorageState(info.storage)
+                
+                        guard case .valid(let dbWriter) = storageState else {
+                            info.errored(storageState.forcedError)
+                            subject?.send(completion: .failure(storageState.forcedError))
+                            return
+                        }
+                        
+                        let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
+            
+                        /// Log and emit the result
                         switch result {
                             case .success(let value):
+                                info.complete()
                                 subject?.send(value)
                                 subject?.send(completion: .finished)
-                            
-                            case .failure(let error): subject?.send(completion: .failure(error))
+                                
+                            case .failure(let error):
+                                /// If the query was cancelled then we shouldn't try to propagate the result (as it may result in
+                                /// interacting with deallocated objects)
+                                guard !info.cancelledViaCombine else { return }
+                                
+                                info.errored(error)
+                                subject?.send(completion: .failure(error))
                         }
                     }
                     
                     return subject
                 }
-                .handleEvents(receiveCancel: { [weak self] in
-                    info.cancel(cancelledViaCombine: true)
+                .handleEvents(receiveCancel: { [weak self, weak info] in
+                    info?.cancel(cancelledViaCombine: true)
                     self?.removeCall(info)
                 })
                 .eraseToAnyPublisher()
         }
     }
     
+    private func performSwiftConcurrencyOperation<T>(
+        _ fileName: String,
+        _ functionName: String,
+        _ lineNumber: Int,
+        isWrite: Bool,
+        _ operation: @escaping (Database) throws -> T
+    ) async throws -> T {
+        let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .swiftConcurrencyWrite : .swiftConcurrencyRead))
+        let storageState: StorageState = StorageState(self)
+        
+        guard case .valid(let dbWriter) = storageState else {
+            info.errored(storageState.forcedError)
+            throw storageState.forcedError
+        }
+        
+        info.schedule()
+        addCall(info)
+        defer { removeCall(info) }
+        
+        return try await Storage.performOperation(info, dbWriter, operation, dependencies)
+            .successOrThrow()
+    }
+    
     private func addCall(_ call: CallInfo) {
         _currentCalls.performUpdate { $0.inserting(call) }
     }
     
-    private func removeCall(_ call: CallInfo) {
+    private func removeCall(_ call: CallInfo?) {
+        guard let call: CallInfo = call else { return }
+        
         _currentCalls.performUpdate { $0.removing(call) }
     }
     
@@ -836,7 +888,7 @@ open class Storage {
         lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T?
     ) -> T? {
-        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
+        switch performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
             case .failure: return nil
             case .success(let result): return result
         }
@@ -849,7 +901,16 @@ open class Storage {
         updates: @escaping (Database) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void = { _ in }
     ) {
-        Storage.performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
+        performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
+    }
+    
+    @discardableResult public func writeAsync<T>(
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
+        updates: @escaping (Database) throws -> T
+    ) async throws -> T {
+        return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: true, updates)
     }
     
     open func writePublisher<T>(
@@ -867,10 +928,19 @@ open class Storage {
         lineNumber line: Int = #line,
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
-        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
+        switch performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
             case .failure: return nil
             case .success(let result): return result
         }
+    }
+    
+    @discardableResult public func readAsync<T>(
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
+        value: @escaping (Database) throws -> T
+    ) async throws -> T {
+        return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: false, value)
     }
     
     open func readPublisher<T>(
@@ -1012,6 +1082,8 @@ private extension Storage {
             case asyncRead
             case syncWrite
             case asyncWrite
+            case swiftConcurrencyRead
+            case swiftConcurrencyWrite
         }
         
         private enum Event {
@@ -1046,14 +1118,14 @@ private extension Storage {
         
         var isWrite: Bool {
             switch behaviour {
-                case .syncWrite, .asyncWrite: return true
-                case .syncRead, .asyncRead: return false
+                case .syncWrite, .asyncWrite, .swiftConcurrencyWrite: return true
+                case .syncRead, .asyncRead, .swiftConcurrencyRead: return false
             }
         }
         var isAsync: Bool {
             switch behaviour {
-                case .asyncRead, .asyncWrite: return true
-                case .syncRead, .syncWrite: return false
+                case .asyncRead, .asyncWrite, .swiftConcurrencyWrite: return true
+                case .syncRead, .syncWrite, .swiftConcurrencyRead: return false
             }
         }
         
@@ -1158,10 +1230,12 @@ private extension Storage {
         
         func errored(_ error: Error) {
             log(.errored(error))
+            timer?.cancel()
+            timer = nil
         }
         
         func errored<T>(_ error: Error) -> AnyPublisher<T, Error> {
-            log(.errored(error))
+            errored(error)
             return Fail<T, Error>(error: error).eraseToAnyPublisher()
         }
         
@@ -1169,6 +1243,8 @@ private extension Storage {
             /// Cancelling the task with result in a log being added
             self.cancelledViaCombine = cancelledViaCombine
             task?.cancel()
+            timer?.cancel()
+            timer = nil
         }
         
         // MARK: - Conformance

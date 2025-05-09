@@ -408,6 +408,16 @@ extension Onboarding {
                     }
                 }
                 
+                /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
+                /// extensions (prior to this point the account is in an invalid state so they can't be used)
+                do {
+                    try dependencies[singleton: .extensionHelper].saveUserMetadata(
+                        sessionId: userSessionId,
+                        ed25519SecretKey: ed25519KeyPair.secretKey,
+                        unreadCount: 0
+                    )
+                } catch { Log.error(.onboarding, "Falied to save user metadata: \(error)") }
+                
                 /// Store whether the user wants to use APNS
                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS
                 

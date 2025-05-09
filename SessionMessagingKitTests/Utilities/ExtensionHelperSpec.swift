@@ -59,6 +59,15 @@ class ExtesnionHelperSpec: QuickSpec {
         
         // MARK: - an ExtensionHelper - File Management
         describe("an ExtensionHelper") {
+            // MARK: -- can delete the entire cache
+            it("can delete the entire cache") {
+                extensionHelper.deleteCache()
+                
+                expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    try? $0.removeItem(atPath: "/test/extensionCache")
+                })
+            }
+            
             // MARK: -- when writing an encrypted file
             context("when writing an encrypted file") {
                 // MARK: ---- ensures the write directory exists
@@ -387,18 +396,6 @@ class ExtesnionHelperSpec: QuickSpec {
                             uniqueIdentifier: "uniqueId"
                         )
                     }.to(throwError(TestError.mock))
-                }
-            }
-            
-            // MARK: -- when removing all records
-            context("when removing all records") {
-                // MARK: ---- removes all dedupe records
-                it("removes all dedupe records") {
-                    extensionHelper.deleteAllDedupeRecords()
-                    
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/dedupe")
-                    })
                 }
             }
         }
