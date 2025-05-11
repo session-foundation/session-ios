@@ -810,7 +810,6 @@
 		FD8A5B102DBF2F17004C689B /* NavBarSessionIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B0F2DBF2F14004C689B /* NavBarSessionIcon.swift */; };
 		FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9728422F1A000E298B /* Date+Utilities.swift */; };
 		FD8A5B182DBF47E9004C689B /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
-		FD8A5B192DBF47E9004C689B /* SessionUIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B1D2DBF4BB8004C689B /* ScreenLock+Errors.swift */; };
 		FD8A5B322DC191B4004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */; };
 		FD8A5B342DC1A732004C689B /* _008_ResetUserConfigLastHashes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */; };
@@ -1271,17 +1270,6 @@
 				C3C2A5A7255385C100C340D1 /* SessionSnodeKit.framework in Embed Frameworks */,
 				C331FF232558F9D300070591 /* SessionUIKit.framework in Embed Frameworks */,
 				C3C2A6F825539DE700C340D1 /* SessionMessagingKit.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FD8A5B1C2DBF47E9004C689B /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				FD8A5B192DBF47E9004C689B /* SessionUIKit.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4848,7 +4836,6 @@
 				FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */,
 				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
-				FD8A5B1C2DBF47E9004C689B /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -7834,7 +7821,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 588;
+				CURRENT_PROJECT_VERSION = 590;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7914,7 +7901,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 588;
+				CURRENT_PROJECT_VERSION = 590;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8445,7 +8432,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 588;
+				CURRENT_PROJECT_VERSION = 590;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9083,7 +9070,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 588;
+				CURRENT_PROJECT_VERSION = 590;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
