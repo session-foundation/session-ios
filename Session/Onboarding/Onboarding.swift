@@ -224,7 +224,8 @@ extension Onboarding {
                 logStartAndStopCalls: false,
                 customAuthMethod: Authentication.standard(
                     sessionId: userSessionId,
-                    ed25519KeyPair: identity.ed25519KeyPair
+                    ed25519PublicKey: identity.ed25519KeyPair.publicKey,
+                    ed25519SecretKey: identity.ed25519KeyPair.secretKey
                 ),
                 using: dependencies
             )
@@ -235,7 +236,7 @@ extension Onboarding {
                 .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
                     guard
                         let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
-                        case let .config(_, _, serverHash, serverTimestampMs, data) = targetMessage
+                        case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
                     else { return nil }
                     
                     /// In order to process the config message we need to create and load a `libSession` cache, but we don't want to load this into
@@ -305,7 +306,7 @@ extension Onboarding {
             DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
                 /// Cache the users session id (so we don't need to fetch it from the database every time)
                 dependencies.mutate(cache: .general) {
-                    $0.setCachedSessionId(sessionId: userSessionId)
+                    $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
                 }
                 
                 /// If we had a proper `initialFlow` then create a new `libSession` cache for the user
@@ -406,6 +407,16 @@ extension Onboarding {
                             )
                     }
                 }
+                
+                /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
+                /// extensions (prior to this point the account is in an invalid state so they can't be used)
+                do {
+                    try dependencies[singleton: .extensionHelper].saveUserMetadata(
+                        sessionId: userSessionId,
+                        ed25519SecretKey: ed25519KeyPair.secretKey,
+                        unreadCount: 0
+                    )
+                } catch { Log.error(.onboarding, "Falied to save user metadata: \(error)") }
                 
                 /// Store whether the user wants to use APNS
                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS

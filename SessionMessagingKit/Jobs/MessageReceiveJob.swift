@@ -62,6 +62,7 @@ public enum MessageReceiveJob: JobExecutor {
                             message: messageInfo.message,
                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: protoContent,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -76,7 +77,6 @@ public enum MessageReceiveJob: JobExecutor {
                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                 DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                                 MessageReceiverError.duplicateMessage,
-                                MessageReceiverError.duplicateControlMessage,
                                 MessageReceiverError.selfSend:
                                 break
                                 
@@ -208,8 +208,8 @@ extension MessageReceiveJob {
         public init(messages: [ProcessedMessage]) {
             self.messages = messages.compactMap { processedMessage in
                 switch processedMessage {
-                    case .config: return nil
-                    case .standard(_, _, _, let messageInfo): return messageInfo
+                    case .config, .invalid: return nil
+                    case .standard(_, _, _, let messageInfo, _): return messageInfo
                 }
             }
         }

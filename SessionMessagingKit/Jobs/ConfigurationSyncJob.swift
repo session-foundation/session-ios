@@ -67,10 +67,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let swarmPublicKey: String = job.threadId,
-            let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage].read({ db in
-                try dependencies.mutate(cache: .libSession) {
-                    try $0.pendingChanges(db, swarmPublicKey: swarmPublicKey)
-                }
+            let pendingChanges: LibSession.PendingChanges = try? dependencies.mutate(cache: .libSession, {
+                try $0.pendingChanges(swarmPublicKey: swarmPublicKey)
             })
         else {
             Log.info(.cat, "For \(job.threadId ?? "UnknownId") failed due to invalid data")
@@ -242,7 +240,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                     // Lastly we need to save the updated dumps to the database
                     let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                         // Save the updated dumps to the database
-                        try configDumps.forEach { try $0.upsert(db) }
+                        try configDumps.forEach { dump in
+                            try dump.upsert(db)
+                            Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                        }
                         
                         // When we complete the 'ConfigurationSync' job we want to immediately schedule
                         // another one with a 'nextRunTimestamp' set to the 'maxRunFrequency' value to

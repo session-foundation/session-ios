@@ -14,6 +14,7 @@ fileprivate typealias ReactionInfo = MessageViewModel.ReactionInfo
 fileprivate typealias TypingIndicatorInfo = MessageViewModel.TypingIndicatorInfo
 fileprivate typealias QuotedInfo = MessageViewModel.QuotedInfo
 
+// TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
 public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -72,8 +73,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case isOnlyMessageInCluster
         case isLast
         case isLastOutgoing
-        case currentUserBlinded15SessionId
-        case currentUserBlinded25SessionId
+        case currentUserSessionIds
         case optimisticMessageId
     }
     
@@ -196,11 +196,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     public let isLastOutgoing: Bool
     
-    /// This is the users blinded15 sessionId hex string (will only be set for messages within open groups)
-    public let currentUserBlinded15SessionId: String?
-    
-    /// This is the users blinded25 sessionId hex string (will only be set for messages within open groups)
-    public let currentUserBlinded25SessionId: String?
+    /// This contains all sessionId values for the current user (standard and any blinded variants)
+    public let currentUserSessionIds: Set<String>?
     
     /// This is a temporary id used before an outgoing message is persisted into the database
     public let optimisticMessageId: UUID?
@@ -263,8 +260,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: self.isOnlyMessageInCluster,
             isLast: self.isLast,
             isLastOutgoing: self.isLastOutgoing,
-            currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
+            currentUserSessionIds: self.currentUserSessionIds,
             optimisticMessageId: self.optimisticMessageId
         )
     }
@@ -325,8 +321,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: self.isOnlyMessageInCluster,
             isLast: self.isLast,
             isLastOutgoing: self.isLastOutgoing,
-            currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
+            currentUserSessionIds: self.currentUserSessionIds,
             optimisticMessageId: self.optimisticMessageId
         )
     }
@@ -336,8 +331,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         nextModel: MessageViewModel?,
         isLast: Bool,
         isLastOutgoing: Bool,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) -> MessageViewModel {
         let cellType: CellType = {
@@ -545,8 +539,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: isOnlyMessageInCluster,
             isLast: isLast,
             isLastOutgoing: isLastOutgoing,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            currentUserSessionIds: currentUserSessionIds,
             optimisticMessageId: self.optimisticMessageId
         )
     }
@@ -766,8 +759,7 @@ public extension MessageViewModel {
         self.isOnlyMessageInCluster = true
         self.isLast = isLast
         self.isLastOutgoing = isLastOutgoing
-        self.currentUserBlinded15SessionId = nil
-        self.currentUserBlinded25SessionId = nil
+        self.currentUserSessionIds = [currentUserSessionId]
         self.optimisticMessageId = nil
     }
     
@@ -851,8 +843,7 @@ public extension MessageViewModel {
         self.isOnlyMessageInCluster = true
         self.isLast = false
         self.isLastOutgoing = false
-        self.currentUserBlinded15SessionId = nil
-        self.currentUserBlinded25SessionId = nil
+        self.currentUserSessionIds = [currentUserProfile.id]
         self.optimisticMessageId = optimisticMessageId
     }
 }
@@ -920,8 +911,7 @@ public extension MessageViewModel {
     
     static func baseQuery(
         userSessionId: SessionId,
-        blinded15SessionId: SessionId?,
-        blinded25SessionId: SessionId?,
+        currentUserSessionIds: Set<String>,
         orderSQL: SQL,
         groupSQL: SQL?
     ) -> (([Int64]) -> AdaptedFetchRequest<SQLRequest<MessageViewModel>>) {
@@ -1022,10 +1012,7 @@ public extension MessageViewModel {
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
                             \(quoteInteraction[.authorId]) = \(userSessionId.hexString) AND
-                            (
-                                \(quote[.authorId]) = \(blinded15SessionId?.hexString ?? "''") OR
-                                \(quote[.authorId]) = \(blinded25SessionId?.hexString ?? "''")
-                            )
+                            \(quote[.authorId]) IN \(currentUserSessionIds)
                         )
                     )
                 )
@@ -1299,8 +1286,7 @@ public extension MessageViewModel.TypingIndicatorInfo {
 public extension MessageViewModel.QuotedInfo {
     static func baseQuery(
         userSessionId: SessionId,
-        blinded15SessionId: SessionId?,
-        blinded25SessionId: SessionId?
+        currentUserSessionIds: Set<String>
     ) -> ((SQL?) -> AdaptedFetchRequest<SQLRequest<MessageViewModel.QuotedInfo>>) {
         return { additionalFilters -> AdaptedFetchRequest<SQLRequest<QuotedInfo>> in
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
@@ -1335,10 +1321,7 @@ public extension MessageViewModel.QuotedInfo {
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
                             \(quoteInteraction[.authorId]) = \(userSessionId.hexString) AND
-                            (
-                                \(quote[.authorId]) = \(blinded15SessionId?.hexString ?? "''") OR
-                                \(quote[.authorId]) = \(blinded25SessionId?.hexString ?? "''")
-                            )
+                            \(quote[.authorId]) IN \(currentUserSessionIds)
                         )
                     )
                 )   
@@ -1368,11 +1351,7 @@ public extension MessageViewModel.QuotedInfo {
         }
     }
     
-    static func joinToViewModelQuerySQL(
-        userSessionId: SessionId,
-        blinded15SessionId: SessionId?,
-        blinded25SessionId: SessionId?
-    ) -> SQL {
+    static func joinToViewModelQuerySQL() -> SQL {
         let quote: TypedTableAlias<Quote> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         

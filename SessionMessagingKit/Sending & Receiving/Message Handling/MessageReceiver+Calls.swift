@@ -21,13 +21,21 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
         
         switch message.kind {
-            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
+            case .preOffer:
+                try MessageReceiver.handleNewCallMessage(
+                    db,
+                    message: message,
+                    suppressNotifications: suppressNotifications,
+                    using: dependencies
+                )
+            
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message, using: dependencies)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
             case .provisionalAnswer: break // TODO: [CALLS] Implement
@@ -48,6 +56,7 @@ extension MessageReceiver {
     private static func handleNewCallMessage(
         _ db: Database,
         message: CallMessage,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         Log.info(.calls, "Received pre-offer message with uuid: \(message.uuid).")
@@ -71,7 +80,7 @@ extension MessageReceiver {
         guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
             Log.info(.calls, "Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestampMs ?? 0), now is \(Date().timeIntervalSince1970 * 1000)")
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies), let interactionId: Int64 = interaction.id {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: sender,
@@ -80,12 +89,30 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-                if !interaction.wasRead {
-                    dependencies[singleton: .notificationsManager].notifyUser(
-                        db,
-                        forIncomingCall: interaction,
-                        in: thread,
-                        applicationState: (isMainAppActive ? .active : .background)
+                if !suppressNotifications && !interaction.wasRead {
+                    /// Update the `CallMessage.state` value so the correct notification logic can occur
+                    message.state = .missed
+                    
+                    try? dependencies[singleton: .notificationsManager].notifyUser(
+                        message: message,
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        interactionIdentifier: (interaction.serverHash ?? "\(interactionId)"),
+                        interactionVariant: interaction.variant,
+                        attachmentDescriptionInfo: nil,
+                        openGroupUrlInfo: nil,
+                        applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
+                        currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                        displayNameRetriever: { sessionId in
+                            Profile.displayNameNoFallback(
+                                db,
+                                id: sessionId,
+                                threadVariant: thread.variant,
+                                using: dependencies
+                            )
+                        },
+                        shouldShowForMessageRequest: { false }
                     )
                 }
             }
@@ -97,7 +124,7 @@ extension MessageReceiver {
             
             Log.info(.calls, "Microphone permission is \(AVAudioSession.sharedInstance().recordPermission)")
             
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies), let interactionId: Int64 = interaction.id {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: sender,
@@ -106,12 +133,30 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-                if !interaction.wasRead {
-                    dependencies[singleton: .notificationsManager].notifyUser(
-                        db,
-                        forIncomingCall: interaction,
-                        in: thread,
-                        applicationState: (isMainAppActive ? .active : .background)
+                if !suppressNotifications && !interaction.wasRead {
+                    /// Update the `CallMessage.state` value so the correct notification logic can occur
+                    message.state = state
+                    
+                    try? dependencies[singleton: .notificationsManager].notifyUser(
+                        message: message,
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        interactionIdentifier: (interaction.serverHash ?? "\(interactionId)"),
+                        interactionVariant: interaction.variant,
+                        attachmentDescriptionInfo: nil,
+                        openGroupUrlInfo: nil,
+                        applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
+                        currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                        displayNameRetriever: { sessionId in
+                            Profile.displayNameNoFallback(
+                                db,
+                                id: sessionId,
+                                threadVariant: thread.variant,
+                                using: dependencies
+                            )
+                        },
+                        shouldShowForMessageRequest: { false }
                     )
                 }
                 
@@ -253,9 +298,8 @@ extension MessageReceiver {
                 cache.timestampAlreadyRead(
                     threadId: thread.id,
                     threadVariant: thread.variant,
-                    timestampMs: (messageSentTimestampMs * 1000),
-                    userSessionId: dependencies[cache: .general].sessionId,
-                    openGroup: nil
+                    timestampMs: messageSentTimestampMs,
+                    openGroupUrlInfo: nil
                 )
             },
             expiresInSeconds: message.expiresInSeconds,
@@ -345,9 +389,8 @@ extension MessageReceiver {
                 cache.timestampAlreadyRead(
                     threadId: thread.id,
                     threadVariant: thread.variant,
-                    timestampMs: (timestampMs * 1000),
-                    userSessionId: userSessionId,
-                    openGroup: nil
+                    timestampMs: timestampMs,
+                    openGroupUrlInfo: nil
                 )
             },
             expiresInSeconds: message.expiresInSeconds,

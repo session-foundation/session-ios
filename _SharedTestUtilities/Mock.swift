@@ -82,6 +82,17 @@ public class Mock<T>: DependenciesSettable {
         )
     }
     
+    internal func getExpectation(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) -> MockFunction? {
+        return functionConsumer.getExpectation(
+            funcName,
+            parameterCount: args.count,
+            parameterSummary: summary(for: args),
+            allParameterSummaryCombinations: summaries(for: args),
+            args: args,
+            untrackedArgs: untrackedArgs
+        )
+    }
+    
     // MARK: - Functions
     
     internal func reset() {
@@ -270,6 +281,11 @@ protocol MockFunctionHandler {
 internal struct CallDetails: Equatable, Hashable {
     let parameterSummary: String
     let allParameterSummaryCombinations: [ParameterCombination]
+    
+    internal init(parameterSummary: String, allParameterSummaryCombinations: [ParameterCombination]) {
+        self.parameterSummary = parameterSummary
+        self.allParameterSummaryCombinations = allParameterSummaryCombinations
+    }
 }
 
 // MARK: - ParameterCombination
@@ -290,6 +306,7 @@ internal class MockFunction {
     var untrackedArgs: [Any?]?
     var actions: [([Any?], [Any?]) -> Void]
     var returnError: (any Error)?
+    var closureCallArgs: [Any?]
     var returnValue: Any?
     var dynamicReturnValueRetriever: (([Any?], [Any?]) -> Any?)?
     
@@ -302,6 +319,7 @@ internal class MockFunction {
         untrackedArgs: [Any?],
         actions: [([Any?], [Any?]) -> Void],
         returnError: (any Error)?,
+        closureCallArgs: [Any?],
         returnValue: Any?,
         dynamicReturnValueRetriever: (([Any?], [Any?]) -> Any?)?
     ) {
@@ -311,6 +329,7 @@ internal class MockFunction {
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
         self.actions = actions
         self.returnError = returnError
+        self.closureCallArgs = closureCallArgs
         self.returnValue = returnValue
         self.dynamicReturnValueRetriever = dynamicReturnValueRetriever
     }
@@ -328,6 +347,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private var args: [Any?]?
     private var untrackedArgs: [Any?]?
     private var actions: [([Any?], [Any?]) -> Void] = []
+    private var closureCallArgs: [Any?] = []
     private var returnValue: R?
     private var dynamicReturnValueRetriever: (([Any?], [Any?]) -> R?)?
     private var returnError: Error?
@@ -355,6 +375,10 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     @discardableResult func then(_ block: @escaping ([Any?], [Any?]) -> Void) -> MockFunctionBuilder<T, R> {
         actions.append(block)
         return self
+    }
+    
+    func withClosureCallArgs(_ values: [Any?]) {
+        closureCallArgs = values
     }
     
     func thenReturn(_ value: R?) {
@@ -501,6 +525,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
             untrackedArgs: untrackedArgs,
             actions: actions,
             returnError: returnError,
+            closureCallArgs: closureCallArgs,
             returnValue: returnValue,
             dynamicReturnValueRetriever: dynamicReturnValueRetriever.map { closure in
                 { args, untrackedArgs in closure(args, untrackedArgs) }
@@ -548,9 +573,14 @@ protocol DependenciesSettable {
 // MARK: - FunctionConsumer
 
 internal class FunctionConsumer: MockFunctionHandler {
-    struct Key: Equatable, Hashable {
+    internal struct Key: Equatable, Hashable {
         let name: String
         let paramCount: Int
+        
+        internal init(name: String, paramCount: Int) {
+            self.name = name
+            self.paramCount = paramCount
+        }
     }
     
     var trackCalls: Bool = true
@@ -558,14 +588,14 @@ internal class FunctionConsumer: MockFunctionHandler {
     var functionHandlers: [Key: [String: MockFunction]] = [:]
     @ThreadSafeObject var calls: [Key: [CallDetails]] = [:]
     
-    private func getExpectation(
+    fileprivate func getExpectation(
         _ functionName: String,
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
         args: [Any?],
         untrackedArgs: [Any?]
-    ) -> MockFunction {
+    ) -> MockFunction? {
         let key: Key = Key(name: functionName, paramCount: parameterCount)
         
         if !functionBuilders.isEmpty {
@@ -591,7 +621,32 @@ internal class FunctionConsumer: MockFunctionHandler {
             functionBuilders.removeAll()
         }
         
-        guard let expectation: MockFunction = firstFunction(for: key, matchingParameterSummaryIfPossible: parameterSummary, allParameterSummaryCombinations: allParameterSummaryCombinations) else {
+        return firstFunction(
+            for: key,
+            matchingParameterSummaryIfPossible: parameterSummary,
+            allParameterSummaryCombinations: allParameterSummaryCombinations
+        )
+    }
+    
+    private func getAndTrackExpectation(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        args: [Any?],
+        untrackedArgs: [Any?]
+    ) -> MockFunction {
+        let key: Key = Key(name: functionName, paramCount: parameterCount)
+        let maybeExpectation: MockFunction? = getExpectation(
+            functionName,
+            parameterCount: parameterCount,
+            parameterSummary: parameterSummary,
+            allParameterSummaryCombinations: allParameterSummaryCombinations,
+            args: args,
+            untrackedArgs: untrackedArgs
+        )
+        
+        guard let expectation: MockFunction = maybeExpectation else {
             preconditionFailure("No expectations found for \(functionName)")
         }
         
@@ -622,7 +677,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output {
-        let expectation: MockFunction = getExpectation(
+        let expectation: MockFunction = getAndTrackExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
@@ -654,7 +709,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         args: [Any?],
         untrackedArgs: [Any?]
     ) {
-        _ = getExpectation(
+        _ = getAndTrackExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
@@ -672,7 +727,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output {
-        let expectation: MockFunction = getExpectation(
+        let expectation: MockFunction = getAndTrackExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
@@ -705,7 +760,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws {
-        let expectation: MockFunction = getExpectation(
+        let expectation: MockFunction = getAndTrackExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,

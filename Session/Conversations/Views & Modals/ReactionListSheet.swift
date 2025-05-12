@@ -229,7 +229,7 @@ final class ReactionListSheet: BaseVC {
                     return
                 }
                 
-                if reactionInfo.reaction.authorId == cellViewModel.currentUserSessionId {
+                if (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId) {
                     updatedValue.insert(reactionInfo, at: 0)
                 }
                 else {
@@ -439,7 +439,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
         let cellViewModel: MessageViewModel.ReactionInfo = self.selectedReactionUserList[indexPath.row]
         let authorId: String = cellViewModel.reaction.authorId
         let canRemoveEmoji: Bool = (
-            authorId == self.messageViewModel.currentUserSessionId &&
+            (self.messageViewModel.currentUserSessionIds ?? []).contains(authorId) &&
             self.messageViewModel.threadVariant != .legacyGroup
         )
         cell.update(
@@ -462,7 +462,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                     )
                 ),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
-                isEnabled: (authorId == self.messageViewModel.currentUserSessionId)
+                isEnabled: (self.messageViewModel.currentUserSessionIds ?? []).contains(authorId)
             ),
             tableSize: tableView.bounds.size,
             using: dependencies
@@ -483,7 +483,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 .first(where: { $0.isSelected })?
                 .emoji,
             selectedReaction.rawValue == cellViewModel.reaction.emoji,
-            cellViewModel.reaction.authorId == self.messageViewModel.currentUserSessionId
+            (self.messageViewModel.currentUserSessionIds ?? []).contains(cellViewModel.reaction.authorId)
         else { return }
         
         delegate?.removeReact(self.messageViewModel, for: selectedReaction)

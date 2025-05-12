@@ -65,7 +65,7 @@ extension PushNotificationAPI.NotificationMetadata {
 
 // MARK: - Convenience
 
-extension PushNotificationAPI.NotificationMetadata {
+public extension PushNotificationAPI.NotificationMetadata {
     static var invalid: PushNotificationAPI.NotificationMetadata {
         PushNotificationAPI.NotificationMetadata(
             accountId: "",

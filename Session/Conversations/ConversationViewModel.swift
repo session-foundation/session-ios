@@ -108,7 +108,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }()
     
     // MARK: - Initialization
-    
+    // TODO: [Database Relocation] Initialise this with the thread data from the home screen (might mean we can avoid some of the `initialData` query?
     init(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -125,8 +125,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             currentUserIsClosedGroupAdmin: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
             threadWasMarkedUnread: Bool,
-            blinded15SessionId: SessionId?,
-            blinded25SessionId: SessionId?
+            currentUserSessionIds: Set<String>
         )
         
         let initialData: InitialData? = dependencies[singleton: .storage].read { db -> InitialData in
@@ -216,20 +215,28 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 .asRequest(of: Bool.self)
                 .fetchOne(db))
                 .defaulting(to: false)
-            let blinded15SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded15,
-                using: dependencies
-            )
-            let blinded25SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded25,
-                using: dependencies
-            )
+            var currentUserSessionIds: Set<String> = Set([userSessionId.hexString])
+            
+            if
+                threadVariant == .community,
+                let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                    .fetchOne(db, id: threadId)
+            {
+                currentUserSessionIds = currentUserSessionIds.inserting(SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded15,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                )?.hexString)
+                currentUserSessionIds = currentUserSessionIds.inserting(SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded25,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                )?.hexString)
+            }
             
             return (
                 userSessionId,
@@ -241,8 +248,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 currentUserIsClosedGroupAdmin,
                 openGroupPermissions,
                 threadWasMarkedUnread,
-                blinded15SessionId,
-                blinded25SessionId
+                currentUserSessionIds
             )
         }
         
@@ -264,18 +270,23 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
         ).populatingPostQueryData(
-            currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,
-            currentUserBlinded25SessionIdForThisThread: initialData?.blinded25SessionId?.hexString,
+            currentUserSessionIds: (
+                initialData?.currentUserSessionIds ??
+                [dependencies[cache: .general].sessionId.hexString]
+            ),
             wasKickedFromGroup: (
                 threadVariant == .group &&
-                LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
+                dependencies.mutate(cache: .libSession) { cache in
+                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId))
+                }
             ),
             groupIsDestroyed: (
                 threadVariant == .group &&
-                LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
+                dependencies.mutate(cache: .libSession) { cache in
+                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                }
             ),
-            threadCanWrite: true,   // Assume true
-            using: dependencies
+            threadCanWrite: true   // Assume true
         )
         self.pagedDataObserver = nil
         self.dependencies = dependencies
@@ -287,8 +298,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         self.pagedDataObserver = self.setupPagedObserver(
             for: threadId,
             userSessionId: (initialData?.userSessionId ?? dependencies[cache: .general].sessionId),
-            blinded15SessionId: initialData?.blinded15SessionId,
-            blinded25SessionId: initialData?.blinded25SessionId,
+            currentUserSessionIds: (
+                initialData?.currentUserSessionIds ??
+                [dependencies[cache: .general].sessionId.hexString]
+            ),
             using: dependencies
         )
         
@@ -342,27 +355,25 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     .map { viewModel -> SessionThreadViewModel in
                         let wasKickedFromGroup: Bool = (
                             viewModel.threadVariant == .group &&
-                            LibSession.wasKickedFromGroup(
-                                groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                using: dependencies
-                            )
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                            }
                         )
                         let groupIsDestroyed: Bool = (
                             viewModel.threadVariant == .group &&
-                            LibSession.groupIsDestroyed(
-                                groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                using: dependencies
-                            )
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                            }
                         )
                         
                         return viewModel.populatingPostQueryData(
-                            db,
-                            currentUserBlinded15SessionIdForThisThread: self?.threadData.currentUserBlinded15SessionId,
-                            currentUserBlinded25SessionIdForThisThread: self?.threadData.currentUserBlinded25SessionId,
+                            currentUserSessionIds: (
+                                self?.threadData.currentUserSessionIds ??
+                                [userSessionId.hexString]
+                            ),
                             wasKickedFromGroup: wasKickedFromGroup,
                             groupIsDestroyed: groupIsDestroyed,
-                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
-                            using: dependencies
+                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies)
                         )
                     }
             }
@@ -436,8 +447,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private func setupPagedObserver(
         for threadId: String,
         userSessionId: SessionId,
-        blinded15SessionId: SessionId?,
-        blinded25SessionId: SessionId?,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
         return PagedDatabaseObserver(
@@ -505,8 +515,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             orderSQL: MessageViewModel.orderSQL,
             dataQuery: MessageViewModel.baseQuery(
                 userSessionId: userSessionId,
-                blinded15SessionId: blinded15SessionId,
-                blinded25SessionId: blinded25SessionId,
+                currentUserSessionIds: currentUserSessionIds,
                 orderSQL: MessageViewModel.orderSQL,
                 groupSQL: MessageViewModel.groupSQL
             ),
@@ -562,14 +571,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     ],
                     dataQuery: MessageViewModel.QuotedInfo.baseQuery(
                         userSessionId: userSessionId,
-                        blinded15SessionId: blinded15SessionId,
-                        blinded25SessionId: blinded25SessionId
+                        currentUserSessionIds: currentUserSessionIds
                     ),
-                    joinToPagedType: MessageViewModel.QuotedInfo.joinToViewModelQuerySQL(
-                        userSessionId: userSessionId,
-                        blinded15SessionId: blinded15SessionId,
-                        blinded25SessionId: blinded25SessionId
-                    ),
+                    joinToPagedType: MessageViewModel.QuotedInfo.joinToViewModelQuerySQL(),
                     retrieveRowIdsForReferencedRowIds: MessageViewModel.QuotedInfo.createReferencedRowIdsRetriever(),
                     associateData: MessageViewModel.QuotedInfo.createAssociateDataClosure()
                 )
@@ -635,16 +639,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                 ),
                                 isLastOutgoing: (
                                     cellViewModel.id == sortedData
-                                        .filter {
-                                            $0.authorId == threadData.currentUserSessionId ||
-                                            $0.authorId == threadData.currentUserBlinded15SessionId ||
-                                            $0.authorId == threadData.currentUserBlinded25SessionId
-                                        }
+                                        .filter { (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                                         .last?
                                         .id
                                 ),
-                                currentUserBlinded15SessionId: threadData.currentUserBlinded15SessionId,
-                                currentUserBlinded25SessionId: threadData.currentUserBlinded25SessionId,
+                                currentUserSessionIds: (threadData.currentUserSessionIds ?? []),
                                 using: dependencies
                             )
                         }
@@ -714,16 +713,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
-            authorId: (threadData.currentUserBlinded15SessionId ?? threadData.currentUserSessionId),
+            authorId: (threadData.currentUserSessionIds ?? [])
+                .first { $0.hasPrefix(SessionId.Prefix.blinded15.rawValue) }
+                .defaulting(to: threadData.currentUserSessionId),
             variant: .standardOutgoing,
             body: text,
             timestampMs: sentTimestampMs,
             hasMention: Interaction.isUserMentioned(
-                publicKeysToCheck: [
-                    threadData.currentUserSessionId,
-                    threadData.currentUserBlinded15SessionId,
-                    threadData.currentUserBlinded25SessionId
-                ].compactMap { $0 },
+                publicKeysToCheck: (threadData.currentUserSessionIds ?? []),
                 body: text
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
@@ -769,7 +766,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         return dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                             publicKey: threadData.currentUserSessionId,
                             for: threadData.openGroupRoomToken,
-                            on: threadData.openGroupServer
+                            on: threadData.openGroupServer,
+                            currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
                         )
                         
                     default: return false
@@ -915,12 +913,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
                 return (try MentionInfo
                     .query(
-                        userPublicKey: userSessionId.hexString,
                         threadId: threadData.threadId,
                         threadVariant: threadData.threadVariant,
                         targetPrefixes: targetPrefixes,
-                        currentUserBlinded15SessionId: self?.threadData.currentUserBlinded15SessionId,
-                        currentUserBlinded25SessionId: self?.threadData.currentUserBlinded25SessionId,
+                        currentUserSessionIds: (
+                            self?.threadData.currentUserSessionIds ??
+                            [userSessionId.hexString]
+                        ),
                         pattern: pattern
                     )?
                     .fetchAll(db))
@@ -1017,8 +1016,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         self.pagedDataObserver = self.setupPagedObserver(
             for: updatedThreadId,
             userSessionId: dependencies[cache: .general].sessionId,
-            blinded15SessionId: nil,
-            blinded25SessionId: nil,
+            currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
             using: dependencies
         )
         

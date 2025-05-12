@@ -39,6 +39,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded(using: dependencies)
         
 #if DEBUG
+        /// If we are running unit tests then we don't want to run the usual application startup process (as it could slow down and/or
+        /// interfere with the unit tests)
+        guard !SNUtilitiesKit.isRunningTests else { return true }
+        
         /// If we are running a Preview then we don't want to setup the application (previews are generally self contained individual views so
         /// doing all this application setup is a waste or work, and could even cause crashes for the preview)
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {   // stringlint:ignore
@@ -404,6 +408,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
                             })
                         {
+                            try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                                sessionId: dependencies[cache: .general].sessionId,
+                                ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                                unreadCount: unreadCount
+                            )
+                            
                             DispatchQueue.main.async(using: dependencies) {
                                 UIApplication.shared.applicationIconBadgeNumber = unreadCount
                             }
@@ -439,6 +449,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
         /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
         DisappearingMessagesJob.cleanExpiredMessagesOnLaunch(using: dependencies)
+        
+        /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
+        /// them in this thread and create a task to _actually_ load them asynchronously
+        ///
+        /// **Note:** This **MUST** be called before `dependencies[singleton: .appReadiness].setAppReady()` is
+        /// called otherwise a user tapping on a notification may not open the conversation showing the message
+        dependencies[singleton: .extensionHelper].willLoadMessages()
+        
+        Task(priority: .medium) { [dependencies] in
+            do { try await dependencies[singleton: .extensionHelper].loadMessages() }
+            catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }
+        }
         
         // Setup the UI if needed, then trigger any post-UI setup actions
         self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self, dependencies] success in
@@ -840,14 +862,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
             DispatchQueue.global(qos: .default).async {
-                guard
-                    let unreadCount: Int = dependencies[singleton: .storage].read({ db in try
-                        Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                if
+                    let unreadCount: Int = dependencies[singleton: .storage].read({ db in
+                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
                     })
-                else { return }
-                
-                DispatchQueue.main.async(using: dependencies) {
-                    UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                {
+                    try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                        sessionId: dependencies[cache: .general].sessionId,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                        unreadCount: unreadCount
+                    )
+                    
+                    DispatchQueue.main.async(using: dependencies) {
+                        UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                    }
                 }
             }
         }
@@ -888,10 +916,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// application:didFinishLaunchingWithOptions:.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-            dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
-                response,
-                completionHandler: completionHandler
-            )
+            /// Give the app 3 seconds to load notification messages into the database before trying to handle the notification response
+            Task(priority: .userInitiated) {
+                await dependencies[singleton: .extensionHelper].waitUntilMessagesAreLoaded(timeout: .seconds(3))
+                await MainActor.run {
+                    dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
+                        response,
+                        completionHandler: completionHandler
+                    )
+                }
+            }
         }
     }
 
