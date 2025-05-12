@@ -20,10 +20,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
-        userEd25519KeyPair: KeyPair,
+        userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     ) {
-        mockNoReturn(args: [variant, sessionId, userEd25519KeyPair, groupEd25519SecretKey])
+        mockNoReturn(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey])
     }
     
     func loadAdminKey(

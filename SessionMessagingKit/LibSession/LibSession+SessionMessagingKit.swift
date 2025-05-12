@@ -287,25 +287,25 @@ public extension LibSession {
         public func loadDefaultStateFor(
             variant: ConfigDump.Variant,
             sessionId: SessionId,
-            userEd25519KeyPair: KeyPair,
+            userEd25519SecretKey: [UInt8],
             groupEd25519SecretKey: [UInt8]?
         ) {
             configStore[sessionId, variant] = try? loadState(
                 for: variant,
                 sessionId: sessionId,
-                userEd25519SecretKey: userEd25519KeyPair.secretKey,
+                userEd25519SecretKey: userEd25519SecretKey,
                 groupEd25519SecretKey: groupEd25519SecretKey,
                 cachedData: nil
             )
         }
         
-        internal func loadState(
+        public func loadState(
             for variant: ConfigDump.Variant,
             sessionId: SessionId,
             userEd25519SecretKey: [UInt8],
             groupEd25519SecretKey: [UInt8]?,
             cachedData: Data?
-        ) throws -> Config {
+        ) throws -> LibSession.Config {
             guard userEd25519SecretKey.count >= 32 else { throw CryptoError.missingUserSecretKey }
             
             var conf: UnsafeMutablePointer<config_object>? = nil
@@ -686,6 +686,7 @@ public extension LibSession {
                     do {
                         // Merge the messages (if it doesn't merge anything then don't bother trying
                         // to handle the result)
+                        Log.info(.libSession, "Attempting to merge \(variant) config messages")
                         guard let latestServerTimestampMs: Int64 = try config?.merge(messages) else { return }
                         
                         // Now that the config message has been merged, run any after-merge logic
@@ -848,9 +849,16 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
-        userEd25519KeyPair: KeyPair,
+        userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     )
+    func loadState(
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519SecretKey: [UInt8],
+        groupEd25519SecretKey: [UInt8]?,
+        cachedData: Data?
+    ) throws -> LibSession.Config
     func loadAdminKey(
         groupIdentitySeed: Data,
         groupSessionId: SessionId,
@@ -971,6 +979,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     ) -> Profile?
     
     func hasCredentials(groupSessionId: SessionId) -> Bool
+    func secretKey(groupSessionId: SessionId) -> [UInt8]?
     func isAdmin(groupSessionId: SessionId) -> Bool
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool
     func groupName(groupSessionId: SessionId) -> String?
@@ -1004,9 +1013,16 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
-        userEd25519KeyPair: KeyPair,
+        userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     ) {}
+    func loadState(
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519SecretKey: [UInt8],
+        groupEd25519SecretKey: [UInt8]?,
+        cachedData: Data?
+    ) throws -> LibSession.Config { throw LibSessionError.invalidConfigObject }
     func loadAdminKey(
         groupIdentitySeed: Data,
         groupSessionId: SessionId,
@@ -1126,6 +1142,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     ) -> Profile? { return nil }
     
     func hasCredentials(groupSessionId: SessionId) -> Bool { return false }
+    func secretKey(groupSessionId: SessionId) -> [UInt8]? { return nil }
     func isAdmin(groupSessionId: SessionId) -> Bool { return false }
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool { return false }
     func groupName(groupSessionId: SessionId) -> String? { return nil }

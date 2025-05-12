@@ -805,9 +805,11 @@ public extension LibSession.Cache {
                 }
                 
             case .group:
-                guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else {
-                    return nil
-                }
+                guard
+                    let groupSessionId: SessionId = try? SessionId(from: threadId),
+                    groupSessionId.prefix == .group,
+                    case .groupInfo(let conf) = config(for: .groupInfo, sessionId: groupSessionId)
+                else { return nil }
                 
                 let durationSeconds: Int32 = groups_info_get_expiry_timer(conf)
                 

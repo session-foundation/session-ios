@@ -930,6 +930,20 @@ public extension LibSession.Cache {
         return (userGroup.have_auth_data || userGroup.have_secretkey)
     }
     
+    func secretKey(groupSessionId: SessionId) -> [UInt8]? {
+        var userGroup: ugroups_group_info = ugroups_group_info()
+        
+        /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &userGroup, &cGroupId),
+            userGroup.have_secretkey
+        else { return nil }
+        
+        return userGroup.get(\.secretkey, nullIfEmpty: true)
+    }
+    
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool {
         var userGroup: ugroups_group_info = ugroups_group_info()
         
