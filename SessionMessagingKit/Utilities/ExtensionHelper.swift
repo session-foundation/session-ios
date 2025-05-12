@@ -41,10 +41,7 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_stop
     
     private let dependencies: Dependencies
-    private var messagesLoadedContinuation: AsyncStream<Bool>.Continuation?
-    private lazy var messagesLoadedStream = AsyncStream<Bool> { continuation in
-        messagesLoadedContinuation = continuation
-    }
+    private lazy var messagesLoadedStream: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     // MARK: - Initialization
     
@@ -134,7 +131,10 @@ public class ExtensionHelper: ExtensionHelperType {
     private func refreshModifiedDate(at path: String) throws {
         guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return }
         
-        try dependencies[singleton: .fileManager].setAttributes([.modificationDate : Date()], ofItemAtPath: path)
+        try dependencies[singleton: .fileManager].setAttributes(
+            [.modificationDate: dependencies.dateNow],
+            ofItemAtPath: path
+        )
     }
     
     public func deleteCache() {
@@ -395,7 +395,13 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func willLoadMessages() {
-        messagesLoadedContinuation?.yield(false)
+        /// We want to synchronously reset the `messagesLoadedStream` value to `false`
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        Task {
+            await messagesLoadedStream.send(false)
+            semaphore.signal()
+        }
+        semaphore.wait()
     }
     
     public func loadMessages() async throws {
@@ -552,20 +558,28 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successCount) messages, \(failureCount) messages failed.")
-        messagesLoadedContinuation?.yield(true)
+        await messagesLoadedStream.send(true)
     }
     
-    public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async {
-        await withThrowingTaskGroup(of: Void.self) { [weak self] group in
+    @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
+        return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                _ = await self?.messagesLoadedStream.first { $0 == true }
+                guard await self?.messagesLoadedStream.currentValue != true else { return true }
+                _ = await self?.messagesLoadedStream.stream.first { $0 == true }
+                return true
             }
             group.addTask {
                 try await Task.sleep(for: timeout)
+                return false
             }
             
-            _ = await group.nextResult()
+            let result = await group.nextResult()
             group.cancelAll()
+            
+            switch result {
+                case .success(true): return true
+                default: return false
+            }
         }
     }
 }
@@ -635,7 +649,7 @@ public protocol ExtensionHelperType {
     func saveMessage(_ message: SnodeReceivedMessage?, isUnread: Bool) throws
     func willLoadMessages()
     func loadMessages() async throws
-    func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async
+    @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool
 }
 
 public extension ExtensionHelperType {

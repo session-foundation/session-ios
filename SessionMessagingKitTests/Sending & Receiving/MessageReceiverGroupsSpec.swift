@@ -256,7 +256,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .when {
                         $0.addNotificationRequest(
                             content: .any,
-                            notificationSettings: .any
+                            notificationSettings: .any,
+                            extensionBaseUnreadCount: .any
                         )
                     }
                     .thenReturn(())
@@ -395,6 +396,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -416,6 +418,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -444,6 +447,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadVariant: .group,
                                     message: inviteMessage,
                                     serverExpirationTimestamp: 1234567890,
+                                    suppressNotifications: false,
                                     using: dependencies
                                 )
                             }
@@ -486,6 +490,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadVariant: .group,
                                     message: inviteMessage,
                                     serverExpirationTimestamp: 1234567890,
+                                    suppressNotifications: false,
                                     using: dependencies
                                 )
                             }
@@ -523,6 +528,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -541,6 +547,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -560,6 +567,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -588,6 +596,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -607,6 +616,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -627,6 +637,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -652,6 +663,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -674,7 +686,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         previewType: .nameAndPreview,
                                         sound: .defaultNotificationSound,
                                         mutedUntil: nil
-                                    )
+                                    ),
+                                    extensionBaseUnreadCount: nil
                                 )
                             })
                     }
@@ -701,6 +714,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -723,6 +737,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -750,6 +765,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -770,6 +786,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -794,6 +811,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -802,7 +820,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             .toNot(call { notificationsManager in
                                 notificationsManager.addNotificationRequest(
                                     content: .any,
-                                    notificationSettings: .any
+                                    notificationSettings: .any,
+                                    extensionBaseUnreadCount: .any
                                 )
                             })
                     }
@@ -867,6 +886,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadVariant: .group,
                                     message: inviteMessage,
                                     serverExpirationTimestamp: 1234567890,
+                                    suppressNotifications: false,
                                     using: dependencies
                                 )
                             }
@@ -936,6 +956,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadVariant: .group,
                                     message: inviteMessage,
                                     serverExpirationTimestamp: 1234567890,
+                                    suppressNotifications: false,
                                     using: dependencies
                                 )
                             }
@@ -962,6 +983,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -994,6 +1016,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -1060,6 +1083,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: promoteMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         })
@@ -1081,6 +1105,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: promoteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -1114,6 +1139,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: promoteMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -1154,6 +1180,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: infoChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1172,6 +1199,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: infoChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1192,6 +1220,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: infoChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1209,6 +1238,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: infoChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1245,6 +1275,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: infoChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1281,6 +1312,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: infoChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1333,6 +1365,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1351,6 +1384,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1371,6 +1405,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1393,6 +1428,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: memberChangedMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -1428,6 +1464,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1466,6 +1503,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1505,6 +1543,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1545,6 +1584,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1579,6 +1619,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1614,6 +1655,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1650,6 +1692,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1684,6 +1727,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1719,6 +1763,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberChangedMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1760,6 +1805,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: memberLeftMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -1780,6 +1826,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberLeftMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1798,6 +1845,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberLeftMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -1844,6 +1892,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberLeftMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1863,6 +1912,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberLeftMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1881,6 +1931,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberLeftMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1910,6 +1961,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: memberLeftMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -1972,6 +2024,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: memberLeftNotificationMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -2001,6 +2054,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: memberLeftNotificationMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -2044,6 +2098,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -2062,6 +2117,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -2077,6 +2133,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadVariant: .group,
                             message: inviteResponseMessage,
                             serverExpirationTimestamp: 1234567890,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -2132,6 +2189,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2175,6 +2233,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2206,6 +2265,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2229,6 +2289,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2375,6 +2436,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -2393,6 +2455,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -2413,6 +2476,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.invalidMessage))
@@ -2438,6 +2502,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2466,6 +2531,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2492,6 +2558,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2538,6 +2605,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2587,6 +2655,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2615,6 +2684,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2641,6 +2711,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2669,6 +2740,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2698,6 +2770,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2772,6 +2845,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -2807,6 +2881,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadVariant: .group,
                                 message: deleteContentMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                         }
@@ -3318,6 +3393,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             message: visibleMessage,
                             serverExpirationTimestamp: nil,
                             associatedWithProto: visibleMessageProto,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -3362,6 +3438,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             message: visibleMessage,
                             serverExpirationTimestamp: nil,
                             associatedWithProto: visibleMessageProto,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }
@@ -3394,6 +3471,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             message: visibleMessage,
                             serverExpirationTimestamp: nil,
                             associatedWithProto: visibleMessageProto,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                     }

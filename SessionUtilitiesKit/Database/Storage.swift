@@ -883,7 +883,7 @@ open class Storage {
     // MARK: - Functions
     
     @discardableResult public func write<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T?
@@ -895,7 +895,7 @@ open class Storage {
     }
     
     open func writeAsync<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T,
@@ -905,7 +905,7 @@ open class Storage {
     }
     
     @discardableResult public func writeAsync<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T
@@ -914,7 +914,7 @@ open class Storage {
     }
     
     open func writePublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T
@@ -923,7 +923,7 @@ open class Storage {
     }
     
     @discardableResult public func read<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
         _ value: @escaping (Database) throws -> T?
@@ -935,7 +935,7 @@ open class Storage {
     }
     
     @discardableResult public func readAsync<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
         value: @escaping (Database) throws -> T
@@ -944,7 +944,7 @@ open class Storage {
     }
     
     open func readPublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         value: @escaping (Database) throws -> T
@@ -963,7 +963,7 @@ open class Storage {
     /// - returns: a DatabaseCancellable
     public func start<Reducer: ValueReducer>(
         _ observation: ValueObservation<Reducer>,
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         scheduling scheduler: ValueObservationScheduler = .async(onQueue: .main),
@@ -998,7 +998,7 @@ open class Storage {
     ///
     /// **Note:** This function **MUST NOT** be called from the main thread
     public func addObserver(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
@@ -1020,7 +1020,7 @@ open class Storage {
     ///
     /// **Note:** This function **MUST NOT** be called from the main thread
     public func removeObserver(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?

@@ -281,6 +281,11 @@ protocol MockFunctionHandler {
 internal struct CallDetails: Equatable, Hashable {
     let parameterSummary: String
     let allParameterSummaryCombinations: [ParameterCombination]
+    
+    internal init(parameterSummary: String, allParameterSummaryCombinations: [ParameterCombination]) {
+        self.parameterSummary = parameterSummary
+        self.allParameterSummaryCombinations = allParameterSummaryCombinations
+    }
 }
 
 // MARK: - ParameterCombination
@@ -568,9 +573,14 @@ protocol DependenciesSettable {
 // MARK: - FunctionConsumer
 
 internal class FunctionConsumer: MockFunctionHandler {
-    struct Key: Equatable, Hashable {
+    internal struct Key: Equatable, Hashable {
         let name: String
         let paramCount: Int
+        
+        internal init(name: String, paramCount: Int) {
+            self.name = name
+            self.paramCount = paramCount
+        }
     }
     
     var trackCalls: Bool = true

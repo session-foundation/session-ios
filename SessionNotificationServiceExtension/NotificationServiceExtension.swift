@@ -475,6 +475,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     .hasAtLeastOneDedupeRecord(threadId: threadId)
             }
         )
+        
+        /// Since we succeeded we can complete silently
+        completeSilenty(notification.info, .success(notification.info.metadata))
     }
     
     private func handleError(
@@ -940,11 +943,12 @@ private extension NotificationServiceExtension {
         
         func with(
             requestId: String? = nil,
+            content: UNMutableNotificationContent? = nil,
             contentHandler: ((UNNotificationContent) -> Void)? = nil,
             metadata: PushNotificationAPI.NotificationMetadata? = nil
         ) -> NotificationInfo {
             return NotificationInfo(
-                content: content,
+                content: (content ?? self.content),
                 requestId: (requestId ?? self.requestId),
                 contentHandler: (contentHandler ?? self.contentHandler),
                 metadata: (metadata ?? self.metadata),

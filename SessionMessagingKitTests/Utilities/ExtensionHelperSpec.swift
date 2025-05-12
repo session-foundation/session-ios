@@ -1,6 +1,8 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 import Quick
@@ -8,12 +10,25 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class ExtesnionHelperSpec: QuickSpec {
+class ExtensionHelperSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
         
-        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState var dependencies: TestDependencies! = TestDependencies(
+            initialState: { dependencies in
+                dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+                dependencies.forceSynchronous = true
+            }
+        )
         @TestState(singleton: .extensionHelper, in: dependencies) var extensionHelper: ExtensionHelper! = ExtensionHelper(using: dependencies)
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            migrationTargets: [
+                SNUtilitiesKit.self,
+                SNMessagingKit.self
+            ],
+            using: dependencies
+        )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
@@ -38,6 +53,8 @@ class ExtesnionHelperSpec: QuickSpec {
                     .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
                     .thenReturn(true)
                 fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
+                fileManager.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
+                fileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
                 fileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
             }
         )
@@ -56,6 +73,16 @@ class ExtesnionHelperSpec: QuickSpec {
                     .thenReturn(Data([1, 2, 3]))
             }
         )
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
+        
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+            }
+        )
+        @TestState var mockLogger: MockLogger! = MockLogger(primaryPrefix: "Mock", using: dependencies)
         
         // MARK: - an ExtensionHelper - File Management
         describe("an ExtensionHelper") {
@@ -78,7 +105,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.ensureDirectoryExists(at: "/test/extensionCache/dedupe/010203")
+                        try? $0.ensureDirectoryExists(at: "/test/extensionCache/conversations/010203/dedupe")
                     })
                 }
                 
@@ -90,7 +117,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.protectFileOrFolder(at: "/test/extensionCache/dedupe/010203")
+                        try? $0.protectFileOrFolder(at: "/test/extensionCache/conversations/010203/dedupe")
                     })
                 }
                 
@@ -126,7 +153,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeItem(atPath: "/test/extensionCache/dedupe/010203/010203")
+                        try $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
                     })
                 }
                 
@@ -140,7 +167,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.moveItem(
                             atPath: "tmpFile",
-                            toPath: "/test/extensionCache/dedupe/010203/010203"
+                            toPath: "/test/extensionCache/conversations/010203/dedupe/010203"
                         )
                     })
                 }
@@ -229,6 +256,104 @@ class ExtesnionHelperSpec: QuickSpec {
             }
         }
         
+        // MARK: - an ExtensionHelper - User Metadata
+        describe("an ExtensionHelper") {
+            // MARK: -- when saving user metadata
+            context("when saving user metadata") {
+                // MARK: ---- saves the file successfully
+                it("saves the file successfully") {
+                    expect {
+                        try extensionHelper.saveUserMetadata(
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            unreadCount: 1
+                        )
+                    }.toNot(throwError())
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(atPath: "tmpFile", toPath: "/test/extensionCache/metadata")
+                    })
+                }
+                
+                // MARK: ---- throws when failing to write the file
+                it("throws when failing to write the file") {
+                    mockFileManager
+                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .thenThrow(TestError.mock)
+                    
+                    expect {
+                        try extensionHelper.saveUserMetadata(
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            unreadCount: 1
+                        )
+                    }.to(throwError(TestError.mock))
+                }
+            }
+            
+            // MARK: -- when loading user metadata
+            context("when loading user metadata") {
+                // MARK: ---- loads the data correctly
+                it("loads the data correctly") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(
+                            try! JSONEncoder(using: dependencies)
+                                .encode(
+                                    ExtensionHelper.UserMetadata(
+                                        sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                        ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                        unreadCount: 1
+                                    )
+                                )
+                        )
+                    
+                    let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
+                    
+                    expect(result).toNot(beNil())
+                    expect(result?.sessionId).to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
+                    expect(result?.ed25519SecretKey).to(equal(Array(Data(hex: TestConstants.edSecretKey))))
+                    expect(result?.unreadCount).to(equal(1))
+                }
+                
+                // MARK: ---- returns null if there is no file
+                it("returns null if there is no file") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    
+                    let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
+                    
+                    expect(result).to(beNil())
+                }
+                
+                // MARK: ---- returns null if it fails to decrypt the file
+                it("returns null if it fails to decrypt the file") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(nil)
+                    
+                    let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
+                    
+                    expect(result).to(beNil())
+                }
+                
+                // MARK: ---- returns null if it fails to decode the data
+                it("returns null if it fails to decode the data") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
+                    
+                    let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
+                    
+                    expect(result).to(beNil())
+                }
+            }
+        }
+        
         // MARK: - an ExtensionHelper - Deduping
         describe("an ExtensionHelper") {
             // MARK: -- when checking whether a single dedupe record exists
@@ -299,7 +424,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try? $0.moveItem(
                             atPath: "tmpFile",
-                            toPath: "/test/extensionCache/dedupe/010203/010203"
+                            toPath: "/test/extensionCache/conversations/010203/dedupe/010203"
                         )
                     })
                 }
@@ -341,7 +466,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/dedupe/010203/010203")
+                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
                     })
                 }
                 
@@ -353,7 +478,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/dedupe/010203")
+                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
                     })
                 }
                 
@@ -367,7 +492,7 @@ class ExtesnionHelperSpec: QuickSpec {
                     )
                     
                     expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/dedupe/010203")
+                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
                     })
                 }
                 
@@ -382,7 +507,7 @@ class ExtesnionHelperSpec: QuickSpec {
                         )
                     }.toNot(throwError(ExtensionHelperError.failedToStoreDedupeRecord))
                     expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/dedupe/010203/010203")
+                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
                     })
                 }
                 
@@ -402,6 +527,10 @@ class ExtesnionHelperSpec: QuickSpec {
         
         // MARK: - an ExtensionHelper - Config Dumps
         describe("an ExtensionHelper") {
+            beforeEach {
+                Log.setup(with: mockLogger)
+            }
+            
             // MARK: -- when retrieving the last updated timestamp
             context("when retrieving the last updated timestamp") {
                 // MARK: ---- returns the timestamp
@@ -434,6 +563,1071 @@ class ExtesnionHelperSpec: QuickSpec {
                         for: SessionId(.standard, hex: TestConstants.publicKey),
                         variant: .userProfile
                     )).to(equal(0))
+                }
+            }
+            
+            // MARK: -- when replicating a config dump
+            context("when replicating a config dump") {
+                // MARK: ---- replicates successfully
+                it("replicates successfully") {
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: true
+                    )
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/dumps/010203"
+                        )
+                    })
+                }
+                
+                // MARK: ---- does nothing when given a null dump
+                it("does nothing when given a null dump") {
+                    extensionHelper.replicate(dump: nil, replaceExisting: true)
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing when failing to generate a hash
+                it("does nothing when failing to generate a hash") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: true
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing a file already exists and we do not want to replace it
+                it("does nothing a file already exists and we do not want to replace it") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: false
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- logs an error when failing to write the file
+                it("logs an error when failing to write the file") {
+                    mockFileManager
+                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .thenThrow(TestError.mock)
+                    
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: true
+                    )
+                    
+                    expect(mockLogger.logs).to(equal([
+                        MockLogger.LogOutput(
+                            level: .error,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Failed to replicate userProfile dump for 05\(TestConstants.publicKey).",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "replicate(dump:replaceExisting:)"
+                        )
+                    ]))
+                }
+            }
+            
+            // MARK: -- when replicating all config dumps
+            context("when replicating all config dumps") {
+                @TestState var mockValues: [String: [UInt8]]! = [
+                    "ConvoIdSalt-05\(TestConstants.publicKey)": [1, 2, 3],
+                    "DumpSalt-\(ConfigDump.Variant.userProfile)": [2, 3, 4],
+                    "ConvoIdSalt-03\(TestConstants.publicKey)": [4, 5, 6],
+                    "DumpSalt-\(ConfigDump.Variant.groupInfo)": [5, 6, 7]
+                ]
+                
+                beforeEach {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                    mockValues.forEach { key, value in
+                        mockCrypto
+                            .when { $0.generate(.hash(message: Array(key.data(using: .utf8)!))) }
+                            .thenReturn(value)
+                    }
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
+                        .thenReturn(Data([2, 3, 4]))
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
+                        .thenReturn(Data([5, 6, 7]))
+                    
+                    mockStorage.write { db in
+                        try ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([2, 3, 4]),
+                            timestampMs: 1234567890
+                        ).insert(db)
+                        try ConfigDump(
+                            variant: .groupInfo,
+                            sessionId: "03\(TestConstants.publicKey)",
+                            data: Data([5, 6, 7]),
+                            timestampMs: 1234567890
+                        ).insert(db)
+                    }
+                }
+                
+                // MARK: ---- replicates successfully
+                it("replicates successfully") {
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "AgME"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/dumps/020304"
+                        )
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BQYH"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/040506/dumps/050607"
+                        )
+                    })
+                }
+                
+                // MARK: ---- does nothing when failing to generate a hash
+                it("does nothing when failing to generate a hash") {
+                    mockValues.forEach { key, value in
+                        mockCrypto
+                            .when { $0.generate(.hash(message: Array(key.data(using: .utf8)!))) }
+                            .thenReturn(nil)
+                    }
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing if the user profile dump already exists
+                it("does nothing if the user profile dump already exists") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing if there are no dumps in the database
+                it("does nothing if there are no dumps in the database") {
+                    mockStorage.write { db in try ConfigDump.deleteAll(db) }
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing if it fails to replicate
+                it("does nothing if it fails to replicate") {
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
+                        .thenThrow(TestError.mock)
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
+                        .thenThrow(TestError.mock)
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+            }
+
+            // MARK: -- when refreshing the dump modified date
+            context("when refreshing the dump modified date") {
+                beforeEach {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                }
+                
+                // MARK: ---- updates the modified date
+                it("updates the modified date") {
+                    extensionHelper.refreshDumpModifiedDate(
+                        sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        variant: .userProfile
+                    )
+                    
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.setAttributes(
+                            [.modificationDate: Date(timeIntervalSince1970: 1234567890)],
+                            ofItemAtPath: "/test/extensionCache/conversations/010203/dumps/010203"
+                        )
+                    })
+                }
+                
+                // MARK: ---- does nothing when it fails to generate a hash
+                it("does nothing when it fails to generate a hash") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    extensionHelper.refreshDumpModifiedDate(
+                        sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        variant: .userProfile
+                    )
+                    
+                    expect(mockFileManager).toNot(call { try $0.setAttributes(.any, ofItemAtPath: .any) })
+                }
+                
+                // MARK: ---- does nothing if the file does not exist
+                it("does nothing if the file does not exist") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                    
+                    extensionHelper.refreshDumpModifiedDate(
+                        sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        variant: .userProfile
+                    )
+                    
+                    expect(mockFileManager).toNot(call { try $0.setAttributes(.any, ofItemAtPath: .any) })
+                }
+            }
+        }
+        
+        // MARK: - an ExtensionHelper - Messages
+        describe("an ExtensionHelper") {
+            beforeEach {
+                Log.setup(with: mockLogger)
+            }
+            
+            // MARK: -- when retrieving the unread message count
+            context("when retrieving the unread message count") {
+                // MARK: ---- returns the count
+                it("returns the count") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["b", "c", "d", "e", "f"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(5))
+                }
+                
+                // MARK: ---- adds the total from multiple conversations
+                it("adds the total from multiple conversations") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a", "b"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["c", "d", "e"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/b/unread"
+                            )
+                        }
+                        .thenReturn(["f", "g", "h"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(6))
+                }
+                
+                // MARK: ---- ignores hidden files in the conversations directory
+                it("ignores hidden files in the conversations directory") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn([".test", "a"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["b", "c", "d", "e", "f"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(5))
+                }
+                
+                // MARK: ---- ignores hidden files in the unread directory
+                it("ignores hidden files in the unread directory") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn([".test", "b", "c", "d", "e", "f"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(5))
+                }
+                
+                // MARK: ---- ignores conversations without an unread directory
+                it("ignores conversations without an unread directory") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a", "b"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["c", "d", "e"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/b/unread"
+                            )
+                        }
+                        .thenReturn(["f", "g", "h"])
+                    mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread") }
+                        .thenReturn(true)
+                    mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/conversations/b/unread") }
+                        .thenReturn(false)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(3))
+                }
+                
+                // MARK: ---- returns null if retrieving the conversation hashes throws
+                it("returns null if retrieving the conversation hashes throws") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: .any) }
+                        .thenThrow(TestError.mock)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(beNil())
+                }
+                
+                // MARK: ---- returns null if retrieving the conversation hashes throws
+                it("returns null if retrieving the conversation hashes throws") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenThrow(TestError.mock)
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(beNil())
+                }
+            }
+            
+            // MARK: -- when saving a message
+            context("when saving a message") {
+                // MARK: ---- saves the message correctly
+                it("saves the message correctly") {
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .default,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            isUnread: false
+                        )
+                    }.toNot(throwError())
+                }
+                
+                // MARK: ---- saves config messages to the correct path
+                it("saves config messages to the correct path") {
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .configUserProfile,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            isUnread: false
+                        )
+                    }.toNot(throwError())
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/config/010203"
+                        )
+                    })
+                }
+                
+                // MARK: ---- saves unread standard messages to the correct path
+                it("saves unread standard messages to the correct path") {
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .default,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            isUnread: true
+                        )
+                    }.toNot(throwError())
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/unread/010203"
+                        )
+                    })
+                }
+                
+                // MARK: ---- saves read standard messages to the correct path
+                it("saves read standard messages to the correct path") {
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .default,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            isUnread: false
+                        )
+                    }.toNot(throwError())
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/read/010203"
+                        )
+                    })
+                }
+                
+                // MARK: ---- does nothing when failing to generate a hash
+                it("does nothing when failing to generate a hash") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .default,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            isUnread: false
+                        )
+                    }.toNot(throwError())
+                    expect(mockFileManager).toNot(call {
+                        try $0.moveItem(atPath: .any, toPath: .any)
+                    })
+                }
+                
+                // MARK: ---- throws when failing to write the file
+                it("throws when failing to write the file") {
+                    mockFileManager
+                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .thenThrow(TestError.mock)
+                    
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .default,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            isUnread: false
+                        )
+                    }.to(throwError(TestError.mock))
+                }
+            }
+            
+            // MARK: -- when waiting for messages to be loaded
+            context("when waiting for messages to be loaded") {
+                // MARK: ---- stops waiting once messages are loaded
+                it("stops waiting once messages are loaded") {
+                    var loadCompleted: Bool?
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(150))
+                        semaphore.signal()
+                    }
+                    Task {
+                        try await extensionHelper.loadMessages()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    expect(loadCompleted).to(beTrue())
+                }
+                
+                // MARK: ---- times out if it takes longer than the timeout specified
+                it("times out if it takes longer than the timeout specified") {
+                    var loadCompleted: Bool?
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    expect(loadCompleted).to(beFalse())
+                }
+                
+                // MARK: ---- does not wait if messages have already been loaded
+                it("does not wait if messages have already been loaded") {
+                    var loadCompleted: Bool?
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try? await extensionHelper.loadMessages()
+                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(50))
+                    expect(result).to(equal(.success))
+                    expect(loadCompleted).to(beTrue())
+                }
+                
+                // MARK: ---- waits if messages have already been loaded but we indicate we will load them again
+                it("waits if messages have already been loaded but we indicate we will load them again") {
+                    var loadCompleted: Bool?
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try? await extensionHelper.loadMessages()
+                        extensionHelper.willLoadMessages()
+                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    expect(loadCompleted).to(beFalse())
+                }
+            }
+            
+            // MARK: -- when loading messages
+            context("when loading messages") {
+                @TestState var mockValues: [String: String]! = [
+                    "/test/extensionCache/conversations": "a",
+                    "/test/extensionCache/conversations/a/config": "b",
+                    "/test/extensionCache/conversations/a/read": "c",
+                    "/test/extensionCache/conversations/a/unread": "d",
+                    "/test/extensionCache/conversations/010203/config": "d",
+                    "/test/extensionCache/conversations/010203/read": "e",
+                    "/test/extensionCache/conversations/010203/unread": "f",
+                    "/test/extensionCache/conversations/0000550000/config": "g",
+                    "/test/extensionCache/conversations/0000550000/read": "h",
+                    "/test/extensionCache/conversations/0000550000/unread": "i"
+                ]
+                
+                beforeEach {
+                    mockValues.forEach { key, value in
+                        mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: key) }
+                            .thenReturn([value])
+                    }
+                    mockCrypto
+                        .when {
+                            $0.generate(.hash(
+                                message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
+                            ))
+                        }
+                        .thenReturn([1, 2, 3])
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(
+                            try! JSONEncoder(using: dependencies)
+                                .encode(
+                                    SnodeReceivedMessage(
+                                        snode: nil,
+                                        publicKey: "05\(TestConstants.publicKey)",
+                                        namespace: .default,
+                                        rawMessage: GetMessagesResponse.RawMessage(
+                                            base64EncodedDataString: try! MessageWrapper.wrap(
+                                                type: .sessionMessage,
+                                                timestampMs: 1234567890,
+                                                content: Data([1, 2, 3])
+                                            ).base64EncodedString(),
+                                            expirationMs: nil,
+                                            hash: "TestHash",
+                                            timestampMs: 1234567890
+                                        )
+                                    )
+                                )
+                        )
+                    
+                    
+                    let content = SNProtoContent.builder()
+                    let dataMessage = SNProtoDataMessage.builder()
+                    dataMessage.setBody("Test")
+                    content.setDataMessage(try! dataMessage.build())
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithSessionProtocol(ciphertext: .any)) }
+                        .thenReturn((try! content.build().serializedData(), "05\(TestConstants.publicKey)"))
+                }
+                
+                // MARK: ---- successfully loads messages
+                it("successfully loads messages") {
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    let interactions: [Interaction]? = mockStorage.read { try Interaction.fetchAll($0) }
+                    expect(interactions?.count).to(equal(1))
+                    expect(interactions?.map { $0.body }).to(equal(["Test"]))
+                }
+                
+                // MARK: ---- always tries to load messages from the current users conversation
+                it("always tries to load messages from the current users conversation") {
+                    mockCrypto
+                        .when {
+                            $0.generate(.hash(
+                                message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
+                            ))
+                        }
+                        .thenReturn(Array(Data(hex: "0000550000")))
+                    
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    expect(mockFileManager).to(call(matchingParameters: .all) {
+                        try $0.contentsOfDirectory(
+                            atPath: "/test/extensionCache/conversations/0000550000/config"
+                        )
+                    })
+                    expect(mockFileManager).to(call(matchingParameters: .all) {
+                        try $0.contentsOfDirectory(
+                            atPath: "/test/extensionCache/conversations/0000550000/read"
+                        )
+                    })
+                    expect(mockFileManager).to(call(matchingParameters: .all) {
+                        try $0.contentsOfDirectory(
+                            atPath: "/test/extensionCache/conversations/0000550000/unread"
+                        )
+                    })
+                }
+                
+                // MARK: ---- loads config messages before other messages
+                it("loads config messages before other messages") {
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    let key: FunctionConsumer.Key = FunctionConsumer.Key(
+                        name: "contentsOfDirectory(atPath:)",
+                        paramCount: 1
+                    )
+                    expect(mockFileManager.functionConsumer.calls[key]).to(equal([
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(count: 1, summary: "[/test/extensionCache/conversations]")
+                            ]
+                        ),
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations/010203/config]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(
+                                    count: 1,
+                                    summary: "[/test/extensionCache/conversations/010203/config]"
+                                )
+                            ]
+                        ),
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations/010203/read]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(
+                                    count: 1,
+                                    summary: "[/test/extensionCache/conversations/010203/read]"
+                                )
+                            ]
+                        ),
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations/010203/unread]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(
+                                    count: 1,
+                                    summary: "[/test/extensionCache/conversations/010203/unread]"
+                                )
+                            ]
+                        ),
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations/a/config]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(
+                                    count: 1,
+                                    summary: "[/test/extensionCache/conversations/a/config]"
+                                )
+                            ]
+                        ),
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations/a/read]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(
+                                    count: 1,
+                                    summary: "[/test/extensionCache/conversations/a/read]"
+                                )
+                            ]
+                        ),
+                        CallDetails(
+                            parameterSummary: "[/test/extensionCache/conversations/a/unread]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(
+                                    count: 1,
+                                    summary: "[/test/extensionCache/conversations/a/unread]"
+                                )
+                            ]
+                        )
+                    ]))
+                }
+                
+                // MARK: ---- removes messages from disk
+                it("removes messages from disk") {
+                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
+                    mockCrypto
+                        .when {
+                            $0.generate(.hash(
+                                message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
+                            ))
+                        }
+                        .thenReturn(Array(Data(hex: "0000550000")))
+                    
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    expect(mockFileManager).to(call(matchingParameters: .all) {
+                        try $0.removeItem(
+                            atPath: "/test/extensionCache/conversations/0000550000/config"
+                        )
+                    })
+                    expect(mockFileManager).to(call(matchingParameters: .all) {
+                        try $0.removeItem(
+                            atPath: "/test/extensionCache/conversations/0000550000/read"
+                        )
+                    })
+                    expect(mockFileManager).to(call(matchingParameters: .all) {
+                        try $0.removeItem(
+                            atPath: "/test/extensionCache/conversations/0000550000/unread"
+                        )
+                    })
+                }
+                
+                // MARK: ---- logs when finished
+                it("logs when finished") {
+                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    mockValues.forEach { key, value in
+                        mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: key) }
+                            .thenReturn([])
+                    }
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
+                        .thenReturn(["c"])
+                    
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    expect(mockLogger.logs).to(contain(
+                        MockLogger.LogOutput(
+                            level: .info,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Finished: Successfully processed 1 messages, 0 messages failed.",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "loadMessages()"
+                        )
+                    ))
+                }
+                
+                // MARK: ---- logs an error when failing to process a config message
+                it("logs an error when failing to process a config message") {
+                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    mockValues.forEach { key, value in
+                        mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: key) }
+                            .thenReturn([])
+                    }
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/config") }
+                        .thenReturn(["b"])
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(nil)
+                    
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    expect(mockLogger.logs).to(contain(
+                        MockLogger.LogOutput(
+                            level: .error,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Discarding some config message changes due to error: Failed to read from file.",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "loadMessages()"
+                        )
+                    ))
+                    expect(mockLogger.logs).to(contain(
+                        MockLogger.LogOutput(
+                            level: .info,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Finished: Successfully processed 0 messages, 1 messages failed.",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "loadMessages()"
+                        )
+                    ))
+                }
+                
+                // MARK: ---- logs an error when failing to process a standard message
+                it("logs an error when failing to process a standard message") {
+                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    mockValues.forEach { key, value in
+                        mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: key) }
+                            .thenReturn([])
+                    }
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
+                        .thenReturn(["c"])
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(nil)
+                    
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    expect(mockLogger.logs).to(contain(
+                        MockLogger.LogOutput(
+                            level: .error,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Discarding standard message due to error: Failed to read from file.",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "loadMessages()"
+                        )
+                    ))
+                    expect(mockLogger.logs).to(contain(
+                        MockLogger.LogOutput(
+                            level: .info,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Finished: Successfully processed 0 messages, 1 messages failed.",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "loadMessages()"
+                        )
+                    ))
+                }
+                
+                // MARK: ---- succeeds even if it fails to remove files after processing
+                it("succeeds even if it fails to remove files after processing") {
+                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    mockValues.forEach { key, value in
+                        mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: key) }
+                            .thenReturn([])
+                    }
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
+                        .thenReturn(["c"])
+                    mockFileManager.when { try $0.removeItem(atPath: .any) }.thenThrow(TestError.mock)
+                    mockCrypto
+                        .when {
+                            $0.generate(.hash(
+                                message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
+                            ))
+                        }
+                        .thenReturn(Array(Data(hex: "0000550000")))
+                    
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        try await extensionHelper.loadMessages()
+                        semaphore.signal()
+                    }
+                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
+                    expect(result).to(equal(.success))
+                    
+                    expect(mockLogger.logs).to(contain(
+                        MockLogger.LogOutput(
+                            level: .info,
+                            categories: [
+                                Log.Category.create(
+                                    "ExtensionHelper",
+                                    customPrefix: "",
+                                    customSuffix: "",
+                                    defaultLevel: .info
+                                )
+                            ],
+                            message: "Finished: Successfully processed 1 messages, 0 messages failed.",
+                            file: "SessionMessagingKit/ExtensionHelper.swift",
+                            function: "loadMessages()"
+                        )
+                    ))
                 }
             }
         }

@@ -407,7 +407,7 @@ public extension LibSession {
 
 // MARK: State Access
 
-public extension LibSessionCacheType {
+public extension LibSession.Cache {
     func conversationLastRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
