@@ -66,8 +66,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         var processedNotification: ProcessedNotification = (self.cachedNotificationInfo, .invalid, "", nil, nil)
         
         do {
-            let mainAppUnreadCount: Int = try performSetup(requestId: request.identifier)
+            let mainAppUnreadCount: Int = try performSetup(notificationInfo)
             notificationInfo = try extractNotificationInfo(notificationInfo, mainAppUnreadCount)
+            try setupGroupIfNeeded(notificationInfo)
+            
             processedNotification = try processNotification(notificationInfo)
             try handleNotification(processedNotification)
         }
@@ -83,8 +85,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Setup
 
-    private func performSetup(requestId: String) throws -> Int {
-        Log.info(.cat, "Performing setup for requestId: \(requestId).")
+    private func performSetup(_ info: NotificationInfo) throws -> Int {
+        Log.info(.cat, "Performing setup for requestId: \(info.requestId).")
         
         // stringlint:ignore_start
         Log.setup(with: Logger(
@@ -114,36 +116,30 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         dependencies.mutate(cache: .general) {
             $0.setSecretKey(ed25519SecretKey: userMetadata.ed25519SecretKey)
         }
-        var migrationResult: Result<Void, Error> = .failure(StorageError.startupFailed)
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        AppSetup.setupEnvironment(
-            requestId: requestId,
-            appSpecificBlock: { },
-            migrationsCompletion: { result in
-                migrationResult = result
-                semaphore.signal()
-            },
+        
+        /// Load the `libSession` state into memory using the `extensionHelper`
+        let cache: LibSession.Cache = LibSession.Cache(
+            userSessionId: userMetadata.sessionId,
             using: dependencies
         )
-        
-        semaphore.wait()
-        
-        /// Ensure the migration was successful or throw the error
-        do { _ = try migrationResult.successOrThrow() }
-        catch { throw NotificationError.migration(error) }
-        
-        /// Ensure storage is actually valid
-        guard dependencies[singleton: .storage].isValid else {
-            throw NotificationError.databaseInvalid
-        }
-        
-        /// If the app wasn't ready then mark it as ready now
-        if !dependencies[singleton: .appReadiness].isAppReady {
-            /// Note that this does much more than set a flag; it will also run all deferred blocks
-            dependencies[singleton: .appReadiness].setAppReady()
-        }
+        dependencies[singleton: .extensionHelper].loadUserConfigState(
+            into: cache,
+            userSessionId: userMetadata.sessionId,
+            userEd25519SecretKey: userMetadata.ed25519SecretKey
+        )
+        dependencies.set(cache: .libSession, to: cache)
         
         return userMetadata.unreadCount
+    }
+    
+    private func setupGroupIfNeeded(_ info: NotificationInfo) throws {
+        try dependencies.mutate(cache: .libSession) { cache in
+            try dependencies[singleton: .extensionHelper].loadGroupConfigStateIfNeeded(
+                into: cache,
+                swarmPublicKey: info.metadata.accountId,
+                userEd25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+            )
+        }
     }
     
     // MARK: - Notification Handling
@@ -253,8 +249,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         serverTimestampMs: Int64,
         data: Data
     ) throws {
-        // TODO: [Database Relocation] Handle the config message case in a separate PR
-        return try dependencies.mutate(cache: .libSession) { cache in
+        try dependencies.mutate(cache: .libSession) { cache in
             try cache.mergeConfigMessages(
                 swarmPublicKey: swarmPublicKey,
                 messages: [
@@ -265,11 +260,55 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         data: data
                     )
                 ],
-                afterMerge: { sessionId, variant, config, _ in
-                    // TODO: [Database Relocation] Handle the config message case in a separate PR
+                afterMerge: { sessionId, variant, config, timestampMs in
+                    guard cache.configNeedsDump(config) else {
+                        return dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
+                            sessionId: sessionId,
+                            variant: variant
+                        )
+                    }
+                    
+                    /// Update the replicated extension config dump (this way any subsequent push notifications will use the correct
+                    /// data - eg. group encryption keys)
+                    try dependencies[singleton: .extensionHelper].replicate(
+                        dump: cache.createDump(
+                            config: config,
+                            for: variant,
+                            sessionId: sessionId,
+                            timestampMs: timestampMs
+                        ),
+                        replaceExisting: true
+                    )
                 }
             )
         }
+        
+        /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait
+        /// for a poll to return
+        do {
+            try dependencies[singleton: .extensionHelper].saveMessage(
+                SnodeReceivedMessage(
+                    snode: nil,
+                    publicKey: notification.info.metadata.accountId,
+                    namespace: notification.info.metadata.namespace,
+                    rawMessage: GetMessagesResponse.RawMessage(
+                        base64EncodedDataString: notification.info.data.base64EncodedString(),
+                        expirationMs: notification.info.metadata.expirationTimestampMs,
+                        hash: notification.info.metadata.hash,
+                        timestampMs: serverTimestampMs
+                    )
+                ),
+                isUnread: false
+            )
+        }
+        catch { Log.error(.cat, "Failed to save config message to disk: \(error).") }
+        
+        /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
+        /// show duplicate PNs
+        try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
+        
+        /// No notification should be shown for config messages so we can just succeed silently here
+        completeSilenty(notification.info, .success(notification.info.metadata))
     }
     
     private func handleStandardMessage(

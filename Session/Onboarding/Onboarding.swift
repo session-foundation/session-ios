@@ -245,7 +245,7 @@ extension Onboarding {
                     cache.loadDefaultStateFor(
                         variant: .userProfile,
                         sessionId: userSessionId,
-                        userEd25519KeyPair: identity.ed25519KeyPair,
+                        userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
                     try cache.unsafeDirectMergeConfigMessage(

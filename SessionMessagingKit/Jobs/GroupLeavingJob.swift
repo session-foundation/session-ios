@@ -67,24 +67,17 @@ public enum GroupLeavingJob: JobExecutor {
                     .defaulting(to: 0)
                 let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
                     guard
-                        threadVariant == .group,
-                        (
-                            dependencies.mutate(cache: .libSession) { cache in
-                                cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
-                                cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
-                            }
-                        )
+                        dependencies.mutate(cache: .libSession, { cache in
+                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
+                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                        })
                     else { return details.behaviour }
                     
                     return .delete
                 }()
                 
-                switch (threadVariant, finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
-                    case (.legacyGroup, _, _, _):
-                        // Legacy group only supports the 'delete' behaviour so don't bother checking
-                        return .delete
-                    
-                    case (.group, .leave, _, false):
+                switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
+                    case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
                         
                         return .leave(
@@ -120,7 +113,7 @@ public enum GroupLeavingJob: JobExecutor {
                                 .map { _, _ in () }
                         )
                         
-                    case (.group, .delete, true, _), (.group, .leave, true, true):
+                    case (.delete, true, _), (.leave, true, true):
                         let groupSessionId: SessionId = SessionId(.group, hex: threadId)
                         
                         /// Skip the automatic config sync because we want to perform it synchronously as part of this job
@@ -132,7 +125,7 @@ public enum GroupLeavingJob: JobExecutor {
                         
                         return .delete
                     
-                    case (.group, .delete, false, _): return .delete
+                    case (.delete, false, _): return .delete
                         
                     default: throw MessageSenderError.invalidClosedGroupUpdate
                 }

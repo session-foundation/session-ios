@@ -471,6 +471,8 @@ public extension LibSession.Cache {
     }
 }
 
+// MARK: State Access
+
 public extension LibSessionCacheType {
     func timestampAlreadyRead(
         threadId: String,
