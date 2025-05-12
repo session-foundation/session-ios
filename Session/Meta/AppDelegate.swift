@@ -39,6 +39,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded(using: dependencies)
         
 #if DEBUG
+        /// If we are running unit tests then we don't want to run the usual application startup process (as it could slow down and/or
+        /// interfere with the unit tests)
+        guard !SNUtilitiesKit.isRunningTests else { return true }
+        
         /// If we are running a Preview then we don't want to setup the application (previews are generally self contained individual views so
         /// doing all this application setup is a waste or work, and could even cause crashes for the preview)
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {   // stringlint:ignore
@@ -446,7 +450,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
         DisappearingMessagesJob.cleanExpiredMessagesOnLaunch(using: dependencies)
         
-        /// Now that the database is setup we can load in any messages which were processed by the extensions
+        /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
+        /// them in this thread and create a task to _actually_ load them asynchronously
+        ///
+        /// **Note:** This **MUST** be called before `dependencies[singleton: .appReadiness].setAppReady()` is
+        /// called otherwise a user tapping on a notification may not open the conversation showing the message
+        dependencies[singleton: .extensionHelper].willLoadMessages()
+        
         Task(priority: .medium) { [dependencies] in
             do { try await dependencies[singleton: .extensionHelper].loadMessages() }
             catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }

@@ -934,6 +934,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         openGroupName: String?,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> String
+    func conversationLastRead(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int64?
     
     /// Returns whether the specified conversation is a message request
     ///
@@ -1087,6 +1092,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         openGroupName: String?,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> String { return "" }
+    func conversationLastRead(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int64? { return nil }
     
     func isMessageRequest(
         threadId: String,

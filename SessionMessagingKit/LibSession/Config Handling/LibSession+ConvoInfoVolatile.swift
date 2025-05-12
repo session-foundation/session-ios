@@ -407,7 +407,7 @@ public extension LibSession {
 
 // MARK: State Access
 
-public extension LibSessionCacheType {
+public extension LibSession.Cache {
     func conversationLastRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -469,7 +469,9 @@ public extension LibSessionCacheType {
                 return group.last_read
         }
     }
-    
+}
+
+public extension LibSessionCacheType {
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
