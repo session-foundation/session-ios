@@ -57,14 +57,15 @@ public enum GroupLeavingJob: JobExecutor {
                     .defaulting(to: 0)
                 let finalBehaviour: Details.Behaviour = {
                     guard
-                        !dependencies.mutate(cache: .libSession, { cache in
-                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
-                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                        dependencies.mutate(cache: .libSession, { cache in
+                            !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
+                            !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
                         })
                     else { return .delete }
                     
                     return details.behaviour
                 }()
+                
                 switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                     case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
