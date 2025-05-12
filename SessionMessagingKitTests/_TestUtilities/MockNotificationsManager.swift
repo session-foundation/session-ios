@@ -42,9 +42,10 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
     
     public func addNotificationRequest(
         content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
     ) {
-        mockNoReturn(args: [content, notificationSettings])
+        mockNoReturn(args: [content, notificationSettings, extensionBaseUnreadCount])
     }
     
     public func cancelNotifications(identifiers: [String]) {
