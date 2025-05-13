@@ -323,7 +323,6 @@ private extension MessageDeduplication {
             case .visibleMessage: return .visibleMessageDedupe
             case .readReceipt: return .readReceipt
             case .typingIndicator: return .typingIndicator
-            case .closedGroupControlMessage: return .legacyGroupControlMessage
             case .unsendRequest: return .unsendRequest
             case .dataExtractionNotification: return .dataExtractionNotification
             case .expirationTimerUpdate: return .expirationTimerUpdate
