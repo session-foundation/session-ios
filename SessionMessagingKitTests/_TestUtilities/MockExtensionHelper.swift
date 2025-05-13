@@ -61,6 +61,22 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         mockNoReturn(args: [sessionId, variant])
     }
     
+    func loadUserConfigState(
+        into cache: LibSessionCacheType,
+        userSessionId: SessionId,
+        userEd25519SecretKey: [UInt8]
+    ) {
+        mockNoReturn(args: [cache, userSessionId, userEd25519SecretKey])
+    }
+    
+    func loadGroupConfigStateIfNeeded(
+        into cache: LibSessionCacheType,
+        swarmPublicKey: String,
+        userEd25519SecretKey: [UInt8]
+    ) throws {
+        mockNoReturn(args: [cache, swarmPublicKey, userEd25519SecretKey])
+    }
+    
     // MARK: - Messages
     
     func unreadMessageCount() -> Int? {

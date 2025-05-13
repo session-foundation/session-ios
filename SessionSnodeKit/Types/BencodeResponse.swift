@@ -31,7 +31,6 @@ extension BencodeResponse: Decodable {
             return try jsonDecoder.decode(T.self, from: infoData)
         }()
         
-        
         /// The second element (if present) will be the response data and should just
         guard container.count == 2 else {
             data = nil

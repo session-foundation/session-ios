@@ -490,8 +490,10 @@ public class ExtensionHelper: ExtensionHelperType {
             })
             .defaulting(to: [])
             .inserting(currentUserConversationHash, at: 0)
-        var successCount: Int = 0
-        var failureCount: Int = 0
+        var successConfigCount: Int = 0
+        var failureConfigCount: Int = 0
+        var successStandardCount: Int = 0
+        var failureStandardCount: Int = 0
         
         try await dependencies[singleton: .storage].writeAsync { [weak self, dependencies] db in
             guard let this = self else { return }
@@ -547,10 +549,10 @@ public class ExtensionHelper: ExtensionHelperType {
                             )
                     }
                     
-                    successCount += configMessageHashes.count
+                    successConfigCount += configMessageHashes.count
                 }
                 catch {
-                    failureCount += configMessageHashes.count
+                    failureConfigCount += configMessageHashes.count
                     Log.error(.cat, "Discarding some config message changes due to error: \(error)")
                 }
                 
@@ -611,10 +613,10 @@ public class ExtensionHelper: ExtensionHelperType {
                             sortedMessages: [(message.namespace, [message], nil)],
                             using: dependencies
                         )
-                        successCount += 1
+                        successStandardCount += 1
                     }
                     catch {
-                        failureCount += 1
+                        failureStandardCount += 1
                         Log.error(.cat, "Discarding standard message due to error: \(error)")
                     }
                 }
@@ -625,7 +627,7 @@ public class ExtensionHelper: ExtensionHelperType {
             }
         }
         
-        Log.info(.cat, "Finished: Successfully processed \(successCount) messages, \(failureCount) messages failed.")
+        Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
         await messagesLoadedStream.send(true)
     }
     
