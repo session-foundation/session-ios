@@ -173,7 +173,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             data: info.data,
             origin: .swarm(
                 publicKey: info.metadata.accountId,
-                namespace: info.metadata.namespace,
+                namespace: {
+                    switch (info.metadata.namespace, (try? SessionId(from: info.metadata.accountId))?.prefix) {
+                        /// There was a bug at one point where the metadata would include a `null` value for the namespace
+                        /// because the storage server didn't have an explicit `namespace_id` for the
+                        /// `revokedRetrievableGroupMessages` namespace
+                        ///
+                        /// This code tries to work around that issue
+                        ///
+                        /// **Note:** This issue was present in storage server version `2.10.0` but this work-around should
+                        /// be removed once the network has been fully updated with a fix
+                        case (.unknown, .group):
+                            return .revokedRetrievableGroupMessages
+                        
+                        default: return info.metadata.namespace
+                    }
+                }(),
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
