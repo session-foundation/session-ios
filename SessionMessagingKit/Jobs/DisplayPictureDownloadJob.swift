@@ -93,7 +93,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                 case .community: return data    // Community data is unencrypted
                                 case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
                                     return dependencies[singleton: .crypto].generate(
-                                        .decryptedDataDisplayPicture(data: data, key: encryptionKey, using: dependencies)
+                                        .decryptedDataDisplayPicture(data: data, key: encryptionKey)
                                     )
                             }
                         }()

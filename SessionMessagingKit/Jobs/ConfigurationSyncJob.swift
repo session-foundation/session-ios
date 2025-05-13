@@ -67,10 +67,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let swarmPublicKey: String = job.threadId,
-            let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage].read({ db in
-                try dependencies.mutate(cache: .libSession) {
-                    try $0.pendingChanges(db, swarmPublicKey: swarmPublicKey)
-                }
+            let pendingChanges: LibSession.PendingChanges = try? dependencies.mutate(cache: .libSession, {
+                try $0.pendingChanges(swarmPublicKey: swarmPublicKey)
             })
         else {
             Log.info(.cat, "For \(job.threadId ?? "UnknownId") failed due to invalid data")

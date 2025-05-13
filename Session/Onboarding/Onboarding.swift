@@ -224,7 +224,8 @@ extension Onboarding {
                 logStartAndStopCalls: false,
                 customAuthMethod: Authentication.standard(
                     sessionId: userSessionId,
-                    ed25519KeyPair: identity.ed25519KeyPair
+                    ed25519PublicKey: identity.ed25519KeyPair.publicKey,
+                    ed25519SecretKey: identity.ed25519KeyPair.secretKey
                 ),
                 using: dependencies
             )
@@ -305,7 +306,7 @@ extension Onboarding {
             DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
                 /// Cache the users session id (so we don't need to fetch it from the database every time)
                 dependencies.mutate(cache: .general) {
-                    $0.setCachedSessionId(sessionId: userSessionId)
+                    $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
                 }
                 
                 /// If we had a proper `initialFlow` then create a new `libSession` cache for the user

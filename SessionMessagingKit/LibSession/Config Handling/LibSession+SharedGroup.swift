@@ -18,12 +18,12 @@ public extension LibSession.Crypto.Domain {
 internal extension LibSessionCacheType {
     @discardableResult func createAndLoadGroupState(
         groupSessionId: SessionId,
-        userED25519KeyPair: KeyPair,
+        userED25519SecretKey: [UInt8],
         groupIdentityPrivateKey: Data?
     ) throws -> [ConfigDump.Variant: LibSession.Config] {
         let groupState: [ConfigDump.Variant: LibSession.Config] = try LibSession.createGroupState(
             groupSessionId: groupSessionId,
-            userED25519KeyPair: userED25519KeyPair,
+            userED25519SecretKey: userED25519SecretKey,
             groupIdentityPrivateKey: groupIdentityPrivateKey
         )
         
@@ -61,7 +61,7 @@ internal extension LibSession {
     ) throws -> CreatedGroupInfo {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
-            let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
+            !dependencies[cache: .general].ed25519SecretKey.isEmpty
         else { throw MessageSenderError.noKeyPair }
         
         // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
@@ -73,7 +73,7 @@ internal extension LibSession {
         // Create the new config objects
         let groupState: [ConfigDump.Variant: Config] = try createGroupState(
             groupSessionId: groupSessionId,
-            userED25519KeyPair: userED25519KeyPair,
+            userED25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey)
         )
         
@@ -194,10 +194,12 @@ internal extension LibSession {
     
     static func createGroupState(
         groupSessionId: SessionId,
-        userED25519KeyPair: KeyPair,
+        userED25519SecretKey: [UInt8],
         groupIdentityPrivateKey: Data?
     ) throws -> [ConfigDump.Variant: LibSession.Config] {
-        var secretKey: [UInt8] = userED25519KeyPair.secretKey
+        guard userED25519SecretKey.count >= 32 else { throw CryptoError.missingUserSecretKey }
+        
+        var secretKey: [UInt8] = userED25519SecretKey
         var groupIdentityPublicKey: [UInt8] = groupSessionId.publicKey
         
         // Create the new config objects

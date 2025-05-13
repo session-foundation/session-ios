@@ -56,19 +56,6 @@ class IdentitySpec: QuickSpec {
                         .to(equal("Test6".data(using: .utf8)?.bytes))
                 }
             }
-            
-            // MARK: -- correctly determines if the user exists
-            it("correctly determines if the user exists") {
-                mockStorage.write { db in
-                    try Identity(variant: .ed25519PublicKey, data: "Test3".data(using: .utf8)!).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: "Test4".data(using: .utf8)!).insert(db)
-                }
-
-                mockStorage.read { db in
-                    expect(Identity.userExists(db, using: dependencies))
-                        .to(equal(true))
-                }
-            }
         }
     }
 }

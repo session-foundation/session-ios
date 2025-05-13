@@ -45,9 +45,9 @@ extension PushNotificationAPI {
             try container.encode(timestamp, forKey: .timestamp)
             
             switch authMethod.info {
-                case .standard(let sessionId, let ed25519KeyPair):
+                case .standard(let sessionId, let ed25519PublicKey):
                     try container.encode(sessionId.hexString, forKey: .pubkey)
-                    try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
+                    try container.encode(ed25519PublicKey.toHexString(), forKey: .ed25519PublicKey)
                     
                 case .groupAdmin(let sessionId, _):
                     try container.encode(sessionId.hexString, forKey: .pubkey)

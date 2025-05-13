@@ -859,73 +859,48 @@ public final class OpenGroupManager {
             .filter(targetRoles.contains(GroupMember.Columns.role))
             .isNotEmpty(db)
         
-        // If the publicKey provided matches a mod or admin directly then just return immediately
+        /// If the `publicKey` provided matches a mod or admin directly then just return immediately
         if isDirectModOrAdmin { return true }
         
-        // Otherwise we need to check if it's a variant of the current users key and if so we want
-        // to check if any of those have mod/admin entries
-        guard let sessionId: SessionId = try? SessionId(from: publicKey) else { return false }
+        /// Otherwise we need to check if the provided `publicKey` is a variant of the current users key so we need to generate each
+        /// variant in order to compare
+        guard
+            let sessionId: SessionId = try? SessionId(from: publicKey),
+            sessionId.prefix != .group,
+            let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+            ),
+            let openGroupPublicKey: String = try? OpenGroup
+                .select(.publicKey)
+                .filter(id: groupId)
+                .asRequest(of: String.self)
+                .fetchOne(db),
+            let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .blinded15KeyPair(
+                    serverPublicKey: openGroupPublicKey,
+                    ed25519SecretKey: userEdKeyPair.secretKey
+                )
+            ),
+            let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .blinded25KeyPair(
+                    serverPublicKey: openGroupPublicKey,
+                    ed25519SecretKey: userEdKeyPair.secretKey
+                )
+            )
+        else { return false }
         
-        // Conveniently the logic for these different cases works in order so we can fallthrough each
-        // case with only minor efficiency losses
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let possibleKeys: Set<String> = Set([
+            dependencies[cache: .general].sessionId.hexString,
+            SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
+            SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
+            SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
+        ])
         
-        switch sessionId.prefix {
-            case .standard:
-                guard publicKey == userSessionId.hexString else { return false }
-                fallthrough
-                
-            case .unblinded:
-                guard let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    return false
-                }
-                guard sessionId.prefix != .unblinded || publicKey == SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString else {
-                    return false
-                }
-                fallthrough
-                
-            case .blinded15, .blinded25:
-                guard
-                    let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                    let openGroupPublicKey: String = try? OpenGroup
-                        .select(.publicKey)
-                        .filter(id: groupId)
-                        .asRequest(of: String.self)
-                        .fetchOne(db),
-                    let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .blinded15KeyPair(serverPublicKey: openGroupPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
-                    ),
-                    let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .blinded25KeyPair(serverPublicKey: openGroupPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
-                    )
-                else { return false }
-                guard
-                    (
-                        sessionId.prefix != .blinded15 &&
-                        sessionId.prefix != .blinded25
-                    ) ||
-                    publicKey == SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString ||
-                    publicKey == SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-                else { return false }
-                
-                // If we got to here that means that the 'publicKey' value matches one of the current
-                // users 'standard', 'unblinded' or 'blinded' keys and as such we should check if any
-                // of them exist in the `modsAndAminKeys` Set
-                let possibleKeys: Set<String> = Set([
-                    userSessionId.hexString,
-                    SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
-                    SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
-                    SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-                ])
-                
-                return GroupMember
-                    .filter(GroupMember.Columns.groupId == groupId)
-                    .filter(possibleKeys.contains(GroupMember.Columns.profileId))
-                    .filter(targetRoles.contains(GroupMember.Columns.role))
-                    .isNotEmpty(db)
-            
-            case .group: return false
-        }
+        return GroupMember
+            .filter(GroupMember.Columns.groupId == groupId)
+            .filter(possibleKeys.contains(GroupMember.Columns.profileId))
+            .filter(targetRoles.contains(GroupMember.Columns.role))
+            .isNotEmpty(db)
     }
 }
 

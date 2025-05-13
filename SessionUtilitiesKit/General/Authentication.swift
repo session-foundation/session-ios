@@ -52,7 +52,7 @@ public extension Authentication {
 public extension Authentication {
     enum Info: Equatable {
         /// Used for when interacting as the current user
-        case standard(sessionId: SessionId, ed25519KeyPair: KeyPair)
+        case standard(sessionId: SessionId, ed25519PublicKey: [UInt8])
         
         /// Used for when interacting as a group admin
         case groupAdmin(groupSessionId: SessionId, ed25519SecretKey: [UInt8])

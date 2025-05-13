@@ -1368,7 +1368,7 @@ public enum OpenGroupAPI {
         using dependencies: Dependencies
     ) throws -> (publicKey: String, signature: [UInt8]) {
         guard
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            !dependencies[cache: .general].ed25519SecretKey.isEmpty,
             let serverPublicKey: String = try? OpenGroup
                 .select(.publicKey)
                 .filter(OpenGroup.Columns.server == serverName.lowercased())
@@ -1387,10 +1387,17 @@ public enum OpenGroupAPI {
         if forceBlinded || capabilities.isEmpty || capabilities.contains(.blind) {
             guard
                 let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded15KeyPair(serverPublicKey: serverPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
+                    .blinded15KeyPair(
+                        serverPublicKey: serverPublicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 ),
                 let signatureResult: [UInt8] = dependencies[singleton: .crypto].generate(
-                    .signatureBlind15(message: messageBytes, serverPublicKey: serverPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
+                    .signatureBlind15(
+                        message: messageBytes,
+                        serverPublicKey: serverPublicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 )
             else { throw OpenGroupAPIError.signingFailed }
 
@@ -1405,13 +1412,19 @@ public enum OpenGroupAPI {
             case .unblinded:
                 guard
                     let signature: Authentication.Signature = dependencies[singleton: .crypto].generate(
-                        .signature(message: messageBytes, ed25519SecretKey: userEdKeyPair.secretKey)
+                        .signature(
+                            message: messageBytes,
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                        )
+                    ),
+                    let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
                     ),
                     case .standard(let signatureResult) = signature
                 else { throw OpenGroupAPIError.signingFailed }
 
                 return (
-                    publicKey: SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
+                    publicKey: SessionId(.unblinded, publicKey: ed25519KeyPair.publicKey).hexString,
                     signature: signatureResult
                 )
                 

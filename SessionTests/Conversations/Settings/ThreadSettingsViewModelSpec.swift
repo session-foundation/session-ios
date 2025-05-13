@@ -85,7 +85,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     .thenReturn(())
                 cache.when { $0.isEmpty }.thenReturn(false)
                 cache
-                    .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
+                    .when { try $0.pendingChanges(swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingChanges())
             }
         )

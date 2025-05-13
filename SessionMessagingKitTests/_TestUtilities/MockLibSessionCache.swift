@@ -70,8 +70,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         try mockThrowingNoReturn(args: [variant, sessionId], untrackedArgs: [db, change])
     }
     
-    func pendingChanges(_ db: Database, swarmPublicKey: String) throws -> LibSession.PendingChanges {
-        return mock(args: [swarmPublicKey], untrackedArgs: [db])
+    func pendingChanges(swarmPublicKey: String) throws -> LibSession.PendingChanges {
+        return mock(args: [swarmPublicKey])
     }
     
     func createDumpMarkingAsPushed(

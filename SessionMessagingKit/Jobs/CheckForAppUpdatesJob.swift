@@ -47,16 +47,10 @@ public enum CheckForAppUpdatesJob: JobExecutor {
             return deferred(updatedJob)
         }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> [UInt8]? in Identity.fetchUserEd25519KeyPair(db)?.secretKey }
+        dependencies[singleton: .network]
+            .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
-            .tryFlatMap { maybeEd25519SecretKey -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> in
-                guard let ed25519SecretKey: [UInt8] = maybeEd25519SecretKey else { throw StorageError.objectNotFound }
-                
-                return dependencies[singleton: .network]
-                    .checkClientVersion(ed25519SecretKey: ed25519SecretKey)
-            }
             .sinkUntilComplete(
                 receiveCompletion: { _ in
                     var updatedJob: Job = job.with(
