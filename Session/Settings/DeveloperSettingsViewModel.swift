@@ -35,6 +35,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
+        case sessionNetwork
         case general
         case logging
         case network
@@ -45,6 +46,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         var title: String? {
             switch self {
                 case .developerMode: return nil
+                case .sessionNetwork: return "Session Network"
                 case .general: return "General"
                 case .logging: return "Logging"
                 case .network: return "Network"
@@ -64,6 +66,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
+        
+        case versionBlindedID
+        case scheduleLocalNotification
         
         case animationsEnabled
         case showStringKeys
@@ -126,6 +131,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
+                case .versionBlindedID: return "versionBlindedID"
+                case .scheduleLocalNotification: return "scheduleLocalNotification"
+
                 case .createMockContacts: return "createMockContacts"
                 case .copyDatabasePath: return "copyDatabasePath"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
@@ -167,6 +175,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
+                case .versionBlindedID: result.append(.versionBlindedID); fallthrough
+                case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
+                
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
@@ -182,6 +193,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private struct State: Equatable {
         let developerMode: Bool
+        let versionBlindedID: String?
         
         let animationsEnabled: Bool
         let showStringKeys: Bool
@@ -213,8 +225,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     lazy var observation: TargetObservation = ObservationBuilder
         .refreshableData(self) { [weak self, dependencies] () -> State in
-            State(
+            let versionBlindedID: String? = {
+                guard
+                    let userEdKeyPair: KeyPair = dependencies[singleton: .storage].read({ Identity.fetchUserEd25519KeyPair($0) }),
+                    let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .versionBlinded07KeyPair(ed25519SecretKey: userEdKeyPair.secretKey)
+                    )
+                else {
+                    return nil
+                }
+                return SessionId(.versionBlinded07, publicKey: blinded07KeyPair.publicKey).hexString
+            }()
+            
+
+            return State(
                 developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
+                versionBlindedID: versionBlindedID,
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
                 
@@ -737,6 +763,41 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        let sessionNetwork: SectionModel = SectionModel(
+            model: .sessionNetwork,
+            elements: [
+                (current.versionBlindedID == nil ? nil :
+                    SessionCell.Info(
+                        id: .versionBlindedID,
+                        title: "Version Blinded ID",
+                        subtitle: current.versionBlindedID!,
+                        trailingAccessory: .button(
+                            style: .bordered,
+                            title: "copy".localized(),
+                            run: { [weak self] button in
+                                self?.copyVersionBlindedID(current.versionBlindedID!, button: button)
+                            }
+                        )
+                    )
+                ),
+                SessionCell.Info(
+                    id: .scheduleLocalNotification,
+                    title: "Schedule Local Notification",
+                    subtitle: """
+                    Schedule a local notifcation in 10 seconds from click
+                    
+                    Note: local scheduled notifcations are not reliable on Simulators
+                    """,
+                    trailingAccessory: .button(
+                        style: .bordered,
+                        title: "Fire",
+                        run: { [weak self] button in
+                            self?.scheduleLocalNotification(button: button)
+                        }
+                    )
+                )
+            ].compactMap { $0 }
+        )
         
         return [
             developerMode,
@@ -745,6 +806,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             network,
             disappearingMessages,
             groups,
+            sessionNetwork,
             database
         ]
     }
@@ -757,6 +819,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         TableItem.allCases.forEach { item in
             switch item {
                 case .developerMode: break      // Not a feature
+                case .versionBlindedID: break               // Not a feature
+                case .scheduleLocalNotification: break      // Not a feature
+                
                 case .animationsEnabled:
                     guard dependencies.hasSet(feature: .animationsEnabled) else { return }
                     
@@ -860,7 +925,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         self.dismissScreen(type: .pop)
     }
-    
+
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
         dependencies.set(feature: .logLevel(cat: .default), to: updatedDefaultLogLevel)
         forceRefresh(type: .databaseQuery)
@@ -1180,6 +1245,78 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             text: "copied".localized(),
             backgroundColor: .backgroundSecondary
         )
+    }
+    
+    // MARK: - SESH
+    
+    private func scheduleLocalNotification(button: SessionButton?) {
+        dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: true)
+        
+        guard let button: SessionButton = button else { return }
+        
+        // Ensure we are on the main thread just in case
+        DispatchQueue.main.async {
+            button.isUserInteractionEnabled = false
+            
+            UIView.transition(
+                with: button,
+                duration: 0.25,
+                options: .transitionCrossDissolve,
+                animations: {
+                    button.setTitle("Fired", for: .normal)
+                },
+                completion: { _ in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(12)) {
+                        button.isUserInteractionEnabled = true
+                    
+                        UIView.transition(
+                            with: button,
+                            duration: 0.25,
+                            options: .transitionCrossDissolve,
+                            animations: {
+                                button.setTitle("Fire", for: .normal)
+                            },
+                            completion: nil
+                        )
+                    }
+                }
+            )
+        }
+    }
+        
+    private func copyVersionBlindedID(_ versionBlindedID: String, button: SessionButton?) {
+        UIPasteboard.general.string = versionBlindedID
+        
+        guard let button: SessionButton = button else { return }
+        
+        // Ensure we are on the main thread just in case
+        DispatchQueue.main.async {
+            button.isUserInteractionEnabled = false
+            
+            UIView.transition(
+                with: button,
+                duration: 0.25,
+                options: .transitionCrossDissolve,
+                animations: {
+                    button.setTitle("copied".localized(), for: .normal)
+                },
+                completion: { _ in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
+                        button.isUserInteractionEnabled = true
+                    
+                        UIView.transition(
+                            with: button,
+                            duration: 0.25,
+                            options: .transitionCrossDissolve,
+                            animations: {
+                                button.setTitle("copy".localized(), for: .normal)
+                            },
+                            completion: nil
+                        )
+                    }
+                }
+            )
+        }
     }
     
     // MARK: - Export and Import

@@ -61,9 +61,6 @@ public struct ToastModifier: ViewModifier {
 public struct ToastView_SwiftUI: View {
     var message: String
     
-    static let width: CGFloat = 320
-    static let height: CGFloat = 44
-    
     public init(_ message: String) {
         self.message = message
     }
@@ -73,11 +70,11 @@ public struct ToastView_SwiftUI: View {
             spacing: 0
         ) {
             Text(message)
-                .font(.system(size: Values.mediumFontSize))
+                .font(.Body.largeRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .multilineTextAlignment(.center)
+                .padding(.vertical, Values.mediumSmallSpacing)
                 .padding(.horizontal, Values.largeSpacing)
-                .frame(height: Self.height)
                 .background(
                     Capsule()
                         .foregroundColor(themeColor: .toast_background)

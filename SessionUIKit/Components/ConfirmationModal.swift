@@ -131,6 +131,27 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero)
     
+    private lazy var textToConfirmContainer: UIView = {
+        let result: UIView = UIView()
+        result.themeBorderColor = .borderSeparator
+        result.layer.cornerRadius = 11
+        result.layer.borderWidth = 1
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var textToConfirmLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .alert_text
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var confirmButton: UIButton = {
         let result: UIButton = Modal.createButton(
             title: "",
@@ -150,7 +171,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textViewContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textToConfirmContainer, textViewContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -226,6 +247,9 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         textFieldContainer.addSubview(textField)
         textField.pin(to: textFieldContainer, withInset: 12)
+        
+        textToConfirmContainer.addSubview(textToConfirmLabel)
+        textToConfirmLabel.pin(to: textToConfirmContainer, withInset: 12)
         
         textViewContainer.addSubview(textView)
         textViewContainer.addSubview(textViewPlaceholder)
@@ -405,7 +429,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 internalOnBodyTap = onClick
                 contentTapGestureRecognizer.isEnabled = false
                 imageViewTapGestureRecognizer.isEnabled = true
-        }
+            
+            case .inputConfirmation(let explanation, let textToConfirm):
+                explanationLabel.attributedText = explanation
+                explanationLabel.scrollMode = .never
+                explanationLabel.isHidden = (explanation == nil)
+                textToConfirmLabel.attributedText = textToConfirm
+                textToConfirmContainer.isHidden = false
+            }
         
         confirmButton.accessibilityIdentifier = info.confirmTitle
         confirmButton.isAccessibilityElement = true
@@ -815,6 +846,11 @@ public extension ConfirmationModal.Info {
             onClick: ((@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
+        case inputConfirmation(
+            explanation: NSAttributedString?,
+            textToConfirm: NSAttributedString?
+        )
+        
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {
             switch (lhs, rhs) {
                 case (.none, .none): return true
@@ -880,7 +916,11 @@ public extension ConfirmationModal.Info {
                     icon.hash(into: &hasher)
                     style.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
-            }
+                
+                case .inputConfirmation(let explanation, let textToConfirm):
+                    explanation.hash(into: &hasher)
+                    textToConfirm.hash(into: &hasher)
+                }
         }
     }
 }

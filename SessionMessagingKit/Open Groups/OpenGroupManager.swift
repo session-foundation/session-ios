@@ -924,7 +924,7 @@ public final class OpenGroupManager {
                     .filter(targetRoles.contains(GroupMember.Columns.role))
                     .isNotEmpty(db)
             
-            case .group: return false
+            case .group, .versionBlinded07: return false
         }
     }
 }

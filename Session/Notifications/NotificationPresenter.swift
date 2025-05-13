@@ -417,6 +417,28 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
     }
+    
+    // MARK: - Schedule New Session Network Page local notifcation
+    
+    public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {
+        guard dependencies[defaults: .standard, key: .isSessionNetworkPageNotificationScheduled] != true || force else { return }
+        
+        let identifier: String = "sessionNetworkPageLocalNotifcation_\(UUID().uuidString)" // stringlint:disable
+        
+        // Schedule the notification after 1 hour
+        scheduleNotification(
+            category: AppNotificationCategory.info,
+            title: Constants.app_name,
+            body: "sessionNetworkNotification".localized(),
+            after: (force ? 10 : 3600),
+            userInfo: [:],
+            sound: Preferences.Sound.defaultNotificationSound,
+            applicationState: dependencies[singleton: .appContext].reportedApplicationState,
+            identifier: identifier
+        )
+        
+        dependencies[defaults: .standard, key: .isSessionNetworkPageNotificationScheduled] = true
+    }
 }
  
 // MARK: - Convenience
@@ -561,6 +583,84 @@ private extension NotificationPresenter {
 
         _mostRecentNotifications.performUpdate { $0.appending(nowMs) }
         return true
+    }
+    
+    private func scheduleNotification(
+        category: AppNotificationCategory,
+        title: String?,
+        body: String,
+        date: DateComponents,
+        userInfo: [AnyHashable : Any],
+        sound: Preferences.Sound?,
+        applicationState: UIApplication.State,
+        identifier: String?
+    ) {
+        let content = UNMutableNotificationContent()
+        content.categoryIdentifier = category.identifier
+        content.userInfo = userInfo
+        content.title = title ?? Constants.app_name
+        content.body = body
+
+        if let sound = sound, sound != .none {
+            content.sound = sound.notificationSound(isQuiet: (applicationState == .active))
+        }
+        
+        let notificationIdentifier: String = (identifier ?? UUID().uuidString)
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: false)
+        
+        let request = UNNotificationRequest(
+            identifier: notificationIdentifier,
+            content: content,
+            trigger: trigger
+        )
+
+        notificationCenter.add(request) { error in
+            if let error = error {
+                Log.debug("Failed to schedule notification: \(error.localizedDescription)")
+            } else {
+                Log.debug("Schedule notification successful with id: \(notificationIdentifier)")
+            }
+        }
+    }
+    
+    private func scheduleNotification(
+        category: AppNotificationCategory,
+        title: String?,
+        body: String,
+        after timeInterval: TimeInterval,
+        userInfo: [AnyHashable: Any],
+        sound: Preferences.Sound?,
+        applicationState: UIApplication.State,
+        identifier: String?
+    ) {
+        let content = UNMutableNotificationContent()
+        content.categoryIdentifier = category.identifier
+        content.userInfo = userInfo
+        content.title = title ?? Constants.app_name
+        content.body = body
+
+        if let sound = sound, sound != .none {
+            content.sound = sound.notificationSound(isQuiet: (applicationState == .active))
+        }
+        
+        let notificationIdentifier: String = (identifier ?? UUID().uuidString)
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: false)
+        
+        let request = UNNotificationRequest(
+            identifier: notificationIdentifier,
+            content: content,
+            trigger: trigger
+        )
+
+        notificationCenter.add(request) { error in
+            if let error = error {
+                Log.debug("Failed to schedule notification: \(error.localizedDescription)")
+            } else {
+                Log.debug("Schedule notification successful with id: \(notificationIdentifier)")
+            }
+        }
     }
 }
 

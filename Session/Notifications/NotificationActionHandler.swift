@@ -57,13 +57,21 @@ public class NotificationActionHandler {
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
         let applicationState: UIApplication.State = UIApplication.shared.applicationState
+        let categoryIdentifier = response.notification.request.content.categoryIdentifier
 
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
                 Log.debug("[NotificationActionHandler] Default action")
-                return showThread(userInfo: userInfo)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                switch categoryIdentifier {
+                    case AppNotificationCategory.info.identifier:
+                        return showPromotedScreen()
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    default:
+                        return showThread(userInfo: userInfo)
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                }
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO - mark as read?
@@ -219,6 +227,11 @@ public class NotificationActionHandler {
     
     func showHomeVC() -> AnyPublisher<Void, Never> {
         dependencies[singleton: .app].showHomeView()
+        return Just(()).eraseToAnyPublisher()
+    }
+    
+    func showPromotedScreen() -> AnyPublisher<Void, Never> {
+        dependencies[singleton: .app].showPromotedScreen()
         return Just(()).eraseToAnyPublisher()
     }
     

@@ -374,6 +374,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
+        viewModel.dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: false)
+        
         self.viewHasAppeared = true
         self.autoLoadNextPageIfNeeded()
     }
