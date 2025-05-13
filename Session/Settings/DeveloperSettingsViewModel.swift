@@ -1082,7 +1082,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         Onboarding.Cache(
             ed25519KeyPair: identityData.ed25519KeyPair,
             x25519KeyPair: identityData.x25519KeyPair,
-            displayName: Profile.fetchOrCreateCurrentUser(using: dependencies)
+            displayName: dependencies
+                .mutate(cache: .libSession) { $0.profile }
                 .name
                 .nullIfEmpty
                 .defaulting(to: "Anonymous"),

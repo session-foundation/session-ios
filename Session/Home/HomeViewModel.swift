@@ -55,7 +55,7 @@ public class HomeViewModel: NavigatableStateHolder {
             showViewedSeedBanner: (initialState?.showViewedSeedBanner ?? true),
             hasHiddenMessageRequests: (initialState?.hasHiddenMessageRequests ?? false),
             unreadMessageRequestThreadCount: 0,
-            userProfile: (initialState?.userProfile ?? Profile.fetchOrCreateCurrentUser(using: dependencies))
+            userProfile: (initialState?.userProfile ?? dependencies.mutate(cache: .libSession) { $0.profile })
         )
         self.pagedDataObserver = nil
         

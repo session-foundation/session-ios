@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionSnodeKit
+import SessionUIKit
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -859,10 +860,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         groupEd25519SecretKey: [UInt8]?,
         cachedData: Data?
     ) throws -> LibSession.Config
-    func loadAdminKey(
-        groupIdentitySeed: Data,
-        groupSessionId: SessionId,
-    ) throws
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config?
     func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config)
@@ -923,6 +920,15 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Access
     
+    var displayName: String? { get }
+    func has(_ key: Setting.BoolKey) -> Bool
+    func get(_ key: Setting.BoolKey) -> Bool
+    func updateProfile(
+        displayName: String,
+        profilePictureUrl: String?,
+        profileEncryptionKey: Data?
+    ) throws
+    
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -972,15 +978,21 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     func isContactBlocked(contactId: String) -> Bool
     func profile(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
         contactId: String,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile?
     
     func hasCredentials(groupSessionId: SessionId) -> Bool
     func secretKey(groupSessionId: SessionId) -> [UInt8]?
     func isAdmin(groupSessionId: SessionId) -> Bool
+    func loadAdminKey(
+        groupIdentitySeed: Data,
+        groupSessionId: SessionId,
+    ) throws
+    func markAsInvited(groupSessionIds: [String]) throws
+    func markAsKicked(groupSessionIds: [String]) throws
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool
     func groupName(groupSessionId: SessionId) -> String?
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool
@@ -995,6 +1007,19 @@ public extension LibSessionCacheType {
     
     func loadState(_ db: Database) {
         loadState(db, requestId: nil)
+    }
+    
+    var profile: Profile {
+        return profile(contactId: userSessionId.hexString, threadId: nil, threadVariant: nil, visibleMessage: nil)
+            .defaulting(to: Profile(id: userSessionId.hexString, name: "anonymous".localized()))
+    }
+    
+    func profile(contactId: String) -> Profile? {
+        return profile(contactId: contactId, threadId: nil, threadVariant: nil, visibleMessage: nil)
+    }
+    
+    func updateProfile(displayName: String) throws {
+        try updateProfile(displayName: displayName, profilePictureUrl: nil, profileEncryptionKey: nil)
     }
 }
 
@@ -1089,6 +1114,16 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - State Access
     
+    var displayName: String? { return nil }
+    
+    func has(_ key: Setting.BoolKey) -> Bool { return false }
+    func get(_ key: Setting.BoolKey) -> Bool { return false }
+    func updateProfile(
+        displayName: String,
+        profilePictureUrl: String?,
+        profileEncryptionKey: Data?
+    ) throws {}
+    
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -1135,15 +1170,17 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     func isContactBlocked(contactId: String) -> Bool { return false }
     func profile(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
         contactId: String,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile? { return nil }
     
     func hasCredentials(groupSessionId: SessionId) -> Bool { return false }
     func secretKey(groupSessionId: SessionId) -> [UInt8]? { return nil }
     func isAdmin(groupSessionId: SessionId) -> Bool { return false }
+    func markAsInvited(groupSessionIds: [String]) throws {}
+    func markAsKicked(groupSessionIds: [String]) throws {}
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool { return false }
     func groupName(groupSessionId: SessionId) -> String? { return nil }
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool { return false }

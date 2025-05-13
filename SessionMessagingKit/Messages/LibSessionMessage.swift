@@ -73,4 +73,23 @@ public extension LibSessionMessage {
         
         return (SessionId(.standard, publicKey: Array(plaintext[0..<pubkeyBytesCount])), currentGen)
     }
+    
+    static func validateGroupKickedMessage(
+        plaintext: Data,
+        userSessionId: SessionId,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws {
+        /// Ignore the message if the `memberSessionIds` doesn't contain the current users session id,
+        /// it was sent before the user joined the group or if the `adminSignature` isn't valid
+        guard
+            let (memberId, keysGen): (SessionId, Int) = try? LibSessionMessage.groupKicked(plaintext: plaintext),
+            let currentKeysGen: Int = try? LibSession.currentGeneration(
+                groupSessionId: groupSessionId,
+                using: dependencies
+            ),
+            memberId == userSessionId,
+            keysGen >= currentKeysGen
+        else { throw MessageReceiverError.invalidMessage }
+    }
 }

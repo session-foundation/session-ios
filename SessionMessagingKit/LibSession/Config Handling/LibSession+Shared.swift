@@ -197,26 +197,6 @@ internal extension LibSession {
         return updated
     }
     
-    static func hasSetting(
-        _ db: Database,
-        forKey key: String,
-        using dependencies: Dependencies
-    ) throws -> Bool {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        // Currently the only synced setting is 'checkForCommunityMessageRequests'
-        switch key {
-            case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                return dependencies.mutate(cache: .libSession) { cache in
-                    let config: LibSession.Config? = cache.config(for: .userProfile, sessionId: userSessionId)
-                    
-                    return (((try? LibSession.rawBlindedMessageRequestValue(in: config)) ?? 0) >= 0)
-                }
-                
-            default: return false
-        }
-    }
-    
     static func updatingSetting(
         _ db: Database,
         _ updated: Setting?,
@@ -344,6 +324,29 @@ internal extension LibSession {
 // MARK: - State Access
 
 public extension LibSession.Cache {
+    func has(_ key: Setting.BoolKey) -> Bool {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+            return false
+        }
+        
+        /// If a `bool` value doesn't exist then we return a negative value
+        switch key {
+            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) >= 0)
+            default: return false
+        }
+    }
+    
+    func get(_ key: Setting.BoolKey) -> Bool {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+            return false
+        }
+        
+        switch key {
+            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) > 0)
+            default: return false
+        }
+    }
+    
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -469,9 +472,9 @@ public extension LibSession.Cache {
                 guard contactProfile == nil else { break }
                 
                 finalProfile = profile(
+                    contactId: threadId,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    contactId: threadId,
                     visibleMessage: visibleMessage
                 )
                 
@@ -823,9 +826,9 @@ public extension LibSession.Cache {
     }
     
     func profile(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
         contactId: String,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile? {
         // FIXME: Once `libSession` manages unsynced "Profile" data we should source this from there
@@ -837,11 +840,35 @@ public extension LibSession.Cache {
             return fallbackProfile
         }
         
+        /// If we are trying to retrive the profile for the current user then we need to extract it from the `UserProfile` config
+        guard contactId != userSessionId.hexString else {
+            guard
+                case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
+                let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
+            else {
+                return nil
+            }
+            
+            let profilePic: user_profile_pic = user_profile_get_pic(conf)
+            let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
+            
+            return Profile(
+                id: contactId,
+                name: String(cString: profileNamePtr),
+                lastNameUpdate: nil,
+                nickname: nil,
+                profilePictureUrl: profilePictureUrl,
+                profileEncryptionKey: (profilePictureUrl == nil ? nil : profilePic.get(\.key)),
+                lastProfilePictureUpdate: nil
+            )
+        }
+        
         /// Define a function to extract a profile from the `GroupMembers` config, if we can't get a direct name for the contact and it's
         /// a group conversation then be might be able to source it from there
         func extractGroupMembersProfile() -> Profile? {
             guard
                 threadVariant == .group,
+                let threadId: String = threadId,
                 case .groupMembers(let conf) = config(for: .contacts, sessionId: SessionId(.group, hex: threadId))
             else { return nil }
             

@@ -53,6 +53,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .userProfile, sessionId: userSessionId, to: userProfileConfig)
+        
         let userProfile: Row? = try? Row.fetchOne(
             db,
             sql: """
@@ -62,13 +64,10 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             """,
             arguments: [userSessionId.hexString]
         )
-        try LibSession.update(
-            profileInfo: LibSession.ProfileInfo(
-                name: (userProfile?["name"] ?? ""),
-                profilePictureUrl: userProfile?["profilePictureUrl"],
-                profileEncryptionKey: userProfile?["profileEncryptionKey"]
-            ),
-            in: userProfileConfig
+        try cache.updateProfile(
+            displayName: (userProfile?["name"] ?? ""),
+            profilePictureUrl: userProfile?["profilePictureUrl"],
+            profileEncryptionKey: userProfile?["profileEncryptionKey"]
         )
         
         try LibSession.updateNoteToSelf(
@@ -106,6 +105,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .contacts, sessionId: userSessionId, to: contactsConfig)
+        
         let validContactIds: [String] = allThreads
             .values
             .filter { thread in
@@ -199,6 +200,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .convoInfoVolatile, sessionId: userSessionId, to: convoInfoVolatileConfig)
+        
         let volatileThreadInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT
                 thread.id,
@@ -287,6 +290,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .userGroups, sessionId: userSessionId, to: userGroupsConfig)
+        
         let legacyGroupInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT
                 closedGroup.threadId,

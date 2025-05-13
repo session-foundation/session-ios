@@ -68,7 +68,7 @@ internal extension LibSession {
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         let creationTimestamp: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+        let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         // Create the new config objects
         let groupState: [ConfigDump.Variant: Config] = try createGroupState(
