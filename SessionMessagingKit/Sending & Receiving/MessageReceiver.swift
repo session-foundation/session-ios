@@ -194,11 +194,9 @@ public enum MessageReceiver {
         
         // Don't process the envelope any further if the sender is blocked
         guard
-            dependencies.mutate(cache: .libSession, { cache in
-                cache
-                    .config(for: .contacts, sessionId: userSessionId)?
-                    .isContactBlocked(publicKey: sender)
-            }) != true ||
+            !dependencies.mutate(cache: .libSession, { cache in
+                cache.isContactBlocked(contactId: sender)
+            }) ||
             message.processWithBlockedSender
         else { throw MessageReceiverError.senderBlocked }
         
@@ -245,12 +243,15 @@ public enum MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         using dependencies: Dependencies
     ) throws {
-        // Throw if the message is outdated and shouldn't be processed
+        /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
+        /// has been updated since the message was sent - this should be reworked to be less edge-case prone in the future)
         try throwIfMessageOutdated(
-            db,
             message: message,
             threadId: threadId,
             threadVariant: threadVariant,
+            openGroupUrlInfo: (threadVariant != .community ? nil :
+                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
+            ),
             using: dependencies
         )
         
@@ -481,92 +482,86 @@ public enum MessageReceiver {
     }
     
     public static func throwIfMessageOutdated(
-        _ db: Database,
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        switch message {
-            case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
-            case is UnsendRequest: return // We should always process the removal of messages just in case
-            default: break
+        // TODO: [Database Relocation] Need the "deleted_contacts" logic to handle the 'throwIfMessageOutdated' case
+        // TODO: [Database Relocation] Need a way to detect _when_ the NTS conversation was hidden (so an old message won't re-show it)
+        switch (threadVariant, message) {
+            case (_, is ReadReceipt): return /// No visible artifact created so better to keep for more reliable read states
+            case (_, is UnsendRequest): return /// We should always process the removal of messages just in case
+            
+            /// These group update messages update the group state so should be processed even if they were old
+            case (.group, is GroupUpdateInviteResponseMessage): return
+            case (.group, is GroupUpdateDeleteMemberContentMessage): return
+            case (.group, is GroupUpdateMemberLeftMessage): return
+            
+            /// No special logic for these, just make sure that either the conversation is already visible, or we are allowed to
+            /// make a config change
+            case (.contact, _), (.community, _), (.legacyGroup, _): break
+                
+            /// If the destination is a group then ensure:
+            /// • We have credentials
+            /// • The group hasn't been destroyed
+            /// • The user wasn't kicked from the group
+            /// • The message wasn't sent before all messages/attachments were deleted
+            case (.group, _):
+                let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) / 1000)
+                let groupSessionId: SessionId = SessionId(.group, hex: threadId)
+                
+                /// Ensure the group is able to receive messages
+                try dependencies.mutate(cache: .libSession) { cache in
+                    guard
+                        cache.hasCredentials(groupSessionId: groupSessionId),
+                        !cache.groupIsDestroyed(groupSessionId: groupSessionId),
+                        !cache.wasKickedFromGroup(groupSessionId: groupSessionId)
+                    else { throw MessageReceiverError.outdatedMessage }
+                    
+                    return
+                }
+                
+                /// Ensure the message shouldn't have been deleted
+                try dependencies.mutate(cache: .libSession) { cache in
+                    let deleteBefore: TimeInterval = (cache.groupDeleteBefore(groupSessionId: groupSessionId) ?? 0)
+                    let deleteAttachmentsBefore: TimeInterval = (cache.groupDeleteAttachmentsBefore(groupSessionId: groupSessionId) ?? 0)
+                    
+                    guard
+                        messageSentTimestamp > deleteBefore && (
+                            (message as? VisibleMessage)?.dataMessageHasAttachments == false ||
+                            messageSentTimestamp > deleteAttachmentsBefore
+                        )
+                    else { throw MessageReceiverError.outdatedMessage }
+                    
+                    return
+                }
         }
         
-        // If the destination is a group conversation that has been destroyed then the message is outdated
-        guard
-            threadVariant != .group ||
-            !LibSession.groupIsDestroyed(
-                groupSessionId: SessionId(.group, hex: threadId),
-                using: dependencies
+        /// If the conversation is not visible in the config and the message was sent before the last config update (minus a buffer period)
+        /// then we can assume that the user has hidden/deleted the conversation and it shouldn't be reshown by this (old) message
+        try dependencies.mutate(cache: .libSession) { cache in
+            let conversationInConfig: Bool? = cache.conversationInConfig(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                visibleOnly: true,
+                openGroupUrlInfo: openGroupUrlInfo
             )
-        else { throw MessageReceiverError.outdatedMessage }
-        
-        // Determine if it's a group conversation that received a deletion instruction after this
-        // message was sent (if so then it's outdated)
-        let deletionInstructionSentAfterThisMessage: Bool = {
-            guard threadVariant == .group else { return false }
+            let canPerformConfigChange: Bool? = cache.canPerformChange(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                changeTimestampMs: message.sentTimestampMs
+                    .map { Int64($0) }
+                    .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+            )
             
-            // These group update messages update the group state so should be processed even
-            // if they were old
-            switch message {
-                case is GroupUpdateInviteResponseMessage: return false
-                case is GroupUpdateDeleteMemberContentMessage: return false
-                case is GroupUpdateMemberLeftMessage: return false
+            switch (conversationInConfig, canPerformConfigChange) {
+                case (false, false): throw MessageReceiverError.outdatedMessage
                 default: break
             }
-            
-            // Note: 'sentTimestamp' is in milliseconds so convert it
-            let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) / 1000)
-            let deletionInfo: (deleteBefore: TimeInterval, deleteAttachmentsBefore: TimeInterval) = dependencies.mutate(cache: .libSession) { cache in
-                let config: LibSession.Config? = cache.config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
-                
-                return (
-                    ((try? LibSession.groupDeleteBefore(in: config)) ?? 0),
-                    ((try? LibSession.groupAttachmentDeleteBefore(in: config)) ?? 0)
-                )
-            }
-            
-            return (
-                deletionInfo.deleteBefore > messageSentTimestamp || (
-                    (message as? VisibleMessage)?.dataMessageHasAttachments == true &&
-                    deletionInfo.deleteAttachmentsBefore > messageSentTimestamp
-                )
-            )
-        }()
-        
-        guard !deletionInstructionSentAfterThisMessage else { throw MessageReceiverError.outdatedMessage }
-        
-        // If the conversation is not visible in the config and the message was sent before the last config
-        // update (minus a buffer period) then we can assume that the user has hidden/deleted the conversation
-        // and it shouldn't be reshown by this (old) message
-        let conversationVisibleInConfig: Bool = LibSession.conversationInConfig(
-            db,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            visibleOnly: true,
-            using: dependencies
-        )
-        let canPerformChange: Bool = LibSession.canPerformChange(
-            db,
-            threadId: threadId,
-            targetConfig: {
-                switch threadVariant {
-                    case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
-                    default: return .userGroups
-                }
-            }(),
-            changeTimestampMs: message.sentTimestampMs
-                .map { Int64($0) }
-                .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()),
-            using: dependencies
-        )
-        
-        switch (conversationVisibleInConfig, canPerformChange) {
-            case (false, false): throw MessageReceiverError.outdatedMessage
-            default: break  // Message not outdated
         }
+        
+        /// If we made it here then the message is not outdated
     }
 }

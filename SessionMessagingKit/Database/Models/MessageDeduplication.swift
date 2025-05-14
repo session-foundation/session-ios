@@ -194,6 +194,23 @@ public extension MessageDeduplication {
             throw MessageReceiverError.duplicateMessage
         }
     }
+    
+    static func ensureCallMessageIsNotADuplicate (
+        threadId: String,
+        callMessage: CallMessage?,
+        using dependencies: Dependencies
+    ) throws {
+        guard let callMessage: CallMessage = callMessage else { return }
+        
+        do {
+            try MessageDeduplication.ensureMessageIsNotADuplicate(
+                threadId: threadId,
+                uniqueIdentifier: callMessage.uuid,
+                using: dependencies
+            )
+        }
+        catch { throw MessageReceiverError.duplicatedCall }
+    }
 }
 
 // MARK: - ProcessedMessage Convenience
@@ -212,7 +229,7 @@ public extension MessageDeduplication {
         
         let standardInfo: StandardInfo? = {
             switch processedMessage {
-                case .config: return nil
+                case .config, .invalid: return nil
                 case .standard(_, let threadVariant, _, let messageInfo, _):
                     return (
                         threadVariant,
@@ -343,7 +360,7 @@ private extension MessageDeduplication {
     @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
     static func getLegacyIdentifier(for processedMessage: ProcessedMessage) -> String? {
         switch processedMessage {
-            case .config: return nil
+            case .config, .invalid: return nil
             case .standard(_, _, _, let messageInfo, _):
                 guard
                     let timestampMs: UInt64 = messageInfo.message.sentTimestampMs,

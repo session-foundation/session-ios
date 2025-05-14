@@ -79,21 +79,14 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
                 _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
-                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-                cache.when { $0.config(for: .userGroups, sessionId: .any) }
-                    .thenReturn(.userGroups(conf))
-                cache.when { $0.config(for: .groupInfo, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupInfo])
-                cache.when { $0.config(for: .groupMembers, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupMembers])
-                cache.when { $0.config(for: .groupKeys, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupKeys])
-                cache.when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }.thenReturn(nil)
-                cache.when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
-                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
+                cache.defaultInitialSetup(
+                    configs: [
+                        .userGroups: .userGroups(conf),
+                        .groupInfo: createGroupOutput.groupState[.groupInfo],
+                        .groupMembers: createGroupOutput.groupState[.groupMembers],
+                        .groupKeys: createGroupOutput.groupState[.groupKeys]
+                    ]
+                )
             }
         )
         

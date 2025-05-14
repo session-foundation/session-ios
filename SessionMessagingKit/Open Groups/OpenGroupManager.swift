@@ -564,7 +564,7 @@ public final class OpenGroupManager {
                     )
                     
                     switch processedMessage {
-                        case .config: break
+                        case .config, .invalid: break
                         case .standard(_, _, _, let messageInfo, _):
                             try MessageReceiver.handle(
                                 db,
@@ -712,7 +712,7 @@ public final class OpenGroupManager {
                 )
                 
                 switch processedMessage {
-                    case .config: break
+                    case .config, .invalid: break
                     case .standard(let threadId, _, let proto, let messageInfo, _):
                         /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
                         /// "expensive" lookup when possible
@@ -858,59 +858,41 @@ public final class OpenGroupManager {
         _ db: Database? = nil,
         publicKey: String,
         for roomToken: String?,
-        on server: String?
+        on server: String?,
+        currentUserSessionIds: Set<String>
     ) -> Bool {
         guard let roomToken: String = roomToken, let server: String = server else { return false }
         guard let db: Database = db else {
             return dependencies[singleton: .storage]
-                .read { [weak self] db in self?.isUserModeratorOrAdmin(db, publicKey: publicKey, for: roomToken, on: server) }
+                .read { [weak self] db in
+                    self?.isUserModeratorOrAdmin(
+                        db,
+                        publicKey: publicKey,
+                        for: roomToken,
+                        on: server,
+                        currentUserSessionIds: currentUserSessionIds
+                    )
+                }
                 .defaulting(to: false)
         }
 
         let groupId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
         let targetRoles: [GroupMember.Role] = [.moderator, .admin]
-        let isDirectModOrAdmin: Bool = GroupMember
-            .filter(GroupMember.Columns.groupId == groupId)
-            .filter(GroupMember.Columns.profileId == publicKey)
-            .filter(targetRoles.contains(GroupMember.Columns.role))
-            .isNotEmpty(db)
+        var possibleKeys: Set<String> = [publicKey]
         
-        /// If the `publicKey` provided matches a mod or admin directly then just return immediately
-        if isDirectModOrAdmin { return true }
-        
-        /// Otherwise we need to check if the provided `publicKey` is a variant of the current users key so we need to generate each
-        /// variant in order to compare
-        guard
-            let sessionId: SessionId = try? SessionId(from: publicKey),
-            sessionId.prefix != .group,
-            let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+        /// If the `publicKey` is in `currentUserSessionIds` then we want to use `currentUserSessionIds` to do
+        /// the lookup
+        if currentUserSessionIds.contains(publicKey) {
+            possibleKeys = currentUserSessionIds
+            
+            /// Add the users `unblinded` pubkey if we can get it, just for completeness
+            let userEdKeyPair: KeyPair? = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
-            ),
-            let openGroupPublicKey: String = try? OpenGroup
-                .select(.publicKey)
-                .filter(id: groupId)
-                .asRequest(of: String.self)
-                .fetchOne(db),
-            let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                .blinded15KeyPair(
-                    serverPublicKey: openGroupPublicKey,
-                    ed25519SecretKey: userEdKeyPair.secretKey
-                )
-            ),
-            let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                .blinded25KeyPair(
-                    serverPublicKey: openGroupPublicKey,
-                    ed25519SecretKey: userEdKeyPair.secretKey
-                )
             )
-        else { return false }
-        
-        let possibleKeys: Set<String> = Set([
-            dependencies[cache: .general].sessionId.hexString,
-            SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
-            SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
-            SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-        ])
+            if let userEdPublicKey: [UInt8] = userEdKeyPair?.publicKey {
+                possibleKeys.insert(SessionId(.unblinded, publicKey: userEdPublicKey).hexString)
+            }
+        }
         
         return GroupMember
             .filter(GroupMember.Columns.groupId == groupId)

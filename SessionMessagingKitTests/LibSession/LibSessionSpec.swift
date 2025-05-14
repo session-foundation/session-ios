@@ -90,33 +90,14 @@ class LibSessionSpec: QuickSpec {
                 var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
                 _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
-                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-                cache.when { $0.config(for: .userGroups, sessionId: .any) }
-                    .thenReturn(.userGroups(conf))
-                cache.when { $0.config(for: .groupInfo, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupInfo])
-                cache.when { $0.config(for: .groupMembers, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupMembers])
-                cache.when { $0.config(for: .groupKeys, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupKeys])
-                cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
-                cache
-                    .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
-                    .thenReturn(nil)
-                cache
-                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-                    .then { args, untrackedArgs in
-                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
-                        
-                        switch args[test: 0] as? ConfigDump.Variant {
-                            case .userGroups: try? callback?(.userGroups(conf))
-                            case .groupInfo: try? callback?(createGroupOutput.groupState[.groupInfo])
-                            case .groupMembers: try? callback?(createGroupOutput.groupState[.groupMembers])
-                            case .groupKeys: try? callback?(createGroupOutput.groupState[.groupKeys])
-                            default: break
-                        }
-                    }
-                    .thenReturn(())
+                cache.defaultInitialSetup(
+                    configs: [
+                        .userGroups: .userGroups(conf),
+                        .groupInfo: createGroupOutput.groupState[.groupInfo],
+                        .groupMembers: createGroupOutput.groupState[.groupMembers],
+                        .groupKeys: createGroupOutput.groupState[.groupKeys]
+                    ]
+                )
             }
         )
         @TestState var userGroupsConfig: LibSession.Config!

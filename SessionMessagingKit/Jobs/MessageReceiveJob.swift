@@ -207,7 +207,7 @@ extension MessageReceiveJob {
         public init(messages: [ProcessedMessage]) {
             self.messages = messages.compactMap { processedMessage in
                 switch processedMessage {
-                    case .config: return nil
+                    case .config, .invalid: return nil
                     case .standard(_, _, _, let messageInfo, _): return messageInfo
                 }
             }
