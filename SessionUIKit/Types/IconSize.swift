@@ -12,13 +12,14 @@ public enum IconSize: Differentiable {
     case extraLarge
     
     case mediumAspectFill
+    case smallAspectFill
     
     case fit
     
     public var size: CGFloat {
         switch self {
             case .verySmall: return 12
-            case .small: return 20
+        case .small, .smallAspectFill: return 20
             case .medium, .mediumAspectFill: return 24
             case .large: return 32
             case .veryLarge: return 40

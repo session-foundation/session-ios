@@ -207,6 +207,18 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         )
     }
     
+    public var contactDisplayName: String {
+        return SessionThread.displayName(
+            threadId: threadId,
+            variant: threadVariant,
+            closedGroupName: closedGroupName,
+            openGroupName: openGroupName,
+            isNoteToSelf: threadIsNoteToSelf,
+            ignoringNickname: true,
+            profile: profile
+        )
+    }
+    
     public var threadDescription: String? {
         switch threadVariant {
             case .contact, .legacyGroup: return nil

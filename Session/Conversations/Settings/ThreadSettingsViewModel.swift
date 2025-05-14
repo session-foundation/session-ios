@@ -74,6 +74,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     public enum TableItem: Differentiable {
         case avatar
         case displayName
+        case contactName
         case threadDescription
         case sessionId
         
@@ -148,7 +149,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             ) &&
             threadViewModel.currentUserIsClosedGroupAdmin == true
         )
-        let editIcon: UIImage? = UIImage(systemName: "pencil")
         let canEditDisplayName: Bool = (
             threadViewModel.threadIsNoteToSelf != true && (
                 threadViewModel.threadVariant == .contact ||
@@ -209,34 +209,35 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 ),
                 SessionCell.Info(
                     id: .displayName,
-                    leadingAccessory: (!canEditDisplayName ? nil :
-                        .icon(
-                            editIcon?.withRenderingMode(.alwaysTemplate),
-                            size: .mediumAspectFill,
-                            customTint: .textSecondary,
-                            shouldFill: true
-                        )
-                    ),
                     title: SessionCell.TextInfo(
                         threadViewModel.displayName,
                         font: .titleLarge,
                         alignment: .center
                     ),
+                    trailingAccessory: (!canEditDisplayName ? nil :
+                        .icon(
+                            .pencil,
+                            size: .smallAspectFill,
+                            customTint: .textSecondary,
+                            shouldFill: true
+                        )
+                    ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: (!canEditDisplayName ? nil :
-                                -((IconSize.medium.size + (Values.smallSpacing * 2)) / 2)
+                            trailing: (!canEditDisplayName ? nil :
+                                ((IconSize.small.size - (Values.smallSpacing * 2)) / 2)
                             ),
                             bottom: {
                                 guard threadViewModel.threadVariant != .contact else { return Values.smallSpacing }
                                 guard threadViewModel.threadDescription == nil else { return Values.smallSpacing }
                                 
                                 return Values.largeSpacing
-                            }()
+                            }(),
+                            interItem: Values.smallSpacing
                         ),
-                        backgroundStyle: .noBackground
+                        backgroundStyle: .noBackground,
                     ),
                     accessibility: Accessibility(
                         identifier: "Username",
@@ -267,6 +268,25 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             case (.community, _), (.legacyGroup, false), (.group, false): break
                         }
                     }
+                ),
+                
+                (threadViewModel.displayName == threadViewModel.contactDisplayName ? nil :
+                    SessionCell.Info(
+                        id: .contactName,
+                        subtitle: SessionCell.TextInfo(
+                            "(\(threadViewModel.contactDisplayName))",
+                            font: .subtitle,
+                            alignment: .center
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            tintColor: .textSecondary,
+                            customPadding: SessionCell.Padding(
+                                top: 0,
+                                bottom: 0
+                            ),
+                            backgroundStyle: .noBackground
+                        )
+                    )
                 ),
                 
                 threadViewModel.threadDescription.map { threadDescription in
