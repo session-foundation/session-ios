@@ -57,7 +57,6 @@ public enum GroupLeavingJob: JobExecutor {
                     .defaulting(to: 0)
                 let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
                     guard
-                        threadVariant == .group,
                         (
                             dependencies.mutate(cache: .libSession) { cache in
                                 cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
@@ -69,12 +68,8 @@ public enum GroupLeavingJob: JobExecutor {
                     return .delete
                 }()
                 
-                switch (threadVariant, finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
-                    case (.legacyGroup, _, _, _):
-                        // Legacy group only supports the 'delete' behaviour so don't bother checking
-                        return .delete
-                    
-                    case (.group, .leave, _, false):
+                switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
+                    case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
                         
                         return .leave(
