@@ -18,12 +18,12 @@ public enum MessageReceiver {
     private static var lastEncryptionKeyPairRequest: [String: Date] = [:]
     
     public static func parse(
-        _ db: Database,
         data: Data,
         origin: Message.Origin,
         using dependencies: Dependencies
     ) throws -> ProcessedMessage {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let uniqueIdentifier: String
         var plaintext: Data
         var customProto: SNProtoContent? = nil
         var customMessage: Message? = nil
@@ -45,10 +45,12 @@ public enum MessageReceiver {
                     namespace: namespace,
                     serverHash: serverHash,
                     serverTimestampMs: serverTimestampMs,
-                    data: data
+                    data: data,
+                    uniqueIdentifier: serverHash
                 )
                 
             case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId, let messageWhisper, let messageWhisperMods, let messageWhisperTo)):
+                uniqueIdentifier = "\(messageServerId)"
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
                 sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
@@ -68,15 +70,14 @@ public enum MessageReceiver {
             case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
                 (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
                     .plaintextWithSessionBlindingProtocol(
-                        db,
                         ciphertext: data,
                         senderId: senderId,
                         recipientId: recipientId,
-                        serverPublicKey: serverPublicKey,
-                        using: dependencies
+                        serverPublicKey: serverPublicKey
                     )
                 )
                 
+                uniqueIdentifier = "\(messageServerId)"
                 plaintext = plaintext.removePadding()   // Remove the padding
                 sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
@@ -88,6 +89,9 @@ public enum MessageReceiver {
                 threadIdGenerator = { _ in sender }
                 
             case (_, .swarm(let publicKey, let namespace, let swarmServerHash, _, _)):
+                uniqueIdentifier = swarmServerHash
+                serverHash = swarmServerHash
+                
                 switch namespace {
                     case .default:
                         guard
@@ -99,15 +103,10 @@ public enum MessageReceiver {
                         }
                         
                         (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
-                            .plaintextWithSessionProtocol(
-                                db,
-                                ciphertext: ciphertext,
-                                using: dependencies
-                            )
+                            .plaintextWithSessionProtocol(ciphertext: ciphertext)
                         )
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestampMs = envelope.timestamp
-                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         openGroupWhisper = false
                         openGroupWhisperMods = false
@@ -138,7 +137,6 @@ public enum MessageReceiver {
                         }
                         plaintext = envelopeContent // Padding already removed for updated groups
                         sentTimestampMs = envelope.timestamp
-                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         openGroupWhisper = false
                         openGroupWhisperMods = false
@@ -155,7 +153,6 @@ public enum MessageReceiver {
                         customMessage = LibSessionMessage(ciphertext: data)
                         sender = publicKey  // The "group" sends these messages
                         sentTimestampMs = 0
-                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         openGroupWhisper = false
                         openGroupWhisperMods = false
@@ -196,9 +193,14 @@ public enum MessageReceiver {
         }
         
         // Don't process the envelope any further if the sender is blocked
-        guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true || message.processWithBlockedSender else {
-            throw MessageReceiverError.senderBlocked
-        }
+        guard
+            dependencies.mutate(cache: .libSession, { cache in
+                cache
+                    .config(for: .contacts, sessionId: userSessionId)?
+                    .isContactBlocked(publicKey: sender)
+            }) != true ||
+            message.processWithBlockedSender
+        else { throw MessageReceiverError.senderBlocked }
         
         // Ignore self sends if needed
         guard message.isSelfSendValid || sender != userSessionId.hexString else {
@@ -221,11 +223,14 @@ public enum MessageReceiver {
             proto: proto,
             messageInfo: try MessageReceiveJob.Details.MessageInfo(
                 message: message,
-                variant: try Message.Variant(from: message) ?? { throw MessageReceiverError.invalidMessage }(),
+                variant: try Message.Variant(from: message) ?? {
+                    throw MessageReceiverError.invalidMessage
+                }(),
                 threadVariant: threadVariant,
                 serverExpirationTimestamp: origin.serverExpirationTimestamp,
                 proto: proto
-            )
+            ),
+            uniqueIdentifier: uniqueIdentifier
         )
     }
     

@@ -128,14 +128,21 @@ enum _021_ReworkRecipientState: Migration {
         
         /// Any interactions which didn't have a `recipientState` or a `MessageSendJob` should be considered `sent` (as
         /// the old UI behaviour was to render any messages without a `recipientState` as `sent`)
-        let interactionIdsWithMessageSendJobs: Set<Int64> = try Int64.fetchSet(db, sql: """
-            SELECT interactionId
-            FROM job
-            WHERE (
-                variant = \(Job.Variant.messageSend.rawValue) AND
-                interactionId IS NOT NULL
-            )
-        """)
+        var interactionIdsWithMessageSendJobs: Set<Int64> = []
+        
+        /// Only fetch from the `jobs` table if it exists or we aren't running tests (when running tests this allows us to skip running the
+        /// SNUtilitiesKit migrations)
+        if !SNUtilitiesKit.isRunningTests || ((try? db.tableExists("job")) == true) {
+            interactionIdsWithMessageSendJobs = try Int64.fetchSet(db, sql: """
+                SELECT interactionId
+                FROM job
+                WHERE (
+                    variant = \(Job.Variant.messageSend.rawValue) AND
+                    interactionId IS NOT NULL
+                )
+            """)
+        }
+        
         let interactionIdsToExclude: Set<Int64> = Set(recipientStateInfo
             .map { info -> Int64 in info["interactionId"] })
             .union(interactionIdsWithMessageSendJobs)

@@ -72,3 +72,7 @@ extension Interaction: Mocked {
         transientDependencies: nil
     )
 }
+
+extension KeychainStorage.DataKey: Mocked {
+    static var mock: KeychainStorage.DataKey = .dbCipherKeySpec
+}

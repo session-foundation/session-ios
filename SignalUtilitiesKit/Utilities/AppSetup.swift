@@ -76,21 +76,16 @@ public enum AppSetup {
                 // Now that the migrations are complete there are a few more states which need
                 // to be setup
                 dependencies[singleton: .storage].read { db in
-                    guard
-                        Identity.userExists(db, using: dependencies),
-                        let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db)
-                    else { return }
-                    
-                    let userSessionId: SessionId = SessionId(.standard, publicKey: userKeyPair.publicKey)
+                    guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else { return }
                     
                     /// Cache the users session id so we don't need to fetch it from the database every time
                     dependencies.mutate(cache: .general) {
-                        $0.setCachedSessionId(sessionId: userSessionId)
+                        $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
                     }
                     
                     /// Load the `libSession` state into memory
                     let cache: LibSession.Cache = LibSession.Cache(
-                        userSessionId: userSessionId,
+                        userSessionId: dependencies[cache: .general].sessionId,
                         using: dependencies
                     )
                     cache.loadState(db, requestId: requestId)
