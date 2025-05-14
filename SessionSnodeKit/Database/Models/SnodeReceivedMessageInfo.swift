@@ -125,4 +125,12 @@ public extension SnodeReceivedMessageInfo {
                 )
         }
     }
+    
+    func storeUpdatedLastHash(_ db: Database) -> Bool {
+        do {
+            _ = try self.inserted(db)
+            return true
+        }
+        catch { return false }
+    }
 }

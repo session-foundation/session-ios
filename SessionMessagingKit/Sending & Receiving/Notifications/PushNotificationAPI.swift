@@ -134,9 +134,15 @@ public enum PushNotificationAPI {
             throw NetworkError.invalidPreparedRequest
         }
         
-        guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
+        guard let notificationsEncryptionKey: Data = try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .pushNotificationEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat,
+            legacyKey: "PNEncryptionKeyKey",
+            legacyService: "PNKeyChainService"
+        ) else {
             Log.error(.cat, "Unable to retrieve PN encryption key.")
-            throw StorageError.invalidKeySpec
+            throw KeychainStorageError.keySpecInvalid
         }
         
         return try Network.PreparedRequest(
@@ -262,7 +268,13 @@ public enum PushNotificationAPI {
         // Decrypt and decode the payload
         guard
             let encryptedData: Data = Data(base64Encoded: base64EncodedEncString),
-            let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies),
+            let notificationsEncryptionKey: Data = try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+                forKey: .pushNotificationEncryptionKey,
+                length: encryptionKeyLength,
+                cat: .cat,
+                legacyKey: "PNEncryptionKeyKey",
+                legacyService: "PNKeyChainService"
+            ),
             let decryptedData: Data = dependencies[singleton: .crypto].generate(
                 .plaintextWithPushNotificationPayload(
                     payload: encryptedData,
@@ -292,55 +304,5 @@ public enum PushNotificationAPI {
         
         // Success, we have the notification content
         return (notificationData, notification.info, .success)
-    }
-                        
-    // MARK: - Security
-    
-    @discardableResult private static func getOrGenerateEncryptionKey(using dependencies: Dependencies) throws -> Data {
-        do {
-            try dependencies[singleton: .keychain].migrateLegacyKeyIfNeeded(
-                legacyKey: "PNEncryptionKeyKey",
-                legacyService: "PNKeyChainService",
-                toKey: .pushNotificationEncryptionKey
-            )
-            var encryptionKey: Data = try dependencies[singleton: .keychain].data(forKey: .pushNotificationEncryptionKey)
-            defer { encryptionKey.resetBytes(in: 0..<encryptionKey.count) }
-            
-            guard encryptionKey.count == encryptionKeyLength else { throw StorageError.invalidKeySpec }
-            
-            return encryptionKey
-        }
-        catch {
-            switch (error, (error as? KeychainStorageError)?.code) {
-                case (StorageError.invalidKeySpec, _), (_, errSecItemNotFound):
-                    // No keySpec was found so we need to generate a new one
-                    do {
-                        var keySpec: Data = try dependencies[singleton: .crypto]
-                            .tryGenerate(.randomBytes(encryptionKeyLength))
-                        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
-                        
-                        try dependencies[singleton: .keychain].set(data: keySpec, forKey: .pushNotificationEncryptionKey)
-                        return keySpec
-                    }
-                    catch {
-                        Log.error(.cat, "Setting keychain value failed with error: \(error.localizedDescription)")
-                        throw StorageError.keySpecCreationFailed
-                    }
-                    
-                default:
-                    // Because we use kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, the keychain will be inaccessible
-                    // after device restart until device is unlocked for the first time. If the app receives a push
-                    // notification, we won't be able to access the keychain to process that notification, so we should
-                    // just terminate by throwing an uncaught exception
-                    if dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground {
-                        let appState: UIApplication.State = dependencies[singleton: .appContext].reportedApplicationState
-                        Log.error(.cat, "CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
-                        throw StorageError.keySpecInaccessible
-                    }
-                    
-                    Log.error(.cat, "CipherKeySpec inaccessible; not main app.")
-                    throw StorageError.keySpecInaccessible
-            }
-        }
     }
 }

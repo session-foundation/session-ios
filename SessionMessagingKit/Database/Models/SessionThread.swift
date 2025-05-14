@@ -506,6 +506,9 @@ public extension SessionThread {
                         SessionThread.Columns.shouldBeVisible.set(to: false),
                         using: dependencies
                     )
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             case .deleteContactConversationAndMarkHidden:
                 _ = try SessionThread
@@ -530,6 +533,9 @@ public extension SessionThread {
                         )
                 }
                 
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
+                
                 // Update any other threads to be hidden
                 try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
@@ -549,6 +555,9 @@ public extension SessionThread {
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
                 
             case .leaveGroupAsync:
                 try threadIds.forEach { threadId in

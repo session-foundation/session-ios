@@ -186,6 +186,9 @@ class OpenGroupManagerSpec: QuickSpec {
                             secretKey: Array(Data(hex: TestConstants.edSecretKey))
                         )
                     )
+                crypto
+                    .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                    .thenReturn(Data([1, 2, 3]))
             }
         )
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
@@ -229,6 +232,39 @@ class OpenGroupManagerSpec: QuickSpec {
                 cache.when { $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
                 cache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
                 cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
+            }
+        )
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
+            initialSetup: { keychain in
+                keychain
+                    .when {
+                        try $0.getOrGenerateEncryptionKey(
+                            forKey: .any,
+                            length: .any,
+                            cat: .any,
+                            legacyKey: .any,
+                            legacyService: .any
+                        )
+                    }
+                    .thenReturn(Data([1, 2, 3]))
+            }
+        )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { fileManager in
+                fileManager.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
+                fileManager
+                    .when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }
+                    .thenReturn(())
+                fileManager
+                    .when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }
+                    .thenReturn(())
+                fileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                fileManager.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
+                fileManager.when { try $0.removeItem(atPath: .any) }.thenReturn(())
+                fileManager
+                    .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                    .thenReturn(true)
+                fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
             }
         )
         @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
