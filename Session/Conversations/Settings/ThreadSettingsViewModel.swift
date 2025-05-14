@@ -79,18 +79,22 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case sessionId
         
         case copyThreadId
-        case allMedia
         case searchConversation
-        case addToOpenGroup
         case disappearingMessages
-        case disappearingMessagesDuration
+        case pinConversation
+        case notifications
+        case attachments
+        
+        case addToOpenGroup
         case groupMembers
         case editGroup
         case promoteAdmins
         case leaveGroup
-        case notificationMentionsOnly
-        case notificationMute
+        
         case blockUser
+        case clearAllMessages
+        case deleteConversation
+        case deleteContact
         
         case debugDeleteBeforeNow
         case debugDeleteAttachmentsBeforeNow
@@ -342,10 +346,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 (threadViewModel.threadVariant == .legacyGroup || threadViewModel.threadVariant == .group ? nil :
                     SessionCell.Info(
                         id: .copyThreadId,
-                        leadingAccessory: .icon(
-                            UIImage(named: "ic_copy")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
+                        leadingAccessory: .icon(.copy),
                         title: (threadViewModel.threadVariant == .community ?
                             "communityUrlCopy".localized() :
                             "accountIDCopy".localized()
@@ -380,34 +381,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 ),
 
                 SessionCell.Info(
-                    id: .allMedia,
-                    leadingAccessory: .icon(
-                        UIImage(named: "actionsheet_camera_roll_black")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "conversationsSettingsAllMedia".localized(),
-                    accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).all_media",
-                        label: "All media"
-                    ),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            MediaGalleryViewModel.createAllMediaViewController(
-                                threadId: threadViewModel.threadId,
-                                threadVariant: threadViewModel.threadVariant,
-                                focusedAttachmentId: nil,
-                                using: dependencies
-                            )
-                        )
-                    }
-                ),
-
-                SessionCell.Info(
                     id: .searchConversation,
-                    leadingAccessory: .icon(
-                        UIImage(named: "conversation_settings_search")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
+                    leadingAccessory: .icon(.search),
                     title: "searchConversation".localized(),
                     accessibility: Accessibility(
                         identifier: "\(ThreadSettingsViewModel.self).search",
@@ -415,29 +390,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     ),
                     onTap: { [weak self] in self?.didTriggerSearch() }
                 ),
-
-                (threadViewModel.threadVariant != .community ? nil :
-                    SessionCell.Info(
-                        id: .addToOpenGroup,
-                        leadingAccessory: .icon(
-                            UIImage(named: "ic_plus_24")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "membersInvite".localized(),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
-                        ),
-                        onTap: { [weak self] in self?.inviteUsersToCommunity(threadViewModel: threadViewModel) }
-                    )
-                ),
-
+                
                 (threadViewModel.threadVariant == .community || threadViewModel.threadIsBlocked == true ? nil :
                     SessionCell.Info(
                         id: .disappearingMessages,
-                        leadingAccessory: .icon(
-                            UIImage(systemName: "timer")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
+                        leadingAccessory: .icon(.timer),
                         title: "disappearingMessages".localized(),
                         subtitle: {
                             guard current.disappearingMessagesConfig.isEnabled else {
@@ -467,6 +424,114 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 )
                             )
                         }
+                    )
+                ),
+                
+                SessionCell.Info(
+                    id: .pinConversation,
+                    leadingAccessory: .icon(
+                        (threadViewModel.threadPinnedPriority > 0 ?
+                            .pinOff :
+                            .pin
+                        )
+                    ),
+                    title: (threadViewModel.threadPinnedPriority > 0 ?
+                            "pinUnpinConversation".localized() :
+                            "pinConversation".localized()
+                        ),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
+                        label: "Pin Conversation"
+                    ),
+                    onTap: { [dependencies] in
+                        dependencies[singleton: .storage].writeAsync { db in
+                            try SessionThread
+                                .filter(id: threadViewModel.threadId)
+                                .updateAllAndConfig(
+                                    db,
+                                    SessionThread.Columns.pinnedPriority
+                                        .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                    using: dependencies
+                                )
+                        }
+                    }
+                ),
+                
+                SessionCell.Info(
+                    id: .notifications,
+                    leadingAccessory: .icon(
+                        {
+                            if threadViewModel.threadOnlyNotifyForMentions == true {
+                                return .atSign
+                            }
+                            
+                            if threadViewModel.threadMutedUntilTimestamp != nil {
+                                return .volumeOff
+                            }
+                            
+                            return .volume2
+                        }()
+                    ),
+                    title: "sessionNotifications".localized(),
+                    subtitle: {
+                        if threadViewModel.threadOnlyNotifyForMentions == true {
+                            return "notificationsMentionsOnly".localized()
+                        }
+                        
+                        if threadViewModel.threadMutedUntilTimestamp != nil {
+                            return "notificationsMuted".localized()
+                        }
+                        
+                        return "notificationsAllMessages".localized()
+                    }(),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).notifications",
+                        label: "Notifications"
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: ThreadNotificationSettingsViewModel(
+                                    threadViewModel: threadViewModel,
+                                    using: dependencies
+                                )
+                            )
+                        )
+                    }
+                ),
+                
+                SessionCell.Info(
+                    id: .attachments,
+                    leadingAccessory: .icon(.file),
+                    title: "attachments".localized(),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).all_media",
+                        label: "All media"
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            MediaGalleryViewModel.createAllMediaViewController(
+                                threadId: threadViewModel.threadId,
+                                threadVariant: threadViewModel.threadVariant,
+                                focusedAttachmentId: nil,
+                                using: dependencies
+                            )
+                        )
+                    }
+                ),
+
+                (threadViewModel.threadVariant != .community ? nil :
+                    SessionCell.Info(
+                        id: .addToOpenGroup,
+                        leadingAccessory: .icon(
+                            UIImage(named: "ic_plus_24")?
+                                .withRenderingMode(.alwaysTemplate)
+                        ),
+                        title: "membersInvite".localized(),
+                        accessibility: Accessibility(
+                            identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
+                        ),
+                        onTap: { [weak self] in self?.inviteUsersToCommunity(threadViewModel: threadViewModel) }
                     )
                 ),
 
@@ -573,116 +638,27 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             self?.dismissScreen(type: .popToRoot)
                         }
                     )
-                ),
-                
-                (threadViewModel.threadVariant == .contact ? nil :
-                    SessionCell.Info(
-                        id: .notificationMentionsOnly,
-                        leadingAccessory: .icon(
-                            UIImage(named: "NotifyMentions")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "deleteAfterGroupPR1MentionsOnly".localized(),
-                        subtitle: "deleteAfterGroupPR1MentionsOnlyDescription".localized(),
-                            trailingAccessory: .toggle(
-                                threadViewModel.threadOnlyNotifyForMentions == true,
-                                oldValue: (previous?.threadViewModel?.threadOnlyNotifyForMentions == true),
-                            accessibility: Accessibility(
-                                identifier: "Notify for Mentions Only - Switch"
-                            )
-                        ),
-                        isEnabled: (
-                            (
-                                threadViewModel.threadVariant != .legacyGroup &&
-                                threadViewModel.threadVariant != .group
-                            ) ||
-                            currentUserIsClosedGroupMember
-                        ),
-                        accessibility: Accessibility(
-                            identifier: "Mentions only notification setting",
-                            label: "Mentions only"
-                        ),
-                        onTap: { [dependencies] in
-                            let newValue: Bool = !(threadViewModel.threadOnlyNotifyForMentions == true)
-                            
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAll(
-                                        db,
-                                        SessionThread.Columns.onlyNotifyForMentions
-                                            .set(to: newValue)
-                                    )
-                            }
-                        }
-                    )
-                ),
-                
-                (threadViewModel.threadIsNoteToSelf ? nil :
-                    SessionCell.Info(
-                        id: .notificationMute,
-                        leadingAccessory: .icon(
-                            UIImage(named: "Mute")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "notificationsMute".localized(),
-                        trailingAccessory: .toggle(
-                            threadViewModel.threadMutedUntilTimestamp != nil,
-                            oldValue: (previous?.threadViewModel?.threadMutedUntilTimestamp != nil),
-                            accessibility: Accessibility(
-                                identifier: "Mute - Switch"
-                            )
-                        ),
-                        isEnabled: (
-                            (
-                                threadViewModel.threadVariant != .legacyGroup &&
-                                threadViewModel.threadVariant != .group
-                            ) ||
-                            currentUserIsClosedGroupMember
-                        ),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).mute",
-                            label: "Mute notifications"
-                        ),
-                        onTap: { [dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                let currentValue: TimeInterval? = try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .select(.mutedUntilTimestamp)
-                                    .asRequest(of: TimeInterval.self)
-                                    .fetchOne(db)
-                                
-                                try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAll(
-                                        db,
-                                        SessionThread.Columns.mutedUntilTimestamp.set(
-                                            to: (currentValue == nil ?
-                                                Date.distantFuture.timeIntervalSince1970 :
-                                                nil
-                                            )
-                                        )
-                                    )
-                            }
-                        }
-                    )
-                ),
-                
+                )
+            ].compactMap { $0 }
+        )
+        let adminActionsSection: SectionModel? = nil
+        var destructiveActionsSection: SectionModel = SectionModel(
+            model: .destructiveActions,
+            elements: [
                 (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
                     SessionCell.Info(
                         id: .blockUser,
                         leadingAccessory: .icon(
-                            UIImage(named: "table_ic_block")?
-                                .withRenderingMode(.alwaysTemplate)
+                            threadViewModel.threadIsBlocked == true ?
+                                .userRoundCheck :
+                                .userRoundX
                         ),
-                        title: "deleteAfterGroupPR1BlockThisUser".localized(),
-                            trailingAccessory: .toggle(
-                            threadViewModel.threadIsBlocked == true,
-                            oldValue: (previous?.threadViewModel?.threadIsBlocked == true),
-                            accessibility: Accessibility(
-                                identifier: "Block - Switch"
-                            )
+                        title: (
+                            threadViewModel.threadIsBlocked == true ?
+                                "blockUnblock".localized() :
+                                "block".localized()
                         ),
+                        styling: SessionCell.StyleInfo(tintColor: .danger),
                         accessibility: Accessibility(
                             identifier: "\(ThreadSettingsViewModel.self).block",
                             label: "Block"
@@ -722,11 +698,52 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                         }
                     )
+                ),
+                
+                SessionCell.Info(
+                    id: .clearAllMessages,
+                    leadingAccessory: .icon(
+                        UIImage(named: "")?.withRenderingMode(.alwaysTemplate)
+                    ),
+                    title: "clearMessages".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).clear_all_messages",
+                        label: "Clear All Messages"
+                    ),
+                    onTap: { [weak self] in
+                    }
+                ),
+                
+                SessionCell.Info(
+                    id: .deleteConversation,
+                    leadingAccessory: .icon(.trash2),
+                    title: "conversationsDelete".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).delete_conversation",
+                        label: "Delete Conversation"
+                    ),
+                    onTap: { [weak self] in
+                    }
+                ),
+                
+                SessionCell.Info(
+                    id: .deleteContact,
+                    leadingAccessory: .icon(
+                        UIImage(named: "")?.withRenderingMode(.alwaysTemplate)
+                    ),
+                    title: "contactDelete".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).delete_contact",
+                        label: "Delete Contact"
+                    ),
+                    onTap: { [weak self] in
+                    }
                 )
             ].compactMap { $0 }
         )
-        let adminActionsSection: SectionModel? = nil
-        let destructiveActionsSection: SectionModel?
         
         if dependencies[feature: .updatedGroupsDeleteBeforeNow] || dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] {
             destructiveActionsSection = SectionModel(
@@ -780,9 +797,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                      )
                 ].compactMap { $0 }
             )
-        }
-        else {
-            destructiveActionsSection = nil
         }
         
         return [

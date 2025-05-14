@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = String
     
     public let dependencies: Dependencies
@@ -46,10 +46,6 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     }
     
     // MARK: - Config
-    
-    enum NavItem: Equatable {
-        case save
-    }
     
     public enum Section: SessionTableSection {
         case type
