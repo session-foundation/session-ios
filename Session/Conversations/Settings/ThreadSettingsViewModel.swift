@@ -63,9 +63,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case adminActions
         case destructiveActions
         
+        public var title: String? {
+            switch self {
+            case .adminActions: return "adminSettings".localized()
+                default: return nil
+            }
+        }
+        
         public var style: SessionTableSectionStyle {
             switch self {
                 case .destructiveActions: return .padding
+                case .adminActions: return .titleRoundedContent
                 default: return .none
             }
         }
@@ -83,22 +91,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case disappearingMessages
         case pinConversation
         case notifications
-        case attachments
-        
         case addToOpenGroup
         case groupMembers
+        case attachments
+        
         case editGroup
         case promoteAdmins
-        case leaveGroup
         
         case blockUser
         case hideNoteToSelf
         case clearAllMessages
         case leaveCommunity
+        case leaveGroup
         case deleteConversation
         case deleteContact
         
-        case debugDeleteBeforeNow
         case debugDeleteAttachmentsBeforeNow
     }
     
@@ -555,53 +562,89 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                         )
                     }
-                ),
-
-                (!currentUserIsClosedGroupAdmin ? nil :
-                    SessionCell.Info(
-                        id: .editGroup,
-                        leadingAccessory: .icon(
-                            UIImage(named: "table_ic_group_edit")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "groupEdit".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Edit group",
-                            label: "Edit group"
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            self?.transitionToScreen(
-                                SessionTableViewController(
-                                    viewModel: EditGroupViewModel(
-                                        threadId: threadViewModel.threadId,
-                                        using: dependencies
-                                    )
-                                )
-                            )
-                        }
-                    )
-                ),
-                
-                (!currentUserIsClosedGroupAdmin || !dependencies[feature: .updatedGroupsAllowPromotions] ? nil :
-                    SessionCell.Info(
-                        id: .promoteAdmins,
-                        leadingAccessory: .icon(
-                            UIImage(named: "table_ic_group_edit")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "adminPromote".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Promote admins",
-                            label: "Promote admins"
-                        ),
-                        onTap: { [weak self] in
-                            self?.promoteAdmins(currentGroupName: threadViewModel.closedGroupName)
-                        }
-                    )
                 )
             ].compactMap { $0 }
         )
-        let adminActionsSection: SectionModel? = nil
+        // MARK: - Admin Actions
+        let adminActionsSection: SectionModel? = (
+            !currentUserIsClosedGroupAdmin ? nil :
+                SectionModel(
+                    model: .adminActions,
+                    elements: [
+                        SessionCell.Info(
+                            id: .editGroup,
+                            leadingAccessory: .icon(.userRoundPen),
+                            title: "manageMembers".localized(),
+                            accessibility: Accessibility(
+                                identifier: "Edit group",
+                                label: "Edit group"
+                            ),
+                            onTap: { [weak self, dependencies] in
+                                self?.transitionToScreen(
+                                    SessionTableViewController(
+                                        viewModel: EditGroupViewModel(
+                                            threadId: threadViewModel.threadId,
+                                            using: dependencies
+                                        )
+                                    )
+                                )
+                            }
+                        ),
+                        
+                        (!dependencies[feature: .updatedGroupsAllowPromotions] ? nil :
+                            SessionCell.Info(
+                                id: .promoteAdmins,
+                                leadingAccessory: .icon(
+                                    UIImage(named: "table_ic_group_edit")?
+                                        .withRenderingMode(.alwaysTemplate)
+                                ),
+                                title: "adminPromote".localized(),
+                                accessibility: Accessibility(
+                                    identifier: "Promote admins",
+                                    label: "Promote admins"
+                                ),
+                                onTap: { [weak self] in
+                                    self?.promoteAdmins(currentGroupName: threadViewModel.closedGroupName)
+                                }
+                            )
+                        ),
+                        
+                        SessionCell.Info(
+                            id: .disappearingMessages,
+                            leadingAccessory: .icon(.timer),
+                            title: "disappearingMessages".localized(),
+                            subtitle: {
+                                guard current.disappearingMessagesConfig.isEnabled else {
+                                    return "off".localized()
+                                }
+                                
+                                return (current.disappearingMessagesConfig.type ?? .unknown)
+                                    .localizedState(
+                                        durationString: current.disappearingMessagesConfig.durationString
+                                    )
+                            }(),
+                            accessibility: Accessibility(
+                                identifier: "Disappearing messages",
+                                label: "\(ThreadSettingsViewModel.self).disappearing_messages"
+                            ),
+                            onTap: { [weak self, dependencies] in
+                                self?.transitionToScreen(
+                                    SessionTableViewController(
+                                        viewModel: ThreadDisappearingMessagesSettingsViewModel(
+                                            threadId: threadViewModel.threadId,
+                                            threadVariant: threadViewModel.threadVariant,
+                                            currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
+                                            currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
+                                            config: current.disappearingMessagesConfig,
+                                            using: dependencies
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    ].compactMap { $0 }
+                )
+        )
         // MARK: - Destructive Actions
         let destructiveActionsSection: SectionModel = SectionModel(
             model: .destructiveActions,
@@ -885,10 +928,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             label: "Leave group"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
-                            title: "groupLeave".localized(),
+                            title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
                             body: (currentUserIsClosedGroupAdmin ?
                                 .attributedText(
-                                    "groupLeaveDescriptionAdmin"
+                                    "groupDeleteDescription"
                                         .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 ) :
@@ -898,7 +941,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             ),
-                            confirmTitle: "leave".localized(),
+                            confirmTitle: currentUserIsClosedGroupAdmin ? "delete".localized() : "leave".localized(),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
