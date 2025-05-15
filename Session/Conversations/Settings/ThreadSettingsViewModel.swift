@@ -809,13 +809,24 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 try Interaction
                                     .filter(Interaction.Columns.threadId == threadViewModel.threadId)
                                     .deleteAll(db)
-                            }, completion: { [weak self] deletedMessagesNumber in
-                                self?.showToast(
-                                    text: "deleteMessageDeleted"
-                                        .putNumber(deletedMessagesNumber)
-                                        .localized(),
-                                    backgroundColor: .backgroundSecondary
-                                )
+                            }, completion: { [weak self] result in
+                                switch result {
+                                    case .failure(let error):
+                                        Log.error("Failed to clear messages due to error: \(error)")
+                                        self?.showToast(
+                                            text: "deleteMessageFailed"
+                                                .putNumber(0)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
+                                    case .success(let deletedMessagesNumber):
+                                        self?.showToast(
+                                            text: "deleteMessageDeleted"
+                                                .putNumber(deletedMessagesNumber)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
+                                }
                             }
                         )
                     }
