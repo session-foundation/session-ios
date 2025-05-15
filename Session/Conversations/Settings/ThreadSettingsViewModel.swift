@@ -92,6 +92,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case leaveGroup
         
         case blockUser
+        case hideNoteToSelf
         case clearAllMessages
         case deleteConversation
         case deleteContact
@@ -158,6 +159,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 threadViewModel.threadVariant == .contact ||
                 currentUserIsClosedGroupAdmin
             )
+        )
+        let isThreadHidden: Bool = (
+            threadViewModel.threadShouldBeVisible != true &&
+            threadViewModel.threadPinnedPriority == LibSession.hiddenPriority
         )
         // MARK: - Conversation Info
         let conversationInfoSection: SectionModel = SectionModel(
@@ -458,47 +463,49 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     }
                 ),
                 
-                SessionCell.Info(
-                    id: .notifications,
-                    leadingAccessory: .icon(
-                        {
+                (threadViewModel.threadIsNoteToSelf == true ? nil :
+                    SessionCell.Info(
+                        id: .notifications,
+                        leadingAccessory: .icon(
+                            {
+                                if threadViewModel.threadOnlyNotifyForMentions == true {
+                                    return .atSign
+                                }
+                                
+                                if threadViewModel.threadMutedUntilTimestamp != nil {
+                                    return .volumeOff
+                                }
+                                
+                                return .volume2
+                            }()
+                        ),
+                        title: "sessionNotifications".localized(),
+                        subtitle: {
                             if threadViewModel.threadOnlyNotifyForMentions == true {
-                                return .atSign
+                                return "notificationsMentionsOnly".localized()
                             }
                             
                             if threadViewModel.threadMutedUntilTimestamp != nil {
-                                return .volumeOff
+                                return "notificationsMuted".localized()
                             }
                             
-                            return .volume2
-                        }()
-                    ),
-                    title: "sessionNotifications".localized(),
-                    subtitle: {
-                        if threadViewModel.threadOnlyNotifyForMentions == true {
-                            return "notificationsMentionsOnly".localized()
-                        }
-                        
-                        if threadViewModel.threadMutedUntilTimestamp != nil {
-                            return "notificationsMuted".localized()
-                        }
-                        
-                        return "notificationsAllMessages".localized()
-                    }(),
-                    accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).notifications",
-                        label: "Notifications"
-                    ),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: ThreadNotificationSettingsViewModel(
-                                    threadViewModel: threadViewModel,
-                                    using: dependencies
+                            return "notificationsAllMessages".localized()
+                        }(),
+                        accessibility: Accessibility(
+                            identifier: "\(ThreadSettingsViewModel.self).notifications",
+                            label: "Notifications"
+                        ),
+                        onTap: { [weak self, dependencies] in
+                            self?.transitionToScreen(
+                                SessionTableViewController(
+                                    viewModel: ThreadNotificationSettingsViewModel(
+                                        threadViewModel: threadViewModel,
+                                        using: dependencies
+                                    )
                                 )
                             )
-                        )
-                    }
+                        }
+                    )
                 ),
                 
                 SessionCell.Info(
@@ -702,6 +709,54 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                 ),
                 
+                (threadViewModel.threadIsNoteToSelf != true ? nil :
+                    SessionCell.Info(
+                        id: .hideNoteToSelf,
+                        leadingAccessory: .icon(isThreadHidden ? .eye : .eyeOff),
+                        title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
+                        styling: SessionCell.StyleInfo(tintColor: isThreadHidden ? .textPrimary : .danger),
+                        accessibility: Accessibility(
+                            identifier: "\(ThreadSettingsViewModel.self).hide_note_to_self",
+                            label: "Hide Note to Self"
+                        ),
+                        confirmationInfo: ConfirmationModal.Info(
+                            title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
+                            body: .attributedText(
+                                isThreadHidden ?
+                                "showNoteToSelfDescription"
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont) :
+                                "hideNoteToSelfDescription"
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                            ),
+                            confirmTitle: isThreadHidden ? "show".localized() : "hide".localized(),
+                            confirmStyle: isThreadHidden ? .alert_text : .danger,
+                            cancelStyle: .alert_text
+                        ),
+                        onTap: { [dependencies] in
+                            dependencies[singleton: .storage].writeAsync { db in
+                                if isThreadHidden {
+                                    try SessionThread
+                                        .filter(id: threadViewModel.threadId)
+                                        .updateAllAndConfig(
+                                            db,
+                                            SessionThread.Columns.shouldBeVisible.set(to: true),
+                                            SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                            using: dependencies
+                                        )
+                                } else {
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .hideContactConversation,
+                                        threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        using: dependencies
+                                    )
+                                }
+                            }
+                        }
+                    )
+                ),
+                
                 SessionCell.Info(
                     id: .clearAllMessages,
                     leadingAccessory: .icon(
@@ -832,7 +887,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     }
                 ),
                 
-                (threadVariant != .contact ? nil :
+                (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
                     SessionCell.Info(
                         id: .deleteConversation,
                         leadingAccessory: .icon(.trash2),
@@ -867,7 +922,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                  ),
                 
-                (threadVariant != .contact ? nil :
+                (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
                     SessionCell.Info(
                         id: .deleteContact,
                         leadingAccessory: .icon(
