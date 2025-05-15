@@ -1272,6 +1272,12 @@ public extension SessionThreadViewModel {
                 \(openGroup[.userCount]) AS \(ViewModel.Columns.openGroupUserCount),
                 \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
         
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
+        
                 \(aggregateInteraction[.interactionId]),
                 \(aggregateInteraction[.interactionTimestampMs]),
             
