@@ -18,6 +18,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToRequiresNoNotification
     case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
+    case ignoreDueToDuplicateCall
     case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
     
     case errorTimeout
@@ -46,6 +47,9 @@ enum NotificationResolution: CustomStringConvertible {
             
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
+                
+            case .ignoreDueToDuplicateCall:
+                return "Ignored: Duplicate call (probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
                 return "Ignored: Notification content from namespace: \(metadata.namespace) was too long: \(metadata.dataLength)"
@@ -72,7 +76,7 @@ enum NotificationResolution: CustomStringConvertible {
             case .success, .successCall, .ignoreDueToMainAppRunning, .ignoreDueToNoContentFromApple,
                 .ignoreDueToNonLegacyGroupLegacyNotification, .ignoreDueToOutdatedMessage,
                 .ignoreDueToRequiresNoNotification, .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage,
-                .ignoreDueToContentSize:
+                .ignoreDueToDuplicateCall, .ignoreDueToContentSize:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:
