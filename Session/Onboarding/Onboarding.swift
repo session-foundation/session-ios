@@ -140,6 +140,8 @@ extension Onboarding {
                 
                 return .completed
             }()
+            self.seed = Data()      /// Overwritten below
+            self.useAPNS = false    /// Overwritten below
             
             /// Update the cached values depending on the `initialState`
             switch state {
@@ -158,21 +160,16 @@ extension Onboarding {
                         /// Seed or identity generation failed so leave the `Onboarding.Cache` in an invalid state for the UI to
                         /// recover somehow
                         self.state = .noUserFailedIdentity
-                        self.seed = Data()
-                        self.ed25519KeyPair = .empty
-                        self.x25519KeyPair = .empty
-                        self.userSessionId = .invalid
-                        self.useAPNS = false
                         return
                     }
                     
                     /// The identity data was successfully generated so store it for the onboarding process
-                    self.state = .noUser
                     self.seed = finalSeedData
-                    self.useAPNS = false
+                    self.ed25519KeyPair = identity.ed25519KeyPair
+                    self.x25519KeyPair = identity.x25519KeyPair
+                    self.userSessionId = SessionId(.standard, publicKey: identity.x25519KeyPair.publicKey)
                     
                 case .missingName, .completed:
-                    self.seed = Data()
                     self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
                     
                     /// If we are already in a completed state then updated the completion subject accordingly
@@ -358,13 +355,13 @@ extension Onboarding {
                         )
                         
                         /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
-                        dependencies.mutate(cache: .libSession) {
-                            $0.loadState(db)
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.loadState(db)
                             
                             /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
                             /// we won't even process it (because the hash may be deduped via another process)
                             if let userProfileConfigMessage: ProcessedMessage = userProfileConfigMessage {
-                                try? $0.handleConfigMessages(
+                                try? cache.handleConfigMessages(
                                     db,
                                     swarmPublicKey: userSessionId.hexString,
                                     messages: ConfigMessageReceiveJob
@@ -373,7 +370,10 @@ extension Onboarding {
                                 )
                             }
                             
-                            try? $0.updateProfile(displayName: displayName)
+                            /// Update the `displayName` and trigger a dump/push of the config
+                            try? cache.performAndPushChange(db, for: .userProfile) {
+                                try? cache.updateProfile(displayName: displayName)
+                            }
                         }
                         
                         /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided during the onboarding
