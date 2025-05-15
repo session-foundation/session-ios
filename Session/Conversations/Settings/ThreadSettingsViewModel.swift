@@ -94,6 +94,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case blockUser
         case hideNoteToSelf
         case clearAllMessages
+        case leaveCommunity
         case deleteConversation
         case deleteContact
         
@@ -508,6 +509,18 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                 ),
                 
+                (threadViewModel.threadVariant != .community ? nil :
+                    SessionCell.Info(
+                        id: .addToOpenGroup,
+                        leadingAccessory: .icon(.userRoundPlus),
+                        title: "membersInvite".localized(),
+                        accessibility: Accessibility(
+                            identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
+                        ),
+                        onTap: { [weak self] in self?.inviteUsersToCommunity(threadViewModel: threadViewModel) }
+                    )
+                ),
+                
                 SessionCell.Info(
                     id: .attachments,
                     leadingAccessory: .icon(.file),
@@ -526,21 +539,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                         )
                     }
-                ),
-
-                (threadViewModel.threadVariant != .community ? nil :
-                    SessionCell.Info(
-                        id: .addToOpenGroup,
-                        leadingAccessory: .icon(
-                            UIImage(named: "ic_plus_24")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "membersInvite".localized(),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
-                        ),
-                        onTap: { [weak self] in self?.inviteUsersToCommunity(threadViewModel: threadViewModel) }
-                    )
                 ),
 
                 (!currentUserIsClosedGroupMember ? nil :
@@ -885,6 +883,41 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             }
                         )
                     }
+                ),
+                
+                (threadViewModel.threadVariant != .community ? nil :
+                    SessionCell.Info(
+                        id: .leaveCommunity,
+                        leadingAccessory: .icon(.logOut),
+                        title: "communityLeave".localized(),
+                        styling: SessionCell.StyleInfo(tintColor: .danger),
+                        accessibility: Accessibility(
+                            identifier: "\(ThreadSettingsViewModel.self).leave_community",
+                            label: "Leave Community"
+                        ),
+                        confirmationInfo: ConfirmationModal.Info(
+                            title: "communityLeave".localized(),
+                            body: .attributedText(
+                                "groupLeaveDescription"
+                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                            ),
+                            confirmTitle: "leave".localized(),
+                            confirmStyle: .danger,
+                            cancelStyle: .alert_text
+                        ),
+                        onTap: { [dependencies] in
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .deleteCommunityAndContent,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    )
                 ),
                 
                 (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
