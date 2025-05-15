@@ -398,7 +398,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     onTap: { [weak self] in self?.didTriggerSearch() }
                 ),
                 
-                (threadViewModel.threadVariant == .community || threadViewModel.threadIsBlocked == true ? nil :
+                (
+                    threadViewModel.threadVariant == .community ||
+                    threadViewModel.threadIsBlocked == true ||
+                    currentUserIsClosedGroupAdmin ? nil :
                     SessionCell.Info(
                         id: .disappearingMessages,
                         leadingAccessory: .icon(.timer),
@@ -521,6 +524,19 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                 ),
                 
+                (!currentUserIsClosedGroupMember ? nil :
+                    SessionCell.Info(
+                        id: .groupMembers,
+                        leadingAccessory: .icon(.usersRound),
+                        title: "groupMembers".localized(),
+                        accessibility: Accessibility(
+                            identifier: "Group members",
+                            label: "Group members"
+                        ),
+                        onTap: { [weak self] in self?.viewMembers() }
+                    )
+                ),
+                
                 SessionCell.Info(
                     id: .attachments,
                     leadingAccessory: .icon(.file),
@@ -539,22 +555,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                         )
                     }
-                ),
-
-                (!currentUserIsClosedGroupMember ? nil :
-                    SessionCell.Info(
-                        id: .groupMembers,
-                        leadingAccessory: .icon(
-                            UIImage(named: "icon_members")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "groupMembers".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Group members",
-                            label: "Group members"
-                        ),
-                        onTap: { [weak self] in self?.viewMembers() }
-                    )
                 ),
 
                 (!currentUserIsClosedGroupAdmin ? nil :
@@ -598,58 +598,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             self?.promoteAdmins(currentGroupName: threadViewModel.closedGroupName)
                         }
                     )
-                ),
-
-                (!currentUserIsClosedGroupMember ? nil :
-                    SessionCell.Info(
-                        id: .leaveGroup,
-                        leadingAccessory: .icon(
-                            UIImage(named: "table_ic_group_leave")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "groupLeave".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Leave group",
-                            label: "Leave group"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: "groupLeave".localized(),
-                            body: (currentUserIsClosedGroupAdmin ?
-                                .attributedText(
-                                    "groupLeaveDescriptionAdmin"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                ) :
-                                .attributedText(
-                                    "groupLeaveDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                )
-                            ),
-                            confirmTitle: "leave".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            dependencies[singleton: .storage].write { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .leaveGroupAsync,
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    using: dependencies
-                                )
-                            }
-                            
-                            self?.dismissScreen(type: .popToRoot)
-                        }
-                    )
                 )
             ].compactMap { $0 }
         )
         let adminActionsSection: SectionModel? = nil
         // MARK: - Destructive Actions
-        var destructiveActionsSection: SectionModel = SectionModel(
+        let destructiveActionsSection: SectionModel = SectionModel(
             model: .destructiveActions,
             elements: [
                 (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
@@ -916,6 +870,50 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     using: dependencies
                                 )
                             }
+                        }
+                    )
+                ),
+                
+                (!currentUserIsClosedGroupMember ? nil :
+                    SessionCell.Info(
+                        id: .leaveGroup,
+                        leadingAccessory: .icon(currentUserIsClosedGroupAdmin ? .trash2 : .logOut),
+                        title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
+                        styling: SessionCell.StyleInfo(tintColor: .danger),
+                        accessibility: Accessibility(
+                            identifier: "Leave group",
+                            label: "Leave group"
+                        ),
+                        confirmationInfo: ConfirmationModal.Info(
+                            title: "groupLeave".localized(),
+                            body: (currentUserIsClosedGroupAdmin ?
+                                .attributedText(
+                                    "groupLeaveDescriptionAdmin"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                ) :
+                                .attributedText(
+                                    "groupLeaveDescription"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                )
+                            ),
+                            confirmTitle: "leave".localized(),
+                            confirmStyle: .danger,
+                            cancelStyle: .alert_text
+                        ),
+                        onTap: { [weak self, dependencies] in
+                            dependencies[singleton: .storage].write { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .leaveGroupAsync,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                            
+                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
                 ),
