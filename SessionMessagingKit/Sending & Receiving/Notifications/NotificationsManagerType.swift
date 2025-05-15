@@ -100,14 +100,6 @@ public extension NotificationsManagerType {
                     case .missed, .permissionDenied, .permissionDeniedMicrophone: break
                     default: throw MessageReceiverError.ignorableMessage
                 }
-                
-                /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can
-                /// related to the same call
-                try MessageDeduplication.ensureCallMessageIsNotADuplicate(
-                    threadId: threadId,
-                    callMessage: callMessage,
-                    using: dependencies
-                )
             
             /// Group invitations and promotions may show notifications in some cases
             case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage: break

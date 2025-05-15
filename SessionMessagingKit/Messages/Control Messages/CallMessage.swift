@@ -30,7 +30,7 @@ public final class CallMessage: ControlMessage {
     // MARK: - Kind
     
     /// **Note:** Multiple ICE candidates may be batched together for performance
-    public enum Kind: Codable, CustomStringConvertible {
+    public enum Kind: Codable, Equatable, CustomStringConvertible {
         private enum CodingKeys: String, CodingKey {
             case description
             case sdpMLineIndexes
