@@ -8,4 +8,10 @@ public enum Constants {
     public static let session_download_url: String = "https://getsession.org/download"
     public static let gif: String = "GIF"
     public static let oxen_foundation: String = "Oxen Foundation"
+    public static let network_name: String = "Session Network"
+    public static let token_name_long: String = "Session Token"
+    public static let staking_reward_pool: String = "Staking Reward Pool"
+    public static let token_name_short: String = "SESH"
+    public static let usd_name_short: String = "USD"
+    public static let session_network_data_price: String = "Price data powered by CoinGecko<br/>Accurate at {date_time}"
 }
