@@ -957,63 +957,33 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             }
                         }
                     )
+                 ),
+                
+                // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
+                (!dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
+                    SessionCell.Info(
+                        id: .debugDeleteAttachmentsBeforeNow,
+                        leadingAccessory: .icon(
+                            Lucide.image(icon: .trash2, size: 24)?
+                                .withRenderingMode(.alwaysTemplate),
+                            customTint: .danger
+                        ),
+                        title: "[DEBUG] Delete all arrachments before now",    // stringlint:disable
+                        styling: SessionCell.StyleInfo(
+                            tintColor: .danger
+                        ),
+                        confirmationInfo: ConfirmationModal.Info(
+                            title: "delete".localized(),
+                            body: .text("Are you sure you want to delete all attachments (and their associated messages) sent before now for all group members?"),   // stringlint:disable
+                            confirmTitle: "delete".localized(),
+                            confirmStyle: .danger,
+                            cancelStyle: .alert_text
+                        ),
+                        onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
+                    )
                  )
             ].compactMap { $0 }
         )
-        
-        if dependencies[feature: .updatedGroupsDeleteBeforeNow] || dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] {
-            destructiveActionsSection = SectionModel(
-                model: .destructiveActions,
-                elements: [
-                    // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
-                    (!dependencies[feature: .updatedGroupsDeleteBeforeNow] || threadViewModel.threadVariant != .group ? nil :
-                        SessionCell.Info(
-                            id: .debugDeleteBeforeNow,
-                            leadingAccessory: .icon(
-                                Lucide.image(icon: .trash2, size: 24)?
-                                    .withRenderingMode(.alwaysTemplate),
-                                customTint: .danger
-                            ),
-                            title: "[DEBUG] Delete all messages before now",    // stringlint:disable
-                            styling: SessionCell.StyleInfo(
-                                tintColor: .danger
-                            ),
-                            confirmationInfo: ConfirmationModal.Info(
-                                title: "delete".localized(),
-                                body: .text("Are you sure you want to delete all messages sent before now for all group members?"),   // stringlint:disable
-                                confirmTitle: "delete".localized(),
-                                confirmStyle: .danger,
-                                cancelStyle: .alert_text
-                            ),
-                            onTap: { [weak self] in self?.deleteAllMessagesBeforeNow() }
-                        )
-                    ),
-                    // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
-                    (!dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
-                        SessionCell.Info(
-                            id: .debugDeleteAttachmentsBeforeNow,
-                            leadingAccessory: .icon(
-                                Lucide.image(icon: .trash2, size: 24)?
-                                    .withRenderingMode(.alwaysTemplate),
-                                customTint: .danger
-                            ),
-                            title: "[DEBUG] Delete all arrachments before now",    // stringlint:disable
-                            styling: SessionCell.StyleInfo(
-                                tintColor: .danger
-                            ),
-                            confirmationInfo: ConfirmationModal.Info(
-                                title: "delete".localized(),
-                                body: .text("Are you sure you want to delete all attachments (and their associated messages) sent before now for all group members?"),   // stringlint:disable
-                                confirmTitle: "delete".localized(),
-                                confirmStyle: .danger,
-                                cancelStyle: .alert_text
-                            ),
-                            onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
-                        )
-                     )
-                ].compactMap { $0 }
-            )
-        }
         
         return [
             conversationInfoSection,
