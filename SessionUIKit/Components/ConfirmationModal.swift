@@ -371,11 +371,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     explanation: explanation,
                                     warning: warning,
                                     options: options.enumerated().map { otherIndex, otherInfo in
-                                        (
-                                            otherInfo.title,
-                                            otherInfo.enabled,
-                                            (index == otherIndex),
-                                            otherInfo.accessibility
+                                        Info.Body.RadioOptionInfo(
+                                            title: otherInfo.title,
+                                            enabled: otherInfo.enabled,
+                                            selected: (index == otherIndex),
+                                            accessibility: otherInfo.accessibility
                                         )
                                     }
                                 )
@@ -775,6 +775,24 @@ public extension ConfirmationModal.Info {
             case inherit
             case circular
         }
+        public struct RadioOptionInfo: Equatable, Hashable {
+            public let title: String
+            public let enabled: Bool
+            public let selected: Bool
+            public let accessibility: Accessibility?
+            
+            public init(
+                title: String,
+                enabled: Bool,
+                selected: Bool = false,
+                accessibility: Accessibility? = nil
+            ) {
+                self.title = title
+                self.enabled = enabled
+                self.selected = selected
+                self.accessibility = accessibility
+            }
+        }
         
         case none
         case text(
@@ -799,12 +817,7 @@ public extension ConfirmationModal.Info {
         case radio(
             explanation: NSAttributedString?,
             warning: NSAttributedString?,
-            options: [(
-                title: String,
-                enabled: Bool,
-                selected: Bool,
-                accessibility: Accessibility?
-            )]
+            options: [RadioOptionInfo]
         )
         case image(
             placeholderData: Data?,
@@ -838,7 +851,7 @@ public extension ConfirmationModal.Info {
                     return (
                         lhsExplanation == rhsExplanation &&
                         lhsWarning == rhsWarning &&
-                        lhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" } == rhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" }
+                        lhsOptions == rhsOptions
                     )
                     
                 case (.image(let lhsPlaceholder, let lhsValue, let lhsIcon, let lhsStyle, let lhsAccessibility, _), .image(let rhsPlaceholder, let rhsValue, let rhsIcon, let rhsStyle, let rhsAccessibility, _)):
@@ -872,7 +885,7 @@ public extension ConfirmationModal.Info {
                 case .radio(let explanation, let warning, let options):
                     explanation.hash(into: &hasher)
                     warning.hash(into: &hasher)
-                    options.map { "\($0.0)-\($0.1)-\($0.2)" }.hash(into: &hasher)
+                    options.hash(into: &hasher)
                 
                 case .image(let placeholder, let value, let icon, let style, let accessibility, _):
                     placeholder.hash(into: &hasher)
