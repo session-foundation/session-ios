@@ -1005,6 +1005,35 @@ public extension LibSessionCacheType {
         try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
     }
     
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        change: @escaping () throws -> ()
+    ) throws {
+        try performAndPushChange(db, for: variant, sessionId: sessionId, change: { _ in try change() })
+    }
+    
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        change: @escaping (LibSession.Config?) throws -> ()
+    ) throws {
+        guard ConfigDump.Variant.userVariants.contains(variant) else { throw LibSessionError.invalidConfigAccess }
+        
+        try performAndPushChange(db, for: variant, sessionId: userSessionId, change: change)
+    }
+    
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        change: @escaping () throws -> ()
+    ) throws {
+        guard ConfigDump.Variant.userVariants.contains(variant) else { throw LibSessionError.invalidConfigAccess }
+        
+        try performAndPushChange(db, for: variant, sessionId: userSessionId, change: { _ in try change() })
+    }
+    
     func loadState(_ db: Database) {
         loadState(db, requestId: nil)
     }
