@@ -1,0 +1,7 @@
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
+public extension Constants {
+    static let session_network_url = "https://docs.getsession.org/session-network"
+    static let session_staking_url = "https://docs.getsession.org/session-network/staking"
+}

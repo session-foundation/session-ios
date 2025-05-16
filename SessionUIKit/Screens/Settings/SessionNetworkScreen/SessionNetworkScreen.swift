@@ -419,9 +419,8 @@ extension SessionNetworkScreen {
                 content: {
                     ZStack {
                         Text(
-                            "sessionNetworkDataPrice"
-                                .put(key: "price_data_powered_by", value: Constants.price_data_powered_by)
-                                .put(key: "datetime", value: dataModel.priceTimeString)
+                            Constants.session_network_data_price
+                                .put(key: "date_time", value: dataModel.priceTimeString) // stringlint:ignore
                                 .localized()
                         )
                         .font(.Body.smallRegular)

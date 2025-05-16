@@ -60,7 +60,7 @@ final public class LocalizationHelper: CustomStringConvertible {
                 let englishBundle: Bundle = Bundle(path: englishPath)
             else { return "" }
             
-            return englishBundle.localizedString(forKey: template, value: nil, table: nil)
+            return englishBundle.localizedString(forKey: template, value: template, table: nil)
         }()
         
         // If the localized string matches the key provided then the localisation failed

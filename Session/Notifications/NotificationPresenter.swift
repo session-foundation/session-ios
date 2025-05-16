@@ -429,7 +429,10 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         scheduleNotification(
             category: AppNotificationCategory.info,
             title: Constants.app_name,
-            body: "sessionNetworkNotification".localized(),
+            body: "sessionNetworkNotificationLive"
+                .put(key: "token_name_long", value: Constants.token_name_long)
+                .put(key: "network_name", value: Constants.network_name)
+                .localized(),
             after: (force ? 10 : 3600),
             userInfo: [:],
             sound: Preferences.Sound.defaultNotificationSound,
