@@ -405,11 +405,13 @@ public extension LibSession {
     }
 }
 
+// MARK: State Access
+
 public extension LibSessionCacheType {
     func conversationLastRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        openGroup: OpenGroup?
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int64? {
         // If we don't have a config then just assume it's unread
         guard case .convoInfoVolatile(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else {
@@ -443,13 +445,11 @@ public extension LibSessionCacheType {
                 return legacyGroup.last_read
                 
             case .community:
-                guard let openGroup: OpenGroup = openGroup else { return nil }
-                
                 var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
                 
                 guard
-                    var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
-                    var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
+                    var cBaseUrl: [CChar] = openGroupUrlInfo?.server.cString(using: .utf8),
+                    var cRoomToken: [CChar] = openGroupUrlInfo?.roomToken.cString(using: .utf8),
                     convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
                 else {
                     LibSessionError.clear(conf)
@@ -474,95 +474,21 @@ public extension LibSessionCacheType {
         threadId: String,
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
-        userSessionId: SessionId,
-        openGroup: OpenGroup?
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Bool {
-        // If we don't have a config then just assume it's unread
-        guard case .convoInfoVolatile(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else {
-            return false
-        }
-                
-        switch threadVariant {
-            case .contact:
-                var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-                guard
-                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
-                    convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
-                else {
-                    LibSessionError.clear(conf)
-                    return false
-                }
-                
-                return (oneToOne.last_read >= timestampMs)
-                
-            case .legacyGroup:
-                var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
-                
-                guard
-                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
-                    convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId)
-                else {
-                    LibSessionError.clear(conf)
-                    return false
-                }
-                
-                return (legacyGroup.last_read >= timestampMs)
-                
-            case .community:
-                guard let openGroup: OpenGroup = openGroup else { return false }
-                
-                var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
-                
-                guard
-                    var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
-                    var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
-                    convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
-                else {
-                    LibSessionError.clear(conf)
-                    return false
-                }
-                
-                return (convoCommunity.last_read >= timestampMs)
-                
-            case .group:
-                var group: convo_info_volatile_group = convo_info_volatile_group()
-
-                guard
-                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
-                    convo_info_volatile_get_group(conf, &group, &cThreadId)
-                else { return false }
-
-                return (group.last_read >= timestampMs)
-        }
+        let lastReadTimestampMs = conversationLastRead(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            openGroupUrlInfo: openGroupUrlInfo
+        )
+        
+        return ((lastReadTimestampMs ?? 0) >= timestampMs)
     }
 }
 
 // MARK: - VolatileThreadInfo
 
 public extension LibSession {
-    struct OpenGroupUrlInfo: FetchableRecord, Codable, Hashable {
-        let threadId: String
-        let server: String
-        let roomToken: String
-        let publicKey: String
-        
-        static func fetchOne(_ db: Database, id: String) throws -> OpenGroupUrlInfo? {
-            return try OpenGroup
-                .filter(id: id)
-                .select(.threadId, .server, .roomToken, .publicKey)
-                .asRequest(of: OpenGroupUrlInfo.self)
-                .fetchOne(db)
-        }
-        
-        static func fetchAll(_ db: Database, ids: [String]) throws -> [OpenGroupUrlInfo] {
-            return try OpenGroup
-                .filter(ids: ids)
-                .select(.threadId, .server, .roomToken, .publicKey)
-                .asRequest(of: OpenGroupUrlInfo.self)
-                .fetchAll(db)
-        }
-    }
-    
     struct VolatileThreadInfo {
         enum Change {
             case markedAsUnread(Bool)

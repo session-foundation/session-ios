@@ -8,7 +8,10 @@ import SessionUtilitiesKit
 public struct SnodeReceivedMessage: CustomDebugStringConvertible {
     /// Service nodes cache messages for 14 days so default the expiration for message hashes to '15' days
     /// so we don't end up indefinitely storing records which will never be used
-    public static let defaultExpirationSeconds: Int64 = ((15 * 24 * 60 * 60) * 1000)
+    public static let defaultExpirationMs: Int64 = ((15 * 24 * 60 * 60) * 1000)
+    
+    /// The storage server allows the timestamp within requests to be off by `60s` before erroring
+    public static let serverClockToleranceMs: Int64 = ((1 * 60) * 1000)
     
     public let info: SnodeReceivedMessageInfo
     public let namespace: SnodeAPI.Namespace
@@ -31,7 +34,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
             swarmPublicKey: publicKey,
             namespace: namespace,
             hash: rawMessage.hash,
-            expirationDateMs: (rawMessage.expiration ?? SnodeReceivedMessage.defaultExpirationSeconds)
+            expirationDateMs: (rawMessage.expiration ?? SnodeReceivedMessage.defaultExpirationMs)
         )
         self.namespace = namespace
         self.timestampMs = rawMessage.timestampMs

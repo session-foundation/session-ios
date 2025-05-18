@@ -14,7 +14,7 @@ enum _001_InitialSetupMigration: Migration {
         Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
         ClosedGroup.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
         GroupMember.self, Interaction.self, Attachment.self, InteractionAttachment.self, Quote.self,
-        LinkPreview.self, ControlMessageProcessRecord.self, ThreadTypingIndicator.self
+        LinkPreview.self, ThreadTypingIndicator.self
     ]
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {
