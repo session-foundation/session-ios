@@ -81,8 +81,8 @@ struct QuoteView_SwiftUI: View {
             attachment.thumbnail(
                 size: .small,
                 using: dependencies,
-                success: { [self] image, _ in
-                    self.thumbnail = image
+                success: { [self] _, imageRetriever, _ in
+                    self.thumbnail = imageRetriever()
                 },
                 failure: {}
             )

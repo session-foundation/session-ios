@@ -331,7 +331,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
     func showApprovalAfterProcessingAnyMediaLibrarySelections() {
         let mediaLibrarySelections: [MediaLibrarySelection] = self.mediaLibrarySelections.orderedValues
 
-        let backgroundBlock: (ModalActivityIndicatorViewController) -> Void = { [weak self] modal in
+        let backgroundBlock: (ModalActivityIndicatorViewController) -> Void = { [weak self, dependencies] modal in
             guard let strongSelf = self else { return }
             
             Publishers

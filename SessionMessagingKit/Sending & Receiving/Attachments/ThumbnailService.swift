@@ -101,10 +101,7 @@ public class ThumbnailService {
         let thumbnailPath = attachment.thumbnailPath(for: thumbnailRequest.dimensions)
         
         if dependencies[singleton: .fileManager].fileExists(atPath: thumbnailPath) {
-            guard let image = UIImage(contentsOfFile: thumbnailPath) else {
-                throw ThumbnailError.failure(description: "Could not load thumbnail.")
-            }
-            return LoadedThumbnail(image: image, filePath: thumbnailPath)
+            return LoadedThumbnail(filePath: thumbnailPath)
         }
 
         let thumbnailDirPath = (thumbnailPath as NSString).deletingLastPathComponent
@@ -154,23 +151,28 @@ public extension ThumbnailService {
     }
     
     struct LoadedThumbnail {
+        public typealias ImageSourceBlock = () -> UIImage?
         public typealias DataSourceBlock = () throws -> Data
 
-        public let image: UIImage
+        public let imageSourceBlock: ImageSourceBlock
         public let dataSourceBlock: DataSourceBlock
 
-        public init(image: UIImage, filePath: String) {
-            self.image = image
+        public init(filePath: String) {
+            self.imageSourceBlock = {
+                return UIImage(contentsOfFile: filePath)
+            }
             self.dataSourceBlock = {
                 return try Data(contentsOf: URL(fileURLWithPath: filePath))
             }
         }
 
         public init(image: UIImage, data: Data) {
-            self.image = image
-            self.dataSourceBlock = {
-                return data
-            }
+            self.imageSourceBlock = { image }
+            self.dataSourceBlock = { data }
+        }
+        
+        public func image() -> UIImage? {
+            return imageSourceBlock()
         }
 
         public func data() throws -> Data {

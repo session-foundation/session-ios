@@ -5,8 +5,9 @@ import Combine
 
 public final class ProfilePictureView: UIView {
     public struct Info {
-        let imageData: Data?
-        let renderingMode: UIImage.RenderingMode
+        let identifier: String
+        let source: ImageDataManager.DataSource?
+        let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
         let icon: ProfileIcon
@@ -14,15 +15,17 @@ public final class ProfilePictureView: UIView {
         let forcedBackgroundColor: ForcedThemeValue?
         
         public init(
-            imageData: Data?,
-            renderingMode: UIImage.RenderingMode = .automatic,
+            identifier: String,
+            source: ImageDataManager.DataSource?,
+            renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
             icon: ProfileIcon = .none,
             backgroundColor: ThemeValue? = nil,
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
-            self.imageData = imageData
+            self.identifier = identifier
+            self.source = source
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -96,6 +99,7 @@ public final class ProfilePictureView: UIView {
         }
     }
     
+    private var dataManager: ImageDataManagerType?
     public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
@@ -165,21 +169,13 @@ public final class ProfilePictureView: UIView {
         imageView.pin(.top, to: .top, of: imageContainerView, withInset: 0),
         imageView.pin(.left, to: .left, of: imageContainerView, withInset: 0),
         imageView.pin(.bottom, to: .bottom, of: imageContainerView, withInset: 0),
-        imageView.pin(.right, to: .right, of: imageContainerView, withInset: 0),
-        animatedImageView.pin(.top, to: .top, of: imageContainerView, withInset: 0),
-        animatedImageView.pin(.left, to: .left, of: imageContainerView, withInset: 0),
-        animatedImageView.pin(.bottom, to: .bottom, of: imageContainerView, withInset: 0),
-        animatedImageView.pin(.right, to: .right, of: imageContainerView, withInset: 0)
+        imageView.pin(.right, to: .right, of: imageContainerView, withInset: 0)
     ]
     private lazy var additionalImageEdgeConstraints: [NSLayoutConstraint] = [ // MUST be in 'top, left, bottom, right' order
         additionalImageView.pin(.top, to: .top, of: additionalImageContainerView, withInset: 0),
         additionalImageView.pin(.left, to: .left, of: additionalImageContainerView, withInset: 0),
         additionalImageView.pin(.bottom, to: .bottom, of: additionalImageContainerView, withInset: 0),
-        additionalImageView.pin(.right, to: .right, of: additionalImageContainerView, withInset: 0),
-        additionalAnimatedImageView.pin(.top, to: .top, of: additionalImageContainerView, withInset: 0),
-        additionalAnimatedImageView.pin(.left, to: .left, of: additionalImageContainerView, withInset: 0),
-        additionalAnimatedImageView.pin(.bottom, to: .bottom, of: additionalImageContainerView, withInset: 0),
-        additionalAnimatedImageView.pin(.right, to: .right, of: additionalImageContainerView, withInset: 0)
+        additionalImageView.pin(.right, to: .right, of: additionalImageContainerView, withInset: 0)
     ]
     
     // MARK: - Components
@@ -193,20 +189,14 @@ public final class ProfilePictureView: UIView {
         return result
     }()
     
-    private lazy var imageView: UIImageView = {
-        let result: UIImageView = UIImageView()
+    private lazy var imageView: SessionImageView = {
+        let result: SessionImageView = SessionImageView()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.contentMode = .scaleAspectFill
-        result.isHidden = true
         
-        return result
-    }()
-    
-    private lazy var animatedImageView: AnimatedImageView = {
-        let result: AnimatedImageView = AnimatedImageView()
-        result.translatesAutoresizingMaskIntoConstraints = false
-        result.contentMode = .scaleAspectFill
-        result.isHidden = true
+        if let dataManager = self.dataManager {
+            result.setDataManager(dataManager)
+        }
         
         return result
     }()
@@ -223,21 +213,15 @@ public final class ProfilePictureView: UIView {
         return result
     }()
     
-    private lazy var additionalImageView: UIImageView = {
-        let result: UIImageView = UIImageView()
+    private lazy var additionalImageView: SessionImageView = {
+        let result: SessionImageView = SessionImageView()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.contentMode = .scaleAspectFill
         result.themeTintColor = .textPrimary
-        result.isHidden = true
         
-        return result
-    }()
-    
-    private lazy var additionalAnimatedImageView: AnimatedImageView = {
-        let result: AnimatedImageView = AnimatedImageView()
-        result.translatesAutoresizingMaskIntoConstraints = false
-        result.contentMode = .scaleAspectFill
-        result.isHidden = true
+        if let dataManager = self.dataManager {
+            result.setDataManager(dataManager)
+        }
         
         return result
     }()
@@ -293,7 +277,8 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size) {
+    public init(size: Size, dataManager: ImageDataManagerType?) {
+        self.dataManager = dataManager
         self.size = size
         
         super.init(frame: CGRect(x: 0, y: 0, width: size.viewSize, height: size.viewSize))
@@ -311,6 +296,9 @@ public final class ProfilePictureView: UIView {
         addSubview(profileIconBackgroundView)
         addSubview(additionalImageContainerView)
         addSubview(additionalProfileIconBackgroundView)
+        
+        imageContainerView.addSubview(imageView)
+        additionalImageContainerView.addSubview(additionalImageView)
         
         profileIconBackgroundView.addSubview(profileIconImageView)
         profileIconBackgroundView.addSubview(profileIconLabel)
@@ -332,11 +320,6 @@ public final class ProfilePictureView: UIView {
         additionalImageContainerView.pin(.bottom, to: .bottom, of: self)
         additionalImageViewWidthConstraint = additionalImageContainerView.set(.width, to: size.multiImageSize)
         additionalImageViewHeightConstraint = additionalImageContainerView.set(.height, to: size.multiImageSize)
-        
-        imageContainerView.addSubview(imageView)
-        imageContainerView.addSubview(animatedImageView)
-        additionalImageContainerView.addSubview(additionalImageView)
-        additionalImageContainerView.addSubview(additionalAnimatedImageView)
         
         // Activate the image edge constraints
         imageEdgeConstraints.forEach { $0.isActive = true }
@@ -387,6 +370,14 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundHeightConstraint = additionalProfileIconBackgroundView.set(.height, to: size.iconSize)
         additionalProfileIconBackgroundLeadingAlignConstraint.isActive = false
         additionalProfileIconBackgroundTrailingAlignConstraint.isActive = false
+    }
+    
+    // MARK: - Functions
+    
+    public func setDataManager(_ dataManager: ImageDataManagerType) {
+        self.dataManager = dataManager
+        self.imageView.setDataManager(dataManager)
+        self.additionalImageView.setDataManager(dataManager)
     }
     
     // MARK: - Content
@@ -448,18 +439,12 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func prepareForReuse() {
+        imageView.image = nil
         imageView.contentMode = .scaleAspectFill
-        imageView.isHidden = true
-        animatedImageView.contentMode = .scaleAspectFill
-        animatedImageView.isHidden = true
         imageContainerView.clipsToBounds = clipsToBounds
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
-        animatedImageView.image = nil
         additionalImageView.image = nil
-        additionalAnimatedImageView.image = nil
-        additionalImageView.isHidden = true
-        additionalAnimatedImageView.isHidden = true
         additionalImageContainerView.clipsToBounds = clipsToBounds
         
         imageViewTopConstraint.isActive = false
@@ -499,30 +484,17 @@ public final class ProfilePictureView: UIView {
         )
         
         // Populate the main imageView
-        switch (info.imageData, info.imageData?.suiKitGuessedImageFormat) {
-            case (.some(let data), .gif), (.some(let data), .webp):
-                imageView.image = nil
-                animatedImageView.loadAnimatedImage(from: data)
+        switch (info.source, info.renderingMode) {
+            case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
+                imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
-            case (.some(let data), _):
-                animatedImageView.image = nil
+            case (.some(let source), _):
+                imageView.loadImage(identifier: info.identifier, from: source)
                 
-                switch info.renderingMode {
-                    case .automatic: imageView.image = UIImage(data: data)
-                    default:
-                        imageView.image = UIImage(data: data)?
-                            .withRenderingMode(info.renderingMode)
-                }
-                
-            default:
-                imageView.image = nil
-                animatedImageView.image = nil
+            default: imageView.image = nil
         }
         
         imageView.themeTintColor = info.themeTintColor
-        imageView.isHidden = (imageView.image == nil)
-        animatedImageView.themeTintColor = info.themeTintColor
-        animatedImageView.isHidden = (animatedImageView.image == nil)
         imageContainerView.themeBackgroundColor = info.backgroundColor
         imageContainerView.themeBackgroundColorForced = info.forcedBackgroundColor
         profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
@@ -557,28 +529,21 @@ public final class ProfilePictureView: UIView {
         )
         
         // Set the additional image content and reposition the image views correctly
-        switch (additionalInfo.imageData, additionalInfo.imageData?.suiKitGuessedImageFormat) {
-            case (.some(let data), .gif), (.some(let data), .webp):
-                additionalAnimatedImageView.loadAnimatedImage(from: data)
+        switch (additionalInfo.source, additionalInfo.renderingMode) {
+            case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
+                additionalImageView.image = source.directImage?.withRenderingMode(renderingMode)
+                additionalImageContainerView.isHidden = false
                 
-            case (.some(let data), _):
-                switch additionalInfo.renderingMode {
-                    case .automatic: additionalImageView.image = UIImage(data: data)
-                    default:
-                        additionalImageView.image = UIImage(data: data)?
-                            .withRenderingMode(additionalInfo.renderingMode)
-                }
+            case (.some(let source), _):
+                additionalImageView.loadImage(identifier: info.identifier, from: source)
+                additionalImageContainerView.isHidden = false
                 
             default:
                 additionalImageView.image = nil
-                additionalAnimatedImageView.image = nil
+                additionalImageContainerView.isHidden = true
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
-        additionalImageView.isHidden = (additionalImageView.image == nil)
-        additionalAnimatedImageView.themeTintColor = additionalInfo.themeTintColor
-        additionalAnimatedImageView.isHidden = (additionalAnimatedImageView.image == nil)
-        additionalImageContainerView.isHidden = false
         
         switch (info.backgroundColor, info.forcedBackgroundColor) {
             case (_, .some(let color)): additionalImageContainerView.themeBackgroundColorForced = color
@@ -622,19 +587,22 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
     var size: ProfilePictureView.Size
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
+    let dataManager: ImageDataManagerType
     
     public init(
         size: ProfilePictureView.Size,
         info: ProfilePictureView.Info,
-        additionalInfo: ProfilePictureView.Info? = nil
+        additionalInfo: ProfilePictureView.Info? = nil,
+        dataManager: ImageDataManagerType
     ) {
         self.size = size
         self.info = info
         self.additionalInfo = additionalInfo
+        self.dataManager = dataManager
     }
     
     public func makeUIView(context: Context) -> ProfilePictureView {
-        ProfilePictureView(size: size)
+        ProfilePictureView(size: size, dataManager: dataManager)
     }
     
     public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {

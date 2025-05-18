@@ -3,6 +3,7 @@
 import UIKit
 import Combine
 import GRDB
+import SessionUIKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -80,52 +81,6 @@ public class DisplayPictureManager {
     
     // MARK: - Loading
     
-    public func displayPicture(_ db: Database, id: OwnerId) -> Data? {
-        let maybeOwner: Owner? = {
-            switch id {
-                case .user(let id): return try? Profile.fetchOne(db, id: id).map { Owner.user($0) }
-                case .group(let id): return try? ClosedGroup.fetchOne(db, id: id).map { Owner.group($0) }
-                case .community(let id): return try? OpenGroup.fetchOne(db, id: id).map { Owner.community($0) }
-            }
-        }()
-        
-        guard let owner: Owner = maybeOwner else { return nil }
-        
-        return displayPicture(owner: owner)
-    }
-    
-    @discardableResult public func displayPicture(owner: Owner) -> Data? {
-        switch (owner.fileName, owner.canDownloadImage) {
-            case (.some(let fileName), _):
-                return loadDisplayPicture(for: fileName, owner: owner)
-                
-            case (_, true):
-                scheduleDownload(for: owner, currentFileInvalid: false)
-                return nil
-                
-            default: return nil
-        }
-    }
-    
-    private func loadDisplayPicture(for fileName: String, owner: Owner) -> Data? {
-        if let cachedImageData: Data = dependencies[cache: .displayPicture].imageData[fileName] {
-            return cachedImageData
-        }
-        
-        guard
-            !fileName.isEmpty,
-            let data: Data = loadDisplayPictureFromDisk(for: fileName),
-            data.isValidImage
-        else {
-            // If we can't load the avatar or it's an invalid/corrupted image then clear it out and re-download
-            scheduleDownload(for: owner, currentFileInvalid: true)
-            return nil
-        }
-        
-        dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = data }
-        return data
-    }
-    
     public func loadDisplayPictureFromDisk(for fileName: String) -> Data? {
         guard let filePath: String = try? filepath(for: fileName) else { return nil }
 
@@ -133,25 +88,6 @@ public class DisplayPictureManager {
     }
     
     // MARK: - File Paths
-    
-    public func profileAvatarFilepath(
-        _ db: Database? = nil,
-        id: String
-    ) -> String? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { [weak self] db in
-                self?.profileAvatarFilepath(db, id: id)
-            }
-        }
-        
-        let maybeFileName: String? = try? Profile
-            .filter(id: id)
-            .select(.profilePictureFileName)
-            .asRequest(of: String.self)
-            .fetchOne(db)
-        
-        return maybeFileName.map { try? filepath(for: $0) }
-    }
     
     /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual
     /// image data so generate a name for the file and then determine the extension separately
@@ -222,7 +158,9 @@ public class DisplayPictureManager {
             )
     }
     
-    private func scheduleDownload(for owner: Owner, currentFileInvalid invalid: Bool) {
+    public func scheduleDownload(for owner: Owner, currentFileInvalid invalid: Bool = false) {
+        guard owner.canDownloadImage else { return }
+        
         dependencies.mutate(cache: .displayPicture) { cache in
             cache.downloadsToSchedule.insert(DownloadInfo(owner: owner, currentFileInvalid: invalid))
         }
@@ -366,10 +304,16 @@ public class DisplayPictureManager {
             .map { [dependencies] fileUploadResponse, fileName, newEncryptionKey, finalImageData -> UploadResult in
                 let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
                 
-                // Update the cached avatar image value
-                dependencies.mutate(cache: .displayPicture) {
-                    $0.imageData[fileName] = finalImageData
+                /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
+                let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                Task {
+                    await dependencies[singleton: .imageDataManager].loadImageData(
+                        identifier: fileName,
+                        source: .data(finalImageData)
+                    )
+                    semaphore.signal()
                 }
+                semaphore.wait()
                 
                 Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
                 return (downloadUrl, fileName, newEncryptionKey)
@@ -447,7 +391,6 @@ public extension DisplayPictureManager {
 
 public extension DisplayPictureManager {
     class Cache: DisplayPictureCacheType {
-        public var imageData: [String: Data] = [:]
         public var downloadsToSchedule: Set<DisplayPictureManager.DownloadInfo> = []
     }
 }
@@ -465,11 +408,9 @@ public extension Cache {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol DisplayPictureImmutableCacheType: ImmutableCacheType {
-    var imageData: [String: Data] { get }
     var downloadsToSchedule: Set<DisplayPictureManager.DownloadInfo> { get }
 }
 
 public protocol DisplayPictureCacheType: DisplayPictureImmutableCacheType, MutableCacheType {
-    var imageData: [String: Data] { get set }
     var downloadsToSchedule: Set<DisplayPictureManager.DownloadInfo> { get set }
 }

@@ -11,4 +11,11 @@ public enum SUIKImageFormat {
     case jpeg
     case bmp
     case webp
+    
+    var nullIfUnknown: SUIKImageFormat? {
+        switch self {
+            case .unknown: return nil
+            default: return self
+        }
+    }
 }

@@ -23,7 +23,10 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         return result
     }()
     
-    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
+        size: .list,
+        dataManager: dependencies[singleton: .imageDataManager]
+    )
     
     private lazy var displayNameLabel: UILabel = {
         let result = UILabel()

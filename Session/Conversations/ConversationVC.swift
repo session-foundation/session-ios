@@ -100,7 +100,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
 
     lazy var mnemonic: String = { ((try? Identity.mnemonic(using: viewModel.dependencies)) ?? "") }()
-    lazy var mediaCache: LRUCache<String, Any> = LRUCache(maxCacheSize: 40)
 
     lazy var recordVoiceMessageActivity = AudioActivity(
         audioDescription: "Voice message",  // stringlint:ignore
@@ -602,7 +601,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         
-        mediaCache.clear()
         hasReloadedThreadDataAfterDisappearance = false
         viewIsDisappearing = false
         
@@ -1375,7 +1373,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             switch threadData.threadVariant {
                 case .contact:
-                    let profilePictureView = ProfilePictureView(size: .navigation)
+                    let profilePictureView = ProfilePictureView(
+                        size: .navigation,
+                        dataManager: viewModel.dependencies[singleton: .imageDataManager]
+                    )
                     profilePictureView.update(
                         publicKey: threadData.threadId,  // Contact thread uses the contactId
                         threadVariant: threadData.threadVariant,
@@ -1631,7 +1632,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 let cell: MessageCell = tableView.dequeue(type: MessageCell.cellType(for: cellViewModel), for: indexPath)
                 cell.update(
                     with: cellViewModel,
-                    mediaCache: mediaCache,
                     playbackInfo: viewModel.playbackInfo(for: cellViewModel) { [weak self] updatedInfo, error in
                         DispatchQueue.main.async {
                             guard error == nil else {
