@@ -13,9 +13,7 @@ struct QuoteView_SwiftUI: View {
         var authorId: String
         var quotedText: String?
         var threadVariant: SessionThread.Variant
-        var currentUserSessionId: String?
-        var currentUserBlinded15SessionId: String?
-        var currentUserBlinded25SessionId: String?
+        var currentUserSessionIds: Set<String>
         var direction: Direction
         var attachment: Attachment?
     }
@@ -33,16 +31,7 @@ struct QuoteView_SwiftUI: View {
     private var info: Info
     private var onCancel: (() -> ())?
     
-    private var isCurrentUser: Bool {
-        return [
-            info.currentUserSessionId,
-            info.currentUserBlinded15SessionId,
-            info.currentUserBlinded25SessionId
-        ]
-        .compactMap { $0 }
-        .asSet()
-        .contains(info.authorId)
-    }
+    private var isCurrentUser: Bool { info.currentUserSessionIds.contains(info.authorId) }
     private var quotedText: String? {
         if let quotedText = info.quotedText, !quotedText.isEmpty {
             return quotedText
@@ -173,9 +162,7 @@ struct QuoteView_SwiftUI: View {
                         MentionUtilities.highlightMentions(
                             in: quotedText,
                             threadVariant: info.threadVariant,
-                            currentUserSessionId: info.currentUserSessionId,
-                            currentUserBlinded15SessionId: info.currentUserBlinded15SessionId,
-                            currentUserBlinded25SessionId: info.currentUserBlinded25SessionId,
+                            currentUserSessionIds: info.currentUserSessionIds,
                             location: {
                                 switch (info.mode, info.direction) {
                                     case (.draft, _): return .quoteDraft
@@ -236,6 +223,7 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                         mode: .draft,
                         authorId: "",
                         threadVariant: .contact,
+                        currentUserSessionIds: [],
                         direction: .outgoing
                     ),
                     using: Dependencies.createEmpty()
@@ -247,6 +235,7 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                         mode: .regular,
                         authorId: "",
                         threadVariant: .contact,
+                        currentUserSessionIds: [],
                         direction: .incoming,
                         attachment: Attachment(
                             variant: .standard,

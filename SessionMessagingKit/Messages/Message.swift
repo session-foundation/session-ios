@@ -174,11 +174,13 @@ public enum ProcessedMessage {
         data: Data,
         uniqueIdentifier: String
     )
+    case invalid
     
-    var threadId: String {
+    public var threadId: String {
         switch self {
             case .standard(let threadId, _, _, _, _): return threadId
             case .config(let publicKey, _, _, _, _, _): return publicKey
+            case .invalid: return ""
         }
     }
     
@@ -192,6 +194,7 @@ public enum ProcessedMessage {
                 }
                 
             case .config(_, let namespace, _, _, _, _): return namespace
+            case .invalid: return .default
         }
     }
     
@@ -199,6 +202,7 @@ public enum ProcessedMessage {
         switch self {
             case .standard(_, _, _, _, let uniqueIdentifier): return uniqueIdentifier
             case .config(_, _, _, _, _, let uniqueIdentifier): return uniqueIdentifier
+            case .invalid: return ""
         }
     }
     
@@ -206,9 +210,12 @@ public enum ProcessedMessage {
         switch self {
             case .standard: return false
             case .config: return true
+            case .invalid: return false
         }
     }
 }
+
+// MARK: - Variant
 
 public extension Message {
     enum Variant: String, Codable, CaseIterable {
@@ -344,7 +351,9 @@ public extension Message {
             }
         }
     }
-    
+}
+
+public extension Message {
     static func createMessageFrom(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) throws -> Message {
         let decodedMessage: Message? = Variant
             .allCases
@@ -364,7 +373,7 @@ public extension Message {
             case is VisibleMessage: return true
             case is ExpirationTimerUpdate: return true
             case is UnsendRequest: return true
-                
+
             case let callMessage as CallMessage:
                 switch callMessage.kind {
                     case .answer, .endCall: return true
@@ -421,25 +430,30 @@ public extension Message {
         associatedPendingChanges: [OpenGroupAPI.PendingChange],
         using dependencies: Dependencies
     ) -> [Reaction] {
-        guard let reactions: [String: OpenGroupAPI.Message.Reaction] = message.reactions else { return [] }
+        guard
+            let reactions: [String: OpenGroupAPI.Message.Reaction] = message.reactions,
+            let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                .fetchOne(db, id: openGroupId)
+        else { return [] }
         
         let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
-        let blinded15SessionId: SessionId? = SessionThread
-            .getCurrentUserBlindedSessionId(
-                db,
+        let currentUserSessionIds: Set<String> = Set([
+            currentUserSessionId,
+            SessionThread.getCurrentUserBlindedSessionId(
                 threadId: openGroupId,
                 threadVariant: .community,
                 blindingPrefix: .blinded15,
+                openGroupCapabilityInfo: openGroupCapabilityInfo,
                 using: dependencies
-            )
-        let blinded25SessionId: SessionId? = SessionThread
-            .getCurrentUserBlindedSessionId(
-                db,
+            ),
+            SessionThread.getCurrentUserBlindedSessionId(
                 threadId: openGroupId,
                 threadVariant: .community,
                 blindingPrefix: .blinded25,
+                openGroupCapabilityInfo: openGroupCapabilityInfo,
                 using: dependencies
             )
+        ].compactMap { $0 }.map { $0.hexString })
         
         return reactions
             .reduce(into: []) { result, next in
@@ -484,7 +498,7 @@ public extension Message {
                 }()
                 let shouldAddSelfReaction: Bool = (
                     pendingChangeSelfReaction ?? (
-                        (next.value.you || reactors.contains(currentUserSessionId.hexString)) &&
+                        (next.value.you || !Set(reactors).isDisjoint(with: currentUserSessionIds)) &&
                         !pendingChangeRemoveAllReaction
                     )
                 )
@@ -493,11 +507,7 @@ public extension Message {
                 let timestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
-                    .filter { id -> Bool in
-                        id != blinded15SessionId?.hexString &&
-                        id != blinded25SessionId?.hexString &&
-                        id != currentUserSessionId.hexString
-                    } // Remove current user for now, will add back if needed
+                    .filter { !currentUserSessionIds.contains($0) } // Remove current user for now, will add back if needed
                     .prefix(maxLength)
                     .map { $0 }
                 
@@ -565,7 +575,7 @@ public extension Message {
         switch (destination, message) {
             // Disappear after sent messages with exceptions
             case (_, is UnsendRequest): return message.ttl
-                
+            
             case (.closedGroup, is GroupUpdateInviteMessage), (.closedGroup, is GroupUpdateInviteResponseMessage),
                 (.closedGroup, is GroupUpdatePromoteMessage), (.closedGroup, is GroupUpdateMemberLeftMessage),
                 (.closedGroup, is GroupUpdateDeleteMemberContentMessage):
@@ -580,6 +590,43 @@ public extension Message {
                 else { return message.ttl }
                 
                 return UInt64(expiresInSeconds * 1000)
+        }
+    }
+}
+
+// MARK: - Conversion
+
+public extension Interaction.Variant {
+    /// This function can be used to create an `Interaction.Variant` from a `Message` instance
+    init?(message: Message, currentUserSessionIds: Set<String>) {
+        switch message {
+            case is ReadReceipt, is TypingIndicator, is UnsendRequest, is GroupUpdatePromoteMessage,
+                is GroupUpdateMemberLeftMessage, is GroupUpdateInviteResponseMessage,
+                is GroupUpdateDeleteMemberContentMessage, is LibSessionMessage:
+                return nil
+                
+            case is TypingIndicator: return nil
+            case let message as DataExtractionNotification:
+                self = (message.kind == .screenshot ?
+                    .infoScreenshotNotification :
+                    .infoMediaSavedNotification
+                )
+            
+            case is ExpirationTimerUpdate: self = .infoDisappearingMessagesUpdate
+            case is MessageRequestResponse: self = .infoMessageRequestAccepted
+            
+            case let message as VisibleMessage:
+                self = (currentUserSessionIds.contains(message.sender ?? "") ?
+                    .standardOutgoing :
+                    .standardIncoming
+                )
+            
+            case is CallMessage: self = .infoCall
+            case is GroupUpdateInviteMessage: self = .infoGroupInfoInvited
+            case is GroupUpdateInfoChangeMessage: self = .infoGroupInfoUpdated
+            case is GroupUpdateMemberChangeMessage: self = .infoGroupMembersUpdated
+            case is GroupUpdateMemberLeftNotificationMessage: self = .infoGroupMembersUpdated
+            default: return nil
         }
     }
 }

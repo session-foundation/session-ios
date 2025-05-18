@@ -32,9 +32,8 @@ extension MessageReceiver {
             cache.timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
-                timestampMs: (timestampMs * 1000),
-                userSessionId: dependencies[cache: .general].sessionId,
-                openGroup: nil
+                timestampMs: timestampMs,
+                openGroupUrlInfo: nil
             )
         }
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(

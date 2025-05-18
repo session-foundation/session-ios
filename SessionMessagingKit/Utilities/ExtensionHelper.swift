@@ -31,6 +31,9 @@ private extension Log.Category {
 public class ExtensionHelper: ExtensionHelperType {
     private lazy var cacheDirectoryPath: String = "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/extensionCache"
     private lazy var dedupePath: String = "\(cacheDirectoryPath)/dedupe"
+    private func dumpFilePath(_ hash: [UInt8]) -> String {
+        return "\(cacheDirectoryPath)/\(hash.toHexString())"
+    }
     private let encryptionKeyLength: Int = 32
     
     private let dependencies: Dependencies
@@ -83,25 +86,38 @@ public class ExtensionHelper: ExtensionHelperType {
     // MARK: - Deduping
     
     // stringlint:ignore_contents
-    private func dedupeRecordPath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+    private func threadDedupeRecordPath(_ threadId: String) -> String? {
         guard
             let threadIdData: Data = "ConvoIdSalt-\(threadId)".data(using: .utf8),
-            let uniqueIdData: Data = "UniqueIdSalt-\(uniqueIdentifier)".data(using: .utf8),
             let threadIdHash: [UInt8] = dependencies[singleton: .crypto].generate(
                 .hash(message: Array(threadIdData))
-            ),
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: dedupePath)
+            .appendingPathComponent(threadIdHash.toHexString())
+            .path
+    }
+    
+    // stringlint:ignore_contents
+    private func dedupeRecordPath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+        guard
+            let threadDedupePath: String = threadDedupeRecordPath(threadId),
+            let uniqueIdData: Data = "UniqueIdSalt-\(uniqueIdentifier)".data(using: .utf8),
             let uniqueIdHash: [UInt8] = dependencies[singleton: .crypto].generate(
                 .hash(message: Array(uniqueIdData))
             )
         else { return nil }
         
-        return URL(
-            fileURLWithPath: [
-                dedupePath,
-                threadIdHash.toHexString(),
-                uniqueIdHash.toHexString()
-            ].joined(separator: "/")
-        ).path
+        return URL(fileURLWithPath: threadDedupePath)
+            .appendingPathComponent(uniqueIdHash.toHexString())
+            .path
+    }
+    
+    public func hasAtLeastOneDedupeRecord(threadId: String) -> Bool {
+        guard let path: String = threadDedupeRecordPath(threadId) else { return false }
+        
+        return !dependencies[singleton: .fileManager].isDirectoryEmpty(atPath: path)
     }
     
     public func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool {
@@ -138,6 +154,29 @@ public class ExtensionHelper: ExtensionHelperType {
     public func deleteAllDedupeRecords() {
         try? dependencies[singleton: .fileManager].removeItem(atPath: dedupePath)
     }
+    
+    // MARK: - Config Dumps
+    
+    private func hash(for sessionId: SessionId, variant: ConfigDump.Variant) -> [UInt8]? {
+        return "\(sessionId.hexString)-\(variant)".data(using: .utf8).map { dataToHash in
+            dependencies[singleton: .crypto].generate(
+                .hash(message: Array(dataToHash))
+            )
+        }
+    }
+    
+    public func lastUpdatedTimestamp(
+        for sessionId: SessionId,
+        variant: ConfigDump.Variant
+    ) -> TimeInterval {
+        guard let hash: [UInt8] = hash(for: sessionId, variant: variant) else { return 0 }
+        
+        return ((try? dependencies[singleton: .fileManager]
+            .attributesOfItem(atPath: "\(dumpFilePath(hash))")
+            .getting(.modificationDate) as? Date)?
+            .timeIntervalSince1970)
+            .defaulting(to: 0)
+    }
 }
 
 // MARK: - ExtensionHelperError
@@ -164,8 +203,13 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
 public protocol ExtensionHelperType {
     // MARK: - Deduping
     
+    func hasAtLeastOneDedupeRecord(threadId: String) -> Bool
     func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool
     func createDedupeRecord(threadId: String, uniqueIdentifier: String) throws
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws
     func deleteAllDedupeRecords()
+    
+    // MARK: - Config Dumps
+    
+    func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
 }

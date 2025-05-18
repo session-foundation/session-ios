@@ -57,13 +57,11 @@ public enum GroupLeavingJob: JobExecutor {
                     .defaulting(to: 0)
                 let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
                     guard
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
-                        ) ||
-                        LibSession.groupIsDestroyed(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
+                        (
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
+                                cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                            }
                         )
                     else { return details.behaviour }
                     

@@ -162,6 +162,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .thenReturn(true)
                 fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
                 fileManager.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
+                fileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -211,61 +212,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
             members: groupMembersConf
         )
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
-                
-                cache.when { $0.isEmpty }.thenReturn(false)
-                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
-                cache.when { $0.hasConfig(for: .any, sessionId: .any) }.thenReturn(true)
-                cache
-                    .when { $0.config(for: .userGroups, sessionId: userSessionId) }
-                    .thenReturn(userGroupsConfig)
-                cache
-                    .when { $0.config(for: .convoInfoVolatile, sessionId: userSessionId) }
-                    .thenReturn(convoInfoVolatileConfig)
-                cache
-                    .when { $0.config(for: .groupInfo, sessionId: groupId) }
-                    .thenReturn(groupInfoConfig)
-                cache
-                    .when { $0.config(for: .groupMembers, sessionId: groupId) }
-                    .thenReturn(groupMembersConfig)
-                cache
-                    .when { $0.config(for: .groupKeys, sessionId: groupId) }
-                    .thenReturn(groupKeysConfig)
-                cache
-                    .when { try $0.pendingChanges(swarmPublicKey: .any) }
-                    .thenReturn(LibSession.PendingChanges())
-                cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
-                cache
-                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
-                    .then { args, untrackedArgs in
-                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
-                        try? callback?()
-                    }
-                    .thenReturn(())
-                cache
-                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-                    .then { args, untrackedArgs in
-                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
-                        
-                        switch args[test: 0] as? ConfigDump.Variant {
-                            case .userGroups: try? callback?(userGroupsConfig)
-                            case .convoInfoVolatile: try? callback?(convoInfoVolatileConfig)
-                            case .groupInfo: try? callback?(groupInfoConfig)
-                            case .groupMembers: try? callback?(groupMembersConfig)
-                            case .groupKeys: try? callback?(groupKeysConfig)
-                            default: break
-                        }
-                    }
-                    .thenReturn(())
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache
-                    .when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
-                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
+            initialSetup: {
+                $0.defaultInitialSetup(
+                    configs: [
+                        .userGroups: userGroupsConfig,
+                        .convoInfoVolatile: convoInfoVolatileConfig,
+                        .groupInfo: groupInfoConfig,
+                        .groupMembers: groupMembersConfig,
+                        .groupKeys: groupKeysConfig
+                    ]
+                )
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -291,7 +247,18 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
             initialSetup: { notificationsManager in
                 notificationsManager
-                    .when { $0.notifyUser(.any, for: .any, in: .any, applicationState: .any) }
+                    .when { $0.notificationUserInfo(threadId: .any, threadVariant: .any) }
+                    .thenReturn([:])
+                notificationsManager
+                    .when { $0.notificationShouldPlaySound(applicationState: .any) }
+                    .thenReturn(false)
+                notificationsManager
+                    .when {
+                        $0.addNotificationRequest(
+                            content: .any,
+                            notificationSettings: .any
+                        )
+                    }
                     .thenReturn(())
                 notificationsManager
                     .when { $0.cancelNotifications(identifiers: .any) }
@@ -691,43 +658,23 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         expect(mockNotificationsManager)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { notificationsManager in
-                                notificationsManager.notifyUser(
-                                    .any,
-                                    for: Interaction(
-                                        id: 1,
-                                        serverHash: nil,
-                                        messageUuid: nil,
+                                notificationsManager.addNotificationRequest(
+                                    content: NotificationContent(
                                         threadId: groupId.hexString,
-                                        authorId: "051111111111111111111111111111111" + "111111111111111111111111111111111",
-                                        variant: .infoGroupInfoInvited,
-                                        body: ClosedGroup.MessageInfo
-                                            .invited("0511...1111", "TestGroup")
-                                            .infoString(using: dependencies),
-                                        timestampMs: 1234567890000,
-                                        receivedAtTimestampMs: 1234567890000,
-                                        wasRead: false,
-                                        hasMention: false,
-                                        expiresInSeconds: nil,
-                                        expiresStartedAtMs: nil,
-                                        linkPreviewUrl: nil,
-                                        openGroupServerMessageId: nil,
-                                        openGroupWhisper: false,
-                                        openGroupWhisperMods: false,
-                                        openGroupWhisperTo: nil,
-                                        state: .sent,
-                                        recipientReadTimestampMs: nil,
-                                        mostRecentFailureText: nil,
-                                        transientDependencies: EquatableIgnoring(value: dependencies)
+                                        threadVariant: .group,
+                                        identifier: "\(groupId.hexString)-1",
+                                        category: .incomingMessage,
+                                        title: "notificationsIosGroup".localized(),
+                                        body: "messageNewYouveGot".localized(),
+                                        sound: .defaultNotificationSound,
+                                        applicationState: .active
                                     ),
-                                    in: SessionThread(
-                                        id: groupId.hexString,
-                                        variant: .group,
-                                        creationDateTimestamp: 1234567890,
-                                        shouldBeVisible: true,
-                                        isDraft: false,
-                                        using: dependencies
-                                    ),
-                                    applicationState: .active
+                                    notificationSettings: Preferences.NotificationSettings(
+                                        mode: .all,
+                                        previewType: .nameAndPreview,
+                                        sound: .defaultNotificationSound,
+                                        mutedUntil: nil
+                                    )
                                 )
                             })
                     }
@@ -853,11 +800,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         expect(mockNotificationsManager)
                             .toNot(call { notificationsManager in
-                                notificationsManager.notifyUser(
-                                    .any,
-                                    for: .any,
-                                    in: .any,
-                                    applicationState: .any
+                                notificationsManager.addNotificationRequest(
+                                    content: .any,
+                                    notificationSettings: .any
                                 )
                             })
                     }
@@ -1070,6 +1015,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     groups_members_set(groupMembersConf, &member)
                     
                     mockStorage.write { db in
+                        try Contact(
+                            id: "051111111111111111111111111111111111111111111111111111111111111111",
+                            isTrusted: true,
+                            isApproved: true,
+                            isBlocked: false,
+                            lastKnownClientVersion: nil,
+                            didApproveMe: true,
+                            hasBeenBlocked: false,
+                            using: dependencies
+                        ).insert(db)
                         try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
@@ -1130,8 +1085,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                     }
                     
-                    expect(LibSession.isAdmin(groupSessionId: groupId, using: dependencies))
-                        .to(beTrue())
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.loadAdminKey(
+                            groupIdentitySeed: groupSeed,
+                            groupSessionId: SessionId(.group, publicKey: [1, 2, 3])
+                        )
+                    })
                 }
                 
                 // MARK: ---- replaces the memberAuthData with the admin key in the database

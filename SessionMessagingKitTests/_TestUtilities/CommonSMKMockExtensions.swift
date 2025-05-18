@@ -25,6 +25,15 @@ extension LibSession.CacheBehaviour: Mocked {
     static var mock: LibSession.CacheBehaviour = .skipAutomaticConfigSync
 }
 
+extension LibSession.OpenGroupUrlInfo: Mocked {
+    static var mock: LibSession.OpenGroupUrlInfo = LibSession.OpenGroupUrlInfo(
+        threadId: .mock,
+        server: .mock,
+        roomToken: .mock,
+        publicKey: .mock
+    )
+}
+
 extension SessionThread: Mocked {
     static var mock: SessionThread = SessionThread(
         id: .mock,
@@ -46,6 +55,10 @@ extension SessionThread.Variant: Mocked {
     static var mock: SessionThread.Variant = .contact
 }
 
+extension Interaction.Variant: Mocked {
+    static var mock: Interaction.Variant = .standardIncoming
+}
+
 extension Interaction: Mocked {
     static var mock: Interaction = Interaction(
         id: 123456,
@@ -53,7 +66,7 @@ extension Interaction: Mocked {
         messageUuid: nil,
         threadId: .mock,
         authorId: .mock,
-        variant: .standardIncoming,
+        variant: .mock,
         body: .mock,
         timestampMs: 1234567890,
         receivedAtTimestampMs: 1234567890,
@@ -75,4 +88,22 @@ extension Interaction: Mocked {
 
 extension KeychainStorage.DataKey: Mocked {
     static var mock: KeychainStorage.DataKey = .dbCipherKeySpec
+}
+
+extension NotificationCategory: Mocked {
+    static var mock: NotificationCategory = .incomingMessage
+}
+
+extension NotificationContent: Mocked {
+    static var mock: NotificationContent = NotificationContent(
+        threadId: .mock,
+        threadVariant: .mock,
+        identifier: .mock,
+        category: .mock,
+        applicationState: .any
+    )
+}
+
+extension Preferences.NotificationSettings: Mocked {
+    static var mock: Preferences.NotificationSettings = .defaultFor(.mock)
 }

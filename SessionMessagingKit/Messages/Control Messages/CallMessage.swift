@@ -14,6 +14,7 @@ public final class CallMessage: ControlMessage {
     
     public var uuid: String
     public var kind: Kind
+    public var state: MessageInfo.State?
     
     /// See https://developer.mozilla.org/en-US/docs/Glossary/SDP for more information.
     public var sdps: [String]

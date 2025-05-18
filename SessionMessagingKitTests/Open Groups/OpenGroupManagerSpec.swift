@@ -211,6 +211,9 @@ class OpenGroupManagerSpec: QuickSpec {
                     .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
             }
         )
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
         @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
             initialSetup: { cache in
                 cache.when { $0.pendingChanges }.thenReturn([])
@@ -2343,29 +2346,31 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- uses an empty set for moderators by default
-                it("uses an empty set for moderators by default") {
+                // MARK: ---- has no moderators by default
+                it("has no moderators by default") {
                     expect(
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beFalse())
                 }
                 
-                // MARK: ---- uses an empty set for admins by default
-                it("uses an empty set for admins by default") {
+                // MARK: ----has no admins by default
+                it("has no admins by default") {
                     expect(
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beFalse())
@@ -2376,7 +2381,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     mockStorage.write { db in
                         try GroupMember(
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            profileId: "05\(TestConstants.publicKey)",
+                            profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             role: .moderator,
                             roleStatus: .accepted,
                             isHidden: false
@@ -2387,9 +2392,10 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
-                                publicKey: "05\(TestConstants.publicKey)",
+                                publicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beTrue())
@@ -2400,7 +2406,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     mockStorage.write { db in
                         try GroupMember(
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            profileId: "05\(TestConstants.publicKey)",
+                            profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             role: .admin,
                             roleStatus: .accepted,
                             isHidden: false
@@ -2411,9 +2417,10 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
-                                publicKey: "05\(TestConstants.publicKey)",
+                                publicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beTrue())
@@ -2424,7 +2431,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     mockStorage.write { db in
                         try GroupMember(
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            profileId: "05\(TestConstants.publicKey)",
+                            profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             role: .moderator,
                             roleStatus: .accepted,
                             isHidden: true
@@ -2435,9 +2442,10 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
-                                publicKey: "05\(TestConstants.publicKey)",
+                                publicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beTrue())
@@ -2448,7 +2456,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     mockStorage.write { db in
                         try GroupMember(
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            profileId: "05\(TestConstants.publicKey)",
+                            profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             role: .admin,
                             roleStatus: .accepted,
                             isHidden: true
@@ -2459,9 +2467,10 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
-                                publicKey: "05\(TestConstants.publicKey)",
+                                publicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beTrue())
@@ -2475,90 +2484,24 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 publicKey: "InvalidValue",
                                 for: "testRoom",
-                                on: "http://127.0.0.1"
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
                         }
                     ).to(beFalse())
                 }
                 
-                // MARK: ---- and the key is a standard session id
-                context("and the key is a standard session id") {
-                    // MARK: ------ returns false if the key is not the users session id
-                    it("returns false if the key is not the users session id") {
-                        mockStorage.write { db in
-                            let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                            
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).upsert(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
-                        }
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "05\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beFalse())
-                    }
-                    
-                    // MARK: ------ returns true if the key is the current users and the users unblinded id is a moderator or admin
-                    it("returns true if the key is the current users and the users unblinded id is a moderator or admin") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
+                // MARK: ---- and the key belongs to the current user
+                context("and the key belongs to the current user") {
+                    // MARK: ------ matches a blinded key
+                    it("matches a blinded key ") {
                         mockStorage.write { db in
                             try GroupMember(
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                profileId: "00\(otherKey)",
-                                role: .moderator,
+                                profileId: "15\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                                role: .admin,
                                 roleStatus: .accepted,
-                                isHidden: false
-                            ).insert(db)
-                            
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).upsert(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
-                        }
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                        mockCrypto
-                            .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: otherKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
-                            )
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "05\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beTrue())
-                    }
-                    
-                    // MARK: ------ returns true if the key is the current users and the users blinded id is a moderator or admin
-                    it("returns true if the key is the current users and the users blinded id is a moderator or admin") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockCrypto
-                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: otherKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
-                            )
-                        mockStorage.write { db in
-                            try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                profileId: "15\(otherKey)",
-                                role: .moderator,
-                                roleStatus: .accepted,
-                                isHidden: false
+                                isHidden: true
                             ).insert(db)
                         }
                         
@@ -2568,260 +2511,32 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     publicKey: "05\(TestConstants.publicKey)",
                                     for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beTrue())
-                    }
-                }
-                
-                // MARK: ---- and the key is unblinded
-                context("and the key is unblinded") {
-                    // MARK: ------ returns false if unable to generate the user ed25519KeyPair
-                    it("returns false if unable to generate the user ed25519KeyPair") {
-                        mockCrypto
-                            .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                            .thenReturn(nil)
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "00\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beFalse())
-                    }
-                    
-                    // MARK: ------ returns false if the key is not the users unblinded id
-                    it("returns false if the key is not the users unblinded id") {
-                        mockStorage.write { db in
-                            let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                            
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).upsert(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
-                        }
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "00\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beFalse())
-                    }
-                    
-                    // MARK: ------ returns true if the key is the current users and the users session id is a moderator or admin
-                    it("returns true if the key is the current users and the users session id is a moderator or admin") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: otherKey))
-                        mockStorage.write { db in
-                            try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                profileId: "05\(otherKey)",
-                                role: .moderator,
-                                roleStatus: .accepted,
-                                isHidden: false
-                            ).insert(db)
-                            
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).upsert(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
-                        }
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "00\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
+                                    on: "http://127.0.0.1",
+                                    currentUserSessionIds: [
+                                        "05\(TestConstants.publicKey)",
+                                        "15\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))"
+                                    ]
                                 )
                             }
                         ).to(beTrue())
                     }
                     
-                    // MARK: ------ returns true if the key is the current users and the users blinded id is a moderator or admin
-                    it("returns true if the key is the current users and the users blinded id is a moderator or admin") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockCrypto
-                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: otherKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
+                    // MARK: ------ generates and unblinded key if the key belongs to the current user
+                    it("generates and unblinded key if the key belongs to the current user") {
+                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([4, 5, 6])
+                        mockStorage.read { db in
+                            openGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "http://127.0.0.1",
+                                currentUserSessionIds: ["05\(TestConstants.publicKey)"]
                             )
-                        mockStorage.write { db in
-                            try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                profileId: "15\(otherKey)",
-                                role: .moderator,
-                                roleStatus: .accepted,
-                                isHidden: false
-                            ).insert(db)
                         }
                         
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "00\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beTrue())
-                    }
-                }
-                
-                // MARK: ---- and the key is blinded
-                context("and the key is blinded") {
-                    // MARK: ------ returns false if unable to retrieve the user ed25519 key
-                    it("returns false if unable to retrieve the user ed25519 key") {
-                        mockStorage.write { db in
-                            try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
-                            try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
-                        }
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "15\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beFalse())
-                    }
-                    
-                    // MARK: ------ returns false if unable generate a blinded key
-                    it("returns false if unable generate a blinded key") {
-                        mockCrypto
-                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                            .thenReturn(nil)
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "15\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beFalse())
-                    }
-                    
-                    // MARK: ------ returns false if the key is not the users blinded id
-                    it("returns false if the key is not the users blinded id") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockCrypto
-                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: otherKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
-                            )
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "15\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beFalse())
-                    }
-                    
-                    // MARK: ------ returns true if the key is the current users and the users session id is a moderator or admin
-                    it("returns true if the key is the current users and the users session id is a moderator or admin") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: otherKey))
-                        mockCrypto
-                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: TestConstants.publicKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
-                            )
-                        mockStorage.write { db in
-                            try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                profileId: "05\(otherKey)",
-                                role: .moderator,
-                                roleStatus: .accepted,
-                                isHidden: false
-                            ).insert(db)
-                            
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).upsert(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
-                        }
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "15\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beTrue())
-                    }
-                    
-                    // MARK: ------ returns true if the key is the current users and the users unblinded id is a moderator or admin
-                    it("returns true if the key is the current users and the users unblinded id is a moderator or admin") {
-                        let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockCrypto
-                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: TestConstants.publicKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
-                            )
-                        mockStorage.write { db in
-                            try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                profileId: "00\(otherKey)",
-                                role: .moderator,
-                                roleStatus: .accepted,
-                                isHidden: false
-                            ).insert(db)
-                        }
-                        mockCrypto
-                            .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                            .thenReturn(
-                                KeyPair(
-                                    publicKey: Data(hex: otherKey).bytes,
-                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                                )
-                            )
-                        
-                        expect(
-                            mockStorage.read { db in
-                                openGroupManager.isUserModeratorOrAdmin(
-                                    db,
-                                    publicKey: "15\(TestConstants.publicKey)",
-                                    for: "testRoom",
-                                    on: "http://127.0.0.1"
-                                )
-                            }
-                        ).to(beTrue())
+                        expect(mockCrypto).to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.generate(.ed25519KeyPair(seed: [4, 5, 6]))
+                        })
                     }
                 }
             }

@@ -8,8 +8,6 @@ public extension PushNotificationAPI {
         case successTooLong
         case failure
         case failureNoContent
-        case legacySuccess
         case legacyFailure
-        case legacyForceSilent
     }
 }
