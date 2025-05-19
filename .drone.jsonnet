@@ -51,6 +51,12 @@ local clear_spm_cache_on_commit_trigger = {
     './Scripts/reset_spm_cache.sh',
   ],
 };
+local clean_up_old_test_sims_on_commit_trigger = {
+  name: 'Clean up Old Test Simulators if Needed',
+  commands: [
+    './Scripts/clean_up_old_test_simulators.sh',
+  ],
+};
 
 
 [
@@ -64,6 +70,7 @@ local clear_spm_cache_on_commit_trigger = {
     steps: [
       version_info,
       clear_spm_cache_on_commit_trigger,
+      clean_up_old_test_sims_on_commit_trigger,
 
       boot_simulator(),
       sim_keepalive,
@@ -77,6 +84,7 @@ local clear_spm_cache_on_commit_trigger = {
         ],
         depends_on: [
           'Reset SPM Cache if Needed',
+          'Clean up Old Test Simulators if Needed',
           'Boot Test Simulator'
         ],
       },
@@ -123,6 +131,7 @@ local clear_spm_cache_on_commit_trigger = {
     steps: [
       version_info,
       clear_spm_cache_on_commit_trigger,
+      clean_up_old_test_sims_on_commit_trigger,
       {
         name: 'Build',
         commands: [
@@ -131,6 +140,7 @@ local clear_spm_cache_on_commit_trigger = {
         ],
         depends_on: [
           'Reset SPM Cache if Needed'
+          'Clean up Old Test Simulators if Needed',
         ]
       },
       {

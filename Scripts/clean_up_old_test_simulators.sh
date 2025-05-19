@@ -5,6 +5,19 @@
 
 dir="$HOME/Library/Developer/CoreSimulator/Devices"
 
+reset="\e[0m"
+red="\e[31;1m"
+green="\e[32;1m"
+yellow="\e[33;1m"
+blue="\e[34;1m"
+cyan="\e[36;1m"
+
+if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Clear Simulators]"; then
+  echo "Trigger phrase found in commit message. Clearing old simulators..."
+else
+  echo -e "\n${green}Trigger phrase not found. Skipping old simulator cache clearing.${reset}"
+fi
+
 # The $HOME directory for a drone pipeline won't be the directory the simulators are stored in so
 # check if it exists and if not, fallback to a hard-coded directory
 if [[ ! -d $dir ]]; then
@@ -15,7 +28,7 @@ fi
 plist="${dir}/device_set.plist"
 
 if [[ ! -f ${plist} ]]; then
-	echo -e "\e[31;1mXCode Simulator list not found.\e[0m"
+	echo -e "\n${red}XCode Simulator list not found.${reset}"
 	exit 1
 fi
 
@@ -57,25 +70,28 @@ done < <(find "$dir" -maxdepth 1 -type d -not -path "$dir" -mmin -60)
 
 # Delete the simulators
 if [ ${#uuids_to_remove[@]} -eq 0 ]; then
-  echo -e "\e[31mNo simulators to delete\e[0m"
+  echo -e "\n${red}No simulators to delete${reset}"
 else
-  echo -e "\e[31mDeleting ${#uuids_to_remove[@]} old test simulators:\e[0m"
+  echo -e "\n${red}Deleting ${#uuids_to_remove[@]} old test simulators:${reset}"
   for uuid in "${uuids_to_remove[@]}"; do
-    echo -e "\e[31m    $uuid\e[0m"
-    # xcrun simctl delete "$uuid"
+    echo -e "\n${red}    $uuid${reset}"
+    xcrun simctl delete "$uuid"
   done
 fi
 
 # Output the pipeline simulators we are leaving
 if [ ${#uuids_to_keep[@]} -gt 0 ]; then
-  echo -e "\e[33m\nIgnoring ${#uuids_to_keep[@]} test simulators (might be in use):\e[0m"
+  echo -e "${yellow}\nIgnoring ${#uuids_to_keep[@]} test simulators (might be in use):${reset}"
   for uuid in "${uuids_to_keep[@]}"; do
-  	echo -e "\e[33m    $uuid\e[0m"
+  	echo -e "${yellow}    $uuid${reset}"
   done
 fi
 
 # Output the remaining Xcode Simulators
-echo -e "\e[32m\nIgnoring ${#uuids_to_ignore[@]} Xcode simulators:\e[0m"
+echo -e "${green}\nIgnoring ${#uuids_to_ignore[@]} Xcode simulators:${reset}"
 for uuid in "${uuids_to_ignore[@]}"; do
-  echo -e "\e[32m    $uuid\e[0m"
+  echo -e "${green}    $uuid${reset}"
 done
+
+echo -e ""
+echo -e "\n${green}Old simulators cleaned up."
