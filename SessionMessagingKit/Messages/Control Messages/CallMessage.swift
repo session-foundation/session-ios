@@ -223,7 +223,7 @@ public final class CallMessage: ControlMessage {
 
 public extension CallMessage {
     struct MessageInfo: Codable {
-        public enum State: Codable {
+        public enum State: Codable, CaseIterable {
             case incoming
             case outgoing
             case missed

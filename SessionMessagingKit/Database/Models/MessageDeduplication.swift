@@ -98,13 +98,6 @@ public extension MessageDeduplication {
             expirationTimestampSeconds: finalExpiryTimestampSeconds,
             shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
         ).insert(db)
-        try insertCallDedupeRecordsIfNeeded(
-            db,
-            threadId: threadId,
-            callMessage: message as? CallMessage,
-            expirationTimestampSeconds: finalExpiryTimestampSeconds,
-            shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
-        )
         
         /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe messages
         try createDedupeFile(
@@ -113,9 +106,14 @@ public extension MessageDeduplication {
             legacyIdentifier: legacyIdentifier,
             using: dependencies
         )
-        try createCallDedupeFilesIfNeeded(
+        
+        /// Insert & create special call-specific dedupe records
+        try insertCallDedupeRecordsIfNeeded(
+            db,
             threadId: threadId,
             callMessage: message as? CallMessage,
+            expirationTimestampSeconds: finalExpiryTimestampSeconds,
+            shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread,
             using: dependencies
         )
         
@@ -223,39 +221,13 @@ public extension MessageDeduplication {
 // MARK: - CallMessage Convenience
 
 public extension MessageDeduplication {
-    static func ensureCallMessageIsNotADuplicate(
-        threadId: String,
-        callMessage: CallMessage?,
-        using dependencies: Dependencies
-    ) throws {
-        guard let callMessage: CallMessage = callMessage else { return }
-        
-        do {
-            /// We only want to handle the `preOffer` message once
-            if callMessage.kind == .preOffer {
-                try MessageDeduplication.ensureMessageIsNotADuplicate(
-                    threadId: threadId,
-                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
-                    using: dependencies
-                )
-            }
-            
-            /// If a call has officially "ended" then we don't want to handle _any_ further messages related to it
-            try MessageDeduplication.ensureMessageIsNotADuplicate(
-                threadId: threadId,
-                uniqueIdentifier: callMessage.uuid,
-                using: dependencies
-            )
-        }
-        catch { throw MessageReceiverError.duplicatedCall }
-    }
-    
     static func insertCallDedupeRecordsIfNeeded(
         _ db: Database,
         threadId: String,
         callMessage: CallMessage?,
         expirationTimestampSeconds: Int64?,
-        shouldDeleteWhenDeletingThread: Bool
+        shouldDeleteWhenDeletingThread: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard let callMessage: CallMessage = callMessage else { return }
         
@@ -281,6 +253,13 @@ public extension MessageDeduplication {
             /// For any other combinations we don't want to deduplicate messages (as they are needed to keep the call going)
             default: break
         }
+        
+        /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe call messages
+        try createCallDedupeFilesIfNeeded(
+            threadId: threadId,
+            callMessage: callMessage,
+            using: dependencies
+        )
     }
     
     static func createCallDedupeFilesIfNeeded(
@@ -308,6 +287,33 @@ public extension MessageDeduplication {
             /// For any other combinations we don't want to deduplicate messages (as they are needed to keep the call going)
             default: break
         }
+    }
+    
+    static func ensureCallMessageIsNotADuplicate(
+        threadId: String,
+        callMessage: CallMessage?,
+        using dependencies: Dependencies
+    ) throws {
+        guard let callMessage: CallMessage = callMessage else { return }
+        
+        do {
+            /// We only want to handle the `preOffer` message once
+            if callMessage.kind == .preOffer {
+                try MessageDeduplication.ensureMessageIsNotADuplicate(
+                    threadId: threadId,
+                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                    using: dependencies
+                )
+            }
+            
+            /// If a call has officially "ended" then we don't want to handle _any_ further messages related to it
+            try MessageDeduplication.ensureMessageIsNotADuplicate(
+                threadId: threadId,
+                uniqueIdentifier: callMessage.uuid,
+                using: dependencies
+            )
+        }
+        catch { throw MessageReceiverError.duplicatedCall }
     }
 }
 

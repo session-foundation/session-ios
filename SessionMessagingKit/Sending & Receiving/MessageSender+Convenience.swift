@@ -260,7 +260,7 @@ extension MessageSender {
                 
                 let variantString: String = Message.Variant(from: message)
                     .map { "\($0)" }
-                    .defaulting(to: "Unknown Variant")
+                    .defaulting(to: "Unknown Variant")  // stringlint:ignore
                 Log.warn(.messageSender, "Unable to store deduplication unique identifier for outgoing message of type: \(variantString).")
                 return nil
             }(),
