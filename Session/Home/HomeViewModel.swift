@@ -364,6 +364,8 @@ public class HomeViewModel: NavigatableStateHolder {
                         }
                         .map { viewModel -> SessionThreadViewModel in
                             viewModel.populatingPostQueryData(
+                                recentReactionEmoji: nil,
+                                openGroupCapabilities: nil,
                                 currentUserSessionIds: (groupedOldData[viewModel.threadId]?
                                     .first?
                                     .currentUserSessionIds)

@@ -46,7 +46,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .writePublisher { db -> AuthenticationMethod in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -57,8 +57,10 @@ public enum GroupInviteMemberJob: JobExecutor {
                         using: dependencies
                     )
                 
-                return try MessageSender.preparedSend(
-                    db,
+                return try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+            }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                try MessageSender.preparedSend(
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,
                         groupSessionId: SessionId(.group, hex: threadId),
@@ -70,21 +72,18 @@ public enum GroupInviteMemberJob: JobExecutor {
                             profilePictureUrl: adminProfile.profilePictureUrl
                         ),
                         sentTimestampMs: UInt64(sentTimestampMs),
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: threadId,
-                            using: dependencies
-                        ),
+                        authMethod: authMethod,
                         using: dependencies
                     ),
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,
                     interactionId: nil,
-                    fileIds: [],
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(

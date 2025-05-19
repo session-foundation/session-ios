@@ -91,7 +91,7 @@ extension MessageReceiver {
         guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
             Log.info(.calls, "Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestampMs ?? 0), now is \(Date().timeIntervalSince1970 * 1000)")
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies), let interactionId: Int64 = interaction.id {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, threadId: threadId, threadVariant: threadVariant, for: message, state: .missed, using: dependencies), let interactionId: Int64 = interaction.id {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: sender,
@@ -135,7 +135,7 @@ extension MessageReceiver {
             
             Log.info(.calls, "Microphone permission is \(AVAudioSession.sharedInstance().recordPermission)")
             
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies), let interactionId: Int64 = interaction.id {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, threadId: threadId, threadVariant: threadVariant, for: message, state: state, using: dependencies), let interactionId: Int64 = interaction.id {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: sender,
@@ -200,6 +200,8 @@ extension MessageReceiver {
         /// extension will no longer insert this itself)
         let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(
             db,
+            threadId: threadId,
+            threadVariant: threadVariant,
             for: message,
             using: dependencies
         )
@@ -301,8 +303,8 @@ extension MessageReceiver {
         guard
             let caller: String = message.sender,
             let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
-            !dependencies.mutate(cache: .libSession, { cache in
-                cache.isMessageRequest(threadId: caller, threadVariant: threadVariant)
+            dependencies.mutate(cache: .libSession, { cache in
+                !cache.isMessageRequest(threadId: caller, threadVariant: threadVariant)
             })
         else { return }
         
@@ -332,35 +334,58 @@ extension MessageReceiver {
             using: dependencies
         )
         .inserted(db)
-
-        try MessageSender
-            .preparedSend(
-                db,
-                message: CallMessage(
-                    uuid: message.uuid,
-                    kind: .endCall,
-                    sdps: [],
-                    sentTimestampMs: nil // Explicitly nil as it's a separate message from above
-                )
-                .with(try? thread.disappearingMessagesConfiguration
-                    .fetchOne(db)?
-                    .forcedWithDisappearAfterReadIfNeeded()
-                ),
-                to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
-                namespace: try Message.Destination
-                    .from(db, threadId: thread.id, threadVariant: thread.variant)
-                    .defaultNamespace,
-                interactionId: nil,      // Explicitly nil as it's a separate message from above
-                fileIds: [],
+        
+        /// If we are suppressing notifications then we are loading in messages that were cached by the extensions, in which case it's
+        /// an old message so we would have already sent the response (all we would have needed to do in this case was save the
+        /// `interaction` above to the database)
+        if !suppressNotifications {
+            Log.info(.calls, "Sending end call message because there is an ongoing call.")
+            
+            try sendIncomingCallOfferInBusyStateResponse(
+                threadId: threadId,
+                message: message,
+                disappearingMessagesConfiguration: try? DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId),
+                authMethod: try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
+                onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete()
+        }
+    }
+    
+    public static func sendIncomingCallOfferInBusyStateResponse(
+        threadId: String,
+        message: CallMessage,
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration?,
+        authMethod: AuthenticationMethod,
+        onEvent: ((MessageSender.Event) -> Void)?,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<Message> {
+        return try MessageSender.preparedSend(
+            message: CallMessage(
+                uuid: message.uuid,
+                kind: .endCall,
+                sdps: [],
+                sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+            )
+            .with(disappearingMessagesConfiguration?.forcedWithDisappearAfterReadIfNeeded()),
+            to: .contact(publicKey: threadId),
+            namespace: .default,
+            interactionId: nil,      // Explicitly nil as it's a separate message from above
+            attachments: nil,
+            authMethod: authMethod,
+            onEvent: onEvent,
+            using: dependencies
+        )
     }
     
     @discardableResult public static func insertCallInfoMessage(
         _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         for message: CallMessage,
         state: CallMessage.MessageInfo.State? = nil,
         using dependencies: Dependencies
@@ -375,12 +400,9 @@ extension MessageReceiver {
         
         guard
             let sender: String = message.sender,
-            !SessionThread.isMessageRequest(
-                db,
-                threadId: sender,
-                userSessionId: dependencies[cache: .general].sessionId
-            ),
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender)
+            dependencies.mutate(cache: .libSession, { cache in
+                !cache.isMessageRequest(threadId: sender, threadVariant: threadVariant)
+            })
         else { return nil }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -404,16 +426,16 @@ extension MessageReceiver {
         return try Interaction(
             serverHash: message.serverHash,
             messageUuid: message.uuid,
-            threadId: thread.id,
-            threadVariant: thread.variant,
+            threadId: threadId,
+            threadVariant: threadVariant,
             authorId: sender,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs,
             wasRead: dependencies.mutate(cache: .libSession) { cache in
                 cache.timestampAlreadyRead(
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
                     timestampMs: timestampMs,
                     openGroupUrlInfo: nil
                 )

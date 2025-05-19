@@ -245,10 +245,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         try? webRTCSession
             .sendPreOffer(
-                db,
                 message: message,
+                threadId: thread.id,
                 interactionId: interaction?.id,
-                in: thread
+                authMethod: try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies)
             )
             .retry(5)
             // Start the timeout timer for the call

@@ -12,4 +12,5 @@ public enum CryptoError: Error {
     case decryptionFailed
     case failedToGenerateOutput
     case missingUserSecretKey
+    case invalidAuthentication
 }

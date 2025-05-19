@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateInviteMessage: ControlMessage {
@@ -139,7 +138,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let inviteMessageBuilder: SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder = SNProtoGroupUpdateInviteMessage.builder(
                 groupSessionID: groupSessionId.hexString,           // Include the prefix

@@ -2545,7 +2545,9 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when accessing the default rooms publisher") {
                 // MARK: ---- starts a job to retrieve the default rooms if we have none
                 it("starts a job to retrieve the default rooms if we have none") {
-                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                    mockAppGroupDefaults
+                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                        .thenReturn(true)
                     mockStorage.write { db in
                         try OpenGroup(
                             server: OpenGroupAPI.defaultServer,
@@ -2560,8 +2562,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilitiesAndRooms(
-                            db,
-                            on: OpenGroupAPI.defaultServer,
+                            authMethod: Authentication.community(
+                                info: LibSession.OpenGroupCapabilityInfo(
+                                    roomToken: "",
+                                    server: OpenGroupAPI.defaultServer,
+                                    publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                    capabilities: []
+                                ),
+                                forceBlinded: false
+                            ),
                             using: dependencies
                         )
                     }

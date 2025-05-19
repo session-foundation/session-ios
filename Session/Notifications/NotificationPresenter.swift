@@ -80,25 +80,26 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     
     public func notifyForFailedSend(
         _ db: Database,
-        in thread: SessionThread,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
     ) {
         let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
             cache.notificationSettings(
-                threadId: thread.id,
-                threadVariant: thread.variant,
+                threadId: threadId,
+                threadVariant: threadVariant,
                 openGroupUrlInfo: nil  /// Communities current don't support PNs
             )
         }
         
         var content: NotificationContent = NotificationContent(
-            threadId: thread.id,
-            threadVariant: thread.variant,
-            identifier: thread.id,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            identifier: threadId,
             category: .errorMessage,
             body: "messageErrorDelivery".localized(),
             sound: notificationSettings.sound,
-            userInfo: notificationUserInfo(threadId: thread.id, threadVariant: thread.variant),
+            userInfo: notificationUserInfo(threadId: threadId, threadVariant: threadVariant),
             applicationState: applicationState
         )
         
@@ -109,20 +110,21 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 content = content.with(
                     title: dependencies.mutate(cache: .libSession) { cache in
                         cache.conversationDisplayName(
-                            threadId: thread.id,
-                            threadVariant: thread.variant,
-                            contactProfile: (thread.variant != .contact ? nil :
-                                try? Profile.fetchOne(db, id: thread.id)
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            contactProfile: (threadVariant != .contact ? nil :
+                                try? Profile.fetchOne(db, id: threadId)
                             ),
                             visibleMessage: nil,    /// This notification is unrelated to the received message
-                            openGroupName: (thread.variant != .community ? nil :
-                                try? thread.openGroup
+                            openGroupName: (threadVariant != .community ? nil :
+                                try? OpenGroup
                                     .select(.name)
+                                    .filter(id: threadId)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             ),
-                            openGroupUrlInfo: (thread.variant != .community ? nil :
-                                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: thread.id)
+                            openGroupUrlInfo: (threadVariant != .community ? nil :
+                                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
                             )
                         )
                     }

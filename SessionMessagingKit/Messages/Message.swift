@@ -120,8 +120,8 @@ public class Message: Codable {
         preconditionFailure("fromProto(_:sender:) is abstract and must be overridden.")
     }
 
-    public func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
-        preconditionFailure("toProto(_:) is abstract and must be overridden.")
+    public func toProto() -> SNProtoContent? {
+        preconditionFailure("toProto() is abstract and must be overridden.")
     }
     
     public func setDisappearingMessagesConfigurationIfNeeded(on proto: SNProtoContent.SNProtoContentBuilder) {

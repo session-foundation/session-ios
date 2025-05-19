@@ -457,7 +457,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     .preparedSendMessage(
                                         message: SnodeMessage(
                                             recipient: groupId.hexString,
-                                            data: Data([1, 2, 3]).base64EncodedString(),
+                                            data: Data([1, 2, 3]),
                                             ttl: ConfigDump.Variant.groupInfo.ttl,
                                             timestampMs: 1234567890
                                         ),
@@ -1046,7 +1046,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 .appending(try SnodeAPI.preparedSendMessage(
                                     message: SnodeMessage(
                                         recipient: groupId.hexString,
-                                        data: requestDataString,
+                                        data: Data(base64Encoded: requestDataString)!,
                                         ttl: ConfigDump.Variant.groupKeys.ttl,
                                         timestampMs: UInt64(1234567890000)
                                     ),

@@ -59,6 +59,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId",
                                 message: nil,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -70,7 +71,7 @@ class MessageDeduplicationSpec: QuickSpec {
                     expect(records?.first?.threadId).to(equal("testThreadId"))
                     expect(records?.first?.uniqueIdentifier).to(equal("testId"))
                     expect(records?.first?.expirationTimestampSeconds)
-                        .to(equal(1234567890 + (SnodeReceivedMessage.serverClockToleranceMs * 2)))
+                        .to(equal(1234567890 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000)))
                     expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
                     expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
@@ -88,6 +89,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId",
                                 message: nil,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -110,6 +112,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -131,6 +134,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId1",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -140,6 +144,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId2",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -149,6 +154,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId3",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -165,6 +171,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     adminSignature: .standard(signature: "TestSignature".bytes)
                                 ),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -178,6 +185,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     sentTimestampMs: 1234567890000
                                 ),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -187,6 +195,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId6",
                                 message: GroupUpdateMemberLeftMessage(),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -200,6 +209,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     sentTimestampMs: 1234567800000
                                 ),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -209,6 +219,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId8",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -218,6 +229,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId9",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -227,6 +239,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId10",
                                 message: nil,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -260,6 +273,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -289,6 +303,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     ),
                                     uniqueIdentifier: "testId"
                                 ),
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -318,6 +333,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     data: Data([1, 2, 3]),
                                     uniqueIdentifier: "testId"
                                 ),
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -350,6 +366,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.duplicateMessage))
@@ -385,6 +402,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.duplicateMessage))
@@ -407,6 +425,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(TestError.mock))
@@ -434,6 +453,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(TestError.mock))

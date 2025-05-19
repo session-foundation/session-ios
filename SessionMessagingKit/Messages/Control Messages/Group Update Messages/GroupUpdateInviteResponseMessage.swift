@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateInviteResponseMessage: ControlMessage {
@@ -64,7 +63,7 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let inviteResponseMessageBuilder: SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteResponseMessageBuilder = SNProtoGroupUpdateInviteResponseMessage.builder(
                 isApproved: isApproved

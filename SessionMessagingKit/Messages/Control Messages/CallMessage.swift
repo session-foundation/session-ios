@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 /// See https://developer.mozilla.org/en-US/docs/Web/API/RTCSessionDescription for more information.
@@ -168,7 +167,7 @@ public final class CallMessage: ControlMessage {
         )
     }
     
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         let type: SNProtoCallMessage.SNProtoCallMessageType
         
         switch kind {

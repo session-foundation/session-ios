@@ -436,7 +436,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// Otherwise just save the message to disk
             case let promoteMessage as GroupUpdatePromoteMessage:
                 guard
-                    let sender: String = promoteMessage.sender,
                     let sentTimestampMs: UInt64 = promoteMessage.sentTimestampMs,
                     let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: Array(promoteMessage.groupIdentitySeed))
@@ -602,14 +601,42 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         else { throw SnodeAPIError.noKeyPair }
                         
                         Log.info(.calls, "Sending end call message because there is an ongoing call.")
-                        // TODO: [Database Relocation] Need to properly implement this logic (without the database requirement)
-                        fatalError("NEED TO IMPLEMENT")
-//                        try MessageReceiver.handleIncomingCallOfferInBusyState(
-//                            db,
-//                            message: callMessage,
-//                            using: dependencies
-//                        )
+                        /// Update the `CallMessage.state` value so the correct notification logic can occur
+                        callMessage.state = .missed
                         
+                        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                        try MessageReceiver
+                            .sendIncomingCallOfferInBusyStateResponse(
+                                threadId: threadId,
+                                message: callMessage,
+                                disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
+                                    cache.disappearingMessagesConfig(threadId: threadId, threadVariant: threadVariant)
+                                },
+                                authMethod: Authentication.standard(
+                                    sessionId: SessionId(.standard, hex: sender),
+                                    ed25519PublicKey: userEdKeyPair.publicKey,
+                                    ed25519SecretKey: userEdKeyPair.secretKey
+                                ),
+                                onEvent: { _ in },  /// Do nothing for any of the message sending events
+                                using: dependencies
+                            )
+                            .send(using: dependencies)
+                            .sinkUntilComplete(
+                                receiveCompletion: { result in
+                                    switch result {
+                                        case .finished: semaphore.signal()
+                                        case .failure(let error):
+                                            Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")
+                                            semaphore.signal()
+                                    }
+                                }
+                            )
+                        let result = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
+                        
+                        switch (result, hasCompleted) {
+                            case (.timedOut, _), (_, true): throw NotificationError.timeout
+                            case (.success, false): break    /// Show the notification and write the message to disk
+                        }
                         
                     case (true, false, .preOffer):
                         guard
@@ -788,12 +815,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         contentHandler: ((UNNotificationContent) -> Void)
     ) {
         switch (error, (try? SessionId(from: info.metadata.accountId))?.prefix, info.metadata.namespace.isConfigNamespace) {
-            case (NotificationError.migration(let error), _, _):
-                self.completeSilenty(info, .errorDatabaseMigrations(error))
-                
-            case (NotificationError.databaseInvalid, _, _):
-                self.completeSilenty(info, .errorDatabaseInvalid)
-                
+            case (NotificationError.timeout, _, _):
+                self.completeSilenty(info, .errorTimeout)
+            
             case (NotificationError.notReadyForExtension, _, _):
                 self.completeSilenty(info, .errorNotReadyForExtensions)
                 
@@ -1099,11 +1123,6 @@ private extension NotificationServiceExtension {
         case notReadyForExtension
         case processingErrorWithFallback(PushNotificationAPI.ProcessResult, PushNotificationAPI.NotificationMetadata)
         case processingError(PushNotificationAPI.ProcessResult, PushNotificationAPI.NotificationMetadata)
-        
-        @available(*, deprecated, message: "Should be removed as part of the database relocation work once the notification extension no longer needs the database")
-        case migration(Error)
-        
-        @available(*, deprecated, message: "Should be removed as part of the database relocation work once the notification extension no longer needs the database")
-        case databaseInvalid
+        case timeout
     }
 }

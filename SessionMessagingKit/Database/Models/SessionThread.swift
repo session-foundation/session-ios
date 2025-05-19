@@ -598,29 +598,6 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
-    static func isMessageRequest(
-        _ db: Database,
-        threadId: String,
-        userSessionId: SessionId,
-        includeNonVisible: Bool = false
-    ) -> Bool {
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
-        let request: SQLRequest<String> = """
-            SELECT \(thread[.id])
-            FROM \(SessionThread.self)
-            LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
-            LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
-            WHERE (
-                \(thread[.id]) = \(threadId) AND
-                \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
-            )
-        """
-        
-        return ((try? request.fetchOne(db)) != nil)
-    }
-    
     static func unreadMessageRequestsCountQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<Int> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()

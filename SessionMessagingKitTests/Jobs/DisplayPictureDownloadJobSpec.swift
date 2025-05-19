@@ -571,10 +571,17 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 )
                 let expectedRequest: Network.PreparedRequest<Data> = mockStorage.read { db in
                     try OpenGroupAPI.preparedDownload(
-                        db,
                         fileId: "12",
-                        from: "testRoom",
-                        on: "testserver",
+                        roomToken: "testRoom",
+                        authMethod: Authentication.community(
+                            info: LibSession.OpenGroupCapabilityInfo(
+                                roomToken: "",
+                                server: "testserver",
+                                publicKey: TestConstants.serverPublicKey,
+                                capabilities: []
+                            ),
+                            forceBlinded: false
+                        ),
                         using: dependencies
                     )
                 }!
