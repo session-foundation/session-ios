@@ -139,8 +139,8 @@ local clean_up_old_test_sims_on_commit_trigger = {
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
         ],
         depends_on: [
-          'Reset SPM Cache if Needed'
-          'Clean up Old Test Simulators if Needed',
+          'Reset SPM Cache if Needed',
+          'Clean up Old Test Simulators if Needed'
         ]
       },
       {
