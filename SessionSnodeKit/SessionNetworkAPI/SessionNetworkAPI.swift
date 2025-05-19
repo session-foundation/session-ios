@@ -22,13 +22,13 @@ public enum SessionNetworkAPI {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Info> {
         return try Network.PreparedRequest(
-            request: Request<NoBody, Network.FileServer.Endpoint>(
-                endpoint: Network.FileServer.Endpoint.info,
+            request: Request<NoBody, Network.NetworkAPI.Endpoint>(
+                endpoint: Network.NetworkAPI.Endpoint.info,
                 destination: .server(
                     method: .get,
-                    server: Network.FileServer.networkAPIServer,
+                    server: Network.NetworkAPI.networkAPIServer,
                     queryParameters: [:],
-                    x25519PublicKey: Network.FileServer.networkAPIServerPublicKey
+                    x25519PublicKey: Network.NetworkAPI.networkAPIServerPublicKey
                 )
             ),
             responseType: Info.self,

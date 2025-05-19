@@ -55,25 +55,39 @@ public enum NetworkStatus {
 // MARK: - FileServer Convenience
 
 public extension Network {
+    enum NetworkAPI {
+        // TODO: Update to production env
+        static let networkAPIServer = "http://networkv1.getsession.org"
+        static let networkAPIServerPublicKey = "cbf461a4431dc9174dceef4421680d743a2a0e1a3131fc794240bcb0bc3dd449"
+        
+        public enum Endpoint: EndpointType {
+            case info
+            case price
+            case token
+            
+            public static var name: String { "NetworkAPI.Endpoint" }
+            
+            public var path: String {
+                switch self {
+                    case .info: return "info"
+                    case .price: return "price"
+                    case .token: return "token"
+                }
+            }
+        }
+    }
+    
     enum FileServer {
         fileprivate static let fileServer = "http://filev2.getsession.org"
         fileprivate static let fileServerPublicKey = "da21e1d886c6fbaea313f75298bd64aab03a97ce985b46bb2dad9f2089c8ee59"
         fileprivate static let legacyFileServer = "http://88.99.175.227"
         fileprivate static let legacyFileServerPublicKey = "7cb31905b55cd5580c686911debf672577b3fb0bff81df4ce2d5c4cb3a7aaa69"
         
-        static let networkAPIServer = "http://networkv1.getsession.org"
-        static let networkAPIServerPublicKey = "cbf461a4431dc9174dceef4421680d743a2a0e1a3131fc794240bcb0bc3dd449"
-        
         public enum Endpoint: EndpointType {
             case file
             case fileIndividual(String)
             case directUrl(URL)
             case sessionVersion
-            
-            // Token Info
-            case info
-            case price
-            case token
             
             public static var name: String { "FileServerAPI.Endpoint" }
             
@@ -83,11 +97,6 @@ public extension Network {
                     case .fileIndividual(let fileId): return "file/\(fileId)"
                     case .directUrl(let url): return url.path.removingPrefix("/")
                     case .sessionVersion: return "session_version"
-                    
-                    // Token Info
-                    case .info: return "info"
-                    case .price: return "price"
-                    case .token: return "token"
                 }
             }
         }

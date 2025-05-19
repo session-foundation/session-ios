@@ -9,6 +9,9 @@ enum AppNotificationCategory: CaseIterable {
     case errorMessage
     case threadlessErrorMessage
     case info
+    
+    // TODO: Remove in future release
+    case deprecatedIncomingMessage
 }
 
 extension AppNotificationCategory {
@@ -18,12 +21,17 @@ extension AppNotificationCategory {
             case .errorMessage: return "Session.AppNotificationCategory.errorMessage"
             case .threadlessErrorMessage: return "Session.AppNotificationCategory.threadlessErrorMessage"
             case .info: return " Session.AppNotificationCategory.info"
+            
+            // TODO: Remove in future release
+            case .deprecatedIncomingMessage: return "Signal.AppNotificationCategory.incomingMessage"
         }
     }
 
     var actions: [AppNotificationAction] {
         switch self {
             case .incomingMessage: return [.markAsRead, .reply]
+            // TODO: Remove in future release
+            case .deprecatedIncomingMessage: return [.markAsRead, .reply]
             default: return []
         }
     }

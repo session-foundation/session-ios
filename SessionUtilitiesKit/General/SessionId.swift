@@ -12,7 +12,7 @@ public struct SessionId: Equatable, Hashable, CustomStringConvertible {
         case blinded25 = "25"           // Used for authentication and participants in open groups with blinding enabled
         case unblinded = "00"           // Used for authentication in open groups with blinding disabled
         case group = "03"               // Used for update group conversations
-        case versionBlinded07 = "07"    // Used for validation
+        case versionBlinded07 = "07"    // Used for authentication with the file and session network servers
         
         public init(from stringValue: String?) throws {
             guard let stringValue: String = stringValue else { throw SessionIdError.emptyValue }

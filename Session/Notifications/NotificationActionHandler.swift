@@ -92,8 +92,21 @@ public class NotificationActionHandler {
 
         switch action {
             case .markAsRead: return markAsRead(userInfo: userInfo)
-                
             case .reply:
+                guard let textInputResponse = response as? UNTextInputNotificationResponse else {
+                    return Fail(error: NotificationError.failDebug("response had unexpected type: \(response)"))
+                        .eraseToAnyPublisher()
+                }
+
+                return reply(
+                    userInfo: userInfo,
+                    replyText: textInputResponse.userText,
+                    applicationState: applicationState
+                )
+            
+            // TODO: Remove in future release
+            case .deprecatedMarkAsRead: return markAsRead(userInfo: userInfo)
+            case .deprecatedReply:
                 guard let textInputResponse = response as? UNTextInputNotificationResponse else {
                     return Fail(error: NotificationError.failDebug("response had unexpected type: \(response)"))
                         .eraseToAnyPublisher()
