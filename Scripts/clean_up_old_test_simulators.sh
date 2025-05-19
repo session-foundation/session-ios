@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Script used with Drone CI to delete any test simulators created by the pipeline that are older than 1
-# hour (the timeout for iOS builds) to ensure we don't waste too much HDD space with test simulators.
+# hour (the timeout for iOS builds) to ensure we don't waste too much HDD space with test simulators
 
 dir="$HOME/Library/Developer/CoreSimulator/Devices"
 
