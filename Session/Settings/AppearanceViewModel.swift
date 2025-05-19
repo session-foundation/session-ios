@@ -86,7 +86,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 isSelected: (state.theme == theme)
                             ),
                             onTap: {
-                                ThemeManager.updateThemeState(theme: theme)
+                                Task { @MainActor in ThemeManager.updateThemeState(theme: theme) }
                             }
                         )
                     }
@@ -111,7 +111,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 info: PrimaryColorSelectionView.Info(
                                     primaryColor: state.primaryColor,
                                     onChange: { color in
-                                        ThemeManager.updateThemeState(primaryColor: color)
+                                        Task { @MainActor in ThemeManager.updateThemeState(primaryColor: color) }
                                     }
                                 )
                             ),
@@ -136,9 +136,11 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 oldValue: ThemeManager.matchSystemNightModeSetting
                             ),
                             onTap: {
-                                ThemeManager.updateThemeState(
-                                    matchSystemNightModeSetting: !state.authDarkModeEnabled
-                                )
+                                Task { @MainActor in
+                                    ThemeManager.updateThemeState(
+                                        matchSystemNightModeSetting: !state.authDarkModeEnabled
+                                    )
+                                }
                             }
                         )
                     ]

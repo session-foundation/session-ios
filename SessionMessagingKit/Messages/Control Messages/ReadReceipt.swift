@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class ReadReceipt: ControlMessage {
@@ -54,7 +53,7 @@ public final class ReadReceipt: ControlMessage {
         return ReadReceipt(timestamps: timestamps)
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         guard let timestamps = timestamps else {
             Log.warn(.messageSender, "Couldn't construct read receipt proto from: \(self).")
             return nil

@@ -8,7 +8,7 @@ struct ViewControllerHolder {
 }
 
 struct ViewControllerKey: EnvironmentKey {
-    static var defaultValue: ViewControllerHolder {
+    @MainActor static var defaultValue: ViewControllerHolder {
         return ViewControllerHolder(value: SNUIKit.mainWindow?.rootViewController)
     }
 }

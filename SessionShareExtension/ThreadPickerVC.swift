@@ -293,7 +293,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .send(using: dependencies)
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Interaction, [Network.PreparedRequest<String>]) in
+                .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Message, Message.Destination, Int64?, AuthenticationMethod, [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageSenderError.noThread
                     }
@@ -360,32 +360,47 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     }
                     
                     // Process any attachments
-                    try Attachment.process(
+                    try AttachmentUploader.process(
                         db,
-                        attachments: Attachment.prepare(attachments: finalAttachments, using: dependencies),
+                        attachments: AttachmentUploader.prepare(
+                            attachments: finalAttachments,
+                            using: dependencies
+                        ),
                         for: interactionId
                     )
                     
                     // Using the same logic as the `MessageSendJob` retrieve 
+                    let authMethod: AuthenticationMethod = try Authentication.with(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        using: dependencies
+                    )
                     let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
                         .fetchAttachmentState(db, interactionId: interactionId)
-                    let preparedUploads: [Network.PreparedRequest<String>] = try Attachment
+                    let preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>] = try Attachment
                         .filter(ids: attachmentState.allAttachmentIds)
                         .fetchAll(db)
                         .map { attachment in
-                            try attachment.preparedUpload(
-                                db,
-                                threadId: threadId,
+                            try AttachmentUploader.preparedUpload(
+                                attachment: attachment,
                                 logCategory: nil,
+                                authMethod: authMethod,
                                 using: dependencies
                             )
                         }
+                    let visibleMessage: VisibleMessage = VisibleMessage.from(db, interaction: interaction)
+                    let destination: Message.Destination = try Message.Destination.from(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
                     
-                    return (interaction, preparedUploads)
+                    return (visibleMessage, destination, interaction.id, authMethod, preparedUploads)
                 }
-                .flatMap { (interaction: Interaction, preparedUploads: [Network.PreparedRequest<String>]) -> AnyPublisher<(interaction: Interaction, fileIds: [String]), Error> in
+                .flatMap { (message: Message, destination: Message.Destination, interactionId: Int64?, authMethod: AuthenticationMethod, preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) -> AnyPublisher<(Message, Message.Destination, Int64?, AuthenticationMethod, [(Attachment, String)]), Error> in
                     guard !preparedUploads.isEmpty else {
-                        return Just((interaction, []))
+                        return Just((message, destination, interactionId, authMethod, []))
                             .setFailureType(to: Error.self)
                             .eraseToAnyPublisher()
                     }
@@ -393,30 +408,21 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     return Publishers
                         .MergeMany(preparedUploads.map { $0.send(using: dependencies) })
                         .collect()
-                        .map { results in (interaction, results.map { _, id in id }) }
+                        .map { results in (message, destination, interactionId, authMethod, results.map { _, value in value }) }
                         .eraseToAnyPublisher()
                 }
-                .flatMapStorageWritePublisher(using: dependencies) { db, info -> Network.PreparedRequest<Void> in
-                    // Prepare the message send data
-                    guard
-                        let threadVariant: SessionThread.Variant = try SessionThread
-                            .filter(id: info.interaction.threadId)
-                            .select(.variant)
-                            .asRequest(of: SessionThread.Variant.self)
-                            .fetchOne(db)
-                    else { throw MessageSenderError.noThread }
-                    
-                    return try MessageSender
-                        .preparedSend(
-                            db,
-                            interaction: info.interaction,
-                            fileIds: info.fileIds,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            using: dependencies
-                        )
+                .tryFlatMap { message, destination, interactionId, authMethod, attachments -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                    try MessageSender.preparedSend(
+                        message: message,
+                        to: destination,
+                        namespace: destination.defaultNamespace,
+                        interactionId: interactionId,
+                        attachments: attachments,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    ).send(using: dependencies)
                 }
-                .flatMap { $0.send(using: dependencies) }
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in

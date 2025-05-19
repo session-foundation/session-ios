@@ -546,7 +546,9 @@ public extension LibSession {
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     )
                     try dump?.upsert(db)
-                    Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                    Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                        extensionHelper.replicate(dump: dump)
+                    }
                 }
             }
             catch {
@@ -792,7 +794,9 @@ public extension LibSession {
                     timestampMs: latestServerTimestampMs
                 )
                 try dump?.upsert(db)
-                Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                    extensionHelper.replicate(dump: dump)
+                }
             }
             
             // Now that the local state has been updated, schedule a config sync if needed (this will

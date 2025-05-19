@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class ClosedGroupControlMessage: ControlMessage {
@@ -296,7 +295,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
         }
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         guard let kind = kind else {
             Log.warn(.messageSender, "Couldn't construct closed group update proto from: \(self).")
             return nil
@@ -359,80 +358,5 @@ public final class ClosedGroupControlMessage: ControlMessage {
             kind: \(kind?.description ?? "null")
         )
         """
-    }
-}
-
-// MARK: - Convenience
-
-public extension ClosedGroupControlMessage.Kind {
-    func infoMessage(_ db: Database, sender: String, using dependencies: Dependencies) throws -> String? {
-        switch self {
-            case .nameChange(let name):
-                return "groupNameNew"
-                    .put(key: "group_name", value: name)
-                    .localized()
-                
-            case .membersAdded(let membersAsData):
-                let memberIds: [String] = membersAsData.map { $0.toHexString() }
-                let knownMemberNameMap: [String: String] = try Profile
-                    .fetchAll(db, ids: memberIds)
-                    .reduce(into: [:]) { result, next in result[next.id] = next.displayName() }
-                let addedMemberNames: [String] = memberIds
-                    .map {
-                        knownMemberNameMap[$0] ??
-                        Profile.truncated(id: $0, threadVariant: .legacyGroup)
-                    }
-                
-                return "legacyGroupMemberNew"
-                    .put(key: "name", value: addedMemberNames.joined(separator: ", "))
-                    .localized()
-                
-            case .membersRemoved(let membersAsData):
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let memberIds: Set<String> = membersAsData
-                    .map { $0.toHexString() }
-                    .asSet()
-                
-                var infoMessage: String = ""
-                
-                if !memberIds.removing(userSessionId.hexString).isEmpty {
-                    let knownMemberNameMap: [String: String] = try Profile
-                        .fetchAll(db, ids: memberIds.removing(userSessionId.hexString))
-                        .reduce(into: [:]) { result, next in result[next.id] = next.displayName() }
-                    let removedMemberNames: [String] = memberIds.removing(userSessionId.hexString)
-                        .map {
-                            knownMemberNameMap[$0] ??
-                            Profile.truncated(id: $0, threadVariant: .legacyGroup)
-                        }
-                    infoMessage = infoMessage.appending(
-                        "groupRemoved"
-                            .put(key: "name", value: removedMemberNames.joined(separator: ", "))
-                            .localized()
-                    )
-                }
-                if memberIds.contains(userSessionId.hexString) {
-                    infoMessage = infoMessage
-                        .appending(
-                            "groupRemovedYou"
-                                .put(key: "group_name", value: "")
-                                .localized()
-                        )
-                }
-                
-                return infoMessage
-                
-            case .memberLeft:
-                guard sender != dependencies[cache: .general].sessionId.hexString else { return "groupMemberYouLeft".localized() }
-                
-                if let displayName: String = Profile.displayNameNoFallback(db, id: sender, using: dependencies) {
-                    return "groupMemberLeft"
-                        .put(key: "name", value: displayName)
-                        .localized()
-                }
-                
-                return "groupUpdated".localized()
-                
-            default: return nil
-        }
     }
 }

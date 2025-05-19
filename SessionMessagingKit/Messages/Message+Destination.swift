@@ -61,7 +61,7 @@ public extension Message {
                     
                     if prefix == .blinded15 || prefix == .blinded25 {
                         guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId) else {
-                            preconditionFailure("Attempting to send message to blinded id without the Open Group information")
+                            throw OpenGroupAPIError.blindedLookupMissingCommunityInfo
                         }
                         
                         return .openGroupInbox(
@@ -76,11 +76,12 @@ public extension Message {
                 case .legacyGroup, .group: return .closedGroup(groupPublicKey: threadId)
                 
                 case .community:
-                    guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                        throw StorageError.objectNotFound
-                    }
+                    guard
+                        let info: LibSession.OpenGroupUrlInfo = try? LibSession.OpenGroupUrlInfo
+                            .fetchOne(db, id: threadId)
+                    else { throw StorageError.objectNotFound }
                     
-                    return .openGroup(roomToken: openGroup.roomToken, server: openGroup.server)
+                    return .openGroup(roomToken: info.roomToken, server: info.server)
             }
         }
     }

@@ -455,6 +455,7 @@ public enum GarbageCollectionJob: JobExecutor {
                                         .path
                                 )
                             }
+                            catch CocoaError.fileNoSuchFile {}  /// No need to do anything if the file doesn't eixst
                             catch { deletionErrors.append(error) }
                         }
                         
@@ -478,6 +479,7 @@ public enum GarbageCollectionJob: JobExecutor {
                                     atPath: dependencies[singleton: .displayPictureManager].filepath(for: filename)
                                 )
                             }
+                            catch CocoaError.fileNoSuchFile {}  /// No need to do anything if the file doesn't eixst
                             catch { deletionErrors.append(error) }
                         }
                         
@@ -495,6 +497,7 @@ public enum GarbageCollectionJob: JobExecutor {
                                     uniqueIdentifier: record.uniqueIdentifier
                                 )
                             }
+                            catch CocoaError.fileNoSuchFile {}  /// No need to do anything if the file doesn't eixst
                             catch { deletionErrors.append(error) }
                         }
                     }

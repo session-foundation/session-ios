@@ -324,7 +324,9 @@ internal extension LibSession {
                 )
                 
                 try dump?.upsert(db)
-                Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                    extensionHelper.replicate(dump: dump)
+                }
             }
         }
         
