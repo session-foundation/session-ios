@@ -297,7 +297,7 @@ struct MessageInfoScreen: View {
                                             size: size,
                                             info: info,
                                             additionalInfo: additionalInfo,
-                                            dataManager: dependencies[singleton: .imageDataManager],
+                                            dataManager: dependencies[singleton: .imageDataManager]
                                         )
                                         .frame(
                                             width: size.viewSize,
