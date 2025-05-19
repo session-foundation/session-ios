@@ -195,7 +195,7 @@ public extension MessageDeduplication {
         }
     }
     
-    static func ensureCallMessageIsNotADuplicate (
+    static func ensureCallMessageIsNotADuplicate(
         threadId: String,
         callMessage: CallMessage?,
         using dependencies: Dependencies

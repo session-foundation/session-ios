@@ -13,6 +13,7 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         switch (message, try? SessionId(from: threadId)) {
@@ -20,6 +21,7 @@ extension MessageReceiver {
                 try MessageReceiver.handleGroupInvite(
                     db,
                     message: message,
+                    suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
                 
@@ -27,6 +29,7 @@ extension MessageReceiver {
                 try MessageReceiver.handleGroupPromotion(
                     db,
                     message: message,
+                    suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
                 
@@ -90,6 +93,7 @@ extension MessageReceiver {
     private static func handleGroupInvite(
         _ db: Database,
         message: GroupUpdateInviteMessage,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -150,6 +154,7 @@ extension MessageReceiver {
             groupName: message.groupName,
             memberAuthData: message.memberAuthData,
             groupIdentityPrivateKey: nil,
+            suppressNotifications: suppressNotifications,
             using: dependencies
         )
     }
@@ -222,6 +227,7 @@ extension MessageReceiver {
     private static func handleGroupPromotion(
         _ db: Database,
         message: GroupUpdatePromoteMessage,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         guard
@@ -268,6 +274,7 @@ extension MessageReceiver {
             groupName: message.groupName,
             memberAuthData: nil,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
+            suppressNotifications: suppressNotifications,
             using: dependencies
         )
         
@@ -869,6 +876,7 @@ extension MessageReceiver {
         groupName: String,
         memberAuthData: Data?,
         groupIdentityPrivateKey: Data?,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -1020,26 +1028,30 @@ extension MessageReceiver {
                     ),
                     using: dependencies
                 )
-                try? dependencies[singleton: .notificationsManager].notifyUser(
-                    message: message,
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    interactionId: (interaction.id ?? 0),
-                    interactionVariant: interaction.variant,
-                    attachmentDescriptionInfo: nil,
-                    openGroupUrlInfo: nil,
-                    applicationState: (isMainAppActive ? .active : .background),
-                    currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
-                    displayNameRetriever: { sessionId in
-                        Profile.displayNameNoFallback(
-                            db,
-                            id: sessionId,
-                            threadVariant: thread.variant,
-                            using: dependencies
-                        )
-                    },
-                    shouldShowForMessageRequest: { false }
-                )
+                
+                if !suppressNotifications {
+                    try? dependencies[singleton: .notificationsManager].notifyUser(
+                        message: message,
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        interactionIdentifier: (interaction.serverHash ?? "\(interaction.id ?? 0)"),
+                        interactionVariant: interaction.variant,
+                        attachmentDescriptionInfo: nil,
+                        openGroupUrlInfo: nil,
+                        applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
+                        currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                        displayNameRetriever: { sessionId in
+                            Profile.displayNameNoFallback(
+                                db,
+                                id: sessionId,
+                                threadVariant: thread.variant,
+                                using: dependencies
+                            )
+                        },
+                        shouldShowForMessageRequest: { false }
+                    )
+                }
             
             /// If the sender is approved and this was an admin invitation then do nothing
             case (true, false): break

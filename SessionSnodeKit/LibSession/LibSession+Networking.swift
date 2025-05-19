@@ -493,7 +493,7 @@ private extension NetworkStatus {
 // MARK: - Snode
 
 extension LibSession {
-    public struct Snode: Hashable, CustomStringConvertible {
+    public struct Snode: Codable, Hashable, CustomStringConvertible {
         public let ip: String
         public let quicPort: UInt16
         public let ed25519PubkeyHex: String

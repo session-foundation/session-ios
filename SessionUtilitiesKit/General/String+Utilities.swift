@@ -162,7 +162,19 @@ private extension CharacterSet {
     static let bidiPopDirectionalIsolate: String.UTF16View.Element = 0x2069
     
     static let bidiControlCharacterSet: CharacterSet = {
-        return CharacterSet(charactersIn: "\(bidiLeftToRightIsolate)\(bidiRightToLeftIsolate)\(bidiFirstStrongIsolate)\(bidiLeftToRightEmbedding)\(bidiRightToLeftEmbedding)\(bidiLeftToRightOverride)\(bidiRightToLeftOverride)\(bidiPopDirectionalFormatting)\(bidiPopDirectionalIsolate)")
+        let bidiCodeUnits: [String.UTF16View.Element] = [
+            bidiLeftToRightIsolate, bidiRightToLeftIsolate, bidiFirstStrongIsolate,
+            bidiLeftToRightEmbedding, bidiRightToLeftEmbedding,
+            bidiLeftToRightOverride, bidiRightToLeftOverride,
+            bidiPopDirectionalFormatting, bidiPopDirectionalIsolate
+        ]
+
+        return CharacterSet(
+            charactersIn: bidiCodeUnits
+                .compactMap { UnicodeScalar($0) }
+                .map { String($0) }
+                .joined()
+        )
     }()
     
     static let unsafeFilenameCharacterSet: CharacterSet = CharacterSet(charactersIn: "\u{202D}\u{202E}")
@@ -251,15 +263,19 @@ public extension String {
         
         var balancedString: String = ""
         
+        func charStr(_ utf16: String.UTF16View.Element) -> String {
+            return String(UnicodeScalar(utf16)!)
+        }
+        
         // If we have too many isolate pops, prepend FSI to balance
         while isolatePopCount > isolateStartsCount {
-            balancedString.append("\(CharacterSet.bidiFirstStrongIsolate)")
+            balancedString.append(charStr(CharacterSet.bidiFirstStrongIsolate))
             isolateStartsCount += 1
         }
         
         // If we have too many formatting pops, prepend LRE to balance
         while formattingPopCount > formattingStartsCount {
-            balancedString.append("\(CharacterSet.bidiLeftToRightEmbedding)")
+            balancedString.append(charStr(CharacterSet.bidiLeftToRightEmbedding))
             formattingStartsCount += 1
         }
         
@@ -267,13 +283,13 @@ public extension String {
         
         // If we have too many formatting starts, append PDF to balance
         while formattingStartsCount > formattingPopCount {
-            balancedString.append("\(CharacterSet.bidiPopDirectionalFormatting)")
+            balancedString.append(charStr(CharacterSet.bidiPopDirectionalFormatting))
             formattingPopCount += 1
         }
         
         // If we have too many isolate starts, append PDI to balance
         while isolateStartsCount > isolatePopCount {
-            balancedString.append("\(CharacterSet.bidiPopDirectionalIsolate)")
+            balancedString.append(charStr(CharacterSet.bidiPopDirectionalIsolate))
             isolatePopCount += 1
         }
         

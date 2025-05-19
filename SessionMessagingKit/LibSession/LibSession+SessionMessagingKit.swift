@@ -538,12 +538,14 @@ public extension LibSession {
 
                 // Only create a config dump if we need to
                 if configNeedsDump(config) {
-                    try createDump(
+                    let dump: ConfigDump? = try createDump(
                         config: config,
                         for: variant,
                         sessionId: sessionId,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )?.upsert(db)
+                    )
+                    try dump?.upsert(db)
+                    Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
                 }
             }
             catch {
@@ -772,16 +774,23 @@ public extension LibSession {
                             db,
                             ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
                         )
-                    
+                    Task {
+                        dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
+                            sessionId: sessionId,
+                            variant: variant
+                        )
+                    }
                     return
                 }
                 
-                try createDump(
+                let dump: ConfigDump? = try createDump(
                     config: config,
                     for: variant,
                     sessionId: sessionId,
                     timestampMs: latestServerTimestampMs
-                )?.upsert(db)
+                )
+                try dump?.upsert(db)
+                Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
             }
             
             // Now that the local state has been updated, schedule a config sync if needed (this will
@@ -925,6 +934,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         openGroupName: String?,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> String
+    func conversationLastRead(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int64?
     
     /// Returns whether the specified conversation is a message request
     ///
@@ -1078,6 +1092,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         openGroupName: String?,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> String { return "" }
+    func conversationLastRead(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int64? { return nil }
     
     func isMessageRequest(
         threadId: String,

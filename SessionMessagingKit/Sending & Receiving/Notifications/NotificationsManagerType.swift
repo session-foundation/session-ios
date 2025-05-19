@@ -31,7 +31,8 @@ public protocol NotificationsManagerType {
     func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State)
     func addNotificationRequest(
         content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
     )
     
     func cancelNotifications(identifiers: [String])
@@ -244,7 +245,7 @@ public extension NotificationsManagerType {
                 return "callsYouMissedCallPermissions"
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
-                
+            
             case is CallMessage:
                 let senderName: String = displayNameRetriever(sender)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
@@ -265,16 +266,16 @@ public extension NotificationsManagerType {
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        interactionId: Int64,
+        interactionIdentifier: String,
         interactionVariant: Interaction.Variant?,
         attachmentDescriptionInfo: [Attachment.DescriptionInfo]?,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
         applicationState: UIApplication.State,
+        extensionBaseUnreadCount: Int?,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String) -> String?,
         shouldShowForMessageRequest: () -> Bool
     ) throws {
-        let targetConfig: ConfigDump.Variant = (threadVariant == .contact ? .contacts : .userGroups)
         let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
             cache.isMessageRequest(
                 threadId: threadId,
@@ -316,7 +317,7 @@ public extension NotificationsManagerType {
                         case .some: return UUID().uuidString
                         default:
                             return Interaction.notificationIdentifier(
-                                for: interactionId,
+                                for: interactionIdentifier,
                                 threadId: threadId,
                                 shouldGroupMessagesForThread: (threadVariant == .community)
                             )
@@ -343,17 +344,12 @@ public extension NotificationsManagerType {
                     displayNameRetriever: displayNameRetriever,
                     using: dependencies
                 ),
-                // TODO: [Database Relocation] Need to figure out how to manage the unread count...
-                /// Update the app badge in case the unread count changed
-        //        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
-        //            notificationContent.badge = NSNumber(value: unreadCount)
-        //        }
-    //            badge: ,
                 sound: notificationSettings.sound,
                 userInfo: notificationUserInfo(threadId: threadId, threadVariant: threadVariant),
                 applicationState: applicationState
             ),
-            notificationSettings: notificationSettings
+            notificationSettings: notificationSettings,
+            extensionBaseUnreadCount: extensionBaseUnreadCount
         )
     }
 }
@@ -385,7 +381,8 @@ public struct NoopNotificationsManager: NotificationsManagerType {
     
     public func addNotificationRequest(
         content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
     ) {}
     public func cancelNotifications(identifiers: [String]) {}
     public func clearAllNotifications() {}
