@@ -152,64 +152,6 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
         )
         
-        /// Add the title if needed
-        switch notificationSettings.previewType {
-            case .noNameNoPreview: content = content.with(title: Constants.app_name)
-            case .nameNoPreview, .nameAndPreview:
-                content = content.with(
-                    title: dependencies.mutate(cache: .libSession) { cache in
-                        cache.conversationDisplayName(
-                            threadId: thread.id,
-                            threadVariant: thread.variant,
-                            contactProfile: (thread.variant != .contact ? nil :
-                                try? Profile.fetchOne(db, id: thread.id)
-                            ),
-                            visibleMessage: nil,    /// This notification is unrelated to the received message
-                            openGroupName: (thread.variant != .community ? nil :
-                                try? thread.openGroup
-                                    .select(.name)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            ),
-                            openGroupUrlInfo: (thread.variant != .community ? nil :
-                                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: thread.id)
-                            )
-                        )
-                    }
-                )
-        }
-        
-        addNotificationRequest(
-            content: content,
-            notificationSettings: notificationSettings
-        )
-
-        Log.debug("presenting notification with identifier: \(content.identifier)")
-        
-        /// If we are replacing a notification then cancel the original one
-        if notifications[content.identifier] != nil {
-            cancelNotifications(identifiers: [content.identifier])
-        }
-        
-        notificationCenter.add(request)
-        _notifications.performUpdate { $0.setting(content.identifier, request) }
-    }
-    
-    public func addNotificationRequest(
-        content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
-    ) {
-        var trigger: UNNotificationTrigger?
-        let shouldPresentNotification: Bool = shouldPresentNotification(
-            threadId: content.threadId,
-            category: content.category,
-            applicationState: content.applicationState,
-            using: dependencies
-        )
-        let mutableContent: UNMutableNotificationContent = content.toMutableContent(
-            shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
-        )
-        
         switch shouldPresentNotification {
             case true:
                 let shouldGroupNotification: Bool = (
