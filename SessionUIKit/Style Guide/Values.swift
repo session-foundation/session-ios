@@ -101,8 +101,4 @@ private extension CGFloat {
         
         return (shouldClamp ? result.clamp01() : result)
     }
-    
-    func plus(value: CGFloat = 1) -> CGFloat {
-        return (self + value)
-    }
 }
