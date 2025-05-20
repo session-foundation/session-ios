@@ -172,7 +172,7 @@ extension SessionCell {
         }()
         
         private lazy var profilePictureView: ProfilePictureView = {
-            let result: ProfilePictureView = ProfilePictureView(size: .list)
+            let result: ProfilePictureView = ProfilePictureView(size: .list, dataManager: nil)
             result.translatesAutoresizingMaskIntoConstraints = false
             result.isHidden = true
             
@@ -556,6 +556,7 @@ extension SessionCell {
                     profilePictureView.accessibilityLabel = accessory.accessibility?.label
                     profilePictureView.isAccessibilityElement = (accessory.accessibility != nil)
                     profilePictureView.size = accessory.size
+                    profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
                     profilePictureView.update(
                         publicKey: accessory.id,
                         threadVariant: accessory.threadVariant,

@@ -17,7 +17,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     private let dependencies: Dependencies
     public let galleryItem: MediaGalleryViewModel.Item
     public weak var delegate: MediaDetailViewControllerDelegate?
-    private var image: UIImage?
     
     // MARK: - UI
     
@@ -32,12 +31,48 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         result.showsHorizontalScrollIndicator = false
         result.contentInsetAdjustmentBehavior = .never
         result.decelerationRate = .fast
+        result.zoomScale = 1
         result.delegate = self
         
         return result
     }()
     
-    public var mediaView: UIView = UIView()
+    public lazy var mediaView: SessionImageView = {
+        let result: SessionImageView = SessionImageView(
+            dataManager: dependencies[singleton: .imageDataManager]
+        )
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.clipsToBounds = true
+        result.contentMode = .scaleAspectFit
+        result.isUserInteractionEnabled = true
+        result.layer.allowsEdgeAntialiasing = true
+        result.themeBackgroundColor = .newConversation_background
+        
+        // Use trilinear filters for better scaling quality at
+        // some performance cost.
+        result.layer.minificationFilter = .trilinear
+        result.layer.magnificationFilter = .trilinear
+        
+        // We add these gestures to mediaView rather than
+        // the root view so that interacting with the video player
+        // progres bar doesn't trigger any of these gestures.
+        let doubleTap: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: MediaDetailViewController.self,
+            action: #selector(didDoubleTapImage(_:))
+        )
+        doubleTap.numberOfTapsRequired = 2
+        result.addGestureRecognizer(doubleTap)
+
+        let singleTap: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: MediaDetailViewController.self,
+            action: #selector(didSingleTapImage(_:))
+        )
+        singleTap.require(toFail: doubleTap)
+        result.addGestureRecognizer(singleTap)
+        
+        return result
+    }()
+    
     private lazy var playVideoButton: UIButton = {
         let result: UIButton = UIButton()
         result.contentMode = .scaleAspectFill
@@ -69,26 +104,13 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         galleryItem.attachment.thumbnail(
             size: .large,
             using: dependencies,
-            success: { [weak self] image, _ in
-                // Only reload the content if the view has already loaded (if it
-                // hasn't then it'll load with the image immediately)
-                let updateUICallback = {
-                    self?.image = image
+            success: { [weak self] thumbnailPath, _, _ in
+                self?.mediaView.loadImage(from: thumbnailPath) {
+                    guard self?.isViewLoaded == true else { return }
                     
-                    if self?.isViewLoaded == true {
-                        self?.updateContents()
-                        self?.updateMinZoomScale()
-                    }
+                    self?.scrollView.zoomScale = 1
+                    self?.updateMinZoomScale()
                 }
-                
-                guard Thread.isMainThread else {
-                    DispatchQueue.main.async {
-                        updateUICallback()
-                    }
-                    return
-                }
-                
-                updateUICallback()
             },
             failure: {
                 Log.error(.media, "Could not load media.")
@@ -109,11 +131,14 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         
         self.view.addSubview(scrollView)
         self.view.addSubview(playVideoButton)
+        scrollView.addSubview(mediaView)
         
         scrollView.pin(to: self.view)
         playVideoButton.center(in: self.view)
-        
-        self.updateContents()
+        mediaViewLeadingConstraint = mediaView.pin(.leading, to: .leading, of: scrollView)
+        mediaViewTopConstraint = mediaView.pin(.top, to: .top, of: scrollView)
+        mediaViewTrailingConstraint = mediaView.pin(.trailing, to: .trailing, of: scrollView)
+        mediaViewBottomConstraint = mediaView.pin(.bottom, to: .bottom, of: scrollView)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -131,10 +156,8 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     }
     
     public func parentDidAppear() {
-        if mediaView is AnimatedImageView {
-            (mediaView as? AnimatedImageView)?.startAnimating()
-        }
-            
+        mediaView.startAnimationLoop()
+        
         if self.galleryItem.attachment.isVideo {
             UIView.animate(withDuration: 0.2) { self.playVideoButton.alpha = 1 }
         }
@@ -156,12 +179,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     // MARK: - Functions
     
     private func updateMinZoomScale() {
-        let maybeImageSize: CGSize? = {
-            switch self.mediaView {
-                case let imageView as UIImageView: return (imageView.image?.size ?? .zero)
-                default: return nil
-            }
-        }()
+        let maybeImageSize: CGSize? = mediaView.image?.size
         
         guard let imageSize: CGSize = maybeImageSize else {
             self.scrollView.minimumZoomScale = 1
@@ -192,73 +210,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         if self.scrollView.zoomScale != self.scrollView.minimumZoomScale {
             self.scrollView.setZoomScale(self.scrollView.minimumZoomScale, animated: animated)
         }
-    }
-
-    // MARK: - Content
-    
-    private func updateContents() {
-        self.mediaView.removeFromSuperview()
-        self.scrollView.zoomScale = 1
-        
-        if self.galleryItem.attachment.isAnimated {
-            if self.galleryItem.attachment.isValid, let originalFilePath: String = self.galleryItem.attachment.originalFilePath(using: dependencies) {
-                let animatedView: AnimatedImageView = AnimatedImageView()
-                animatedView.loadAnimatedImage(from: originalFilePath)
-                animatedView.startAnimating()
-                self.mediaView = animatedView
-            }
-            else {
-                self.mediaView = UIView()
-                self.mediaView.themeBackgroundColor = .newConversation_background
-            }
-        }
-        else if self.image == nil {
-            // Still loading thumbnail.
-            self.mediaView = UIView()
-            self.mediaView.themeBackgroundColor = .newConversation_background
-        }
-        else {
-            // Present the static image using standard UIImageView
-            self.mediaView = UIImageView(image: self.image)
-        }
-        
-        // We add these gestures to mediaView rather than
-        // the root view so that interacting with the video player
-        // progres bar doesn't trigger any of these gestures.
-        self.addGestureRecognizers(to: self.mediaView)
-        self.scrollView.addSubview(self.mediaView)
-        
-        self.mediaViewLeadingConstraint = self.mediaView.pin(.leading, to: .leading, of: self.scrollView)
-        self.mediaViewTopConstraint = self.mediaView.pin(.top, to: .top, of: self.scrollView)
-        self.mediaViewTrailingConstraint = self.mediaView.pin(.trailing, to: .trailing, of: self.scrollView)
-        self.mediaViewBottomConstraint = self.mediaView.pin(.bottom, to: .bottom, of: self.scrollView)
-        
-        self.mediaView.contentMode = .scaleAspectFit
-        self.mediaView.isUserInteractionEnabled = true
-        self.mediaView.clipsToBounds = true
-        self.mediaView.layer.allowsEdgeAntialiasing = true
-        self.mediaView.translatesAutoresizingMaskIntoConstraints = false
-
-        // Use trilinear filters for better scaling quality at
-        // some performance cost.
-        self.mediaView.layer.minificationFilter = .trilinear
-        self.mediaView.layer.magnificationFilter = .trilinear
-    }
-
-    private func addGestureRecognizers(to view: UIView) {
-        let doubleTap: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(didDoubleTapImage(_:))
-        )
-        doubleTap.numberOfTapsRequired = 2
-        view.addGestureRecognizer(doubleTap)
-
-        let singleTap: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(didSingleTapImage(_:))
-        )
-        singleTap.require(toFail: doubleTap)
-        view.addGestureRecognizer(singleTap)
     }
 
     // MARK: - Gesture Recognizers

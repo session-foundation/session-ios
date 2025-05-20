@@ -21,8 +21,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] resultImageData in
-            self?.onDisplayPictureSelected?(.image(resultImageData))
+        onImageDataPicked: { [weak self] identifier, resultImageData in
+            self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
         }
     )
     
@@ -550,22 +550,27 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func updateProfilePicture(currentFileName: String?) {
-        let existingImageData: Data? = dependencies[singleton: .storage].read { [userSessionId, dependencies] db in
-            dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(userSessionId.hexString))
-        }
+        let iconName: String = "profile_placeholder" // stringlint:ignore
+        
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "profileDisplayPictureSet".localized(),
                     body: .image(
-                        placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                        valueData: existingImageData,
+                        identifier: (currentFileName ?? iconName),
+                        source: currentFileName
+                            .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
+                        placeholder: UIImage(named: iconName).map {
+                            ImageDataManager.DataSource.image(iconName, $0)
+                        },
                         icon: .rightPlus,
                         style: .circular,
                         accessibility: Accessibility(
                             identifier: "Upload",
                             label: "Upload"
                         ),
+                        dataManager: dependencies[singleton: .imageDataManager],
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -574,19 +579,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let valueData, _, _, _, _): return (valueData != nil)
+                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(existingImageData != nil),
+                    cancelEnabled: .bool(currentFileName != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let valueData), _, _, _, _):
+                            case .image(_, .some(let source), _, _, _, _, _, _):
+                                guard let imageData: Data = source.imageData else { return }
+                                
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(valueData),
+                                    displayPictureUpdate: .currentUserUploadImageData(imageData),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                                 

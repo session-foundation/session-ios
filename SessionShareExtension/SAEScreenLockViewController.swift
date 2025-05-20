@@ -6,6 +6,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 final class SAEScreenLockViewController: ScreenLockViewController {
+    private let dependencies: Dependencies
     private var hasShownAuthUIOnce: Bool = false
     private var isShowingAuthUI: Bool = false
     
@@ -13,7 +14,9 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     
     // MARK: - Initialization
     
-    init(shareViewDelegate: ShareViewDelegate) {
+    init(shareViewDelegate: ShareViewDelegate, using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
         super.init()
         
         self.onUnlockPressed = { [weak self] in self?.unlockButtonWasTapped() }

@@ -129,19 +129,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         return result
     }()
     
-    public lazy var profilePictureView: UIImageView = {
-        let result = UIImageView()
-        result.set(.width, to: CallVC.avatarRadius * 2)
-        result.set(.height, to: CallVC.avatarRadius * 2)
-        result.layer.cornerRadius = CallVC.avatarRadius
-        result.layer.masksToBounds = true
-        result.contentMode = .scaleAspectFill
-        
-        return result
-    }()
-    
-    private lazy var animatedImageView: AnimatedImageView = {
-        let result: AnimatedImageView = AnimatedImageView()
+    public lazy var profilePictureView: SessionImageView = {
+        let result: SessionImageView = SessionImageView(
+            dataManager: dependencies[singleton: .imageDataManager]
+        )
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
@@ -558,9 +549,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         profilePictureContainer.pin(.bottom, to: .top, of: operationPanel)
         profilePictureContainer.pin([ UIView.HorizontalEdge.left, UIView.HorizontalEdge.right ], to: view)
         profilePictureContainer.addSubview(profilePictureView)
-        profilePictureContainer.addSubview(animatedImageView)
         profilePictureView.center(in: profilePictureContainer)
-        animatedImageView.center(in: profilePictureContainer)
         
         // Call info label
         let callInfoLabelContainer = UIView()
@@ -577,29 +566,18 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     func setUpProfilePictureImage() {
-        let avatarData: Data? = dependencies[singleton: .storage].read { [call, dependencies] db in
-             dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(call.sessionId))
+        let profile: Profile? = dependencies[singleton: .storage].read { [call] db in
+            try Profile.fetchOne(db, id: call.sessionId)
         }
         
-        self.profilePictureView.image = avatarData
-            .map { UIImage(data: $0) }
-            .defaulting(to: PlaceholderIcon.generate(seed: call.sessionId, text: call.contactName, size: 300))
-        
-        let maybeAnimatedProfilePicture = avatarData
-            .map { data -> Data? in
-                switch data.guessedImageFormat {
-                    case .gif, .webp: return data
-                    default: return nil
-                }
-            }
-        
-        if let animatedProfilePicture = maybeAnimatedProfilePicture {
-            self.animatedImageView.loadAnimatedImage(from: animatedProfilePicture)
-            self.animatedImageView.isHidden = false
-            self.profilePictureView.isHidden = true
-        } else {
-            self.animatedImageView.isHidden = true
-            self.profilePictureView.isHidden = false
+        switch profile?.profilePictureFileName {
+            case .some(let fileName): profilePictureView.loadImage(from: fileName)
+            case .none:
+                profilePictureView.image = PlaceholderIcon.generate(
+                    seed: call.sessionId,
+                    text: call.contactName,
+                    size: 300
+                )
         }
     }
     
