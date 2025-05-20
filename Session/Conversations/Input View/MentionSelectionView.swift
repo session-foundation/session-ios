@@ -125,7 +125,10 @@ private extension MentionSelectionView {
     final class Cell: UITableViewCell {
         // MARK: - UI
         
-        private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .message)
+        private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
+            size: .message,
+            dataManager: nil
+        )
 
         private lazy var displayNameLabel: UILabel = {
             let result: UILabel = UILabel()
@@ -208,6 +211,7 @@ private extension MentionSelectionView {
                 "you".localized() :
                 profile.displayName(for: threadVariant)
             )
+            profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
             profilePictureView.update(
                 publicKey: profile.id,
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode

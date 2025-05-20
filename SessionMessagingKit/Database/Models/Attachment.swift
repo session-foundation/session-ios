@@ -604,7 +604,7 @@ extension Attachment {
             .path
     }()
     
-    internal static func attachmentsFolder(using dependencies: Dependencies) -> String {
+    public static func attachmentsFolder(using dependencies: Dependencies) -> String {
         let attachmentsFolder: String = sharedDataAttachmentsDirPath
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: attachmentsFolder)
         
@@ -778,7 +778,7 @@ extension Attachment {
         case medium
         case large
         
-        var dimension: UInt {
+        public var dimension: UInt {
             switch self {
                 case .small: return Attachment.thumbnailDimensionSmall
                 case .medium: return Attachment.thumbnailDimensionMedium
@@ -874,7 +874,12 @@ extension Attachment {
         return "\(thumbnailsDirPath)/thumbnail-\(dimensions).jpg" // stringlint:ignore
     }
     
-    private func loadThumbnail(with dimensions: UInt, using dependencies: Dependencies, success: @escaping (UIImage, () throws -> Data) -> (), failure: @escaping () -> ()) {
+    private func loadThumbnail(
+        with dimensions: UInt,
+        using dependencies: Dependencies,
+        success: @escaping (String, () -> UIImage?, () throws -> Data) -> (),
+        failure: @escaping () -> ()
+    ) {
         guard
             let targetSize: CGSize = {
                 guard
@@ -902,51 +907,57 @@ extension Attachment {
             targetSize.height > 1
         else { return failure() }
         
-        // There's no point in generating a thumbnail if the original is smaller than the
-        // thumbnail size
-        if Int(targetSize.width) < dimensions || Int(targetSize.height) < dimensions {
-            guard let image: UIImage = originalImage(using: dependencies) else {
-                failure()
-                return
-            }
+        /// There's no point in generating a thumbnail if the original is smaller than the thumbnail size and it's not a video
+        if
+            (Int(targetSize.width) < dimensions || Int(targetSize.height) < dimensions) &&
+            !isVideo
+        {
+            guard
+                isValid,
+                let originalFilePath: String = originalFilePath(using: dependencies)
+            else { return failure() }
             
             success(
-                image,
-                {
-                    guard let originalFilePath: String = originalFilePath(using: dependencies) else {
-                        throw AttachmentError.invalidData
-                    }
-                    
-                    return try Data(contentsOf: URL(fileURLWithPath: originalFilePath))
-                }
+                originalFilePath,
+                { originalImage(using: dependencies) },
+                { try Data(contentsOf: URL(fileURLWithPath: originalFilePath)) }
             )
             return
         }
         
-        let thumbnailPath = thumbnailPath(for: dimensions)
+        let thumbnailPath: String = thumbnailPath(for: dimensions)
         
+        /// If we had previously generated the thumbnail then use that
         if dependencies[singleton: .fileManager].fileExists(atPath: thumbnailPath) {
-            guard
-                let data: Data = try? Data(contentsOf: URL(fileURLWithPath: thumbnailPath)),
-                let image: UIImage = UIImage(data: data)
-            else {
-                failure()
-                return
-            }
-            
-            success(image, { data })
+            success(
+                thumbnailPath,
+                { UIImage(contentsOfFile: thumbnailPath) },
+                { try Data(contentsOf: URL(fileURLWithPath: thumbnailPath)) }
+            )
             return
         }
         
+        /// Otherwise use the `thumbnailService` to generate a thumbnail
         dependencies[singleton: .thumbnailService].ensureThumbnail(
             for: self,
             dimensions: dimensions,
-            success: { loadedThumbnail in success(loadedThumbnail.image, loadedThumbnail.dataSourceBlock) },
+            success: { loadedThumbnail in
+                success(
+                    thumbnailPath,
+                    loadedThumbnail.imageSourceBlock,
+                    loadedThumbnail.dataSourceBlock
+                )
+            },
             failure: { _ in failure() }
         )
     }
     
-    public func thumbnail(size: ThumbnailSize, using dependencies: Dependencies, success: @escaping (UIImage, () throws -> Data) -> (), failure: @escaping () -> ()) {
+    public func thumbnail(
+        size: ThumbnailSize,
+        using dependencies: Dependencies,
+        success: @escaping (String, () -> UIImage?, () throws -> Data) -> (),
+        failure: @escaping () -> ()
+    ) {
         loadThumbnail(with: size.dimension, using: dependencies, success: success, failure: failure)
     }
     
@@ -957,8 +968,8 @@ extension Attachment {
         loadThumbnail(
             with: size.dimension,
             using: dependencies,
-            success: { image, _ in
-                existingImage = image
+            success: { _, imageLoader, _ in
+                existingImage = imageLoader()
                 semaphore.signal()
             },
             failure: { semaphore.signal() }
@@ -1010,7 +1021,7 @@ extension Attachment {
         self.thumbnail(
             size: .small,
             using: dependencies,
-            success: { _, dataSourceBlock in
+            success: { _, _, dataSourceBlock in
                 thumbnailData = try? dataSourceBlock()
                 semaphore.signal()
             },

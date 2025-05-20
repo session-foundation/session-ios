@@ -63,7 +63,11 @@ public extension Profile {
                             
                             // Remove any cached avatar image value
                             if let fileName: String = existingProfileFileName {
-                                dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = nil }
+                                Task {
+                                    await dependencies[singleton: .imageDataManager].removeImage(
+                                        identifier: fileName
+                                    )
+                                }
                             }
                             
                             switch existingProfileUrl {

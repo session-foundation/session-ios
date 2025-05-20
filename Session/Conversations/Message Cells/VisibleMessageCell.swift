@@ -8,7 +8,6 @@ import SessionMessagingKit
 
 final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private var isHandlingLongPress: Bool = false
-    private var unloadContent: (() -> Void)?
     private var previousX: CGFloat = 0
     
     var albumView: MediaAlbumView?
@@ -61,7 +60,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         reactionContainerView
     ]
     
-    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .message)
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
+        size: .message,
+        dataManager: nil
+    )
     
     lazy var bubbleBackgroundView: UIView = {
         let result = UIView()
@@ -272,7 +274,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     override func update(
         with cellViewModel: MessageViewModel,
-        mediaCache: LRUCache<String, Any>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
         lastSearchText: String?,
@@ -305,6 +306,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
         profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
+        profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
@@ -330,7 +332,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Content view
         populateContentView(
             for: cellViewModel,
-            mediaCache: mediaCache,
             playbackInfo: playbackInfo,
             lastSearchText: lastSearchText,
             using: dependencies
@@ -446,7 +447,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     private func populateContentView(
         for cellViewModel: MessageViewModel,
-        mediaCache: LRUCache<String, Any>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         lastSearchText: String?,
         using dependencies: Dependencies
@@ -711,7 +711,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 // Album view
                 let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(for: cellViewModel)
                 let albumView = MediaAlbumView(
-                    mediaCache: mediaCache,
                     items: (cellViewModel.attachments?
                         .filter { $0.isVisualMedia })
                         .defaulting(to: []),
@@ -723,12 +722,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let size = getSize(for: cellViewModel)
                 albumView.set(.width, to: size.width)
                 albumView.set(.height, to: size.height)
-                albumView.loadMedia()
                 albumView.accessibilityLabel = "contentDescriptionMediaMessage".localized()
                 snContentView.addArrangedSubview(albumView)
-        
-                unloadContent = { albumView.unloadMedia() }
-                
+            
             case .voiceMessage:
                 guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
                     return
@@ -845,7 +841,18 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     override func prepareForReuse() {
         super.prepareForReuse()
         
-        unloadContent?()
+        for subview in snContentView.arrangedSubviews {
+            snContentView.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+        for subview in bubbleView.subviews {
+            subview.removeFromSuperview()
+        }
+        albumView = nil
+        quoteView = nil
+        linkPreviewView = nil
+        documentView = nil
+        bodyTappableLabel = nil
         viewsToMoveForReply.forEach { $0.transform = .identity }
         replyButton.alpha = 0
         timerView.prepareForReuse()

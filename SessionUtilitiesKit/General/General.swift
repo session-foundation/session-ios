@@ -20,7 +20,6 @@ public enum General {
     public class Cache: GeneralCacheType {
         public var sessionId: SessionId = SessionId.invalid
         public var recentReactionTimestamps: [Int64] = []
-        public let placeholderCache: LRUCache<String, UIImage> = LRUCache(maxCacheSize: 50)
         public var contextualActionLookupMap: [Int: [String: [Int: Any]]] = [:]
         
         // MARK: - Functions
@@ -37,14 +36,12 @@ public enum General {
 public protocol ImmutableGeneralCacheType: ImmutableCacheType {
     var sessionId: SessionId { get }
     var recentReactionTimestamps: [Int64] { get }
-    var placeholderCache: LRUCache<String, UIImage> { get }
     var contextualActionLookupMap: [Int: [String: [Int: Any]]] { get }
 }
 
 public protocol GeneralCacheType: ImmutableGeneralCacheType, MutableCacheType {
     var sessionId: SessionId { get }
     var recentReactionTimestamps: [Int64] { get set }
-    var placeholderCache: LRUCache<String, UIImage> { get }
     var contextualActionLookupMap: [Int: [String: [Int: Any]]] { get set }
     
     func setCachedSessionId(sessionId: SessionId)
