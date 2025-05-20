@@ -1496,25 +1496,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "groupInformationSet".localized(),
-                    body: { [weak self, dependencies] in
-                        guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
-                            return .input(
-                                explanation: NSAttributedString(string: "groupNameVisible".localized()),
-                                info: ConfirmationModal.Info.Body.InputInfo(
-                                    placeholder: "groupNameEnter".localized(),
-                                    initialValue: currentName,
-                                    accessibility: Accessibility(
-                                        identifier: "Group name text field"
-                                    )
-                                ),
-                                onChange: { updatedName in self?.updatedName = updatedName }
-                            )
-                        }
-                        
+                    title: "updateGroupInformation".localized(),
+                    body: { [weak self] in
                         return .dualInput(
-                            // FIXME: Localise this
-                            explanation: NSAttributedString(string: "Group name and description are visible to all group members."),
+                            explanation: "updateGroupInformationDescription"
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                             firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupNameEnter".localized(),
                                 initialValue: currentName,
