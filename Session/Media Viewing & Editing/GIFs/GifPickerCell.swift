@@ -37,7 +37,7 @@ class GifPickerCell: UICollectionViewCell {
     var stillAsset: ProxiedContentAsset?
     var animatedAssetRequest: ProxiedContentAssetRequest?
     var animatedAsset: ProxiedContentAsset?
-    var imageView: AnimatedImageView?
+    var imageView: SessionImageView?
     var activityIndicator: UIActivityIndicatorView?
 
     var isCellSelected: Bool = false {
@@ -207,7 +207,7 @@ class GifPickerCell: UICollectionViewCell {
             return
         }
         if imageView == nil {
-            let imageView = AnimatedImageView()
+            let imageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
             self.imageView = imageView
             self.contentView.addSubview(imageView)
             imageView.pin(to: contentView)
@@ -217,7 +217,7 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        imageView.loadAnimatedImage(from: URL(fileURLWithPath: asset.filePath))
+        imageView.loadImage(from: asset.filePath)
         imageView.accessibilityIdentifier = "gif cell"
         self.themeBackgroundColor = nil
 

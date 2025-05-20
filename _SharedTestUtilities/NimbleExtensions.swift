@@ -41,7 +41,7 @@ public func call<M, T, R>(
     _ amount: CallAmount = .atLeast(times: 1),
     matchingParameters: ParameterMatchType = .none,
     exclusive: Bool = false,
-    functionBlock: @escaping (inout T) throws -> R
+    functionBlock: @escaping (inout T) async throws -> R
 ) -> Matcher<M> where M: Mock<T> {
     return Matcher.define { actualExpression in
         /// First generate the call info
@@ -285,7 +285,7 @@ fileprivate struct CallInfo {
 
 fileprivate func generateCallInfo<M, T, R>(
     _ actualExpression: Nimble.Expression<M>,
-    _ functionBlock: @escaping (inout T) throws -> R
+    _ functionBlock: @escaping (inout T) async throws -> R
 ) -> CallInfo where M: Mock<T> {
     var maybeTargetFunction: MockFunction?
     var allFunctionsCalled: [FunctionConsumer.Key] = []
@@ -320,9 +320,15 @@ fileprivate func generateCallInfo<M, T, R>(
             // call (if there weren't any this will likely throw errors when attempting
             // to build)
             if !allFunctionsCalled.isEmpty {
+                let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
                 let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
                 validInstance.functionConsumer.trackCalls = false
-                maybeTargetFunction = try? builder.build()
+                
+                Task {
+                    maybeTargetFunction = try? await builder.build()
+                    semaphore.signal()
+                }
+                semaphore.wait()
 
                 let key: FunctionConsumer.Key = FunctionConsumer.Key(
                     name: (maybeTargetFunction?.name ?? ""),
@@ -358,9 +364,15 @@ fileprivate func generateCallInfo<M, T, R>(
     // call (if there weren't any this will likely throw errors when attempting
     // to build)
     if !allFunctionsCalled.isEmpty {
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
         validInstance.functionConsumer.trackCalls = false
-        maybeTargetFunction = try? builder.build()
+        
+        Task {
+            maybeTargetFunction = try? await builder.build()
+            semaphore.signal()
+        }
+        semaphore.wait()
         
         let key: FunctionConsumer.Key = FunctionConsumer.Key(
             name: (maybeTargetFunction?.name ?? ""),

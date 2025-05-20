@@ -22,51 +22,40 @@ public class MediaMessageView: UIView {
     public let mode: Mode
     public let attachment: SignalAttachment
     
-    private lazy var validImage: UIImage? = {
-        if attachment.isImage {
-            guard
-                attachment.isValidImage,
-                let image: UIImage = attachment.image(),
-                image.size.width > 0,
-                image.size.height > 0
-            else {
-                return nil
-            }
-            
-            return image
-        }
-        else if attachment.isVideo {
-            guard
-                attachment.isValidVideo,
-                let image: UIImage = attachment.videoPreview(using: dependencies),
-                image.size.width > 0,
-                image.size.height > 0
-            else {
-                return nil
-            }
-            
-            return image
-        }
-        
-        return nil
-    }()
-    private lazy var validAnimatedImageData: Data? = {
+    private lazy var validImageData: Data? = {
         guard
-            attachment.isAnimatedImage,
             attachment.isValidImage,
             let dataUrl: URL = attachment.dataUrl,
             let imageData: Data = try? Data(contentsOf: dataUrl), (
                 (
                     attachment.dataType == .gif &&
+                    attachment.isAnimatedImage &&
                     imageData.hasValidGifSize
                 ) || (
                     attachment.dataType == .webP &&
+                    attachment.isAnimatedImage &&
                     imageData.sizeForWebpData != .zero
+                ) || (
+                    imageData.hasValidImageDimensions(isAnimated: false)
                 )
             )
         else { return nil }
         
         return imageData
+    }()
+    private lazy var validVideoImage: UIImage? = {
+        if attachment.isVideo {
+            guard
+                attachment.isValidVideo,
+                let image: UIImage = attachment.videoPreview(using: dependencies),
+                image.size.width > 0,
+                image.size.height > 0
+            else { return nil }
+            
+            return image
+        }
+        
+        return nil
     }()
     private lazy var duration: TimeInterval? = attachment.duration()
     private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -139,17 +128,30 @@ public class MediaMessageView: UIView {
         return result
     }()
     
-    private lazy var imageView: UIImageView = {
-        let view: UIImageView = UIImageView()
+    private lazy var imageView: SessionImageView = {
+        let view: SessionImageView = SessionImageView(
+            dataManager: dependencies[singleton: .imageDataManager]
+        )
         view.translatesAutoresizingMaskIntoConstraints = false
         view.contentMode = .scaleAspectFit
         view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
         view.themeTintColor = .textPrimary
-        view.isHidden = true
         
         // Override the image to the correct one
-        if attachment.isImage || attachment.isVideo {
-            if let validImage: UIImage = validImage {
+        if attachment.isImage || attachment.isAnimatedImage {
+            if let imageData: Data = validImageData, let dataUrl: URL = attachment.dataUrl {
+                view.layer.minificationFilter = .trilinear
+                view.layer.magnificationFilter = .trilinear
+                view.loadImage(identifier: dataUrl.absoluteString, from: imageData)
+            }
+            else {
+                view.contentMode = .scaleAspectFit
+                view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
+                view.themeTintColor = .textPrimary
+            }
+        }
+        else if attachment.isVideo {
+            if let validImage: UIImage = validVideoImage {
                 view.layer.minificationFilter = .trilinear
                 view.layer.magnificationFilter = .trilinear
                 view.image = validImage
@@ -171,23 +173,6 @@ public class MediaMessageView: UIView {
         let view: UIImageView = UIImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.isHidden = true
-        
-        return view
-    }()
-    
-    private lazy var animatedImageView: AnimatedImageView = {
-        let view: AnimatedImageView = AnimatedImageView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.isHidden = true
-        
-        if let imageData: Data = validAnimatedImageData {
-            view.loadAnimatedImage(from: imageData)
-        }
-        else {
-            view.contentMode = .scaleAspectFit
-            view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
-            view.themeTintColor = .textPrimary
-        }
         
         return view
     }()
@@ -332,38 +317,24 @@ public class MediaMessageView: UIView {
         addSubview(loadingView)
         
         stackView.addArrangedSubview(imageView)
-        stackView.addArrangedSubview(animatedImageView)
         if !titleLabel.isHidden { stackView.addArrangedSubview(UIView.vhSpacer(10, 10)) }
         stackView.addArrangedSubview(titleStackView)
         
         titleStackView.addArrangedSubview(titleLabel)
         titleStackView.addArrangedSubview(subtitleLabel)
         
+        imageView.alpha = 1
         imageView.addSubview(fileTypeImageView)
         
         // Type-specific configurations
-        if attachment.isAnimatedImage {
-            animatedImageView.isHidden = false
-        }
-        else if attachment.isImage {
-            imageView.isHidden = false
-        }
-        else if attachment.isVideo {
-            // Note: The 'attachmentApproval' mode provides it's own play button to keep
-            // it at the proper scale when zooming
-            imageView.isHidden = false
-        }
-        else if attachment.isAudio {
+        if attachment.isAudio {
             // Hide the 'audioPlayPauseButton' if the 'audioPlayer' failed to get created
-            imageView.isHidden = false
-            
             fileTypeImageView.image = UIImage(named: "table_ic_notification_sound")?
                 .withRenderingMode(.alwaysTemplate)
             fileTypeImageView.themeTintColor = .textPrimary
             fileTypeImageView.isHidden = false
         }
         else if attachment.isUrl {
-            imageView.isHidden = false
             imageView.alpha = 0 // Not 'isHidden' because we want it to take up space in the UIStackView
             loadingView.isHidden = false
             
@@ -374,9 +345,6 @@ public class MediaMessageView: UIView {
                 
                 loadLinkPreview(linkPreviewURL: linkPreviewUrl, using: dependencies)
             }
-        }
-        else {
-            imageView.isHidden = false
         }
     }
     
@@ -390,13 +358,6 @@ public class MediaMessageView: UIView {
                 return 1
             }
             
-            if attachment.isAnimatedImage {
-                let imageSize: CGSize = (animatedImageView.image?.size ?? CGSize(width: 1, height: 1))
-                let aspectRatio: CGFloat = (imageSize.width / imageSize.height)
-            
-                return aspectRatio.clamp(0.05, 95.0)
-            }
-            
             // All other types should maintain the ratio of the image in the 'imageView'
             let imageSize: CGSize = (imageView.image?.size ?? CGSize(width: 1, height: 1))
             let aspectRatio: CGFloat = (imageSize.width / imageSize.height)
@@ -405,13 +366,13 @@ public class MediaMessageView: UIView {
         }()
         
         let maybeImageSize: CGFloat? = {
-            if attachment.isImage || attachment.isVideo {
-                if validImage != nil { return nil }
+            if attachment.isImage || attachment.isAnimatedImage {
+                if validImageData != nil { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }
-            else if attachment.isAnimatedImage {
-                if validAnimatedImageData != nil { return nil }
+            else if attachment.isValidVideo {
+                if validVideoImage != nil { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }
@@ -447,15 +408,6 @@ public class MediaMessageView: UIView {
                 equalTo: imageView.heightAnchor,
                 multiplier: clampedRatio
             ),
-            animatedImageView.widthAnchor.constraint(
-                equalTo: animatedImageView.heightAnchor,
-                multiplier: clampedRatio
-            ),
-            
-            // Note: AnimatedImage, Image and Video types should allow zooming so be lessThanOrEqualTo
-            // the view size but some other types should have specific sizes
-            animatedImageView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor),
-            animatedImageView.heightAnchor.constraint(lessThanOrEqualTo: heightAnchor),
             
             (maybeImageSize != nil ?
                 imageView.widthAnchor.constraint(equalToConstant: imageSize) :

@@ -31,7 +31,7 @@ import SessionUtilitiesKit
 
     let srcImage: UIImage
 
-    let successCompletion: ((Data) -> Void)
+    let successCompletion: ((CGRect, Data) -> Void)
 
     var imageView: UIView!
 
@@ -78,7 +78,7 @@ import SessionUtilitiesKit
         fatalError("init(coder:) has not been implemented")
     }
 
-    @objc required init(srcImage: UIImage, successCompletion : @escaping (Data) -> Void) {
+    @objc required init(srcImage: UIImage, successCompletion : @escaping (CGRect, Data) -> Void) {
         // normalized() can be slightly expensive but in practice this is fine.
         self.srcImage = srcImage.normalizedImage()
         self.successCompletion = successCompletion
@@ -484,10 +484,14 @@ import SessionUtilitiesKit
 
     @objc func donePressed(sender: UIButton) {
         let successCompletion = self.successCompletion
-        dismiss(animated: true, completion: {
-            guard let dstImageData: Data = self.generateDstImageData() else { return }
+        let dstSizePixels = self.dstSizePixels
+        dismiss(animated: true, completion: { [weak self] in
+            guard
+                let dstImageData: Data = self?.generateDstImageData(),
+                let imageViewFrame: CGRect = self?.imageRenderRect(forDstSize: dstSizePixels)
+            else { return }
             
-            successCompletion(dstImageData)
+            successCompletion(imageViewFrame, dstImageData)
         })
     }
 

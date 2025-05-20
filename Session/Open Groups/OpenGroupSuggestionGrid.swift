@@ -291,8 +291,8 @@ extension OpenGroupSuggestionGrid {
             return result
         }()
         
-        private lazy var imageView: UIImageView = {
-            let result: UIImageView = UIImageView()
+        private lazy var imageView: SessionImageView = {
+            let result: SessionImageView = SessionImageView()
             result.set(.width, to: Cell.imageSize)
             result.set(.height, to: Cell.imageSize)
             result.layer.cornerRadius = (Cell.imageSize / 2)
@@ -356,10 +356,23 @@ extension OpenGroupSuggestionGrid {
         
         fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
             label.text = room.name
-            imageView.image = dependencies[singleton: .displayPictureManager]
-                .displayPicture(owner: .community(openGroup))
-                .map { UIImage(data: $0) }
-            imageView.isHidden = (imageView.image == nil)
+            
+            let maybePath: String? = openGroup.displayPictureFilename
+                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+            
+            switch maybePath {
+                case .some(let path):
+                    imageView.isHidden = false
+                    imageView.setDataManager(dependencies[singleton: .imageDataManager])
+                    imageView.loadImage(from: path)
+                
+                case .none:
+                    imageView.isHidden = true
+                    
+                    dependencies[singleton: .displayPictureManager].scheduleDownload(
+                        for: .community(openGroup)
+                    )
+            }
         }
     }
 }
