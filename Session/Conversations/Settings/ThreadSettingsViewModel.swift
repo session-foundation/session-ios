@@ -25,8 +25,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] resultImageData in
-            self?.onDisplayPictureSelected?(.image(resultImageData))
+        onImageDataPicked: { [weak self] identifier, resultImageData in
+            self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
         }
     )
     
@@ -1070,48 +1070,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     // MARK: - Functions
     
     private func viewDisplayPicture(threadViewModel: SessionThreadViewModel) {
-        let displayPictureData: Data
-        let ownerId: DisplayPictureManager.OwnerId = {
-            switch threadViewModel.threadVariant {
-                case .contact: .user(threadViewModel.threadId)
-                case .group, .legacyGroup: .group(threadViewModel.threadId)
-                case .community: .community(threadViewModel.threadId)
-            }
-        }()
+        guard
+            let fileName: String = threadViewModel.displayPictureFilename,
+            let path: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName)
+        else { return }
         
-        switch threadViewModel.threadVariant {
-            case .legacyGroup: return   // No display pictures for legacy groups
-            case .contact:
-                guard
-                    let profile: Profile = threadViewModel.profile,
-                    let imageData: Data = dependencies[singleton: .displayPictureManager].displayPicture(owner: .user(profile))
-                else { return }
-                
-                displayPictureData = imageData
-            
-            default:
-                guard
-                    threadViewModel.displayPictureFilename != nil,
-                    let imageData: Data = dependencies[singleton: .storage].read({ [dependencies] db in
-                        dependencies[singleton: .displayPictureManager].displayPicture(db, id: ownerId)
-                    })
-                else { return }
-                
-                displayPictureData = imageData
-        }
-        
-        let format: ImageFormat = displayPictureData.guessedImageFormat
         let navController: UINavigationController = StyledNavigationController(
             rootViewController: ProfilePictureVC(
-                image: (format == .gif || format == .webp ?
-                    nil :
-                    UIImage(data: displayPictureData)
-                ),
-                animatedImageData: (format != .gif && format != .webp ?
-                    nil :
-                    displayPictureData
-                ),
-                title: threadViewModel.displayName
+                imageIdentifier: fileName,
+                imageSource: .url(URL(fileURLWithPath: path)),
+                title: threadViewModel.displayName,
+                using: dependencies
             )
         )
         navController.modalPresentationStyle = .fullScreen
@@ -1577,22 +1546,27 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     private func updateGroupDisplayPicture(currentFileName: String?) {
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
-        let existingImageData: Data? = dependencies[singleton: .storage].read { [threadId, dependencies] db in
-            dependencies[singleton: .displayPictureManager].displayPicture(db, id: .group(threadId))
-        }
+        let iconName: String = "profile_placeholder" // stringlint:ignore
+        
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "groupSetDisplayPicture".localized(),
                     body: .image(
-                        placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                        valueData: existingImageData,
+                        identifier: (currentFileName ?? iconName),
+                        source: currentFileName
+                            .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
+                        placeholder: UIImage(named: iconName).map {
+                            ImageDataManager.DataSource.image(iconName, $0)
+                        },
                         icon: .rightPlus,
                         style: .circular,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
                         ),
+                        dataManager: dependencies[singleton: .imageDataManager],
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -1601,19 +1575,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let valueData, _, _, _, _): return (valueData != nil)
+                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(existingImageData != nil),
+                    cancelEnabled: .bool(currentFileName != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let valueData), _, _, _, _):
+                            case .image(_, .some(let source), _, _, _, _, _, _):
+                                guard let imageData: Data = source.imageData else { return }
+                                
                                 self?.updateGroupDisplayPicture(
-                                    displayPictureUpdate: .groupUploadImageData(valueData),
+                                    displayPictureUpdate: .groupUploadImageData(imageData),
                                     onUploadComplete: { [weak modal] in modal?.close() }
                                 )
                                 
@@ -1734,7 +1710,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 receiveOutput: { [dependencies] existingFileName in
                     // Remove any cached avatar image value
                     if let existingFileName: String = existingFileName {
-                        dependencies.mutate(cache: .displayPicture) { $0.imageData[existingFileName] = nil }
+                        Task {
+                            await dependencies[singleton: .imageDataManager].removeImage(
+                                identifier: existingFileName
+                            )
+                        }
                     }
                 }
             )

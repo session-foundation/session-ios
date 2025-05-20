@@ -355,8 +355,13 @@ public class MediaGalleryViewModel {
             return Item.baseQuery(orderSQL: orderSQL, customFilters: customFilters)([])
         }
 
-        func thumbnailImage(using dependencies: Dependencies, async: @escaping (UIImage) -> ()) {
-            attachment.thumbnail(size: .small, using: dependencies, success: { image, _ in async(image) }, failure: {})
+        func thumbnailImage(using dependencies: Dependencies, async: @escaping (UIImage?) -> ()) {
+            attachment.thumbnail(
+                size: .small,
+                using: dependencies,
+                success: { _, imageRetriever, _ in async(imageRetriever()) },
+                failure: {}
+            )
         }
     }
     

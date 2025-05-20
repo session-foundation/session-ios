@@ -6,13 +6,13 @@ import SessionUtilitiesKit
 
 class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
     private let onTransition: (UIViewController, TransitionType) -> Void
-    private let onImageDataPicked: (Data) -> Void
+    private let onImageDataPicked: (String, Data) -> Void
     
     // MARK: - Initialization
     
     init(
         onTransition: @escaping (UIViewController, TransitionType) -> Void,
-        onImageDataPicked: @escaping (Data) -> Void
+        onImageDataPicked: @escaping (String, Data) -> Void
     ) {
         self.onTransition = onTransition
         self.onImageDataPicked = onImageDataPicked
@@ -44,8 +44,19 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             else {
                 let viewController: CropScaleImageViewController = CropScaleImageViewController(
                     srcImage: rawAvatar,
-                    successCompletion: { resultImageData in
-                        self?.onImageDataPicked(resultImageData)
+                    successCompletion: { cropFrame, resultImageData in
+                        let croppedImagePath: String = imageUrl
+                            .deletingLastPathComponent()
+                            .appendingPathComponent([
+                                "\(Int(round(cropFrame.minX)))",
+                                "\(Int(round(cropFrame.minY)))",
+                                "\(Int(round(cropFrame.width)))",
+                                "\(Int(round(cropFrame.height)))",
+                                imageUrl.lastPathComponent
+                            ].joined(separator: "-"))   // stringlint:ignore
+                            .path
+                        
+                        self?.onImageDataPicked(croppedImagePath, resultImageData)
                     }
                 )
                 self?.onTransition(viewController, .present)
@@ -54,7 +65,7 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             
             guard let imageData: Data = try? Data(contentsOf: URL(fileURLWithPath: imageUrl.path)) else { return }
             
-            self?.onImageDataPicked(imageData)
+            self?.onImageDataPicked(imageUrl.path, imageData)
         }
     }
 }

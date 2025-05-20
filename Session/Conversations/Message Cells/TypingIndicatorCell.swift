@@ -42,7 +42,6 @@ final class TypingIndicatorCell: MessageCell {
     
     override func update(
         with cellViewModel: MessageViewModel,
-        mediaCache: LRUCache<String, Any>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
         lastSearchText: String?,

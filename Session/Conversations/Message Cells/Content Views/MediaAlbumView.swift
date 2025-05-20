@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -20,7 +21,6 @@ public class MediaAlbumView: UIStackView {
     }
 
     public required init(
-        mediaCache: LRUCache<String, Any>,
         items: [Attachment],
         isOutgoing: Bool,
         maxMessageWidth: CGFloat,
@@ -32,7 +32,6 @@ public class MediaAlbumView: UIStackView {
         self.itemViews = itemsToDisplay.enumerated()
             .map { index, attachment -> MediaView in
                 MediaView(
-                    mediaCache: mediaCache,
                     attachment: attachment,
                     isOutgoing: isOutgoing,
                     shouldSupressControls: (
@@ -192,18 +191,6 @@ public class MediaAlbumView: UIStackView {
         stackView.axis = axis
         stackView.spacing = MediaAlbumView.kSpacingPts
         return stackView
-    }
-
-    public func loadMedia() {
-        for itemView in itemViews {
-            itemView.loadMedia()
-        }
-    }
-
-    public func unloadMedia() {
-        for itemView in itemViews {
-            itemView.unloadMedia()
-        }
     }
 
     private class func itemsToDisplay(forItems items: [Attachment]) -> [Attachment] {

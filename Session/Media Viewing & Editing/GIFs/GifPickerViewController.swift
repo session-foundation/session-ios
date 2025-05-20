@@ -357,7 +357,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveCompletion: { [weak self] result in
+                receiveCompletion: { [weak self, dependencies] result in
                     switch result {
                         case .finished: break
                         case .failure(let error):
