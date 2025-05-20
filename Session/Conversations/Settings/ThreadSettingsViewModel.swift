@@ -1545,26 +1545,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 return "groupNameEnterShorter".localized()
                             }
                             guard !LibSession.isTooLong(groupDescription: (finalDescription ?? "")) else {
-                                // FIXME: Localise this
-                                return "Please enter a shorter group description."
+                                return "updateGroupInformationEnterShorterDescription".localized()
                             }
                             
                             return nil  // No error has occurred
                         }()
                         
                         if let errorString: String = maybeErrorString {
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "theError".localized(),
-                                        body: .text(errorString),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text,
-                                        dismissType: .single
-                                    )
-                                ),
-                                transitionType: .present
-                            )
+                            modal.updateContent(with: errorString)
                             return
                         }
                         

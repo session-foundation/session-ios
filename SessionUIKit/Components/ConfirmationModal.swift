@@ -432,6 +432,29 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
+    // MARK: - Error Handling
+    
+    public func updateContent(with error: String? = nil, additionalError: String? = nil) {
+        switch self.info.body {
+            case .input:
+                if let error = error {
+                    textField.themeTextColor = .danger
+                    textFieldContainer.themeBorderColor = .danger
+                }
+            case .dualInput:
+                if let error = error {
+                    textField.themeTextColor = .danger
+                    textFieldContainer.themeBorderColor = .danger
+                }
+                if let additionalError = additionalError {
+                    textView.themeTextColor = .danger
+                    textViewContainer.themeBorderColor = .danger
+                }
+            default:
+                break
+        }
+    }
+    
     // MARK: - UITextFieldDelegate
         
     public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
