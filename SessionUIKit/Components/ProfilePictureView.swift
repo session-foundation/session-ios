@@ -535,7 +535,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(identifier: info.identifier, from: source)
+                additionalImageView.loadImage(identifier: additionalInfo.identifier, from: source)
                 additionalImageContainerView.isHidden = false
                 
             default:
