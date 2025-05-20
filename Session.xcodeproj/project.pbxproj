@@ -184,7 +184,7 @@
 		947D7FD72D509FC900E8E413 /* SessionNetworkAPI+Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD22D509FC900E8E413 /* SessionNetworkAPI+Network.swift */; };
 		947D7FD82D509FC900E8E413 /* SessionNetworkAPI+Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD02D509FC900E8E413 /* SessionNetworkAPI+Database.swift */; };
 		947D7FDE2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FDB2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift */; };
-		947D7FE32D5181F400E8E413 /* _006_AddGeneralKeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE22D5181F400E8E413 /* _006_AddGeneralKeyValueStore.swift */; };
+		947D7FE32D5181F400E8E413 /* _006_RenameTableSettingToKeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE22D5181F400E8E413 /* _006_RenameTableSettingToKeyValueStore.swift */; };
 		947D7FE72D51837200E8E413 /* ArrowCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE42D51837200E8E413 /* ArrowCapsule.swift */; };
 		947D7FE82D51837200E8E413 /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE52D51837200E8E413 /* PopoverView.swift */; };
 		947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE62D51837200E8E413 /* Text+CopyButton.swift */; };
@@ -1484,7 +1484,7 @@
 		947D7FD92D5180F200E8E413 /* SessionNetworkScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNetworkScreen.swift; sourceTree = "<group>"; };
 		947D7FDA2D5180F200E8E413 /* SessionNetworkScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionNetworkScreen+Models.swift"; sourceTree = "<group>"; };
 		947D7FDB2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionNetworkScreen+ViewModel.swift"; sourceTree = "<group>"; };
-		947D7FE22D5181F400E8E413 /* _006_AddGeneralKeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _006_AddGeneralKeyValueStore.swift; sourceTree = "<group>"; };
+		947D7FE22D5181F400E8E413 /* _006_RenameTableSettingToKeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _006_RenameTableSettingToKeyValueStore.swift; sourceTree = "<group>"; };
 		947D7FE42D51837200E8E413 /* ArrowCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowCapsule.swift; sourceTree = "<group>"; };
 		947D7FE52D51837200E8E413 /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
 		947D7FE62D51837200E8E413 /* Text+CopyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Text+CopyButton.swift"; sourceTree = "<group>"; };
@@ -3926,7 +3926,7 @@
 				FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */,
 				FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */,
 				945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */,
-				947D7FE22D5181F400E8E413 /* _006_AddGeneralKeyValueStore.swift */,
+				947D7FE22D5181F400E8E413 /* _006_RenameTableSettingToKeyValueStore.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -6105,7 +6105,7 @@
 				FD17D7C327F5204C00122BE0 /* Database+Utilities.swift in Sources */,
 				FDE754DD2C9BAF8A002A2623 /* Mnemonic.swift in Sources */,
 				FDBEE52E2B6A18B900C143A0 /* UserDefaultsConfig.swift in Sources */,
-				947D7FE32D5181F400E8E413 /* _006_AddGeneralKeyValueStore.swift in Sources */,
+				947D7FE32D5181F400E8E413 /* _006_RenameTableSettingToKeyValueStore.swift in Sources */,
 				FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */,
 				B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */,
 				FDE754E02C9BAF8A002A2623 /* Hex.swift in Sources */,

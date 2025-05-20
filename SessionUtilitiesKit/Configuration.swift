@@ -32,7 +32,7 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                     _005_AddJobUniqueHash.self
                 ],
                 [
-                    _006_AddGeneralKeyValueStore.self
+                    _006_RenameTableSettingToKeyValueStore.self
                 ]
             ]
         )
