@@ -207,6 +207,18 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         )
     }
     
+    public var contactDisplayName: String {
+        return SessionThread.displayName(
+            threadId: threadId,
+            variant: threadVariant,
+            closedGroupName: closedGroupName,
+            openGroupName: openGroupName,
+            isNoteToSelf: threadIsNoteToSelf,
+            ignoringNickname: true,
+            profile: profile
+        )
+    }
+    
     public var threadDescription: String? {
         switch threadVariant {
             case .contact, .legacyGroup: return nil
@@ -551,6 +563,75 @@ public extension SessionThreadViewModel {
 
 public extension SessionThreadViewModel {
     func with(
+        threadMutedUntilTimestamp: TimeInterval? = nil
+    ) -> SessionThreadViewModel {
+        return SessionThreadViewModel(
+            rowId: self.rowId,
+            threadId: self.threadId,
+            threadVariant: self.threadVariant,
+            threadCreationDateTimestamp: self.threadCreationDateTimestamp,
+            threadMemberNames: self.threadMemberNames,
+            threadIsNoteToSelf: self.threadIsNoteToSelf,
+            outdatedMemberId: self.outdatedMemberId,
+            threadIsMessageRequest: self.threadIsMessageRequest,
+            threadRequiresApproval: self.threadRequiresApproval,
+            threadShouldBeVisible: self.threadShouldBeVisible,
+            threadPinnedPriority: self.threadPinnedPriority,
+            threadIsBlocked: self.threadIsBlocked,
+            threadMutedUntilTimestamp: threadMutedUntilTimestamp,
+            threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
+            threadMessageDraft: self.threadMessageDraft,
+            threadIsDraft: self.threadIsDraft,
+            threadContactIsTyping: self.threadContactIsTyping,
+            threadWasMarkedUnread: self.threadWasMarkedUnread,
+            threadUnreadCount: self.threadUnreadCount,
+            threadUnreadMentionCount: self.threadUnreadMentionCount,
+            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
+            threadCanWrite: self.threadCanWrite,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
+            contactLastKnownClientVersion: self.contactLastKnownClientVersion,
+            displayPictureFilename: self.displayPictureFilename,
+            contactProfile: self.contactProfile,
+            closedGroupProfileFront: self.closedGroupProfileFront,
+            closedGroupProfileBack: self.closedGroupProfileBack,
+            closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,
+            closedGroupAdminProfile: self.closedGroupAdminProfile,
+            closedGroupName: self.closedGroupName,
+            closedGroupDescription: self.closedGroupDescription,
+            closedGroupUserCount: self.closedGroupUserCount,
+            closedGroupExpired: self.closedGroupExpired,
+            currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
+            currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
+            openGroupName: self.openGroupName,
+            openGroupDescription: self.openGroupDescription,
+            openGroupServer: self.openGroupServer,
+            openGroupRoomToken: self.openGroupRoomToken,
+            openGroupPublicKey: self.openGroupPublicKey,
+            openGroupUserCount: self.openGroupUserCount,
+            openGroupPermissions: self.openGroupPermissions,
+            interactionId: self.interactionId,
+            interactionVariant: self.interactionVariant,
+            interactionTimestampMs: self.interactionTimestampMs,
+            interactionBody: self.interactionBody,
+            interactionState: self.interactionState,
+            interactionHasBeenReadByRecipient: self.interactionHasBeenReadByRecipient,
+            interactionIsOpenGroupInvitation: self.interactionIsOpenGroupInvitation,
+            interactionAttachmentDescriptionInfo: self.interactionAttachmentDescriptionInfo,
+            interactionAttachmentCount: self.interactionAttachmentCount,
+            authorId: self.authorId,
+            threadContactNameInternal: self.threadContactNameInternal,
+            authorNameInternal: self.authorNameInternal,
+            currentUserSessionId: self.currentUserSessionId,
+            currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
+            recentReactionEmoji: self.recentReactionEmoji,
+            wasKickedFromGroup: self.wasKickedFromGroup,
+            groupIsDestroyed: self.groupIsDestroyed
+        )
+    }
+    
+    func with(
+        threadOnlyNotifyForMentions: Bool? = nil,
         recentReactionEmoji: [String]? = nil
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
@@ -567,7 +648,7 @@ public extension SessionThreadViewModel {
             threadPinnedPriority: self.threadPinnedPriority,
             threadIsBlocked: self.threadIsBlocked,
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
-            threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
+            threadOnlyNotifyForMentions: (threadOnlyNotifyForMentions ?? self.threadOnlyNotifyForMentions),
             threadMessageDraft: self.threadMessageDraft,
             threadIsDraft: self.threadIsDraft,
             threadContactIsTyping: self.threadContactIsTyping,
@@ -1190,6 +1271,12 @@ public extension SessionThreadViewModel {
                 \(openGroup[.publicKey]) AS \(ViewModel.Columns.openGroupPublicKey),
                 \(openGroup[.userCount]) AS \(ViewModel.Columns.openGroupUserCount),
                 \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
+        
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
         
                 \(aggregateInteraction[.interactionId]),
                 \(aggregateInteraction[.interactionTimestampMs]),

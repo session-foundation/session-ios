@@ -325,7 +325,7 @@ extension SessionCell {
                             imageViewWidthConstraint.constant = imageView.bounds.width
                             imageViewHeightConstraint.constant = imageView.bounds.height
 
-                        case .mediumAspectFill:
+                        case .smallAspectFill, .mediumAspectFill:
                             imageView.sizeToFit()
                             
                             imageViewWidthConstraint.constant = (imageView.bounds.width > imageView.bounds.height ?
