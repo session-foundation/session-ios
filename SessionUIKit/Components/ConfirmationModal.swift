@@ -90,6 +90,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var textFieldErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .danger
+        result.textAlignment = .center
+        result.isHidden = true
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var textViewContainer: UIView = {
         let result: UIView = UIView()
         result.themeBorderColor = .borderSeparator
@@ -122,6 +134,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var textViewErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .danger
+        result.textAlignment = .center
+        result.isHidden = true
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var imageViewContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
@@ -150,7 +174,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textViewContainer, imageViewContainer ])
+        let result = UIStackView(
+            arrangedSubviews: [
+                titleLabel,
+                explanationLabel,
+                warningLabel,
+                textFieldContainer,
+                textFieldErrorLabel,
+                textViewContainer,
+                textViewErrorLabel,
+                imageViewContainer
+            ]
+        )
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -436,21 +471,27 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     // MARK: - Error Handling
     
-    public func updateContent(with error: String? = nil, additionalError: String? = nil) {
+    public func updateContent(withError error: String? = nil, additionalError: String? = nil) {
         switch self.info.body {
             case .input:
                 if let error = error {
                     textField.themeTextColor = .danger
                     textFieldContainer.themeBorderColor = .danger
+                    textFieldErrorLabel.text = error
+                    textFieldErrorLabel.isHidden = false
                 }
             case .dualInput:
                 if let error = error {
                     textField.themeTextColor = .danger
                     textFieldContainer.themeBorderColor = .danger
+                    textFieldErrorLabel.text = error
+                    textFieldErrorLabel.isHidden = false
                 }
                 if let additionalError = additionalError {
                     textView.themeTextColor = .danger
                     textViewContainer.themeBorderColor = .danger
+                    textViewErrorLabel.text = additionalError
+                    textViewErrorLabel.isHidden = false
                 }
             default:
                 break

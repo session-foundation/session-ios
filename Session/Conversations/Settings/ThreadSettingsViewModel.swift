@@ -1407,18 +1407,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         
                         /// Check if the data violates the size constraints
                         guard !Profile.isTooLong(profileName: finalNickname) else {
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "theError".localized(),
-                                        body: .text("nicknameErrorShorter".localized()),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text,
-                                        dismissType: .single
-                                    )
-                                ),
-                                transitionType: .present
-                            )
+                            modal.updateContent(withError: "nicknameErrorShorter".localized())
                             return
                         }
                         
@@ -1498,6 +1487,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         )
                     },
                     cancelStyle: .danger,
+                    dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies, threadId] modal in
                         guard
                             let finalName: String = (self?.updatedName ?? "")
@@ -1509,19 +1499,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                         
                         /// Check if the data violates any of the size constraints
-                        let maybeErrorString: String? = {
-                            guard !LibSession.isTooLong(groupName: finalName) else {
-                                return "groupNameEnterShorter".localized()
-                            }
-                            guard !LibSession.isTooLong(groupDescription: (finalDescription ?? "")) else {
-                                return "updateGroupInformationEnterShorterDescription".localized()
-                            }
-                            
-                            return nil  // No error has occurred
-                        }()
+                        let maybeNameError: String? = LibSession.isTooLong(groupName: finalName) ?
+                            "groupNameEnterShorter".localized() : nil
+                        let maybeDescriptionError: String? = LibSession.isTooLong(groupDescription: (finalDescription ?? "")) ?
+                            "updateGroupInformationEnterShorterDescription".localized() : nil
                         
-                        if let errorString: String = maybeErrorString {
-                            modal.updateContent(with: errorString)
+                        guard maybeNameError == nil && maybeDescriptionError == nil else {
+                            modal.updateContent(withError: maybeNameError, additionalError: maybeDescriptionError)
                             return
                         }
                         
@@ -1536,6 +1520,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                             .receive(on: DispatchQueue.main, using: dependencies)
                             .sinkUntilComplete()
+                        
+                        modal.dismiss(animated: true)
                     }
                 )
             ),
