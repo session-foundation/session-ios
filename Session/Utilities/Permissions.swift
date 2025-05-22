@@ -173,7 +173,7 @@ extension Permissions {
     // MARK: - Local Network Premission
     
     public static func localNetwork(using dependencies: Dependencies) -> Status {
-        let status: Bool = dependencies[singleton: .storage, key: .lastSeenHasLocalNetworkPermission]
+        let status: Bool = dependencies.mutate(cache: .libSession, { $0.get(.lastSeenHasLocalNetworkPermission) })
         return status ? .granted : .denied
     }
     
@@ -187,14 +187,10 @@ extension Permissions {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
-                    try await dependencies[singleton: .storage].writeAsync { db in
-                        db[.lastSeenHasLocalNetworkPermission] = true
-                    }
+                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, true)
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
-                    try await dependencies[singleton: .storage].writeAsync { db in
-                        db[.lastSeenHasLocalNetworkPermission] = false
-                    }
+                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, false)
                 }
             } catch {
                 // Networking failure, handle error

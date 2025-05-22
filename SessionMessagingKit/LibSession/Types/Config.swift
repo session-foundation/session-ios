@@ -124,7 +124,7 @@ public extension LibSession {
         
         // MARK: - Functions
         
-        func push(variant: ConfigDump.Variant) throws -> PendingChanges.PushData? {
+        func push(variant: ConfigDump.Variant) throws -> PendingPushes.PushData? {
             switch self {
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
@@ -154,7 +154,7 @@ public extension LibSession {
                     let seqNo: Int64 = cPushData.pointee.seqno
                     free(UnsafeMutableRawPointer(mutating: cPushData))
                     
-                    return PendingChanges.PushData(
+                    return PendingPushes.PushData(
                         data: allPushData,
                         seqNo: seqNo,
                         variant: variant
@@ -166,7 +166,7 @@ public extension LibSession {
                     
                     guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else { return nil }
                     
-                    return PendingChanges.PushData(
+                    return PendingPushes.PushData(
                         data: [Data(bytes: pushResult, count: pushResultLen)],
                         seqNo: 0,
                         variant: variant
@@ -347,10 +347,10 @@ public extension LibSession {
     }
 }
 
-// MARK: - PendingChanges
+// MARK: - PendingPushes
 
 public extension LibSession {
-    struct PendingChanges {
+    struct PendingPushes {
         public struct PushData {
             let data: [Data]
             let seqNo: Int64

@@ -43,7 +43,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _023_GroupsExpiredFlag.self,
                     _024_FixBustedInteractionVariant.self,
                     _025_DropLegacyClosedGroupKeyPairTable.self,
-                    _026_MessageDeduplicationTable.self
+                    _026_MessageDeduplicationTable.self,
+                    _027_MoveSettingsToLibSession.self
                 ]
             ]
         )

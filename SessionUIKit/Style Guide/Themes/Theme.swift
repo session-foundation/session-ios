@@ -5,11 +5,11 @@ import SwiftUI
 
 // MARK: - Theme
 
-public enum Theme: String, CaseIterable, Codable {
-    case classicDark = "classic_dark"
-    case classicLight = "classic_light"
-    case oceanDark = "ocean_dark"
-    case oceanLight = "ocean_light"
+public enum Theme: Int, CaseIterable, Codable {
+    case classicDark
+    case classicLight
+    case oceanDark
+    case oceanLight
     
     // MARK: - Properties
     

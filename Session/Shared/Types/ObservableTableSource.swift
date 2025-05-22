@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Combine
 import DifferenceKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -297,6 +298,113 @@ public enum ObservationBuilder {
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
         }
     }
+    
+    static func libSessionObservation<S: ObservableTableSource, T: Equatable>(
+        _ source: S,
+        debounceInterval: DispatchTimeInterval = .milliseconds(10),
+        fetch: @escaping (KeyCollector) throws -> T
+    ) -> TableObservation<T> {
+        return TableObservation { viewModel, dependencies in
+            let subject: CurrentValueSubject<T?, Error> = CurrentValueSubject(nil)
+            let stream: AsyncThrowingStream<T, Error> = ObservationBuilder.libSessionObservation(
+                dependencies,
+                debounceInterval: debounceInterval,
+                fetch: fetch
+            )
+            
+            let mainObservationTask = Task {
+                do {
+                    for try await value in stream {
+                        if Task.isCancelled { break }
+                        subject.send(value)
+                    }
+                    
+                    if !Task.isCancelled {
+                        subject.send(completion: .finished)
+                    }
+                }
+                catch is CancellationError { subject.send(completion: .finished) }
+                catch { subject.send(completion: .failure(error)) }
+            }
+            
+            return subject
+                .compactMap { $0 }
+                .handleEvents(
+                    receiveCancel: {
+                        tasks.forEach { $0.cancel() }
+                    }
+                )
+                .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
+                .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
+                .eraseToAnyPublisher()
+        }
+    }
+    
+    static func libSessionObservation<T: Equatable>(
+        _ dependencies: Dependencies,
+        debounceInterval: DispatchTimeInterval = .milliseconds(10),
+        fetch: @escaping (KeyCollector) throws -> T
+    ) -> AsyncThrowingStream<T, Error> {
+        return AsyncThrowingStream<T, Error> { continuation in
+            let debouncer: DebounceTaskManager<T> = DebounceTaskManager(debounceInterval: debounceInterval)
+            let taskManager: MultiTaskManager<Void> = MultiTaskManager()
+            
+            let mainObservationTask = Task {
+                let initialInfo: (initialValue: T, streams: [AsyncStream<Any?>])
+                
+                do {
+                    /// Retrieve the initial value and they keys to observe
+                    initialInfo = try dependencies.mutate(cache: .libSession) { cache in
+                        let collector: KeyCollector = KeyCollector(store: cache)
+                        let value: T = try fetch(collector)
+                        
+                        return (value, collector.collectedKeys.map { cache.observe($0) })
+                    }
+                    guard !Task.isCancelled else { throw CancellationError() }
+                    continuation.yield(initialInfo.initialValue)
+                    
+                }
+                catch {
+                    continuation.finish(throwing: error)
+                    await debouncer.reset()
+                    await taskManager.cancelAll()
+                    return
+                }
+                
+                /// After debouncing we want to re-fetch the data
+                await debouncer.setAction { continuation in
+                    let newValue: T = try dependencies.mutate(cache: .libSession) { cache in
+                        try fetch(KeyCollector(store: cache))
+                    }
+                    
+                    guard !Task.isCancelled else { throw CancellationError() }
+                    continuation.yield(newValue)
+                }
+                
+                /// Start observing the streams for updates
+                for stream in initialInfo.streams {
+                    guard !Task.isCancelled else { break }
+                    
+                    let keyTask = Task {
+                        for await _ in stream {
+                            guard !Task.isCancelled else { break }
+                            await debouncer.signal(continuation: continuation)
+                        }
+                    }
+                    await taskManager.add(keyTask)
+                }
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                mainObservationTask.cancel()
+                
+                Task {
+                    await debouncer.reset()
+                    await taskManager.cancelAll()
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Convenience Transforms
@@ -358,5 +466,67 @@ public extension Publisher {
                 updatedData.mapToSessionTableViewData(for: source)
             }
             .eraseToAnyPublisher()
+    }
+}
+
+// MARK: - KeyCollector
+
+public class KeyCollector: ValueFetcher {
+    private let store: ValueFetcher
+    private(set) var collectedKeys: Set<LibSession.ObservableKey> = []
+    
+    public var userSessionId: SessionId { store.userSessionId }
+    
+    init(store: ValueFetcher) {
+        self.store = store
+    }
+    
+    func register(_ key: LibSession.ObservableKey) {
+        collectedKeys.insert(key)
+    }
+    
+    func register(_ key: Setting.BoolKey) {
+        collectedKeys.insert(.setting(key))
+    }
+    
+    func register(_ key: Setting.EnumKey) {
+        collectedKeys.insert(.setting(key))
+    }
+    
+    // MARK: - ValueFetcher
+    
+    public func has(_ key: Setting.BoolKey) -> Bool {
+        collectedKeys.insert(.setting(key))
+        return store.has(key)
+    }
+    
+    public func has(_ key: Setting.EnumKey) -> Bool {
+        collectedKeys.insert(.setting(key))
+        return store.has(key)
+    }
+    
+    public func get(_ key: Setting.BoolKey) -> Bool {
+        collectedKeys.insert(.setting(key))
+        return store.get(key)
+    }
+    
+    public func get<T: RawRepresentable>(_ key: Setting.EnumKey) -> T? where T.RawValue == Int {
+        collectedKeys.insert(.setting(key))
+        return store.get(key)
+    }
+    
+    public func profile(
+        contactId: String,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
+        visibleMessage: VisibleMessage?
+    ) -> Profile? {
+        collectedKeys.insert(.profile(contactId))
+        return store.profile(
+            contactId: contactId,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            visibleMessage: visibleMessage
+        )
     }
 }

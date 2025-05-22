@@ -167,7 +167,7 @@ final class CallMessageCell: MessageCell {
         let shouldShowInfoIcon: Bool = (
             (
                 messageInfo.state == .permissionDenied &&
-                !dependencies[singleton: .storage, key: .areCallsEnabled]
+                !dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) })
             ) || (
                 messageInfo.state == .permissionDeniedMicrophone &&
                 Permissions.microphone != .granted
@@ -230,7 +230,7 @@ final class CallMessageCell: MessageCell {
         guard
             (
                 messageInfo.state == .permissionDenied &&
-                !dependencies[singleton: .storage, key: .areCallsEnabled]
+                !dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) })
             ) || (
                 messageInfo.state == .permissionDeniedMicrophone &&
                 Permissions.microphone != .granted

@@ -479,11 +479,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(numTaps: 9) { [dependencies] in
         /// Do nothing if developer mode is already enabled
-        guard !dependencies[singleton: .storage, key: .developerModeEnabled] else { return }
+        guard !dependencies.mutate(cache: .libSession, { $0.get(.developerModeEnabled) }) else { return }
         
-        dependencies[singleton: .storage].write { db in
-            db[.developerModeEnabled] = true
-        }
+        dependencies.setAsync(.developerModeEnabled, true)
     }).eraseToAnyPublisher()
     
     // MARK: - Functions

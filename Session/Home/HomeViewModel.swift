@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
@@ -9,8 +10,8 @@ import SessionUtilitiesKit
 
 // MARK: - Log.Category
 
-private extension Log.Category {
-    static let cat: Log.Category = .create("HomeViewModel", defaultLevel: .warn)
+public extension Log.Category {
+    static let homeViewModel: Log.Category = .create("HomeViewModel", defaultLevel: .warn)
 }
 
 // MARK: - HomeViewModel
@@ -45,18 +46,14 @@ public class HomeViewModel: NavigatableStateHolder {
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
-        let initialState: State? = dependencies[singleton: .storage].read { db -> State in
-            try HomeViewModel.retrieveState(db, excludingMessageRequestThreadCount: true, using: dependencies)
-        }
-        
         self.dependencies = dependencies
-        self.state = State(
-            userSessionId: (initialState?.userSessionId ?? dependencies[cache: .general].sessionId),
-            showViewedSeedBanner: (initialState?.showViewedSeedBanner ?? true),
-            hasHiddenMessageRequests: (initialState?.hasHiddenMessageRequests ?? false),
-            unreadMessageRequestThreadCount: 0,
-            userProfile: (initialState?.userProfile ?? dependencies.mutate(cache: .libSession) { $0.profile })
-        )
+        self.state = dependencies.mutate(cache: .libSession) { cache in
+            HomeViewModel.retrieveState(
+                cache: KeyCollector(store: cache),
+                excludingMessageRequestThreadCount: true,
+                using: dependencies
+            )
+        }
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
@@ -222,43 +219,41 @@ public class HomeViewModel: NavigatableStateHolder {
     
     /// This value is the current state of the view
     public private(set) var state: State
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    public lazy var observableState = ValueObservation
-        .trackingConstantRegion { [dependencies] db -> State in
-            try HomeViewModel.retrieveState(db, using: dependencies)
-        }
-        .removeDuplicates()
-        .handleEvents(didFail: { Log.error(.cat, "Observation failed with error: \($0)") })
+    public func createStateStream() -> AsyncThrowingStream<State, Error> {
+        return ObservationBuilder
+            .libSessionObservation(dependencies) { [dependencies] cache -> State in
+                HomeViewModel.retrieveState(
+                    cache: cache,
+                    excludingMessageRequestThreadCount: false,
+                    using: dependencies
+                )
+            }
+            .removeDuplicates()
+    }
     
     private static func retrieveState(
-        _ db: Database,
-        excludingMessageRequestThreadCount: Bool = false,
+        cache: KeyCollector,
+        excludingMessageRequestThreadCount: Bool,
         using dependencies: Dependencies
-    ) throws -> State {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let hasViewedSeed: Bool = db[.hasViewedSeed]
-        let hasHiddenMessageRequests: Bool = db[.hasHiddenMessageRequests]
-        let userProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+    ) -> State {
         let unreadMessageRequestThreadCount: Int = (excludingMessageRequestThreadCount ? 0 :
-            try SessionThread
-                .unreadMessageRequestsCountQuery(userSessionId: userSessionId)
-                .fetchOne(db)
-                .defaulting(to: 0)
+            dependencies[singleton: .storage].read { db -> Int? in
+                try SessionThread
+                    .unreadMessageRequestsCountQuery(userSessionId: cache.userSessionId)
+                    .fetchOne(db)
+            }
+            .defaulting(to: 0)
         )
         
+        /// Register to also be updated when receiving an unread message request message
+        cache.register(.unreadMessageRequestMessageReceived)
+        
         return State(
-            userSessionId: userSessionId,
-            showViewedSeedBanner: !hasViewedSeed,
-            hasHiddenMessageRequests: hasHiddenMessageRequests,
+            userSessionId: cache.userSessionId,
+            showViewedSeedBanner: !cache.get(.hasViewedSeed),
+            hasHiddenMessageRequests: cache.get(.hasHiddenMessageRequests),
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
-            userProfile: userProfile
+            userProfile: cache.profile
         )
     }
     

@@ -220,7 +220,7 @@ public extension LinkPreview {
         selectedRange: NSRange? = nil,
         using dependencies: Dependencies
     ) -> String? {
-        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else { return nil }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else { return nil }
         guard let body: String = body else { return nil }
 
         if let cachedUrl = previewUrlCache.get(key: body) {
@@ -303,7 +303,7 @@ public extension LinkPreview {
 
         // Exit early if link previews are not enabled in order to avoid
         // tainting the cache.
-        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else { return }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else { return }
 
         serialQueue.sync {
             linkPreviewDraftCache = linkPreviewDraft
@@ -314,7 +314,7 @@ public extension LinkPreview {
         previewUrl: String?,
         using dependencies: Dependencies
     ) -> AnyPublisher<LinkPreviewDraft, Error> {
-        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else {
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else {
             return Fail(error: LinkPreviewError.featureDisabled)
                 .eraseToAnyPublisher()
         }

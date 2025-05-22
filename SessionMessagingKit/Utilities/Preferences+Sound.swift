@@ -15,7 +15,7 @@ private extension Log.Category {
 // MARK: - Preferences
 
 public extension Preferences {
-    enum Sound: Int, Codable, DatabaseValueConvertible, EnumIntSetting, Differentiable {
+    enum Sound: Int, Codable, Differentiable {
         public static var defaultiOSIncomingRingtone: Sound = .opening
         public static var defaultNotificationSound: Sound = .note
         

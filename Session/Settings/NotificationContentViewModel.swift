@@ -32,8 +32,8 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     let title: String = "notificationsContent".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { db -> Preferences.NotificationPreviewType in
-            db[.preferencesNotificationPreviewType].defaulting(to: .defaultPreviewType)
+        .libSessionObservation(self) { cache -> Preferences.NotificationPreviewType in
+            cache.get(.preferencesNotificationPreviewType).defaulting(to: .defaultPreviewType)
         }
         .map { [weak self, dependencies] currentSelection -> [SectionModel] in
             return [
@@ -48,11 +48,11 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
                                     isSelected: (currentSelection == previewType)
                                 ),
                                 onTap: {
-                                    dependencies[singleton: .storage].writeAsync { db in
-                                        db[.preferencesNotificationPreviewType] = previewType
+                                    dependencies.setAsync(.preferencesNotificationPreviewType, previewType) {
+                                        Task { @MainActor in
+                                            self?.dismissScreen()
+                                        }
                                     }
-                                    
-                                    self?.dismissScreen()
                                 }
                             )
                         }

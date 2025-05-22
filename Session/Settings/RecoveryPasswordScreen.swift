@@ -242,7 +242,7 @@ struct RecoveryPasswordScreen: View {
         }
         .backgroundColor(themeColor: .backgroundPrimary)
         .onAppear {
-            dependencies[singleton: .storage].writeAsync { db in db[.hasViewedSeed] = true }
+            dependencies.setAsync(.hasViewedSeed, true)
         }
     }
     
@@ -274,9 +274,7 @@ struct RecoveryPasswordScreen: View {
                             cancelStyle: .danger,
                             onCancel: { modal in
                                 modal.dismiss(animated: true) {
-                                    dependencies[singleton: .storage].writeAsync { db in
-                                        db[.hideRecoveryPasswordPermanently] = true
-                                    }
+                                    dependencies.setAsync(.hideRecoveryPasswordPermanently, true)
                                     self.host.controller?.navigationController?.popViewController(animated: true)
                                 }
                             }

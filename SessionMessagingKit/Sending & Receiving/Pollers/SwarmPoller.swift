@@ -353,24 +353,36 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 }
                 else {
                     /// Individually process non-config messages
+                    var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
+                    
                     processedMessages.forEach { processedMessage in
                         guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
                             return
                         }
                         
                         do {
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                message: messageInfo.message,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: proto,
-                                suppressNotifications: (source == .pushNotification),   /// Have already shown
-                                using: dependencies
+                            insertedInteractionInfo.append(
+                                try MessageReceiver.handle(
+                                    db,
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    message: messageInfo.message,
+                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                    associatedWithProto: proto,
+                                    suppressNotifications: (source == .pushNotification),   /// Have already shown
+                                    using: dependencies
+                                )
                             )
                         }
                         catch { Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).") }
+                    }
+                    
+                    /// Notify about the received messages
+                    Task { [dependencies] in
+                        await MessageReceiver.notifyForInsertedInteractions(
+                            insertedInteractionInfo,
+                            using: dependencies
+                        )
                     }
                 }
                 

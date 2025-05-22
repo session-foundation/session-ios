@@ -15,10 +15,10 @@ extension MessageReceiver {
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         switch (message, try? SessionId(from: threadId)) {
             case (let message as GroupUpdateInviteMessage, _):
-                try MessageReceiver.handleGroupInvite(
+                return try MessageReceiver.handleGroupInvite(
                     db,
                     message: message,
                     suppressNotifications: suppressNotifications,
@@ -26,7 +26,7 @@ extension MessageReceiver {
                 )
                 
             case (let message as GroupUpdatePromoteMessage, _):
-                try MessageReceiver.handleGroupPromotion(
+                return try MessageReceiver.handleGroupPromotion(
                     db,
                     message: message,
                     suppressNotifications: suppressNotifications,
@@ -34,7 +34,7 @@ extension MessageReceiver {
                 )
                 
             case (let message as GroupUpdateInfoChangeMessage, .some(let sessionId)) where sessionId.prefix == .group:
-                try MessageReceiver.handleGroupInfoChanged(
+                return try MessageReceiver.handleGroupInfoChanged(
                     db,
                     groupSessionId: sessionId,
                     message: message,
@@ -43,7 +43,7 @@ extension MessageReceiver {
                 )
                 
             case (let message as GroupUpdateMemberChangeMessage, .some(let sessionId)) where sessionId.prefix == .group:
-                try MessageReceiver.handleGroupMemberChanged(
+                return try MessageReceiver.handleGroupMemberChanged(
                     db,
                     groupSessionId: sessionId,
                     message: message,
@@ -58,9 +58,10 @@ extension MessageReceiver {
                     message: message,
                     using: dependencies
                 )
+                return nil
                 
             case (let message as GroupUpdateMemberLeftNotificationMessage, .some(let sessionId)) where sessionId.prefix == .group:
-                try MessageReceiver.handleGroupMemberLeftNotification(
+                return try MessageReceiver.handleGroupMemberLeftNotification(
                     db,
                     groupSessionId: sessionId,
                     message: message,
@@ -75,6 +76,7 @@ extension MessageReceiver {
                     message: message,
                     using: dependencies
                 )
+                return nil
                 
             case (let message as GroupUpdateDeleteMemberContentMessage, .some(let sessionId)) where sessionId.prefix == .group:
                 try MessageReceiver.handleGroupDeleteMemberContent(
@@ -83,6 +85,7 @@ extension MessageReceiver {
                     message: message,
                     using: dependencies
                 )
+                return nil
                 
             default: throw MessageReceiverError.invalidMessage
         }
@@ -97,7 +100,6 @@ extension MessageReceiver {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         guard
-            let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
@@ -127,7 +129,7 @@ extension MessageReceiver {
         message: GroupUpdateInviteMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs
@@ -160,7 +162,7 @@ extension MessageReceiver {
             )
         }
         
-        try processGroupInvite(
+        return try processGroupInvite(
             db,
             message: message,
             sender: sender,
@@ -240,7 +242,7 @@ extension MessageReceiver {
         message: GroupUpdatePromoteMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs,
@@ -276,7 +278,7 @@ extension MessageReceiver {
         }
         
         // Process the promotion as a group invite (if needed)
-        try processGroupInvite(
+        let insertedInteractionInfo: InsertedInteractionInfo? = try processGroupInvite(
             db,
             message: message,
             sender: sender,
@@ -297,7 +299,7 @@ extension MessageReceiver {
         
         // If the group is in it's invited state then the admin won't be able to update their admin status
         // so don't bother trying
-        guard !groupInInvitedState else { return }
+        guard !groupInInvitedState else { return insertedInteractionInfo }
         
         // Load the admin key into libSession (the users member role and status will be updated after
         // receiving the GROUP_MEMBERS config message)
@@ -333,6 +335,8 @@ extension MessageReceiver {
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
                 using: dependencies
             )
+        
+        return insertedInteractionInfo
     }
     
     private static func handleGroupInfoChanged(
@@ -341,7 +345,7 @@ extension MessageReceiver {
         message: GroupUpdateInfoChangeMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs,
@@ -367,9 +371,10 @@ extension MessageReceiver {
             using: dependencies
         )
         
+        let interaction: Interaction
         switch message.changeType {
             case .name:
-                _ = try Interaction(
+                interaction = try Interaction(
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
@@ -386,7 +391,7 @@ extension MessageReceiver {
                 ).inserted(db)
                 
             case .avatar:
-                _ = try Interaction(
+                interaction = try Interaction(
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
@@ -410,7 +415,7 @@ extension MessageReceiver {
                     durationSeconds: TimeInterval((message.updatedExpiration ?? 0)),
                     type: .disappearAfterSend
                 )
-                _ = try config.insertControlMessage(
+                return try config.insertControlMessage(
                     db,
                     threadVariant: .group,
                     authorId: sender,
@@ -420,6 +425,10 @@ extension MessageReceiver {
                     using: dependencies
                 )
         }
+        
+        return interaction.id.map {
+            (groupSessionId.hexString, .group, $0, interaction.variant, interaction.wasRead, 0)
+        }
     }
     
     private static func handleGroupMemberChanged(
@@ -428,7 +437,7 @@ extension MessageReceiver {
         message: GroupUpdateMemberChangeMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs,
@@ -503,7 +512,7 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-                _ = try Interaction(
+                let interaction: Interaction = try Interaction(
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
                     authorId: sender,
@@ -514,7 +523,13 @@ extension MessageReceiver {
                     expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
                 ).inserted(db)
+                
+                return interaction.id.map {
+                    (groupSessionId.hexString, .group, $0, interaction.variant, interaction.wasRead, 0)
+                }
         }
+        
+        return nil
     }
     
     private static func handleGroupMemberLeft(
@@ -555,7 +570,7 @@ extension MessageReceiver {
         message: GroupUpdateMemberLeftNotificationMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs
@@ -572,7 +587,7 @@ extension MessageReceiver {
             using: dependencies
         )
         
-        _ = try Interaction(
+        let interaction: Interaction = try Interaction(
             threadId: groupSessionId.hexString,
             threadVariant: .group,
             authorId: sender,
@@ -591,6 +606,10 @@ extension MessageReceiver {
             expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
             using: dependencies
         ).inserted(db)
+        
+        return interaction.id.map {
+            (groupSessionId.hexString, .group, $0, interaction.variant, interaction.wasRead, 0)
+        }
     }
     
     private static func handleGroupInviteResponse(
@@ -885,7 +904,7 @@ extension MessageReceiver {
         groupIdentityPrivateKey: Data?,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         /// With updated groups they should be considered message requests (`invited: true`) unless person sending the invitation is
@@ -950,7 +969,7 @@ extension MessageReceiver {
         
         /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
         /// an 'invited' info message
-        guard !threadAlreadyExisted || wasKickedFromGroup else { return }
+        guard !threadAlreadyExisted || wasKickedFromGroup else { return nil }
         
         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one in case
         /// the group was created via a `USER_GROUPS` config when syncing a new device)
@@ -1062,6 +1081,10 @@ extension MessageReceiver {
             
             /// If the sender is approved and this was an admin invitation then do nothing
             case (true, false): break
+        }
+        
+        return interaction.id.map {
+            (groupSessionId.hexString, .group, $0, interaction.variant, interaction.wasRead, 0)
         }
     }
     

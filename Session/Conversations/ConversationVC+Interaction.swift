@@ -111,7 +111,7 @@ extension ConversationVC:
     
     @objc func startCall(_ sender: Any?) {
         guard viewModel.threadData.threadIsBlocked == false else { return }
-        guard viewModel.dependencies[singleton: .storage, key: .areCallsEnabled] else {
+        guard viewModel.dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "callsPermissionsRequired".localized(),
@@ -302,7 +302,7 @@ extension ConversationVC:
     // MARK: - ExpandingAttachmentsButtonDelegate
 
     func handleGIFButtonTapped() {
-        guard viewModel.dependencies[singleton: .storage, key: .isGiphyEnabled] else {
+        guard viewModel.dependencies.mutate(cache: .libSession, { $0.get(.isGiphyEnabled) }) else {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "giphyWarning".localized(),
@@ -313,16 +313,9 @@ extension ConversationVC:
                     ),
                     confirmTitle: "theContinue".localized()
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage].writeAsync(
-                        updates: { db in
-                            db[.isGiphyEnabled] = true
-                        },
-                        completion: { _ in
-                            DispatchQueue.main.async {
-                                self?.handleGIFButtonTapped()
-                            }
-                        }
-                    )
+                    dependencies.setAsync(.isGiphyEnabled, true) {
+                        Task { @MainActor in self?.handleGIFButtonTapped() }
+                    }
                 }
             )
             
@@ -724,7 +717,7 @@ extension ConversationVC:
     }
 
     func handleMessageSent() {
-        if viewModel.dependencies[singleton: .storage, key: .playNotificationSoundInForeground] {
+        if viewModel.dependencies.mutate(cache: .libSession, { $0.get(.playNotificationSoundInForeground) }) {
             let soundID = Preferences.Sound.systemSoundId(for: .messageSent, quiet: true)
             AudioServicesPlaySystemSound(soundID)
         }
@@ -753,11 +746,9 @@ extension ConversationVC:
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
-                dependencies[singleton: .storage].writeAsync { db in
-                    db[.areLinkPreviewsEnabled] = true
+                dependencies.setAsync(.areLinkPreviewsEnabled, true) {
+                    Task { @MainActor in self?.snInputView.autoGenerateLinkPreview() }
                 }
-                
-                self?.snInputView.autoGenerateLinkPreview()
             }
         )
         
@@ -1048,7 +1039,8 @@ extension ConversationVC:
                                 serverHash: nil,
                                 serverExpirationTimestamp: nil,
                                 using: dependencies
-                            )
+                            )?
+                            .interactionId
                         
                         let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
                             .with(sentTimestampMs: UInt64(currentTimestampMs))

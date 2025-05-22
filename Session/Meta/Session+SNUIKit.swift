@@ -22,10 +22,18 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     // MARK: - Functions
     
     func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool) {
-        dependencies[singleton: .storage].write { db in
-            db[.theme] = theme
-            db[.themePrimaryColor] = primaryColor
-            db[.themeMatchSystemDayNightCycle] = matchSystemNightModeSetting
+        Task { [dependencies] in
+            let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
+                try await cache.perform(for: .userProfile) {
+                    await cache.set(.theme, theme)
+                    await cache.set(.themePrimaryColor, primaryColor)
+                    await cache.set(.themeMatchSystemDayNightCycle, matchSystemNightModeSetting)
+                }
+            }
+            
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try mutation?.upsert(db)
+            }
         }
     }
     
