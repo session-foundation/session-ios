@@ -52,18 +52,22 @@ public enum MessageReceiveJob: JobExecutor {
             }
         
         dependencies[singleton: .storage].writeAsync(
-            updates: { db -> Error? in
+            updates: { db -> ([MessageReceiver.InsertedInteractionInfo?], Error?) in
+                var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
+                
                 for (messageInfo, protoContent) in messageData {
                     do {
-                        try MessageReceiver.handle(
-                            db,
-                            threadId: threadId,
-                            threadVariant: messageInfo.threadVariant,
-                            message: messageInfo.message,
-                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                            associatedWithProto: protoContent,
-                            suppressNotifications: false,
-                            using: dependencies
+                        insertedInteractionInfo.append(
+                            try MessageReceiver.handle(
+                                db,
+                                threadId: threadId,
+                                threadVariant: messageInfo.threadVariant,
+                                message: messageInfo.message,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                associatedWithProto: protoContent,
+                                suppressNotifications: false,
+                                using: dependencies
+                            )
                         )
                     }
                     catch {
@@ -97,24 +101,38 @@ public enum MessageReceiveJob: JobExecutor {
                 
                 // If any messages failed to process then we want to update the job to only include
                 // those failed messages
-                guard !remainingMessagesToProcess.isEmpty else { return nil }
+                guard !remainingMessagesToProcess.isEmpty else { return (insertedInteractionInfo, nil) }
                 
                 updatedJob = try job
                     .with(details: Details(messages: remainingMessagesToProcess))
                     .defaulting(to: job)
                     .upserted(db)
                 
-                return lastError
+                return (insertedInteractionInfo, lastError)
             },
             completion: { result in
                 // Handle the result
                 switch result {
                     case .failure(let error): failure(updatedJob, error, false)
-                    case .success(.some(let error as MessageReceiverError)) where !error.isRetryable:
-                        failure(updatedJob, error, true)
+                    case .success((let insertedInteractionInfo, let lastError)):
+                        /// Notify about the received messages
+                        Task { [dependencies] in
+                            await MessageReceiver.notifyForInsertedInteractions(
+                                insertedInteractionInfo,
+                                using: dependencies
+                            )
+                        }
                         
-                    case .success(.some(let error)): failure(updatedJob, error, false)
-                    case .success: success(updatedJob, false)
+                        /// Report the result of the job
+                        switch lastError {
+                            case let error as MessageReceiverError where !error.isRetryable:
+                                failure(updatedJob, error, true)
+                                
+                            case .some(let error): failure(updatedJob, error, false)
+                            case .none: success(updatedJob, false)
+                        }
+                        
+                        success(updatedJob, false)
                 }
             }
         )

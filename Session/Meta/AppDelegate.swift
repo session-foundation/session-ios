@@ -130,8 +130,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
                 SNUIKit.configure(
                     with: SessionSNUIKitConfig(using: dependencies),
-                    themeSettings: dependencies[singleton: .storage].read { db in
-                        (db[.theme], db[.themePrimaryColor], db[.themeMatchSystemDayNightCycle])
+                    themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                        (
+                            cache.get(.theme),
+                            cache.get(.themePrimaryColor),
+                            cache.get(.themeMatchSystemDayNightCycle)
+                        )
                     }
                 )
                 
@@ -142,7 +146,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// So we need this to keep it the correct order of the permission chain.
                 /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
                 /// It won't affect anything.
-                dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies[singleton: .storage, key: .areCallsEnabled]
+                dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.areCallsEnabled)
+                }
                 
                 /// Now that the theme settings have been applied we can complete the migrations
                 self?.completePostMigrationSetup(calledFrom: .finishLaunching)
@@ -302,7 +308,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // On every activation, clear old temp directories.
         dependencies[singleton: .fileManager].clearOldTemporaryDirectories()
         
-        if dependencies[singleton: .storage, key: .areCallsEnabled] && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
+        if dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
             Permissions.checkLocalNetworkPermission(using: dependencies)
         }
     }
@@ -507,7 +513,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 ///
                 /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
                 if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[cache: .onboarding].state == .completed {
-                    dependencies.mutate(cache: .libSession) { $0.syncAllPendingChanges(db) }
+                    dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushes(db) }
                 }
             }
             

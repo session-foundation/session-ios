@@ -83,7 +83,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Remove any old open group messages - open group messages which are older than six months
-                if finalTypesToCollect.contains(.oldOpenGroupMessages) && db[.trimOpenGroupMessagesOlderThanSixMonths] {
+                if finalTypesToCollect.contains(.oldOpenGroupMessages) && dependencies.mutate(cache: .libSession, { $0.get(.trimOpenGroupMessagesOlderThanSixMonths) }) {
                     let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                     let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                     let threadIdLiteral: SQL = SQL(stringLiteral: Interaction.Columns.threadId.name)

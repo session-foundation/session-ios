@@ -66,8 +66,8 @@ public enum SyncPushTokensJob: JobExecutor {
         // If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing
         // token
         guard isUsingFullAPNs else {
-            Just(dependencies[singleton: .storage, key: .lastRecordedPushToken])
-                .setFailureType(to: Error.self)
+            dependencies[singleton: .storage]
+                .readPublisher { db in db[.lastRecordedPushToken] }
                 .flatMap { lastRecordedPushToken -> AnyPublisher<Void, Error> in
                     // Tell the device to unregister for remote notifications (essentially try to invalidate
                     // the token if needed - we do this first to avoid wrid race conditions which could be
@@ -136,7 +136,10 @@ public enum SyncPushTokensJob: JobExecutor {
                     }
                     .eraseToAnyPublisher()
             }
-            .flatMap { (tokenInfo: (String, String)?) -> AnyPublisher<Void, Error> in
+            .flatMapStorageReadPublisher(using: dependencies) { db, tokenInfo -> (String?, (String, String)?) in
+                (db[.lastRecordedPushToken], tokenInfo)
+            }
+            .flatMap { (lastRecordedPushToken: String?, tokenInfo: (String, String)?) -> AnyPublisher<Void, Error> in
                 guard let (pushToken, voipToken): (String, String) = tokenInfo else {
                     return Just(())
                         .setFailureType(to: Error.self)
@@ -162,7 +165,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 
                 guard
                     timeSinceLastSuccessfulUpload >= SyncPushTokensJob.maxFrequency ||
-                    dependencies[singleton: .storage, key: .lastRecordedPushToken] != pushToken ||
+                    lastRecordedPushToken != pushToken ||
                     uploadOnlyIfStale == false
                 else {
                     Log.info(.cat, "OS subscription completed, skipping server subscription due to frequency")

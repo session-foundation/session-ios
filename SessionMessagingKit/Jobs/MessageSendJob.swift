@@ -230,6 +230,7 @@ public enum MessageSendJob: JobExecutor {
                     switch result {
                         case .finished:
                             Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
+                            dependencies.setAsync(.hasSentAMessage, true)
                             success(job, false)
                             
                         case .failure(let error):

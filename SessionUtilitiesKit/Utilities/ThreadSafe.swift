@@ -156,6 +156,14 @@ public final class ThreadSafeObject<Value> {
         return try performInternal { try closure($0) }
     }
     
+    public func performMap<T>(_ closure: (Value) async -> T) async -> T {
+        return try! await performInternal { ($0, await closure($0)) }
+    }
+    
+    public func performMap<T>(_ closure: (Value) async throws -> T) async throws -> T {
+        return try await performInternal { ($0, try await closure($0)) }
+    }
+    
     // MARK: - Internal Functions
     
     @discardableResult private func performInternal<T>(_ mutation: (Value) throws -> (Value, T)) throws -> T {
@@ -177,6 +185,15 @@ public final class ThreadSafeObject<Value> {
         }
         
         let (updatedValue, result) = try mutation(value)
+        self.value = updatedValue
+        return result
+    }
+    
+    @discardableResult private func performInternal<T>(_ mutation: (Value) async throws -> (Value, T)) async throws -> T {
+        lock.writeLock()
+        defer { lock.unlock() }
+        
+        let (updatedValue, result) = try await mutation(value)
         self.value = updatedValue
         return result
     }

@@ -131,7 +131,7 @@ if [ "${HAS_INVALID_SUBMODULE}" -eq 1 ]; then
 fi
 
 # Generate a hash of the libSession-util source files and check if they differ from the last hash
-echo "Checking for changes to source"
+echo "Checking for changes to source in ${LIB_SESSION_SOURCE_DIR}"
 
 NEW_SOURCE_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/src" -type f -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
 NEW_HEADER_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/include" -type f -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
@@ -181,7 +181,7 @@ elif [ ! -f "${COMPILE_DIR}/libsession-util.a" ]; then
   echo "Build is not up-to-date (no static lib) - creating new build"
   REQUIRES_BUILD=1
 else
-  echo "Build is up-to-date"
+  echo "Build is up-to-date in ${COMPILE_DIR}"
 fi
 
 if [ "${REQUIRES_BUILD}" == 1 ]; then

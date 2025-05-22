@@ -521,10 +521,10 @@ public final class OpenGroupManager {
         for roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) {
+    ) -> [MessageReceiver.InsertedInteractionInfo?] {
         guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             Log.error(.openGroup, "Couldn't handle open group messages due to missing group.")
-            return
+            return []
         }
         
         // Sorting the messages by server ID before importing them fixes an issue where messages
@@ -536,6 +536,7 @@ public final class OpenGroupManager {
             .filter { $0.deleted == true }
             .map { ($0.id, $0.seqNo) }
         var largestValidSeqNo: Int64 = openGroup.sequenceNumber
+        var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
         
         // Process the messages
         sortedMessages.forEach { message in
@@ -574,15 +575,17 @@ public final class OpenGroupManager {
                     switch processedMessage {
                         case .config, .invalid: break
                         case .standard(_, _, _, let messageInfo, _):
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: openGroup.id,
-                                threadVariant: .community,
-                                message: messageInfo.message,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
-                                suppressNotifications: false,
-                                using: dependencies
+                            insertedInteractionInfo.append(
+                                try MessageReceiver.handle(
+                                    db,
+                                    threadId: openGroup.id,
+                                    threadVariant: .community,
+                                    message: messageInfo.message,
+                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                    associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
+                                    suppressNotifications: false,
+                                    using: dependencies
+                                )
                             )
                             largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                     }
@@ -660,6 +663,8 @@ public final class OpenGroupManager {
             $0.pendingChanges = $0.pendingChanges
                 .filter { $0.seqNo == nil || $0.seqNo! > largestValidSeqNo }
         }
+        
+        return insertedInteractionInfo
     }
     
     internal static func handleDirectMessages(
@@ -668,12 +673,12 @@ public final class OpenGroupManager {
         fromOutbox: Bool,
         on server: String,
         using dependencies: Dependencies
-    ) {
+    ) -> [MessageReceiver.InsertedInteractionInfo?] {
         // Don't need to do anything if we have no messages (it's a valid case)
-        guard !messages.isEmpty else { return }
+        guard !messages.isEmpty else { return [] }
         guard let openGroup: OpenGroup = try? OpenGroup.filter(OpenGroup.Columns.server == server.lowercased()).fetchOne(db) else {
             Log.error(.openGroup, "Couldn't receive inbox message due to missing group.")
-            return
+            return []
         }
         
         // Sorting the messages by server ID before importing them fixes an issue where messages
@@ -682,6 +687,7 @@ public final class OpenGroupManager {
             .sorted { lhs, rhs in lhs.id < rhs.id }
         let latestMessageId: Int64 = sortedMessages[sortedMessages.count - 1].id
         var lookupCache: [String: BlindedIdLookup] = [:]  // Only want this cache to exist for the current loop
+        var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
         
         // Update the 'latestMessageId' value
         if fromOutbox {
@@ -768,15 +774,17 @@ public final class OpenGroupManager {
                             }
                         }
                         
-                        try MessageReceiver.handle(
-                            db,
-                            threadId: (lookup.sessionId ?? lookup.blindedId),
-                            threadVariant: .contact,    // Technically not open group messages
-                            message: messageInfo.message,
-                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                            associatedWithProto: proto,
-                            suppressNotifications: false,
-                            using: dependencies
+                        insertedInteractionInfo.append(
+                            try MessageReceiver.handle(
+                                db,
+                                threadId: (lookup.sessionId ?? lookup.blindedId),
+                                threadVariant: .contact,    // Technically not open group messages
+                                message: messageInfo.message,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                associatedWithProto: proto,
+                                suppressNotifications: false,
+                                using: dependencies
+                            )
                         )
                 }
             }
@@ -795,6 +803,8 @@ public final class OpenGroupManager {
                 }
             }
         }
+        
+        return insertedInteractionInfo
     }
     
     // MARK: - Convenience

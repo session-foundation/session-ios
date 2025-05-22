@@ -214,7 +214,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     lazy var observation: TargetObservation = ObservationBuilder
         .refreshableData(self) { [weak self, dependencies] () -> State in
             State(
-                developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
+                developerMode: dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.developerModeEnabled)
+                },
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
                 
@@ -854,10 +856,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         /// Disable developer mode
-        dependencies[singleton: .storage].write { db in
-            db[.developerModeEnabled] = false
-        }
-        
+        dependencies.setAsync(.developerModeEnabled, false)
         self.dismissScreen(type: .pop)
     }
     
@@ -969,7 +968,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
         /// layer and we don't want these to be cancelled)
-        if let existingToken: String = dependencies[singleton: .storage, key: .lastRecordedPushToken] {
+        if let existingToken: String = dependencies[singleton: .storage].read({ db in db[.lastRecordedPushToken] }) {
             PushNotificationAPI
                 .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                 .sinkUntilComplete()

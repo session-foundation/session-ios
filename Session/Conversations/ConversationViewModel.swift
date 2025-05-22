@@ -1322,7 +1322,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 .firstIndex(where: { $0.id == interactionId }),
             currentIndex < (messageSection.elements.count - 1),
             messageSection.elements[currentIndex + 1].cellType == .voiceMessage,
-            dependencies[singleton: .storage, key: .shouldAutoPlayConsecutiveAudioMessages]
+            dependencies.mutate(cache: .libSession, { $0.get(.shouldAutoPlayConsecutiveAudioMessages) })
         else { return }
         
         let nextItem: MessageViewModel = messageSection.elements[currentIndex + 1]

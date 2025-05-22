@@ -47,7 +47,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     }
     
     public enum TableItem: Equatable, Hashable, Differentiable {
-        case theme(String)
+        case theme(Int)
         case primaryColorPreview
         case primaryColorSelectionView
         case darkModeMatchSystemSettings
@@ -64,11 +64,11 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     let title: String = "sessionAppearance".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { db -> State in
+        .libSessionObservation(self) { cache -> State in
             State(
-                theme: db[.theme].defaulting(to: .classicDark),
-                primaryColor: db[.themePrimaryColor].defaulting(to: .green),
-                authDarkModeEnabled: db[.themeMatchSystemDayNightCycle]
+                theme: cache.get(.theme).defaulting(to: .classicDark),
+                primaryColor: cache.get(.themePrimaryColor).defaulting(to: .green),
+                authDarkModeEnabled: cache.get(.themeMatchSystemDayNightCycle)
             )
         }
         .map { [weak self, dependencies] state -> [SectionModel] in

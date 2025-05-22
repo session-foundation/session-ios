@@ -63,9 +63,6 @@ public extension Setting.BoolKey {
     /// A flag indicating whether the user has ever send a message
     static let hasSentAMessage: Setting.BoolKey = "hasSentAMessageKey"
     
-    /// A flag indicating whether the app is ready for app extensions to run
-    static let isReadyForAppExtensions: Setting.BoolKey = "isReadyForAppExtensions"
-    
     /// Controls whether concurrent audio messages should automatically be played after the one the user starts
     /// playing finishes
     static let shouldAutoPlayConsecutiveAudioMessages: Setting.BoolKey = "shouldAutoPlayConsecutiveAudioMessages"
@@ -83,34 +80,27 @@ public extension Setting.BoolKey {
 }
 
 // stringlint:ignore_contents
-public extension Setting.StringKey {
+public extension SettingOld.StringKey {
     /// This is the most recently recorded Push Notifications token
-    static let lastRecordedPushToken: Setting.StringKey = "lastRecordedPushToken"
+    static let lastRecordedPushToken: SettingOld.StringKey = "lastRecordedPushToken"
     
     /// This is the most recently recorded Voip token
-    static let lastRecordedVoipToken: Setting.StringKey = "lastRecordedVoipToken"
+    static let lastRecordedVoipToken: SettingOld.StringKey = "lastRecordedVoipToken"
     
     /// This is the last six emoji used by the user
-    static let recentReactionEmoji: Setting.StringKey = "recentReactionEmoji"
+    static let recentReactionEmoji: SettingOld.StringKey = "recentReactionEmoji"
     
     /// This is the preferred skin tones preference for the given emoji
-    static func emojiPreferredSkinTones(emoji: String) -> Setting.StringKey {
-        return Setting.StringKey("preferredSkinTones-\(emoji)")
+    static func emojiPreferredSkinTones(emoji: String) -> SettingOld.StringKey {
+        return SettingOld.StringKey("preferredSkinTones-\(emoji)")
     }
 }
 
 // stringlint:ignore_contents
-public extension Setting.DoubleKey {
-    /// The duration of the timeout for screen lock in seconds
-    @available(*, unavailable, message: "Screen Lock should always be instant now")
-    static let screenLockTimeoutSeconds: Setting.DoubleKey = "screenLockTimeoutSeconds"
-}
-
-// stringlint:ignore_contents
-public extension Setting.IntKey {
+public extension SettingOld.IntKey {
     /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
     /// a database change on launch so the database will output an error if it fails to write
-    static let activeCounter: Setting.IntKey = "activeCounter"
+    static let activeCounter: SettingOld.IntKey = "activeCounter"
 }
 
 public enum Preferences {

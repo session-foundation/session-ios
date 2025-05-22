@@ -267,7 +267,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         data: data
                     )
                 ],
-                afterMerge: { sessionId, variant, config, timestampMs in
+                afterMerge: { sessionId, variant, config, timestampMs, _ in
                     try updateConfigIfNeeded(
                         cache: cache,
                         config: config,
@@ -275,6 +275,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         sessionId: sessionId,
                         timestampMs: timestampMs
                     )
+                    return ([], nil)
                 }
             )
         }
@@ -571,8 +572,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 
-                // TODO: [Database Relocation] Need to store 'db[.areCallsEnabled]' in libSession
-                let areCallsEnabled: Bool = true // db[.areCallsEnabled]
+                let areCallsEnabled: Bool = dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.areCallsEnabled)
+                }
                 let hasMicrophonePermission: Bool = {
                     switch Permissions.microphone {
                         case .undetermined: return dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission]

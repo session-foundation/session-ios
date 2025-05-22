@@ -13,7 +13,7 @@ extension MessageReceiver {
         _ db: Database,
         message: MessageRequestResponse,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         let userSessionId = dependencies[cache: .general].sessionId
         var blindedContactIds: [String] = []
         
@@ -170,7 +170,7 @@ extension MessageReceiver {
         ///   if the sender deletes and re-accepts message requests from the current user)
         /// - This will always appear in the un-blinded thread
         if !senderHadAlreadyApprovedMe {
-            _ = try Interaction(
+            let interaction: Interaction = try Interaction(
                 serverHash: message.serverHash,
                 threadId: unblindedThread.id,
                 threadVariant: unblindedThread.variant,
@@ -182,7 +182,13 @@ extension MessageReceiver {
                 ),
                 using: dependencies
             ).inserted(db)
+            
+            return interaction.id.map {
+                (unblindedThread.id, unblindedThread.variant, $0, .infoMessageRequestAccepted, true, 0)
+            }
         }
+        
+        return nil
     }
     
     internal static func updateContactApprovalStatusIfNeeded(

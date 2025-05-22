@@ -25,17 +25,31 @@ internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
         _ db: Database,
         in config: LibSession.Config?,
+        oldState: [LibSession.ObservableKey: Any],
         serverTimestampMs: Int64
-    ) throws {
-        guard configNeedsDump(config) else { return }
+    ) throws -> [(key: LibSession.ObservableKey, value: Any?)] {
+        guard configNeedsDump(config) else { return [] }
         guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
-        guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
+        guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return [] }
         
+        var changes: [(key: LibSession.ObservableKey, value: Any?)] = []
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
         let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
+        let updatedProfile: Profile = Profile(
+            id: userSessionId.hexString,
+            name: profileName,
+            profilePictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.profilePictureUrl
+        )
+        
+        if
+            let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile,
+            profile != updatedProfile
+        {
+            changes.append((.profile(updatedProfile.id), updatedProfile))
+        }
         
         // Handle user profile changes
         try Profile.updateIfNeeded(
@@ -132,16 +146,17 @@ internal extension LibSessionCacheType {
                     using: dependencies
                 )
         }
-
-        // Update settings if needed
-        let updatedAllowBlindedMessageRequests: Int32 = user_profile_get_blinded_msgreqs(conf)
-        let updatedAllowBlindedMessageRequestsBoolValue: Bool = (updatedAllowBlindedMessageRequests >= 1)
+        
+        // Notify of settings change if needed
+        let checkForCommunityMessageRequestsKey: LibSession.ObservableKey = .setting(Setting.BoolKey.checkForCommunityMessageRequests)
+        let oldCheckForCommunityMessageRequests: Bool? = oldState[checkForCommunityMessageRequestsKey] as? Bool
+        let newCheckForCommunityMessageRequests: Bool = get(.checkForCommunityMessageRequests)
         
         if
-            updatedAllowBlindedMessageRequests >= 0 &&
-            updatedAllowBlindedMessageRequestsBoolValue != db[.checkForCommunityMessageRequests]
+            oldCheckForCommunityMessageRequests != nil &&
+            oldCheckForCommunityMessageRequests != newCheckForCommunityMessageRequests
         {
-            db[.checkForCommunityMessageRequests] = updatedAllowBlindedMessageRequestsBoolValue
+            changes.append((checkForCommunityMessageRequestsKey, newCheckForCommunityMessageRequests))
         }
         
         // Create a contact for the current user if needed (also force-approve the current user
@@ -160,6 +175,8 @@ internal extension LibSessionCacheType {
                     using: dependencies
                 )
         }
+        
+        return changes
     }
 }
 
@@ -236,6 +253,11 @@ public extension LibSession.Cache {
             throw LibSessionError.invalidConfigObject
         }
         
+        // Get the old values to determine if something changed
+        let oldName: String? = user_profile_get_name(conf).map { String(cString: $0) }
+        let oldProfilePic: user_profile_pic = user_profile_get_pic(conf)
+        let oldProfilePictureUrl: String? = oldProfilePic.get(\.url, nullIfEmpty: true)
+        
         // Update the name
         var cUpdatedName: [CChar] = try displayName.cString(using: .utf8) ?? {
             throw LibSessionError.invalidCConversion
@@ -249,6 +271,21 @@ public extension LibSession.Cache {
         profilePic.set(\.key, to: profileEncryptionKey)
         user_profile_set_pic(conf, profilePic)
         try LibSessionError.throwIfNeeded(conf)
+        
+        /// Add a pending observation to notify any observers of the change once it's committed
+        if displayName != oldName || profilePictureUrl != oldProfilePictureUrl {
+            let updatedProfile: Profile = Profile(
+                id: userSessionId.hexString,
+                name: displayName,
+                profilePictureUrl: profilePictureUrl
+            )
+            
+            Task { [dependencies] in
+                await dependencies.mutate(cache: .libSession) { cache in
+                    await cache.addPendingChange(key: .profile(updatedProfile.id), value: updatedProfile)
+                }
+            }
+        }
     }
 }
 

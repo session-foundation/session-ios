@@ -655,9 +655,10 @@ public extension Interaction {
         _ db: Database,
         threadId: String,
         timestampMsValues: [Int64],
-        readTimestampMs: Int64
+        readTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws -> Set<Int64> {
-        guard db[.areReadReceiptsEnabled] == true else { return [] }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return [] }
         
         struct InterationRowState: Codable, FetchableRecord {
             public typealias Columns = CodingKeys

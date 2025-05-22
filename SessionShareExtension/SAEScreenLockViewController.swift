@@ -9,15 +9,20 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     private var hasShownAuthUIOnce: Bool = false
     private var isShowingAuthUI: Bool = false
     
-    private weak var shareViewDelegate: ShareViewDelegate?
+    private let hasUserMetadata: Bool
+    private let onUnlock: () -> Void
+    private let onCancel: () -> Void
     
     // MARK: - Initialization
     
-    init(shareViewDelegate: ShareViewDelegate) {
+    init(hasUserMetadata: Bool, onUnlock: @escaping () -> Void, onCancel: @escaping () -> Void) {
+        self.hasUserMetadata = hasUserMetadata
+        self.onUnlock = onUnlock
+        self.onCancel = onCancel
+        
         super.init()
         
         self.onUnlockPressed = { [weak self] in self?.unlockButtonWasTapped() }
-        self.shareViewDelegate = shareViewDelegate
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -118,7 +123,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
                 Log.info("unlock screen lock succeeded.")
                 
                 self?.isShowingAuthUI = false
-                self?.shareViewDelegate?.shareViewWasUnlocked()
+                self?.onUnlock()
             },
             failure: { [weak self] error in
                 Log.assertOnMainThread()
@@ -189,6 +194,6 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     }
 
     private func cancelShareExperience() {
-        self.shareViewDelegate?.shareViewWasCancelled()
+        self.onCancel()
     }
 }

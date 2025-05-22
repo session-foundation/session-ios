@@ -13,7 +13,7 @@ extension MessageReceiver {
         message: DataExtractionNotification,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             threadVariant == .contact,
             let sender: String = message.sender,
@@ -41,7 +41,7 @@ extension MessageReceiver {
             expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies
         )
-        _ = try Interaction(
+        let interaction: Interaction = try Interaction(
             serverHash: message.serverHash,
             threadId: threadId,
             threadVariant: threadVariant,
@@ -71,5 +71,7 @@ extension MessageReceiver {
                 using: dependencies
             )
         }
+        
+        return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, wasRead, 0) }
     }
 }

@@ -302,7 +302,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // told them about link previews yet
         let text = inputTextView.text!
         DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
-            let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage, key: .areLinkPreviewsEnabled]
+            let areLinkPreviewsEnabled: Bool = dependencies.mutate(cache: .libSession) { cache in
+                cache.get(.areLinkPreviewsEnabled)
+            }
             
             if
                 !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&

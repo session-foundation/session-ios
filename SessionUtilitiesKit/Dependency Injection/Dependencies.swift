@@ -86,6 +86,40 @@ public class Dependencies {
         }
     }
     
+    @discardableResult public func mutate<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) async -> R
+    ) async -> R {
+        return await getOrCreate(cache).performMap { erasedValue in
+            guard let value: M = (erasedValue as? M) else {
+                /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
+                /// a nullable type or force-casting this is how we need to do things)
+                Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
+                let fallbackValue: M = cache.createInstance(self)
+                return await mutation(fallbackValue)
+            }
+            
+            return await mutation(value)
+        }
+    }
+    
+    @discardableResult public func mutate<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) async throws -> R
+    ) async throws -> R {
+        return try await getOrCreate(cache).performMap { erasedValue in
+            guard let value: M = (erasedValue as? M) else {
+                /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
+                /// a nullable type or force-casting this is how we need to do things)
+                Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
+                let fallbackValue: M = cache.createInstance(self)
+                return try await mutation(fallbackValue)
+            }
+            
+            return try await mutation(value)
+        }
+    }
+    
     // MARK: - Random Access Functions
     
     public func randomElement<T: Collection>(_ collection: T) -> T.Element? {
@@ -209,40 +243,6 @@ public extension Dependencies {
         
         /// Notify observers
         featureChangeSubject.send((feature.identifier, feature.groupIdentifier, nil))
-    }
-}
-
-// MARK: - Storage Setting Convenience
-
-public extension Dependencies {
-    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.BoolKey) -> Bool {
-        return self[singleton: singleton]
-            .read { db in db[key] }
-            .defaulting(to: false)  // Default to false if it doesn't exist
-    }
-    
-    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.DoubleKey) -> Double? {
-        return self[singleton: singleton].read { db in db[key] }
-    }
-    
-    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.IntKey) -> Int? {
-        return self[singleton: singleton].read { db in db[key] }
-    }
-    
-    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.StringKey) -> String? {
-        return self[singleton: singleton].read { db in db[key] }
-    }
-    
-    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.DateKey) -> Date? {
-        return self[singleton: singleton].read { db in db[key] }
-    }
-    
-    subscript<T: EnumIntSetting>(singleton singleton: SingletonConfig<Storage>, key key: Setting.EnumKey) -> T? {
-        return self[singleton: singleton].read { db in db[key] }
-    }
-    
-    subscript<T: EnumStringSetting>(singleton singleton: SingletonConfig<Storage>, key key: Setting.EnumKey) -> T? {
-        return self[singleton: singleton].read { db in db[key] }
     }
 }
 

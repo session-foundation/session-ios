@@ -63,7 +63,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - Pushes
     
-    func syncAllPendingChanges(_ db: Database) {
+    func syncAllPendingPushes(_ db: Database) {
         mockNoReturn(untrackedArgs: [db])
     }
     
@@ -80,12 +80,12 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         try mockThrowingNoReturn(args: [variant, sessionId], untrackedArgs: [db, change])
     }
     
-    func pendingChanges(swarmPublicKey: String) throws -> LibSession.PendingChanges {
+    func pendingPushes(swarmPublicKey: String) throws -> LibSession.PendingPushes {
         return mock(args: [swarmPublicKey])
     }
     
     func createDumpMarkingAsPushed(
-        data: [(pushData: LibSession.PendingChanges.PushData, hash: String?)],
+        data: [(pushData: LibSession.PendingPushes.PushData, hash: String?)],
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump] {
@@ -309,8 +309,8 @@ extension Mock where T == LibSessionCacheType {
             }
             .thenReturn(())
         self
-            .when { try $0.pendingChanges(swarmPublicKey: .any) }
-            .thenReturn(LibSession.PendingChanges())
+            .when { try $0.pendingPushes(swarmPublicKey: .any) }
+            .thenReturn(LibSession.PendingPushes())
         self.when { $0.configNeedsDump(.any) }.thenReturn(false)
         self
             .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }

@@ -63,7 +63,9 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     
     public func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool {
         guard applicationState == .active else { return true }
-        guard dependencies[singleton: .storage, key: .playNotificationSoundInForeground] else { return false }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.playNotificationSoundInForeground) }) else {
+            return false
+        }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
         let recentThreshold = nowMs - UInt64(NotificationPresenter.audioNotificationsThrottleInterval * 1000)

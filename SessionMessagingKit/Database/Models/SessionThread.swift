@@ -62,7 +62,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A flag indicating whether the thread is pinned
     @available(*, deprecated, message: "use 'pinnedPriority > 0' instead")
-    private let isPinned: Bool = false
+    private var isPinned: Bool = false
     
     /// The value the user started entering into the input field before they left the conversation screen
     public let messageDraft: String?
@@ -86,6 +86,12 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A value indicating whether this conversation is a draft conversation (ie. hasn't sent a message yet and should auto-delete)
     public let isDraft: Bool?
+    
+    // MARK: - Internal Values Used During Creation
+    
+    /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
+    /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
+    private let transientDependencies: EquatableIgnoring<Dependencies>?
     
     // MARK: - Relationships
     
@@ -128,7 +134,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         markedAsUnread: Bool? = false,
         pinnedPriority: Int32? = nil,
         isDraft: Bool? = nil,
-        using dependencies: Dependencies
+        using dependencies: Dependencies?
     ) {
         self.id = id
         self.variant = variant
@@ -143,12 +149,45 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         self.pinnedPriority = ((pinnedPriority ?? 0) > 0 ? pinnedPriority :
             (isPinned ? 1 : 0)
         )
+        self.transientDependencies = dependencies.map { EquatableIgnoring(value: $0) }
     }
     
     // MARK: - Custom Database Interaction
     
-    public func willInsert(_ db: Database) throws {
-        db[.hasSavedThread] = true
+    public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {
+        _ = try insert()
+        
+        switch self.transientDependencies?.value {
+            case .none:
+                Log.error("[SessionThread] Could not update 'hasSavedThread' due to missing transientDependencies.")
+                
+            case .some(let dependencies): dependencies.setAsync(.hasSavedThread, true)
+        }
+    }
+}
+
+// MARK: - Codable
+
+public extension SessionThread {
+    init(from decoder: any Decoder) throws {
+        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        let pinnedPriority: Int32? = try container.decodeIfPresent(Int32.self, forKey: .pinnedPriority)
+        
+        self = SessionThread(
+            id: try container.decode(String.self, forKey: .id),
+            variant: try container.decode(Variant.self, forKey: .variant),
+            creationDateTimestamp: try container.decode(TimeInterval.self, forKey: .creationDateTimestamp),
+            shouldBeVisible: try container.decode(Bool.self, forKey: .shouldBeVisible),
+            isPinned: ((pinnedPriority ?? 0) > 0),
+            messageDraft: try container.decodeIfPresent(String.self, forKey: .messageDraft),
+            notificationSound: try container.decodeIfPresent(Preferences.Sound.self, forKey: .notificationSound),
+            mutedUntilTimestamp: try container.decodeIfPresent(TimeInterval.self, forKey: .mutedUntilTimestamp),
+            onlyNotifyForMentions: try container.decode(Bool.self, forKey: .onlyNotifyForMentions),
+            markedAsUnread: try container.decodeIfPresent(Bool.self, forKey: .markedAsUnread),
+            pinnedPriority: pinnedPriority,
+            isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft),
+            using: decoder.dependencies
+        )
     }
 }
 

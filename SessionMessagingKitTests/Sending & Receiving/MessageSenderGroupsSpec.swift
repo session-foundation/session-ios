@@ -211,8 +211,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     ]
                 )
                 cache
-                    .when { try $0.pendingChanges(swarmPublicKey: .any) }
-                    .thenReturn(LibSession.PendingChanges(obsoleteHashes: ["testHash"]))
+                    .when { try $0.pendingPushes(swarmPublicKey: .any) }
+                    .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -249,8 +249,8 @@ class MessageSenderGroupsSpec: QuickSpec {
             context("when creating a group") {
                 beforeEach {
                     mockLibSessionCache
-                        .when { try $0.pendingChanges(swarmPublicKey: .any) }
-                        .thenReturn(LibSession.PendingChanges())
+                        .when { try $0.pendingPushes(swarmPublicKey: .any) }
+                        .thenReturn(LibSession.PendingPushes())
                 }
                 
                 // MARK: ---- loads the state into the cache
@@ -418,11 +418,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                 // MARK: ---- syncs the group configuration messages
                 it("syncs the group configuration messages") {
                     mockLibSessionCache
-                        .when { try $0.pendingChanges(swarmPublicKey: .any) }
+                        .when { try $0.pendingPushes(swarmPublicKey: .any) }
                         .thenReturn(
-                            LibSession.PendingChanges(
+                            LibSession.PendingPushes(
                                 pushData: [
-                                    LibSession.PendingChanges.PushData(
+                                    LibSession.PendingPushes.PushData(
                                         data: [Data([1, 2, 3])],
                                         seqNo: 2,
                                         variant: .groupInfo
