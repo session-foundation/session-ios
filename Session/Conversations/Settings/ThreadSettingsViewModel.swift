@@ -291,7 +291,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     SessionCell.Info(
                         id: .contactName,
                         subtitle: SessionCell.TextInfo(
-                            "(\(threadViewModel.contactDisplayName))",
+                            "(\(threadViewModel.contactDisplayName))", // stringlint:ignore
                             font: .subtitle,
                             alignment: .center
                         ),

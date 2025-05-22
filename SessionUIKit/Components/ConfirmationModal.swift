@@ -92,7 +92,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     private lazy var textFieldErrorLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .danger
         result.textAlignment = .center
         result.isHidden = true
@@ -136,7 +136,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     private lazy var textViewErrorLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .danger
         result.textAlignment = .center
         result.isHidden = true
