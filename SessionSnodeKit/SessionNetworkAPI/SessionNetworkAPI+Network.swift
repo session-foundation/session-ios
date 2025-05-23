@@ -31,9 +31,13 @@ extension SessionNetworkAPI {
             
             let staleTimestampMs: Int64 = dependencies[singleton: .storage].read { db in db[.staleTimestampMs] }.defaulting(to: 0)
             guard staleTimestampMs < dependencies[cache: .snodeAPI].currentOffsetTimestampMs() else {
-                return Just(true)
+                return Just(())
                     .delay(for: .milliseconds(500), scheduler: Threading.workQueue)
                     .setFailureType(to: Error.self)
+                    .flatMapStorageWritePublisher(using: dependencies) { [dependencies] db, info -> Bool in
+                        db[.lastUpdatedTimestampMs] = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        return true
+                    }
                     .eraseToAnyPublisher()
             }
             
@@ -47,9 +51,9 @@ extension SessionNetworkAPI {
                 }
                 .flatMap { $0.send(using: dependencies) }
                 .map { _, info in info }
-                .flatMapStorageWritePublisher(using: dependencies) { db, info -> Bool in
+                .flatMapStorageWritePublisher(using: dependencies) { [dependencies] db, info -> Bool in
                     // Token info
-                    db[.lastUpdatedTimestampMs] = info.timestamp * 1000
+                    db[.lastUpdatedTimestampMs] = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     db[.tokenUsd] = info.price.tokenUsd
                     db[.marketCapUsd] = info.price.marketCapUsd
                     db[.priceTimestampMs] = info.price.priceTimestamp * 1000
