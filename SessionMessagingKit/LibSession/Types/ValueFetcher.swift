@@ -10,7 +10,7 @@ public protocol ValueFetcher {
     func has(_ key: Setting.BoolKey) -> Bool
     func has(_ key: Setting.EnumKey) -> Bool
     func get(_ key: Setting.BoolKey) -> Bool
-    func get<T: RawRepresentable>(_ key: Setting.EnumKey) -> T? where T.RawValue == Int
+    func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T?
     
     func profile(
         contactId: String,

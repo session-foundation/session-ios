@@ -845,15 +845,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Notifications
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Log.info(.syncPushTokensJob, "Received push token.")
         dependencies[singleton: .pushRegistrationManager].didReceiveVanillaPushToken(deviceToken)
-        Log.info(.cat, "Registering for push notifications.")
     }
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        Log.error(.cat, "Failed to register push token with error: \(error).")
+        Log.error(.syncPushTokensJob, "Failed to register push token with error: \(error).")
         
         #if DEBUG
-        Log.warn(.cat, "We're in debug mode. Faking success for remote registration with a fake push identifier.")
+        Log.warn(.syncPushTokensJob, "We're in debug mode. Faking success for remote registration with a fake push identifier.")
         dependencies[singleton: .pushRegistrationManager].didReceiveVanillaPushToken(Data(count: 32))
         #else
         dependencies[singleton: .pushRegistrationManager].didFailToReceiveVanillaPushToken(error: error)

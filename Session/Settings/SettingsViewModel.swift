@@ -123,11 +123,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     let title: String = "sessionSettings".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [weak self, dependencies] db -> State in
+        .libSessionObservation(self) { cache -> State in
             State(
-                profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
-                developerModeEnabled: db[.developerModeEnabled],
-                hideRecoveryPasswordPermanently: db[.hideRecoveryPasswordPermanently]
+                profile: cache.profile,
+                developerModeEnabled: cache.get(.developerModeEnabled),
+                hideRecoveryPasswordPermanently: cache.get(.hideRecoveryPasswordPermanently)
             )
         }
         .compactMap { [weak self] state -> [SectionModel]? in self?.content(state) }

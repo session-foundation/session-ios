@@ -331,7 +331,7 @@ public enum ObservationBuilder {
                 .compactMap { $0 }
                 .handleEvents(
                     receiveCancel: {
-                        tasks.forEach { $0.cancel() }
+                        mainObservationTask.cancel()
                     }
                 )
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
@@ -510,7 +510,7 @@ public class KeyCollector: ValueFetcher {
         return store.get(key)
     }
     
-    public func get<T: RawRepresentable>(_ key: Setting.EnumKey) -> T? where T.RawValue == Int {
+    public func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T? {
         collectedKeys.insert(.setting(key))
         return store.get(key)
     }

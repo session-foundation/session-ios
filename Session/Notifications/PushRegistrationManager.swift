@@ -48,7 +48,9 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
                 #else
                 return self.registerForVanillaPushToken()
                     .flatMap { vanillaPushToken -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
-                        self.registerForVoipPushToken()
+                        Log.info(.syncPushTokensJob, "Registering for voip token")
+                        
+                        return self.registerForVoipPushToken()
                             .map { voipPushToken in (vanillaPushToken, (voipPushToken ?? "")) }
                             .eraseToAnyPublisher()
                     }
@@ -63,7 +65,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     /// Vanilla push token is obtained from the system via AppDelegate
     public func didReceiveVanillaPushToken(_ tokenData: Data) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
-            Log.error("[PushRegistrationManager] Publisher completion in \(#function) unexpectedly nil")
+            Log.error(.syncPushTokensJob, "Publisher completion in \(#function) unexpectedly nil")
             return
         }
 
@@ -75,7 +77,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     /// Vanilla push token is obtained from the system via AppDelegate
     public func didFailToReceiveVanillaPushToken(error: Error) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
-            Log.error("[PushRegistrationManager] Publisher completion in \(#function) unexpectedly nil")
+            Log.error(.syncPushTokensJob, "Publisher completion in \(#function) unexpectedly nil")
             return
         }
 
@@ -181,7 +183,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             .map { tokenData -> String in
                 if self.isSusceptibleToFailedPushRegistration {
                     // Sentinal in case this bug is fixed
-                    Log.debug("Device was unexpectedly able to complete push registration even though it was susceptible to failure.")
+                    Log.debug(.syncPushTokensJob, "Device was unexpectedly able to complete push registration even though it was susceptible to failure.")
                 }
                 
                 return tokenData.toHexString()
@@ -217,7 +219,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         createVoipRegistryIfNecessary()
         
         guard let voipRegistry: PKPushRegistry = self.voipRegistry else {
-            Log.error("[PushRegistrationManager] Failed to initialize voipRegistry")
+            Log.error(.syncPushTokensJob, "Failed to initialize voipRegistry")
             return Fail(
                 error: PushRegistrationError.assertionError(description: "failed to initialize voipRegistry")
             ).eraseToAnyPublisher()
@@ -226,7 +228,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         // If we've already completed registering for a voip token, resolve it immediately,
         // rather than waiting for the delegate method to be called.
         if let voipTokenData: Data = voipRegistry.pushToken(for: .voIP) {
-            Log.info("[PushRegistrationManager] Using pre-registered voIP token")
+            Log.info(.syncPushTokensJob, "Using pre-registered voIP token")
             return Just(voipTokenData.toHexString())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -241,7 +243,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         
         return publisher
             .map { voipTokenData -> String? in
-                Log.info("[PushRegistrationManager] Successfully registered for voip push notifications")
+                Log.info(.syncPushTokensJob, "Successfully registered for voip push notifications")
                 return voipTokenData?.toHexString()
             }
             .handleEvents(
@@ -264,7 +266,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     
     // NOTE: This function MUST report an incoming call.
     public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
-        Log.info("[PushRegistrationManager] Receive new voip notification.")
+        Log.info(.calls, "Receive new voip notification.")
         Log.assert(dependencies[singleton: .appContext].isMainApp)
         Log.assert(type == .voIP)
         let payload = payload.dictionaryPayload

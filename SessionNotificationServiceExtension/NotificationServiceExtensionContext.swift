@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import UIKit
-import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 final class NotificationServiceExtensionContext: AppContext {

@@ -295,125 +295,9 @@ internal extension LibSession {
     }
 }
 
-// MARK: - State Observation
-
-public extension LibSession.Cache {
-    func observe(_ key: LibSession.ObservableKey) -> AsyncStream<Any?> {
-        let id: UUID = UUID()
-        
-        return AsyncStream { [weak observerStore] continuation in
-            Task {
-                await observerStore?.addContinuation(continuation, for: key, id: id)
-            }
-            continuation.onTermination = { [weak observerStore] _ in
-                Task { await observerStore?.removeContinuation(for: key, id: id) }
-            }
-        }
-    }
-}
-
-public extension LibSessionCacheType {
-    private func observe<T>(_ key: LibSession.ObservableKey, defaultValue: T) -> AsyncMapSequence<AsyncStream<Any?>, T> {
-        return observe(key).map { newValue in
-            let newTypedValue: T? = (newValue as? T)
-            
-            if newValue != nil && newTypedValue == nil {
-                Log.warn(.libSession, "Failed to cast new value for key \(key) to \(T.self), using default: \(defaultValue)")
-            }
-            
-            return (newTypedValue ?? defaultValue)
-        }
-    }
-    
-    func observe(_ key: Setting.BoolKey) -> AsyncMapSequence<AsyncStream<Any?>, Bool> {
-        return observe(.setting(key), defaultValue: false)
-    }
-    
-    func observe<T: RawRepresentable>(_ key: Setting.EnumKey, defaultValue: T) -> AsyncMapSequence<AsyncStream<Any?>, T> where T.RawValue == Int {
-        return observe(.setting(key), defaultValue: defaultValue)
-    }
-}
-
 // MARK: - State Access
 
 public extension LibSession.Cache {
-    func has(_ key: Setting.BoolKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
-        /// If a `bool` value doesn't exist then we return a negative value
-        switch key {
-            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) >= 0)
-            default: return (user_profile_get_local_setting(conf, key.rawValue) >= 0)
-        }
-    }
-    
-    func has(_ key: Setting.EnumKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
-        /// A value of `-1` will be returned if the local setting hasn't been set
-        return (user_profile_get_local_setting(conf, key.rawValue) >= 0)
-    }
-    
-    func get(_ key: Setting.BoolKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
-        switch key {
-            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) > 0)
-            default: return (user_profile_get_local_setting(conf, key.rawValue) > 0)
-        }
-    }
-    
-    func get<T: RawRepresentable>(_ key: Setting.EnumKey) -> T? where T.RawValue == Int {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return nil
-        }
-        
-        /// A value of `-1` will be returned if the local setting hasn't been set
-        let rawValue: Int32 = user_profile_get_local_setting(conf, key.rawValue)
-        guard rawValue >= 0 else { return nil }
-        
-        return T(rawValue: Int(rawValue))
-    }
-    
-    func set(_ key: Setting.BoolKey, _ value: Bool?) async {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
-        }
-        
-        let valueAsInt: Int32 = {
-            switch value {
-                case .none: return -1
-                case .some(false): return 0
-                case .some(true): return 1
-            }
-        }()
-        
-        switch key {
-            case .checkForCommunityMessageRequests: user_profile_set_blinded_msgreqs(conf, valueAsInt)
-            default: user_profile_set_local_setting(conf, key.rawValue, valueAsInt)
-        }
-        
-        /// Add a pending observation to notify any observers of the change once it's committed
-        await addPendingChange(key: key, value: value)
-    }
-    
-    func set<T: RawRepresentable>(_ key: Setting.EnumKey, _ value: T?) async where T.RawValue == Int {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
-        }
-        
-        user_profile_set_local_setting(conf, key.rawValue, Int32(value?.rawValue ?? -1))
-        
-        /// Add a pending observation to notify any observers of the change once it's committed
-        await addPendingChange(key: key, value: value)
-    }
-    
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -1026,7 +910,7 @@ public extension Dependencies {
         }
     }
     
-    func setAsync<T: RawRepresentable>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) where T.RawValue == Int {
+    func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
         Task { [dependencies = self] in
             let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
                 try await cache.perform(for: .userProfile) {
@@ -1039,6 +923,15 @@ public extension Dependencies {
             }
             
             onComplete?()
+        }
+    }
+    
+    func notifyAsync(_ key: LibSession.ObservableKey) {
+        Task { [dependencies = self] in
+            await dependencies.mutate(cache: .libSession) { cache in
+                await cache.addPendingChange(key: key, value: nil)
+                await cache.yieldAllPendingChanges()
+            }
         }
     }
 }

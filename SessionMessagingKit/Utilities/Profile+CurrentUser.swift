@@ -1,6 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit.UIImage
+import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
