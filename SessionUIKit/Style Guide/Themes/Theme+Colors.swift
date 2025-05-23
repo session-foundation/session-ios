@@ -7,6 +7,8 @@ import SwiftUI
 
 public extension Theme {
     enum PrimaryColor: Int, Codable, CaseIterable {
+        public static var defaultPrimaryColor: Theme.PrimaryColor = .green
+        
         case green
         case blue
         case yellow

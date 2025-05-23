@@ -63,7 +63,10 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     lazy var observation: TargetObservation = ObservationBuilder
         .libSessionObservation(self) { [dependencies] cache -> State in
-            State(
+            /// Listen for `isUsingFullAPNs` changes
+            cache.register(.isUsingFullAPNs)
+            
+            return State(
                 isUsingFullAPNs: dependencies[defaults: .standard, key: .isUsingFullAPNs],
                 notificationSound: cache.get(.defaultNotificationSound)
                     .defaulting(to: Preferences.Sound.defaultNotificationSound),
@@ -95,6 +98,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             // stringlint:ignore_contents
                             onTap: { [weak self] in
                                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
+                                dependencies.notifyAsync(.isUsingFullAPNs)
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob

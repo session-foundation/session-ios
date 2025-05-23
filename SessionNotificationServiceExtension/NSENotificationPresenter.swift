@@ -2,10 +2,6 @@
 
 import Foundation
 import Combine
-import GRDB
-import UserNotifications
-import SessionUIKit
-import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -43,7 +39,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
     
     // MARK: - Presentation
     
-    public func notifyForFailedSend(_ db: Database, threadId: String, threadVariant: SessionThread.Variant, applicationState: UIApplication.State) {
+    public func notifyForFailedSend(threadId: String, threadVariant: SessionThread.Variant, applicationState: UIApplication.State) {
         // Not possible in the NotificationServiceExtension
     }
     

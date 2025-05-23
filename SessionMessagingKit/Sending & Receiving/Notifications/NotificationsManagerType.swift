@@ -2,7 +2,6 @@
 
 import Foundation
 import Combine
-import GRDB
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -29,7 +28,6 @@ public protocol NotificationsManagerType {
     func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool
     
     func notifyForFailedSend(
-        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
@@ -375,7 +373,6 @@ public struct NoopNotificationsManager: NotificationsManagerType {
     }
     
     public func notifyForFailedSend(
-        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State

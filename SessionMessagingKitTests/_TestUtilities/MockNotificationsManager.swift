@@ -37,7 +37,6 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
     }
     
     public func notifyForFailedSend(
-        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State

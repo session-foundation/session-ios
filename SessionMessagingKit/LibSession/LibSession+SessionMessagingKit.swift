@@ -200,6 +200,7 @@ public extension LibSession.ObservableKey {
     static func unreadMessageReceived(threadId: String) -> LibSession.ObservableKey {
         LibSession.ObservableKey("unreadMessageReceived-\(threadId)")
     }
+    static let isUsingFullAPNs: LibSession.ObservableKey = "isUsingFullAPNs"
     static let unreadMessageRequestMessageReceived: LibSession.ObservableKey = "unreadMessageRequestMessageReceived"
 }
 
@@ -1125,12 +1126,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func has(_ key: Setting.BoolKey) -> Bool
     func has(_ key: Setting.EnumKey) -> Bool
     func get(_ key: Setting.BoolKey) -> Bool
-    func get<T: RawRepresentable>(_ key: Setting.EnumKey) -> T? where T.RawValue == Int
+    func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T?
     
     // MARK: - State Access
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) async
-    func set<T: RawRepresentable>(_ key: Setting.EnumKey, _ value: T?) async where T.RawValue == Int
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async
     
     var displayName: String? { get }
     func updateProfile(
@@ -1394,14 +1395,14 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     func has(_ key: Setting.BoolKey) -> Bool { return false }
     func has(_ key: Setting.EnumKey) -> Bool { return false }
     func get(_ key: Setting.BoolKey) -> Bool { return false }
-    func get<T: RawRepresentable>(_ key: Setting.EnumKey) -> T? where T.RawValue == Int { return nil }
+    func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T? { return nil }
     
     // MARK: - State Access
     
     var displayName: String? { return nil }
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) async {}
-    func set<T: RawRepresentable>(_ key: Setting.EnumKey, _ value: T?) async where T.RawValue == Int {}
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {}
     func updateProfile(
         displayName: String,
         profilePictureUrl: String?,
