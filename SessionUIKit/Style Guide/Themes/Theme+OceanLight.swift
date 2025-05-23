@@ -74,6 +74,7 @@ internal enum Theme_OceanLight: ThemeColors {
         // Settings
         .settings_tertiaryAction: .oceanLight1,
         .settings_tabBackground: .oceanLight6,
+        .settings_glowingBackground: .clear,
         
         // Appearance
         .appearance_sectionBackground: .oceanLight7,
@@ -195,6 +196,7 @@ internal enum Theme_OceanLight: ThemeColors {
         // Settings
         .settings_tertiaryAction: .oceanLight1,
         .settings_tabBackground: .oceanLight6,
+        .settings_glowingBackground: .clear,
         
         // Appearance
         .appearance_sectionBackground: .oceanLight7,

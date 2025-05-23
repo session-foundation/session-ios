@@ -74,6 +74,7 @@ internal enum Theme_OceanDark: ThemeColors {
         // Settings
         .settings_tertiaryAction: .primary,
         .settings_tabBackground: .oceanDark1,
+        .settings_glowingBackground: .primary,
         
         // Appearance
         .appearance_sectionBackground: .oceanDark3,
@@ -195,6 +196,7 @@ internal enum Theme_OceanDark: ThemeColors {
         // Settings
         .settings_tertiaryAction: .primary,
         .settings_tabBackground: .oceanDark1,
+        .settings_glowingBackground: .primary,
         
         // Appearance
         .appearance_sectionBackground: .oceanDark3,

@@ -96,7 +96,7 @@ extension OpenGroupAPI.Message {
                         throw NetworkError.parsingFailed
                     }
                     
-                case (.some, .none), (.none, _), (_, .group):
+                case (.some, .none), (.none, _), (_, .group), (_, .versionBlinded07):
                     Log.info("Ignoring message with invalid sender.")
                     throw NetworkError.parsingFailed
             }

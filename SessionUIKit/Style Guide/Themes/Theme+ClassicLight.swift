@@ -74,6 +74,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         // Settings
         .settings_tertiaryAction: .classicLight0,
         .settings_tabBackground: .classicLight5,
+        .settings_glowingBackground: .clear,
         
         // AppearanceButton
         .appearance_sectionBackground: .classicLight6,
@@ -195,6 +196,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         // Settings
         .settings_tertiaryAction: .classicLight0,
         .settings_tabBackground: .classicLight5,
+        .settings_glowingBackground: .clear,
         
         // AppearanceButton
         .appearance_sectionBackground: .classicLight6,

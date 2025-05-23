@@ -11,7 +11,7 @@ public extension TimeInterval {
         case twoUnits
     }
     
-    func formatted(format: DurationFormat) -> String {
-        return String.formattedDuration(self, format: format)
+    func formatted(format: DurationFormat, minimumUnit: NSCalendar.Unit = .second) -> String {
+        return String.formattedDuration(self, format: format, minimumUnit: minimumUnit)
     }
 }

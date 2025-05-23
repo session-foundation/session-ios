@@ -80,6 +80,10 @@ public extension Font {
     static func boldSpaceMono(size: CGFloat) -> Font {
         return Font.custom("SpaceMono-Bold", size: size)
     }
+    
+    static func lucide(size: CGFloat) -> Font {
+        return Font.custom("lucide", size: size)
+    }
 }
 
 public extension Font {

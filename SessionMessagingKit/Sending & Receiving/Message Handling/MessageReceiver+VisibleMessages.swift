@@ -114,7 +114,7 @@ extension MessageReceiver {
                         .standardIncoming
                     )
                     
-                case .group:
+                case .group, .versionBlinded07:
                     Log.info(.messageReceiver, "Ignoring message with invalid sender.")
                     throw MessageReceiverError.invalidSender
             }

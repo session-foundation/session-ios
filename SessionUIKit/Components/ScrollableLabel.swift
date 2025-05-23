@@ -10,6 +10,7 @@ public class ScrollableLabel: UIView {
     
     private var oldSize: CGSize = .zero
     private var layoutLoopCounter: Int = 0
+    private var hasFlashedScrollIndicator: Bool = false
     
     var scrollMode: ScrollMode = .automatic {
         didSet {
@@ -137,6 +138,11 @@ public class ScrollableLabel: UIView {
             case (false, _), (true, false):
                 scrollViewHeightAnchor.isActive = false
                 labelHeightAnchor.isActive = true
+                
+                if !hasFlashedScrollIndicator {
+                    scrollView.flashScrollIndicators()
+                    hasFlashedScrollIndicator = true
+                }
                 
             case (true, true):
                 labelHeightAnchor.isActive = false

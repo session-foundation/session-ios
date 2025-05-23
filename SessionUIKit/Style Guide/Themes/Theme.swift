@@ -188,6 +188,7 @@ public indirect enum ThemeValue: Hashable, Equatable {
     // Settings
     case settings_tertiaryAction
     case settings_tabBackground
+    case settings_glowingBackground
     
     // Appearance
     case appearance_sectionBackground

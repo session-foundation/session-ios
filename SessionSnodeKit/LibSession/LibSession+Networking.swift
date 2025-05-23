@@ -67,7 +67,16 @@ class LibSessionNetwork: NetworkType {
                     CallbackWrapper<Output>.run(ctx, .success(nodes))
                 }, ctx);
             }
-            .tryMap { result in try result.successOrThrow() }
+            .tryMap { [dependencies = self.dependencies] result in
+                dependencies
+                    .mutate(cache: .libSessionNetwork) {
+                        $0.setSnodeNumber(
+                            publicKey: swarmPublicKey,
+                            value: (try? result.get())?.count ?? 0
+                        )
+                    }
+                return try result.successOrThrow()
+            }
             .eraseToAnyPublisher()
     }
     
@@ -643,6 +652,7 @@ public extension LibSession {
         private var network: UnsafeMutablePointer<network_object>? = nil
         private let _paths: CurrentValueSubject<[[Snode]], Never> = CurrentValueSubject([])
         private let _networkStatus: CurrentValueSubject<NetworkStatus, Never> = CurrentValueSubject(.unknown)
+        private let _snodeNumber: CurrentValueSubject<[String: Int], Never> = .init([:])
         
         public var isSuspended: Bool = false
         public var networkStatus: AnyPublisher<NetworkStatus, Never> { _networkStatus.eraseToAnyPublisher() }
@@ -651,6 +661,7 @@ public extension LibSession {
         public var hasPaths: Bool { !_paths.value.isEmpty }
         public var currentPaths: [[Snode]] { _paths.value }
         public var pathsDescription: String { _paths.value.prettifiedDescription }
+        public var snodeNumber: [String: Int] { _snodeNumber.value }
         
         // MARK: - Initialization
         
@@ -674,6 +685,7 @@ public extension LibSession {
             // Send completion events to the observables (so they can resubscribe to a future instance)
             _paths.send(completion: .finished)
             _networkStatus.send(completion: .finished)
+            _snodeNumber.send(completion: .finished)
             
             // Clear the network changed callbacks (just in case, since we are going to free the
             // dependenciesPtr) and then free the network object
@@ -840,10 +852,25 @@ public extension LibSession {
             _paths.send(paths)
         }
         
+        public func setSnodeNumber(publicKey: String, value: Int) {
+            var snodeNumber = _snodeNumber.value
+            snodeNumber[publicKey] = value
+            _snodeNumber.send(snodeNumber)
+        }
+        
         public func clearSnodeCache() {
             switch network {
                 case .none: break
                 case .some(let network): network_clear_cache(network)
+            }
+        }
+        
+        public func snodeCacheSize() -> Int {
+            switch network {
+                case .none:
+                    return 0
+                case .some(let network):
+                    return network_get_snode_cache_size(network)
             }
         }
     }
@@ -859,6 +886,7 @@ public extension LibSession {
         var hasPaths: Bool { get }
         var currentPaths: [[Snode]] { get }
         var pathsDescription: String { get }
+        var snodeNumber: [String: Int] { get }
     }
 
     protocol NetworkCacheType: NetworkImmutableCacheType, MutableCacheType {
@@ -869,13 +897,16 @@ public extension LibSession {
         var hasPaths: Bool { get }
         var currentPaths: [[Snode]] { get }
         var pathsDescription: String { get }
+        var snodeNumber: [String: Int] { get }
         
         func suspendNetworkAccess()
         func resumeNetworkAccess()
         func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error>
         func setNetworkStatus(status: NetworkStatus)
         func setPaths(paths: [[Snode]])
+        func setSnodeNumber(publicKey: String, value: Int)
         func clearSnodeCache()
+        func snodeCacheSize() -> Int
     }
     
     class NoopNetworkCache: NetworkCacheType {
@@ -888,6 +919,7 @@ public extension LibSession {
         public var hasPaths: Bool { return false }
         public var currentPaths: [[LibSession.Snode]] { [] }
         public var pathsDescription: String { "" }
+        public var snodeNumber: [String: Int] { [:] }
         
         public func suspendNetworkAccess() {}
         public func resumeNetworkAccess() {}
@@ -898,6 +930,8 @@ public extension LibSession {
         
         public func setNetworkStatus(status: NetworkStatus) {}
         public func setPaths(paths: [[LibSession.Snode]]) {}
+        public func setSnodeNumber(publicKey: String, value: Int) {}
         public func clearSnodeCache() {}
+        public func snodeCacheSize() -> Int { 0 }
     }
 }

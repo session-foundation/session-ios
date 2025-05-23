@@ -162,6 +162,24 @@ public class SessionApp: SessionAppType {
         }
     }
     
+    /// Show Session Network Page for this release. We'll be able to extend this fuction to show other screens that is new
+    /// or we want to promote in the future.
+    public func showPromotedScreen() {
+        guard let homeViewController: HomeVC = self.homeViewController else { return }
+        
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: SessionNetworkScreen(
+                viewModel: SessionNetworkScreenContent.ViewModel(dependencies: dependencies)
+            )
+        )
+        viewController.setNavBarTitle(Constants.network_name)
+        viewController.setUpDismissingButton(on: .left)
+        
+        let navigationController = StyledNavigationController(rootViewController: viewController)
+        navigationController.modalPresentationStyle = .fullScreen
+        homeViewController.present(navigationController, animated: true, completion: nil)
+    }
+    
     // MARK: - Internal Functions
     
     private func creatingThreadIfNeededThenRunOnMain(
@@ -249,6 +267,7 @@ public protocol SessionAppType {
     )
     func createNewConversation()
     func resetData(onReset: (() -> ()))
+    func showPromotedScreen()
 }
 
 public extension SessionAppType {

@@ -7,6 +7,25 @@ import UIKit
 // MARK: - LocalizationHelper
 
 final public class LocalizationHelper: CustomStringConvertible {
+    private static let bundle: Bundle = {
+        let bundleName = "SessionUIKit"
+        
+        let candidates: [URL?] = [
+            Bundle.main.resourceURL,
+            Bundle(for: LocalizationHelper.self).resourceURL,
+            Bundle.main.bundleURL
+        ]
+        
+        for candidate in candidates {
+            let bundlePath = candidate?.appendingPathComponent(bundleName + ".bundle")
+            if let bundle = bundlePath.flatMap(Bundle.init(url:)) {
+                return bundle
+            }
+        }
+        
+        return Bundle(identifier: "com.loki-project.SessionUIKit")!
+    }()
+    
     private let template: String
     private var replacements: [String : String] = [:]
     private var numbers: [Int] = []
@@ -36,15 +55,16 @@ final public class LocalizationHelper: CustomStringConvertible {
         
         // Use English as the default string if the translation is empty
         let defaultString: String = {
-            if let englishPath = Bundle.main.path(forResource: "en", ofType: "lproj"), let englishBundle = Bundle(path: englishPath) {
-                return englishBundle.localizedString(forKey: template, value: nil, table: nil)
-            } else {
-                return ""
-            }
+            guard
+                let englishPath: String = LocalizationHelper.bundle.path(forResource: "en", ofType: "lproj"),
+                let englishBundle: Bundle = Bundle(path: englishPath)
+            else { return "" }
+            
+            return englishBundle.localizedString(forKey: template, value: template, table: nil)
         }()
         
         // If the localized string matches the key provided then the localisation failed
-        var localizedString: String = NSLocalizedString(template, value: defaultString, comment: "")
+        var localizedString: String = NSLocalizedString(template, bundle: LocalizationHelper.bundle, value: defaultString, comment: "")
         
         // Deal with plurals
         // Note: We have to deal with plurals first, so we can get the correct string

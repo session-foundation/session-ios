@@ -20,6 +20,13 @@ public extension View {
             )
         }
     }
+    
+    func shadow(themeColor: ThemeValue, radius: CGFloat) -> some View {
+        return self.shadow(
+            color: ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            radius: radius
+        )
+    }
 }
 
 public extension Shape {
@@ -40,6 +47,14 @@ public extension Shape {
         return self.stroke(
             ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
             style: style
+        )
+    }
+}
+
+public extension Text {
+    func foregroundColor(themeColor: ThemeValue) -> Text {
+        return self.foregroundColor(
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
         )
     }
 }
