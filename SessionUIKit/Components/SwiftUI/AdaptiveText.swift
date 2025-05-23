@@ -111,7 +111,7 @@ struct AdaptiveText: View {
                 }
             }
         }
-        .frame(height: calculateApproximateHeight())
+        .frame(idealHeight: uiKitFont.lineHeight)
         .clipped()
     }
     
@@ -121,10 +121,6 @@ struct AdaptiveText: View {
             .font(font)
             .foregroundColor(themeColor: foregroundColor)
             .lineLimit(1)
-    }
-    
-    private func calculateApproximateHeight() -> CGFloat {
-        return uiKitFont.lineHeight + 4
     }
 }
 
