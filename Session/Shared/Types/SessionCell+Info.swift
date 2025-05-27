@@ -12,6 +12,7 @@ extension SessionCell {
         let leadingAccessory: SessionCell.Accessory?
         let title: TextInfo?
         let subtitle: TextInfo?
+        let description: TextInfo?
         let trailingAccessory: SessionCell.Accessory?
         let styling: StyleInfo
         let isEnabled: Bool
@@ -35,6 +36,7 @@ extension SessionCell {
             leadingAccessory: SessionCell.Accessory? = nil,
             title: SessionCell.TextInfo? = nil,
             subtitle: SessionCell.TextInfo? = nil,
+            description: SessionCell.TextInfo? = nil,
             trailingAccessory: SessionCell.Accessory? = nil,
             styling: StyleInfo = StyleInfo(),
             isEnabled: Bool = true,
@@ -48,6 +50,7 @@ extension SessionCell {
             self.leadingAccessory = leadingAccessory
             self.title = title
             self.subtitle = subtitle
+            self.description = description
             self.trailingAccessory = trailingAccessory
             self.styling = styling
             self.isEnabled = isEnabled
@@ -97,6 +100,7 @@ extension SessionCell {
                 leadingAccessory: leadingAccessory,
                 title: title,
                 subtitle: subtitle,
+                description: description,
                 trailingAccessory: trailingAccessory,
                 styling: styling,
                 isEnabled: isEnabled,
@@ -129,6 +133,7 @@ public extension SessionCell.Info {
         self.leadingAccessory = accessory
         self.title = nil
         self.subtitle = nil
+        self.description = nil
         self.trailingAccessory = nil
         self.styling = styling
         self.isEnabled = isEnabled
@@ -155,6 +160,7 @@ public extension SessionCell.Info {
         self.leadingAccessory = leadingAccessory
         self.title = nil
         self.subtitle = nil
+        self.description = nil
         self.trailingAccessory = trailingAccessory
         self.styling = styling
         self.isEnabled = isEnabled
@@ -183,6 +189,7 @@ public extension SessionCell.Info {
         self.leadingAccessory = leadingAccessory
         self.title = SessionCell.TextInfo(title, font: .title)
         self.subtitle = nil
+        self.description = nil
         self.trailingAccessory = trailingAccessory
         self.styling = styling
         self.isEnabled = isEnabled
@@ -211,6 +218,7 @@ public extension SessionCell.Info {
         self.leadingAccessory = leadingAccessory
         self.title = title
         self.subtitle = nil
+        self.description = nil
         self.trailingAccessory = trailingAccessory
         self.styling = styling
         self.isEnabled = isEnabled
@@ -241,6 +249,7 @@ public extension SessionCell.Info {
         self.leadingAccessory = leadingAccessory
         self.title = SessionCell.TextInfo(title, font: .title)
         self.subtitle = SessionCell.TextInfo(subtitle, font: .subtitle)
+        self.description = nil
         self.trailingAccessory = trailingAccessory
         self.styling = styling
         self.isEnabled = isEnabled

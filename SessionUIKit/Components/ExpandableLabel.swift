@@ -1,66 +1,75 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
 
 public class ExpandableLabel: UIView {
-    private var isExpanded: Bool = false
-    
     private var oldSize: CGSize = .zero
     private var layoutLoopCounter: Int = 0
-    
+    private var isExpanded: Bool = false
+    public var onToggleExpansion: (() -> Void)?
+
     public var font: UIFont {
-        get { scrollableLabel.font }
-        set { scrollableLabel.font = newValue }
+        get { label.font }
+        set {
+            label.font = newValue
+            buttonLabel.font = .boldSystemFont(ofSize: newValue.pointSize)
+        }
     }
     
     public var text: String? {
-        get { scrollableLabel.text }
-        set { scrollableLabel.text = newValue }
+        get { label.text }
+        set {
+            guard label.text != newValue else { return }
+            
+            label.text = newValue
+            updateContentSizeIfNeeded()
+        }
     }
     
     public var attributedText: NSAttributedString? {
-        get { scrollableLabel.attributedText }
-        set { scrollableLabel.attributedText = newValue }
+        get { label.attributedText }
+        set {
+            guard label.attributedText != newValue else { return }
+            
+            label.attributedText = newValue
+            updateContentSizeIfNeeded()
+        }
     }
     
     public var themeTextColor: ThemeValue? {
-        get { scrollableLabel.themeTextColor }
-        set { scrollableLabel.themeTextColor = newValue }
+        get { label.themeTextColor }
+        set { label.themeTextColor = newValue }
     }
     
     public var textAlignment: NSTextAlignment {
-        get { scrollableLabel.textAlignment }
-        set { scrollableLabel.textAlignment = newValue }
+        get { label.textAlignment }
+        set { label.textAlignment = newValue }
     }
     
     public var lineBreakMode: NSLineBreakMode {
-        get { scrollableLabel.lineBreakMode }
-        set { scrollableLabel.lineBreakMode = newValue }
+        get { label.lineBreakMode }
+        set { label.lineBreakMode = newValue }
     }
     
     public var numberOfLines: Int {
-        get { scrollableLabel.numberOfLines }
-        set { scrollableLabel.numberOfLines = newValue }
+        get { label.numberOfLines }
+        set { label.numberOfLines = newValue }
     }
     
-    public var maxNumberOfLinesWhenScrolling: Int {
-        get { scrollableLabel.maxNumberOfLinesWhenScrolling }
-        set { scrollableLabel.maxNumberOfLinesWhenScrolling = newValue }
+    public var maxNumberOfLines: Int = 0 {
+        didSet {
+            guard maxNumberOfLines != oldValue else { return }
+            
+            updateContentSizeIfNeeded()
+        }
     }
-    
-    public var maxNumberOfLinesNeedsNoCollapse: Int = 3
-    public var numberOfLinesAfterCollapse: Int = 2
-    
-    public var viewMoreButtonTitle: String = "viewMore".localized()
-    public var viewLessButtonTitle: String = "viewLess".localized()
-    
     
     // MARK: - Initialization
     
     public init() {
         super.init(frame: .zero)
-        
-        setupViewsAndConstraints()
+        setupViews()
+        setupGestureRecognizer()
     }
     
     required init?(coder: NSCoder) {
@@ -69,22 +78,27 @@ public class ExpandableLabel: UIView {
     
     // MARK: - UI Components
     
-    private let scrollableLabel: ScrollableLabel = ScrollableLabel()
+    private let label: UILabel = UILabel()
     private let buttonLabel: UILabel = UILabel()
     
     // MARK: - Layout
     
-    private func setupViewsAndConstraints() {
-        buttonLabel.text = isExpanded ? viewLessButtonTitle : viewMoreButtonTitle
-        buttonLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        buttonLabel.themeTextColor = .primary
-        
-        let stackView: UIStackView = UIStackView(arrangedSubviews: [scrollableLabel, buttonLabel])
+    private func setupViews() {
+        let stackView = UIStackView(arrangedSubviews: [label, buttonLabel])
         stackView.axis = .vertical
         stackView.spacing = Values.smallSpacing
-        
         addSubview(stackView)
         stackView.pin(to: self)
+
+        buttonLabel.textAlignment = .center
+        buttonLabel.font = .boldSystemFont(ofSize: label.font.pointSize)
+        buttonLabel.themeTextColor = .textPrimary
+        buttonLabel.text = "viewMore".localized()
+    }
+
+    private func setupGestureRecognizer() {
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTapGesture))
+        addGestureRecognizer(tapGestureRecognizer)
     }
     
     public override func layoutSubviews() {
@@ -102,26 +116,61 @@ public class ExpandableLabel: UIView {
         // Ensure we don't get stuck in an infinite layout loop somehow
         guard layoutLoopCounter < 5 else { return }
         
-        if scrollableLabel.frame.height < font.lineHeight * CGFloat(maxNumberOfLinesNeedsNoCollapse) {
-            buttonLabel.isHidden = true
-            scrollableLabel.scrollMode = .never
-            scrollableLabel.numberOfLines = 0
-        } else {
+        let lineCount = calculateLineCount(
+            text: text ?? attributedText?.string ?? "",
+            font: font,
+            width: bounds.width
+        )
+        
+        if lineCount > maxNumberOfLines {
+            label.numberOfLines = isExpanded ? 0 : (maxNumberOfLines - 1)
             buttonLabel.isHidden = false
-            if isExpanded {
-                buttonLabel.text = viewLessButtonTitle
-                scrollableLabel.scrollMode = .automatic
-                scrollableLabel.maxNumberOfLinesWhenScrolling = maxNumberOfLinesWhenScrolling
-            } else {
-                buttonLabel.text = viewMoreButtonTitle
-                scrollableLabel.scrollMode = .never
-                scrollableLabel.numberOfLines = numberOfLinesAfterCollapse
-                scrollableLabel.lineBreakMode = .byTruncatingTail
-            }
+        } else {
+            label.numberOfLines = 0
+            buttonLabel.isHidden = true
         }
         
+        oldSize = frame.size
         layoutLoopCounter += 1
         setNeedsLayout()
         layoutIfNeeded()
+    }
+    
+    private func calculateLineCount(text: String, font: UIFont, width: CGFloat) -> Int {
+        let textStorage = NSTextStorage(string: text, attributes: [.font: font])
+        let textContainer = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+        textContainer.lineBreakMode = .byWordWrapping
+        textContainer.maximumNumberOfLines = 0
+
+        let layoutManager = NSLayoutManager()
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+
+        layoutManager.glyphRange(for: textContainer)
+
+        var numberOfLines = 0
+        var index = 0
+        var lineRange = NSRange()
+
+        while index < layoutManager.numberOfGlyphs {
+            layoutManager.lineFragmentRect(forGlyphAt: index, effectiveRange: &lineRange)
+            index = NSMaxRange(lineRange)
+            numberOfLines += 1
+        }
+
+        return numberOfLines
+    }
+    
+    // MARK: - Interaction
+    
+    @objc private func handleTapGesture() {
+        guard !buttonLabel.isHidden else { return }
+        
+        isExpanded.toggle()
+        buttonLabel.text = (isExpanded ? "viewLess".localized() : "viewMore".localized())
+        label.numberOfLines = isExpanded ? 0 : (maxNumberOfLines - 1)
+        
+        layoutIfNeeded()
+        onToggleExpansion?()
     }
 }

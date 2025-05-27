@@ -309,10 +309,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 threadViewModel.threadDescription.map { threadDescription in
                     SessionCell.Info(
                         id: .threadDescription,
-                        subtitle: SessionCell.TextInfo(
+                        description: SessionCell.TextInfo(
                             threadDescription,
                             font: .subtitle,
-                            alignment: .center
+                            alignment: .center,
+                            interaction: .expandable
                         ),
                         styling: SessionCell.StyleInfo(
                             tintColor: .textSecondary,

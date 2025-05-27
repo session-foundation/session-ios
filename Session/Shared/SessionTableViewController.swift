@@ -455,7 +455,15 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         switch (cell, info) {
             case (let cell as SessionCell, _):
-                cell.update(with: info, tableSize: tableView.bounds.size, using: viewModel.dependencies)
+                cell.update(
+                    with: info,
+                    tableSize: tableView.bounds.size,
+                    onToggleExpansion: {
+                        tableView.beginUpdates()
+                        tableView.endUpdates()
+                    },
+                    using: viewModel.dependencies
+                )
                 cell.update(
                     isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
                     becomeFirstResponder: false,
