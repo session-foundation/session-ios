@@ -54,17 +54,25 @@ extension SessionNetworkAPI {
                 .flatMapStorageWritePublisher(using: dependencies) { [dependencies] db, info -> Bool in
                     // Token info
                     db[.lastUpdatedTimestampMs] = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    db[.tokenUsd] = info.price.tokenUsd
-                    db[.marketCapUsd] = info.price.marketCapUsd
-                    db[.priceTimestampMs] = info.price.priceTimestamp * 1000
-                    db[.staleTimestampMs] = info.price.staleTimestamp * 1000
-                    db[.stakingRequirement] = info.token.stakingRequirement
-                    db[.stakingRewardPool] = info.token.stakingRewardPool
-                    db[.contractAddress] = info.token.contractAddress
+                    db[.tokenUsd] = info.price?.tokenUsd
+                    db[.marketCapUsd] = info.price?.marketCapUsd
+                    if let priceTimestamp = info.price?.priceTimestamp {
+                        db[.priceTimestampMs] = priceTimestamp * 1000
+                    } else {
+                        db[.priceTimestampMs] = nil
+                    }
+                    if let staleTimestamp = info.price?.staleTimestamp {
+                        db[.staleTimestampMs] = staleTimestamp * 1000
+                    } else {
+                        db[.staleTimestampMs] = nil
+                    }
+                    db[.stakingRequirement] = info.token?.stakingRequirement
+                    db[.stakingRewardPool] = info.token?.stakingRewardPool
+                    db[.contractAddress] = info.token?.contractAddress
                     // Network info
-                    db[.networkSize] = info.network.networkSize
-                    db[.networkStakedTokens] = info.network.networkStakedTokens
-                    db[.networkStakedUSD] = info.network.networkStakedUSD
+                    db[.networkSize] = info.network?.networkSize
+                    db[.networkStakedTokens] = info.network?.networkStakedTokens
+                    db[.networkStakedUSD] = info.network?.networkStakedUSD
                     
                     return true
                 }

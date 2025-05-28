@@ -19,10 +19,10 @@ extension SessionNetworkAPI {
             case staleTimestamp = "t_stale"
         }
         
-        public let tokenUsd: Double                     // Current token price (USD)
-        public let marketCapUsd: Double                 // Current market cap value in (USD)
-        public let priceTimestamp: Int64                // The timestamp the price data is accurate at. (seconds)
-        public let staleTimestamp: Int64                // Stale timestamp for the price data. (seconds)
+        public let tokenUsd: Double?                     // Current token price (USD)
+        public let marketCapUsd: Double?                 // Current market cap value in (USD)
+        public let priceTimestamp: Int64?                // The timestamp the price data is accurate at. (seconds)
+        public let staleTimestamp: Int64?                // Stale timestamp for the price data. (seconds)
     }
     
     // MARK: - Token
@@ -34,9 +34,9 @@ extension SessionNetworkAPI {
             case contractAddress = "contract_address"
         }
         
-        public let stakingRequirement: Double           // The number of tokens required to stake a node. This is the effective "token amount" per node (SESH)
-        public let stakingRewardPool: Double            // The number of tokens in the staking reward pool (SESH)
-        public let contractAddress: String              // Token contract address (42 char Hexadecimal - Including 0x prefix)
+        public let stakingRequirement: Double?           // The number of tokens required to stake a node. This is the effective "token amount" per node (SESH)
+        public let stakingRewardPool: Double?            // The number of tokens in the staking reward pool (SESH)
+        public let contractAddress: String?              // Token contract address (42 char Hexadecimal - Including 0x prefix)
     }
     
     
@@ -65,11 +65,11 @@ extension SessionNetworkAPI {
             case network
         }
         
-        public let timestamp: Int64                         // Request timestamp. (seconds)
+        public let timestamp: Int64?                         // Request timestamp. (seconds)
         public let statusCode: Int?                          // Status code of the request.
-        public let price: Price
-        public let token: Token
-        public let network: NetworkInfo
+        public let price: Price?
+        public let token: Token?
+        public let network: NetworkInfo?
     }
 }
 
