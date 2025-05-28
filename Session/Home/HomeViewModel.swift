@@ -48,11 +48,7 @@ public class HomeViewModel: NavigatableStateHolder {
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.state = dependencies.mutate(cache: .libSession) { cache in
-            HomeViewModel.retrieveState(
-                cache: KeyCollector(store: cache),
-                excludingMessageRequestThreadCount: true,
-                using: dependencies
-            )
+            HomeViewModel.retrieveState(cache: KeyCollector(store: cache), using: dependencies)
         }
         self.pagedDataObserver = nil
         
@@ -222,10 +218,24 @@ public class HomeViewModel: NavigatableStateHolder {
     public func createStateStream() -> AsyncThrowingStream<State, Error> {
         return ObservationBuilder
             .libSessionObservation(dependencies) { [dependencies] cache -> State in
-                HomeViewModel.retrieveState(
-                    cache: cache,
-                    excludingMessageRequestThreadCount: false,
-                    using: dependencies
+                HomeViewModel.retrieveState(cache: cache, using: dependencies)
+            }
+            .map { [dependencies] state in
+                /// We don't want to block `libSession` by making a database query during it's mutation so fetch the count outside
+                /// of the observation closure
+                let unreadMessageRequestThreadCount: Int = dependencies[singleton: .storage].read { db -> Int? in
+                    try SessionThread
+                        .unreadMessageRequestsCountQuery(userSessionId: state.userSessionId)
+                        .fetchOne(db)
+                }
+                .defaulting(to: 0)
+                
+                return State(
+                    userSessionId: state.userSessionId,
+                    showViewedSeedBanner: state.showViewedSeedBanner,
+                    hasHiddenMessageRequests: state.hasHiddenMessageRequests,
+                    unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+                    userProfile: state.userProfile
                 )
             }
             .removeDuplicates()
@@ -233,18 +243,8 @@ public class HomeViewModel: NavigatableStateHolder {
     
     private static func retrieveState(
         cache: KeyCollector,
-        excludingMessageRequestThreadCount: Bool,
         using dependencies: Dependencies
     ) -> State {
-        let unreadMessageRequestThreadCount: Int = (excludingMessageRequestThreadCount ? 0 :
-            dependencies[singleton: .storage].read { db -> Int? in
-                try SessionThread
-                    .unreadMessageRequestsCountQuery(userSessionId: cache.userSessionId)
-                    .fetchOne(db)
-            }
-            .defaulting(to: 0)
-        )
-        
         /// Register to also be updated when receiving an unread message request message
         cache.register(.unreadMessageRequestMessageReceived)
         
@@ -252,7 +252,7 @@ public class HomeViewModel: NavigatableStateHolder {
             userSessionId: cache.userSessionId,
             showViewedSeedBanner: !cache.get(.hasViewedSeed),
             hasHiddenMessageRequests: cache.get(.hasHiddenMessageRequests),
-            unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+            unreadMessageRequestThreadCount: 0,
             userProfile: cache.profile
         )
     }

@@ -796,7 +796,7 @@
 		FD78EA062DDEC8F600D55B50 /* AsyncSequence+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */; };
 		FD78EA0A2DDFE45E00D55B50 /* Interaction+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA092DDFE45900D55B50 /* Interaction+UI.swift */; };
 		FD78EA0B2DDFE45E00D55B50 /* Interaction+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA092DDFE45900D55B50 /* Interaction+UI.swift */; };
-		FD78EA0D2DDFEDE200D55B50 /* LibSession+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA0C2DDFEDDF00D55B50 /* LibSession+Settings.swift */; };
+		FD78EA0D2DDFEDE200D55B50 /* LibSession+Local.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA0C2DDFEDDF00D55B50 /* LibSession+Local.swift */; };
 		FD7F74572BAA9D31006DDFD8 /* _006_DropSnodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F74562BAA9D31006DDFD8 /* _006_DropSnodeCache.swift */; };
 		FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F745A2BAAA35E006DDFD8 /* LibSession.swift */; };
 		FD7F745F2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F745E2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift */; };
@@ -2038,7 +2038,7 @@
 		FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiTaskManager.swift; sourceTree = "<group>"; };
 		FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AsyncSequence+Utilities.swift"; sourceTree = "<group>"; };
 		FD78EA092DDFE45900D55B50 /* Interaction+UI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Interaction+UI.swift"; sourceTree = "<group>"; };
-		FD78EA0C2DDFEDDF00D55B50 /* LibSession+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Settings.swift"; sourceTree = "<group>"; };
+		FD78EA0C2DDFEDDF00D55B50 /* LibSession+Local.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Local.swift"; sourceTree = "<group>"; };
 		FD7F74562BAA9D31006DDFD8 /* _006_DropSnodeCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _006_DropSnodeCache.swift; sourceTree = "<group>"; };
 		FD7F745A2BAAA35E006DDFD8 /* LibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSession.swift; sourceTree = "<group>"; };
 		FD7F745E2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TypeConversion+Utilities.swift"; sourceTree = "<group>"; };
@@ -4512,7 +4512,7 @@
 				FD2272F92C352D8E004D8A6C /* LibSession+GroupInfo.swift */,
 				FD2272F72C352D8D004D8A6C /* LibSession+GroupKeys.swift */,
 				FD2272F52C352D8D004D8A6C /* LibSession+GroupMembers.swift */,
-				FD78EA0C2DDFEDDF00D55B50 /* LibSession+Settings.swift */,
+				FD78EA0C2DDFEDDF00D55B50 /* LibSession+Local.swift */,
 				FD2272F82C352D8E004D8A6C /* LibSession+Shared.swift */,
 				FD2272F12C352D8D004D8A6C /* LibSession+SharedGroup.swift */,
 				FD2272F22C352D8D004D8A6C /* LibSession+UserGroups.swift */,
@@ -5102,7 +5102,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionSnodeKit" */;
 			buildPhases = (
-				FDC605702C71683E009B3D45 /* Build LibSession if Needed */,
 				C3C2A59A255385C100C340D1 /* Headers */,
 				C3C2A59B255385C100C340D1 /* Sources */,
 				C3C2A59C255385C100C340D1 /* Frameworks */,
@@ -5154,7 +5153,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C3C2A6F925539DE700C340D1 /* Build configuration list for PBXNativeTarget "SessionMessagingKit" */;
 			buildPhases = (
-				FDC605712C716852009B3D45 /* Build LibSession if Needed */,
 				C3C2A6EB25539DE700C340D1 /* Headers */,
 				C3C2A6EC25539DE700C340D1 /* Sources */,
 				C3C2A6ED25539DE700C340D1 /* Frameworks */,
@@ -5797,50 +5795,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(TARGET_BUILD_DIR)/LibSessionUtil_BuildCache/libsession_util_built.timestamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/build_libSession_util.sh\" ${COMPILE_LIB_SESSION}\n";
-			showEnvVarsInLog = 0;
-		};
-		FDC605702C71683E009B3D45 /* Build LibSession if Needed */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build LibSession if Needed";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/build_libSession_util.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		FDC605712C716852009B3D45 /* Build LibSession if Needed */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build LibSession if Needed";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/build_libSession_util.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */ = {
@@ -6350,7 +6309,7 @@
 				FDC13D542A16FF29007267C7 /* LegacyGroupRequest.swift in Sources */,
 				B8B320B7258C30D70020074B /* HTMLMetadata.swift in Sources */,
 				FD09798727FD1B7800936362 /* GroupMember.swift in Sources */,
-				FD78EA0D2DDFEDE200D55B50 /* LibSession+Settings.swift in Sources */,
+				FD78EA0D2DDFEDE200D55B50 /* LibSession+Local.swift in Sources */,
 				FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */,
 				FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */,
 				FD09C5EC282B8F18000CE219 /* AttachmentError.swift in Sources */,
@@ -7615,11 +7574,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -7629,7 +7583,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7695,11 +7648,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -7710,7 +7658,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7755,11 +7702,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
+				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -7768,7 +7711,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7834,11 +7776,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
+				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -7849,7 +7787,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7894,11 +7831,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -7908,7 +7840,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7974,11 +7905,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -7989,7 +7915,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -8066,7 +7991,6 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/include/**";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MARKETING_VERSION = 2.11.0;
@@ -8141,7 +8065,6 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/include/**";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MARKETING_VERSION = 2.11.0;
@@ -8175,10 +8098,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
-				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -8190,23 +8109,10 @@
 				GCC_WARN_MULTIPLE_DEFINITION_TYPES_FOR_SELECTOR = NO;
 				GCC_WARN_STRICT_SELECTOR_MATCH = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${SRCROOT}/RedPhone/lib/ogg/include\"",
-					"\"${SRCROOT}/RedPhone/lib/debug/include\"",
-					"\"$(SRCROOT)/libtommath\"",
-					"\"$(SRCROOT)/libtomcrypt/headers\"",
-					"\"$(SRCROOT)/MMDrawerController\"",
-					"\"$(SRCROOT)/Libraries\"/**",
-				);
 				INFOPLIST_FILE = "Session/Meta/Session-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
-				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
 				OTHER_LDFLAGS = "$(inherited)";
@@ -8240,10 +8146,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
-				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -8255,23 +8157,10 @@
 				GCC_WARN_MULTIPLE_DEFINITION_TYPES_FOR_SELECTOR = NO;
 				GCC_WARN_STRICT_SELECTOR_MATCH = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${SRCROOT}/RedPhone/lib/ogg/include\"",
-					"\"${SRCROOT}/RedPhone/lib/debug/include\"",
-					"\"$(SRCROOT)/libtommath\"",
-					"\"$(SRCROOT)/libtomcrypt/headers\"",
-					"\"$(SRCROOT)/MMDrawerController\"",
-					"\"$(SRCROOT)/Libraries\"/**",
-				);
 				INFOPLIST_FILE = "Session/Meta/Session-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
-				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
 				OTHER_LDFLAGS = "$(inherited)";
@@ -8678,10 +8567,6 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/include/**",
-					"$(LIB_SESSION_SOURCE_DIR)/include/**",
-				);
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MARKETING_VERSION = 2.11.0;
@@ -8714,10 +8599,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
-				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -8729,23 +8610,10 @@
 				GCC_WARN_MULTIPLE_DEFINITION_TYPES_FOR_SELECTOR = NO;
 				GCC_WARN_STRICT_SELECTOR_MATCH = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${SRCROOT}/RedPhone/lib/ogg/include\"",
-					"\"${SRCROOT}/RedPhone/lib/debug/include\"",
-					"\"$(SRCROOT)/libtommath\"",
-					"\"$(SRCROOT)/libtomcrypt/headers\"",
-					"\"$(SRCROOT)/MMDrawerController\"",
-					"\"$(SRCROOT)/Libraries\"/**",
-				);
 				INFOPLIST_FILE = "Session/Meta/Session-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
-				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
 				OTHER_SWIFT_FLAGS = "$(inherited)";
@@ -9010,11 +8878,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -9024,7 +8887,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9069,11 +8931,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -9083,7 +8940,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9128,11 +8984,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
+				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -9142,7 +8994,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9310,10 +9161,6 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/include/**",
-					"$(LIB_SESSION_SOURCE_DIR)/include/**",
-				);
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MARKETING_VERSION = 2.11.0;
@@ -9345,10 +9192,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
-				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -9360,23 +9203,10 @@
 				GCC_WARN_MULTIPLE_DEFINITION_TYPES_FOR_SELECTOR = NO;
 				GCC_WARN_STRICT_SELECTOR_MATCH = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${SRCROOT}/RedPhone/lib/ogg/include\"",
-					"\"${SRCROOT}/RedPhone/lib/debug/include\"",
-					"\"$(SRCROOT)/libtommath\"",
-					"\"$(SRCROOT)/libtomcrypt/headers\"",
-					"\"$(SRCROOT)/MMDrawerController\"",
-					"\"$(SRCROOT)/Libraries\"/**",
-				);
 				INFOPLIST_FILE = "Session/Meta/Session-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
-				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
@@ -9756,11 +9586,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -9771,7 +9596,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9839,11 +9663,6 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -9854,7 +9673,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9922,11 +9740,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					/usr/lib/swift,
-				);
+				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -9937,7 +9751,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;

@@ -896,8 +896,15 @@ public extension LibSession.Cache {
 public extension Dependencies {
     func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (() -> Void)? = nil) {
         Task { [dependencies = self] in
+            let targetVariant: ConfigDump.Variant
+            
+            switch key {
+                case .checkForCommunityMessageRequests: targetVariant = .userProfile
+                default: targetVariant = .local
+            }
+            
             let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
-                try await cache.perform(for: .userProfile) {
+                try await cache.perform(for: targetVariant) {
                     await cache.set(key, value)
                 }
             }
@@ -913,7 +920,7 @@ public extension Dependencies {
     func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
         Task { [dependencies = self] in
             let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
-                try await cache.perform(for: .userProfile) {
+                try await cache.perform(for: .local) {
                     await cache.set(key, value)
                 }
             }

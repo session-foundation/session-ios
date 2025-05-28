@@ -48,32 +48,39 @@ public extension LibSessionCacheType {
 
 public extension LibSession.Cache {
     func has(_ key: Setting.BoolKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
         /// If a `bool` value doesn't exist then we return a negative value
         switch key {
-            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) >= 0)
-            default: return (user_profile_get_local_setting(conf, key.rawValue) >= 0)
+            case .checkForCommunityMessageRequests:
+                guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+                    return false
+                }
+                
+                return (user_profile_get_blinded_msgreqs(conf) >= 0)
+            
+            default:
+                guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
+                    return false
+                }
+                
+                return (local_get_setting(conf, key.rawValue) >= 0)
         }
     }
     
     func has(_ key: Setting.EnumKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+        guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
             return false
         }
         
         switch key {
             case .preferencesNotificationPreviewType:
-                return (user_profile_get_notification_content(conf) != Preferences.NotificationPreviewType.defaultLibSessionValue)
+                return (local_get_notification_content(conf) != Preferences.NotificationPreviewType.defaultLibSessionValue)
             
             case .defaultNotificationSound:
-                return (user_profile_get_notification_sound(conf) != Preferences.Sound.defaultLibSessionValue)
+                return (local_get_notification_sound(conf) != Preferences.Sound.defaultLibSessionValue)
             
-            case .theme: return (user_profile_get_theme(conf) != Theme.defaultLibSessionValue)
+            case .theme: return (local_get_theme(conf) != Theme.defaultLibSessionValue)
             case .themePrimaryColor:
-                return (user_profile_get_theme_primary_color(conf) != Theme.PrimaryColor.defaultLibSessionValue)
+                return (local_get_theme_primary_color(conf) != Theme.PrimaryColor.defaultLibSessionValue)
             
             default:
                 Log.critical(.libSession, "Failed to check existence of unknown '\(key)' setting due to missing libSesison function")
@@ -82,27 +89,34 @@ public extension LibSession.Cache {
     }
     
     func get(_ key: Setting.BoolKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
         switch key {
-            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) > 0)
-            default: return (user_profile_get_local_setting(conf, key.rawValue) > 0)
+            case .checkForCommunityMessageRequests:
+                guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+                    return false
+                }
+                
+                return (user_profile_get_blinded_msgreqs(conf) > 0)
+                
+            default:
+                guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
+                    return false
+                }
+                
+                return (local_get_setting(conf, key.rawValue) > 0)
         }
     }
     
     func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T? {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+        guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
             return nil
         }
         
         let retriever: (UnsafePointer<config_object>) -> Any? = {
             switch key {
-                case .preferencesNotificationPreviewType: return user_profile_get_notification_content
-                case .defaultNotificationSound: return user_profile_get_notification_sound
-                case .theme: return user_profile_get_theme
-                case .themePrimaryColor: return user_profile_get_theme_primary_color
+                case .preferencesNotificationPreviewType: return local_get_notification_content
+                case .defaultNotificationSound: return local_get_notification_sound
+                case .theme: return local_get_theme
+                case .themePrimaryColor: return local_get_theme_primary_color
                 default: return { _ in nil }
             }
         }()
@@ -120,10 +134,6 @@ public extension LibSession.Cache {
     }
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) async {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
-        }
-        
         let valueAsInt: Int32 = {
             switch value {
                 case .none: return -1
@@ -133,8 +143,19 @@ public extension LibSession.Cache {
         }()
         
         switch key {
-            case .checkForCommunityMessageRequests: user_profile_set_blinded_msgreqs(conf, valueAsInt)
-            default: user_profile_set_local_setting(conf, key.rawValue, valueAsInt)
+            case .checkForCommunityMessageRequests:
+                guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+                    return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
+                }
+                
+                user_profile_set_blinded_msgreqs(conf, valueAsInt)
+                
+            default:
+                guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
+                    return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
+                }
+                
+                local_set_setting(conf, key.rawValue, valueAsInt)
         }
         
         /// Add a pending observation to notify any observers of the change once it's committed
@@ -142,7 +163,7 @@ public extension LibSession.Cache {
     }
     
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+        guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
             return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
         }
         
@@ -154,28 +175,28 @@ public extension LibSession.Cache {
                     return Log.critical(.libSession, "Failed to set \(key) because we couldn't cast to the C type")
                 }
                 
-                user_profile_set_notification_sound(conf, value)
+                local_set_notification_sound(conf, value)
                 
             case .preferencesNotificationPreviewType:
                 guard let value: CLIENT_NOTIFY_CONTENT = libSessionValue as? CLIENT_NOTIFY_CONTENT else {
                     return Log.critical(.libSession, "Failed to set \(key) because we couldn't cast to the C type")
                 }
                 
-                user_profile_set_notification_content(conf, value)
+                local_set_notification_content(conf, value)
                 
             case .theme:
                 guard let value: CLIENT_THEME = libSessionValue as? CLIENT_THEME else {
                     return Log.critical(.libSession, "Failed to set \(key) because we couldn't cast to the C type")
                 }
                 
-                user_profile_set_theme(conf, value)
+                local_set_theme(conf, value)
                 
             case .themePrimaryColor:
                 guard let value: CLIENT_THEME_PRIMARY_COLOR = libSessionValue as? CLIENT_THEME_PRIMARY_COLOR else {
                     return Log.critical(.libSession, "Failed to set \(key) because we couldn't cast to the C type")
                 }
                 
-                user_profile_set_theme_primary_color(conf, value)
+                local_set_theme_primary_color(conf, value)
                 
             default: Log.critical(.libSession, "Failed to set unknown \(key) due to missing libSesison function")
         }

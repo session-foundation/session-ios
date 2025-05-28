@@ -71,7 +71,7 @@ enum _027_MoveSettingsToLibSession: Migration {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         Task {
             do {
-                mutation = try await cache.perform(for: .userProfile) {
+                mutation = try await cache.perform(for: .local) {
                     /// Move bool settings across
                     for key in boolSettings {
                         guard let data: Data = settings[key.rawValue] else { continue }

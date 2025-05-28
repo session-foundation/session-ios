@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionUtilitiesKit
 import Combine
+import SessionUtilitiesKit
 
 // MARK: - MockError
 
@@ -12,12 +12,13 @@ public enum MockError: Error {
 
 // MARK: - Mock<T>
 
-public class Mock<T>: DependenciesSettable {
+public class Mock<T>: DependenciesSettable, InitialSetupable {
     private var _dependencies: Dependencies!
     private let functionHandler: MockFunctionHandler
     internal let functionConsumer: FunctionConsumer
     
     public var dependencies: Dependencies { _dependencies }
+    private var initialSetup: ((Mock<T>) -> ())?
     
     // MARK: - Initialization
     
@@ -27,7 +28,7 @@ public class Mock<T>: DependenciesSettable {
     ) {
         self.functionConsumer = FunctionConsumer()
         self.functionHandler = (functionHandler ?? self.functionConsumer)
-        initialSetup?(self)
+        self.initialSetup = initialSetup
     }
     
     // MARK: - DependenciesSettable
@@ -36,58 +37,70 @@ public class Mock<T>: DependenciesSettable {
         self._dependencies = dependencies
     }
     
+    // MARK: - InitialSetupable
+    
+    func performInitialSetup() {
+        self.initialSetup?(self)
+        self.initialSetup = nil
+    }
+    
     // MARK: - MockFunctionHandler
     
-    @discardableResult internal func mock<Output>(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) -> Output {
+    @discardableResult internal func mock<Output>(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) -> Output {
         return functionHandler.mock(
             funcName,
             parameterCount: args.count,
             parameterSummary: summary(for: args),
             allParameterSummaryCombinations: summaries(for: args),
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
     }
     
-    internal func mockNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) {
+    internal func mockNoReturn(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) {
         functionHandler.mockNoReturn(
             funcName,
             parameterCount: args.count,
             parameterSummary: summary(for: args),
             allParameterSummaryCombinations: summaries(for: args),
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
     }
     
-    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws -> Output {
+    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) throws -> Output {
         return try functionHandler.mockThrowing(
             funcName,
             parameterCount: args.count,
             parameterSummary: summary(for: args),
             allParameterSummaryCombinations: summaries(for: args),
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
     }
     
-    internal func mockThrowingNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws {
+    internal func mockThrowingNoReturn(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) throws {
         try functionHandler.mockThrowingNoReturn(
             funcName,
             parameterCount: args.count,
             parameterSummary: summary(for: args),
             allParameterSummaryCombinations: summaries(for: args),
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
     }
     
-    internal func getExpectation(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) -> MockFunction? {
+    internal func getExpectation(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) -> MockFunction? {
         return functionConsumer.getExpectation(
             funcName,
             parameterCount: args.count,
             parameterSummary: summary(for: args),
             allParameterSummaryCombinations: summaries(for: args),
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
@@ -96,15 +109,19 @@ public class Mock<T>: DependenciesSettable {
     // MARK: - Functions
     
     internal func reset() {
-        functionConsumer.trackCalls = true
-        functionConsumer.functionBuilders = []
-        functionConsumer.functionHandlers = [:]
-        functionConsumer.clearCalls()
+        functionConsumer.reset()
     }
     
     internal func when<R>(_ callBlock: @escaping (inout T) throws -> R) -> MockFunctionBuilder<T, R> {
         let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
-        functionConsumer.functionBuilders.append(builder.build)
+        functionConsumer.addBuilder(builder.build)
+        
+        return builder
+    }
+    
+    internal func when<R>(_ callBlock: @escaping (inout T) async throws -> R) -> MockFunctionBuilder<T, R> {
+        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
+        functionConsumer.addBuilder(builder.build)
         
         return builder
     }
@@ -251,6 +268,7 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output
@@ -260,6 +278,7 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     )
@@ -269,6 +288,7 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output
@@ -278,6 +298,7 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws
@@ -309,9 +330,11 @@ internal class MockFunction {
     var parameterCount: Int
     var parameterSummary: String
     var allParameterSummaryCombinations: [ParameterCombination]
-    var args: [Any?]?
-    var untrackedArgs: [Any?]?
+    var generics: [Any.Type]
+    var args: [Any?]
+    var untrackedArgs: [Any?]
     var actions: [([Any?], [Any?]) -> Void]
+    var asyncActions: [([Any?], [Any?]) async -> Void]
     var returnError: (any Error)?
     var closureCallArgs: [Any?]
     var returnValue: Any?
@@ -322,9 +345,11 @@ internal class MockFunction {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?],
         actions: [([Any?], [Any?]) -> Void],
+        asyncActions: [([Any?], [Any?]) async -> Void],
         returnError: (any Error)?,
         closureCallArgs: [Any?],
         returnValue: Any?,
@@ -334,6 +359,10 @@ internal class MockFunction {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.generics = generics
+        self.args = args
+        self.untrackedArgs = untrackedArgs
+        self.asyncActions = asyncActions
         self.actions = actions
         self.returnError = returnError
         self.closureCallArgs = closureCallArgs
@@ -351,9 +380,11 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private var parameterCount: Int?
     private var parameterSummary: String?
     private var allParameterSummaryCombinations: [ParameterCombination]?
+    private var generics: [Any.Type]?
     private var args: [Any?]?
     private var untrackedArgs: [Any?]?
     private var actions: [([Any?], [Any?]) -> Void] = []
+    private var asyncActions: [([Any?], [Any?]) async -> Void] = []
     private var closureCallArgs: [Any?] = []
     private var returnValue: R?
     private var dynamicReturnValueRetriever: (([Any?], [Any?]) -> R?)?
@@ -361,7 +392,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     /// This value should only ever be set via the `NimbleExtensions` `generateCallInfo` function, in order to use a closure to
     /// generate the return value the `dynamicReturnValueRetriever` value should be used instead
-    internal var returnValueGenerator: ((String, Int, String, [ParameterCombination]) -> R?)?
+    internal var returnValueGenerator: ((String, [Any.Type], Int, String, [ParameterCombination]) -> R?)?
     
     // MARK: - Initialization
     
@@ -378,9 +409,21 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         return self
     }
     
+    /// Closure parameter is an array of arguments called by the function
+    @discardableResult func then(_ block: @escaping ([Any?]) async -> Void) -> MockFunctionBuilder<T, R> {
+        asyncActions.append({ args, _ in await block(args) })
+        return self
+    }
+    
     /// Closure parameters are an array of arguments, followed by an array of "untracked" arguments called by the function
     @discardableResult func then(_ block: @escaping ([Any?], [Any?]) -> Void) -> MockFunctionBuilder<T, R> {
         actions.append(block)
+        return self
+    }
+    
+    /// Closure parameters are an array of arguments, followed by an array of "untracked" arguments called by the function
+    @discardableResult func then(_ block: @escaping ([Any?], [Any?]) async -> Void) -> MockFunctionBuilder<T, R> {
+        asyncActions.append(block)
         return self
     }
     
@@ -389,11 +432,16 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     }
     
     func thenReturn(_ value: R?) {
+        (value as? (any InitialSetupable))?.performInitialSetup()
         returnValue = value
     }
     
     func thenReturn(_ closure: @escaping (([Any?], [Any?]) -> R?)) {
-        dynamicReturnValueRetriever = closure
+        dynamicReturnValueRetriever = { args, untrackedArgs in
+            let result = closure(args, untrackedArgs)
+            (result as? (any InitialSetupable))?.performInitialSetup()
+            return result
+        }
     }
     
     func thenThrow(_ error: Error) {
@@ -407,6 +455,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output {
@@ -414,13 +463,14 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.generics = generics
         self.args = args
         self.untrackedArgs = untrackedArgs
         
         let result: Any? = (
             returnValue ??
             dynamicReturnValueRetriever?(args, untrackedArgs) ??
-            returnValueGenerator?(functionName, parameterCount, parameterSummary, allParameterSummaryCombinations)
+            returnValueGenerator?(functionName, generics, parameterCount, parameterSummary, allParameterSummaryCombinations)
         )
         
         switch result {
@@ -442,6 +492,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) {
@@ -449,6 +500,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.generics = generics
         self.args = args
         self.untrackedArgs = untrackedArgs
     }
@@ -458,6 +510,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output {
@@ -465,6 +518,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.generics = generics
         self.args = args
         self.untrackedArgs = untrackedArgs
         
@@ -473,7 +527,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         let result: Any? = (
             returnValue ??
             dynamicReturnValueRetriever?(args, untrackedArgs) ??
-            returnValueGenerator?(functionName, parameterCount, parameterSummary, allParameterSummaryCombinations)
+            returnValueGenerator?(functionName, generics, parameterCount, parameterSummary, allParameterSummaryCombinations)
         )
         
         switch result {
@@ -495,6 +549,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws {
@@ -502,6 +557,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.generics = generics
         self.args = args
         self.untrackedArgs = untrackedArgs
         
@@ -512,13 +568,31 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     func build() async throws -> MockFunction {
         var completionMock = mockInit(self, nil) as! T
-        _ = try? await callBlock(&completionMock)
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        Task {
+            await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { _ = try? await self.callBlock(&completionMock) }
+                group.addTask {
+                    let numIterations: UInt64 = 50
+                    
+                    for _ in (0..<numIterations) {
+                        try await Task.sleep(for: .seconds(5))
+                    }
+                    throw TestError.timeout
+                }
+                
+                _ = await group.nextResult()
+                semaphore.signal()
+            }
+        }
+        semaphore.wait()
         
         guard
             let name: String = functionName,
             let parameterCount: Int = parameterCount,
             let parameterSummary: String = parameterSummary,
             let allParameterSummaryCombinations: [ParameterCombination] = allParameterSummaryCombinations,
+            let generics: [Any.Type] = generics,
             let args: [Any?] = args,
             let untrackedArgs: [Any?] = untrackedArgs
         else { preconditionFailure("Attempted to build the MockFunction before it was called") }
@@ -528,9 +602,11 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs,
             actions: actions,
+            asyncActions: asyncActions,
             returnError: returnError,
             closureCallArgs: closureCallArgs,
             returnValue: returnValue,
@@ -577,6 +653,12 @@ protocol DependenciesSettable {
     func setDependencies(_ dependencies: Dependencies?)
 }
 
+// MARK: - InitialSetupable
+
+protocol InitialSetupable {
+    func performInitialSetup()
+}
+
 // MARK: - FunctionConsumer
 
 internal class FunctionConsumer: MockFunctionHandler {
@@ -584,15 +666,22 @@ internal class FunctionConsumer: MockFunctionHandler {
         let name: String
         let paramCount: Int
         
-        internal init(name: String, paramCount: Int) {
-            self.name = name
+        internal init(name: String, generics: [Any.Type], paramCount: Int) {
+            let splitName: [String] = name.split(separator: "(").map { String($0) }
+            let genericsString: String = "<\(generics.map { "\($0)" }.joined(separator: ", "))>"
+            
+            switch (generics.count, splitName.count) {
+                case (1..., 1): self.name = "\(splitName[0])\(genericsString)"
+                case (1..., 2): self.name = "\(splitName[0])\(genericsString)(\(splitName[1])"
+                default: self.name = name
+            }
             self.paramCount = paramCount
         }
     }
     
     var trackCalls: Bool = true
-    var functionBuilders: [() async throws -> MockFunction?] = []
-    var functionHandlers: [Key: [String: MockFunction]] = [:]
+    @ThreadSafeObject var functionBuilders: [() throws -> MockFunction?] = []
+    @ThreadSafeObject var functionHandlers: [Key: [String: MockFunction]] = [:]
     @ThreadSafeObject var calls: [Key: [CallDetails]] = [:]
     
     fileprivate func getExpectation(
@@ -600,10 +689,11 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) -> MockFunction? {
-        let key: Key = Key(name: functionName, paramCount: parameterCount)
+        let key: Key = Key(name: functionName, generics: generics, paramCount: parameterCount)
         
         if !functionBuilders.isEmpty {
             functionBuilders
@@ -619,7 +709,11 @@ internal class FunctionConsumer: MockFunctionHandler {
                     return result
                 }
                 .forEach { function in
-                    let key: Key = Key(name: function.name, paramCount: function.parameterCount)
+                    let key: Key = Key(
+                        name: function.name,
+                        generics: function.generics,
+                        paramCount: function.parameterCount
+                    )
                     var updatedHandlers: [String: MockFunction] = (functionHandlers[key] ?? [:])
                     
                     // Add the actual 'parameterSummary' value for the handlers (override any
@@ -632,10 +726,10 @@ internal class FunctionConsumer: MockFunctionHandler {
                         updatedHandlers[combination.summary] = function
                     }
                     
-                    functionHandlers[key] = updatedHandlers
+                    _functionHandlers.performUpdate { $0.setting(key, updatedHandlers) }
                 }
             
-            functionBuilders.removeAll()
+            _functionBuilders.performUpdate { _ in [] }
         }
         
         return firstFunction(
@@ -650,21 +744,23 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) -> MockFunction {
-        let key: Key = Key(name: functionName, paramCount: parameterCount)
+        let key: Key = Key(name: functionName, generics: generics, paramCount: parameterCount)
         let maybeExpectation: MockFunction? = getExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
         
         guard let expectation: MockFunction = maybeExpectation else {
-            preconditionFailure("No expectations found for \(functionName)")
+            preconditionFailure("No expectations found for \(key.name)")
         }
         
         // Record the call so it can be validated later (assuming we are tracking calls)
@@ -683,6 +779,18 @@ internal class FunctionConsumer: MockFunctionHandler {
             action(args, untrackedArgs)
         }
         
+        if !expectation.asyncActions.isEmpty {
+            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            Task {
+                for action in expectation.asyncActions {
+                    await action(args, untrackedArgs)
+                }
+                
+                semaphore.signal()
+            }
+            semaphore.wait()
+        }
+        
         return expectation
     }
     
@@ -691,6 +799,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output {
@@ -699,6 +808,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
@@ -723,6 +833,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) {
@@ -731,6 +842,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
@@ -741,6 +853,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output {
@@ -749,6 +862,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
@@ -774,6 +888,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
     ) throws {
@@ -782,6 +897,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            generics: generics,
             args: args,
             untrackedArgs: untrackedArgs
         )
@@ -821,6 +937,18 @@ internal class FunctionConsumer: MockFunctionHandler {
         }
         
         return expectation
+    }
+    
+    fileprivate func addBuilder(_ build: @escaping () throws -> MockFunction) {
+        _functionBuilders.performUpdate { $0.appending(build) }
+    }
+    
+    fileprivate func reset() {
+        trackCalls = true
+        clearCalls()
+        
+        _functionBuilders.performUpdate { _ in [] }
+        _functionHandlers.performUpdate { _ in [:] }
     }
     
     fileprivate func clearCalls() {
