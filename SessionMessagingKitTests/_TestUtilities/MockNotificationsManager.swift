@@ -41,7 +41,7 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
     ) {
-        mockNoReturn(args: [threadId, threadVariant, applicationState], untrackedArgs: [db])
+        mockNoReturn(args: [threadId, threadVariant, applicationState])
     }
     
     public func addNotificationRequest(

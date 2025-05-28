@@ -1525,6 +1525,7 @@ class ExtensionHelperSpec: QuickSpec {
                     
                     let key: FunctionConsumer.Key = FunctionConsumer.Key(
                         name: "contentsOfDirectory(atPath:)",
+                        generics: [],
                         paramCount: 1
                     )
                     expect(mockFileManager.functionConsumer.calls[key]).to(equal([

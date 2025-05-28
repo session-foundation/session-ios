@@ -2,7 +2,6 @@
 
 import Foundation
 import Nimble
-import CwlPreconditionTesting
 import SessionUtilitiesKit
 
 public enum CallAmount {
@@ -41,7 +40,7 @@ public func call<M, T, R>(
     _ amount: CallAmount = .atLeast(times: 1),
     matchingParameters: ParameterMatchType = .none,
     exclusive: Bool = false,
-    functionBlock: @escaping (inout T) throws -> R
+    functionBlock: @escaping (inout T) async throws -> R
 ) -> Matcher<M> where M: Mock<T> {
     return Matcher.define { actualExpression in
         /// First generate the call info
@@ -73,13 +72,13 @@ public func call<M, T, R>(
             .joined(separator: " ")
         }()
         
-        /// If an exception was thrown when generating call info then fail (mock value likely invalid)
-        guard callInfo.caughtException == nil else {
+        /// If an error was thrown when generating call info then fail (mock value likely invalid)
+        guard callInfo.caughtError == nil else {
             return MatcherResult(
                 bool: false,
                 message: .expectedCustomValueTo(
                     expectedDescription,
-                    actual: "a thrown assertion (invalid mock param, not called or no mocked return value)"
+                    actual: "an error (invalid mock param, not called or no mocked return value)"
                 )
             )
         }
@@ -249,7 +248,7 @@ public func call<M, T, R>(
 
 fileprivate struct CallInfo {
     let didError: Bool
-    let caughtException: BadInstructionException?
+    let caughtError: Error?
     let targetFunction: MockFunction?
     let allFunctionsCalled: [FunctionConsumer.Key]
     let allCallDetails: [CallDetails]
@@ -261,7 +260,7 @@ fileprivate struct CallInfo {
     static var error: CallInfo {
         CallInfo(
             didError: true,
-            caughtException: nil,
+            caughtError: nil,
             targetFunction: nil,
             allFunctionsCalled: [],
             allCallDetails: []
@@ -270,13 +269,13 @@ fileprivate struct CallInfo {
     
     init(
         didError: Bool = false,
-        caughtException: BadInstructionException?,
+        caughtError: Error?,
         targetFunction: MockFunction?,
         allFunctionsCalled: [FunctionConsumer.Key],
         allCallDetails: [CallDetails]
     ) {
         self.didError = didError
-        self.caughtException = caughtException
+        self.caughtError = caughtError
         self.targetFunction = targetFunction
         self.allFunctionsCalled = allFunctionsCalled
         self.allCallDetails = allCallDetails
@@ -285,17 +284,18 @@ fileprivate struct CallInfo {
 
 fileprivate func generateCallInfo<M, T, R>(
     _ actualExpression: Nimble.Expression<M>,
-    _ functionBlock: @escaping (inout T) throws -> R
+    _ functionBlock: @escaping (inout T) async throws -> R
 ) -> CallInfo where M: Mock<T> {
     var maybeTargetFunction: MockFunction?
     var allFunctionsCalled: [FunctionConsumer.Key] = []
     var allCallDetails: [CallDetails] = []
+    var caughtError: Error? = nil
     let builderCreator: ((M) -> MockFunctionBuilder<T, R>) = { validInstance in
         let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(functionBlock, mockInit: type(of: validInstance).init)
-        builder.returnValueGenerator = { name, parameterCount, parameterSummary, allParameterSummaryCombinations in
+        builder.returnValueGenerator = { name, generics, parameterCount, parameterSummary, allParameterSummaryCombinations in
             validInstance.functionConsumer
                 .firstFunction(
-                    for: FunctionConsumer.Key(name: name, paramCount: parameterCount),
+                    for: FunctionConsumer.Key(name: name, generics: generics, paramCount: parameterCount),
                     matchingParameterSummaryIfPossible: parameterSummary,
                     allParameterSummaryCombinations: allParameterSummaryCombinations
                 )?
@@ -305,78 +305,39 @@ fileprivate func generateCallInfo<M, T, R>(
         return builder
     }
     
-    #if (arch(x86_64) || arch(arm64)) && (canImport(Darwin) || canImport(Glibc))
-    var didError: Bool = false
-    let caughtException: BadInstructionException? = catchBadInstruction {
-        do {
-            guard let validInstance: M = try actualExpression.evaluate() else {
-                didError = true
-                return
-            }
-            
-            allFunctionsCalled = Array(validInstance.functionConsumer.calls.keys)
-            
-            // Only check for the specific function calls if there was at least a single
-            // call (if there weren't any this will likely throw errors when attempting
-            // to build)
-            if !allFunctionsCalled.isEmpty {
-                let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
-                validInstance.functionConsumer.trackCalls = false
-                maybeTargetFunction = try? builder.build()
-
-                let key: FunctionConsumer.Key = FunctionConsumer.Key(
-                    name: (maybeTargetFunction?.name ?? ""),
-                    paramCount: (maybeTargetFunction?.parameterCount ?? 0)
-                )
-                allCallDetails = validInstance.functionConsumer.calls[key]
-                    .defaulting(to: [])
-                validInstance.functionConsumer.trackCalls = true
-            }
-            else {
-                allCallDetails = []
-            }
-        }
-        catch {
-            didError = true
-        }
-    }
-    
-    // Make sure to switch this back on in case an assertion was thrown (which would meant this
-    // wouldn't have been reset)
-    (try? actualExpression.evaluate())?.functionConsumer.trackCalls = true
-    
-    guard !didError else { return CallInfo.error }
-    #else
-    let caughtException: BadInstructionException? = nil
-    
     // Just hope for the best and if there is a force-cast there's not much we can do
-    guard let validInstance: M = try? actualExpression.evaluate() else { return CallInfo.error }
-    
-    allFunctionsCalled = Array(validInstance.functionConsumer.calls.keys)
-    
-    // Only check for the specific function calls if there was at least a single
-    // call (if there weren't any this will likely throw errors when attempting
-    // to build)
-    if !allFunctionsCalled.isEmpty {
-        let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
-        validInstance.functionConsumer.trackCalls = false
-        maybeTargetFunction = try? builder.build()
+    do {
+        guard let validInstance: M = try actualExpression.evaluate() else {
+            throw TestError.unableToEvaluateExpression
+        }
         
-        let key: FunctionConsumer.Key = FunctionConsumer.Key(
-            name: (maybeTargetFunction?.name ?? ""),
-            paramCount: (maybeTargetFunction?.parameterCount ?? 0)
-        )
-        allCallDetails = validInstance.functionConsumer.calls[key]
-            .defaulting(to: [])
-        validInstance.functionConsumer.trackCalls = true
+        allFunctionsCalled = Array(validInstance.functionConsumer.calls.keys)
+        
+        // Only check for the specific function calls if there was at least a single
+        // call (if there weren't any this will likely throw errors when attempting
+        // to build)
+        if !allFunctionsCalled.isEmpty {
+            let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
+            validInstance.functionConsumer.trackCalls = false
+            maybeTargetFunction = try builder.build()
+            
+            let key: FunctionConsumer.Key = FunctionConsumer.Key(
+                name: (maybeTargetFunction?.name ?? ""),
+                generics: (maybeTargetFunction?.generics ?? []),
+                paramCount: (maybeTargetFunction?.parameterCount ?? 0)
+            )
+            allCallDetails = validInstance.functionConsumer.calls[key]
+                .defaulting(to: [])
+            validInstance.functionConsumer.trackCalls = true
+        }
+        else {
+            allCallDetails = []
+        }
     }
-    else {
-        allCallDetails = []
-    }
-    #endif
+    catch { caughtError = error }
     
     return CallInfo(
-        caughtException: caughtException,
+        caughtError: caughtError,
         targetFunction: maybeTargetFunction,
         allFunctionsCalled: allFunctionsCalled,
         allCallDetails: allCallDetails

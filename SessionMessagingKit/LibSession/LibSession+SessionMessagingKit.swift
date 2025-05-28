@@ -118,9 +118,8 @@ private class ConfigStore {
         store.forEach { _, config in
             switch config {
                 case .groupKeys: break    // Shouldn't happen
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     config_free(conf)
             }
         }
@@ -400,7 +399,8 @@ public extension LibSession {
                 .userProfile: user_profile_init,
                 .contacts: contacts_init,
                 .convoInfoVolatile: convo_info_volatile_init,
-                .userGroups: user_groups_init
+                .userGroups: user_groups_init,
+                .local: local_init
             ]
             let groupConfigInitCalls: [ConfigDump.Variant: GroupConfigInitialiser] = [
                 .groupInfo: groups_info_init,
@@ -413,7 +413,7 @@ public extension LibSession {
                         throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
                             .logging("Unable to create \(variant.rawValue) config object for: \(sessionId.hexString)")
                         
-                    case (.userProfile, _), (.contacts, _), (.convoInfoVolatile, _), (.userGroups, _):
+                    case (.userProfile, _), (.contacts, _), (.convoInfoVolatile, _), (.userGroups, _), (.local, _):
                         return try (userConfigInitCalls[variant]?(
                             &conf,
                             &secretKey,
@@ -542,9 +542,9 @@ public extension LibSession {
                     configs.forEach { config in
                         switch config {
                             case .groupKeys: break    // Should be handled above
-                            case .userProfile(let conf), .contacts(let conf),
-                                .convoInfoVolatile(let conf), .userGroups(let conf),
-                                .groupInfo(let conf), .groupMembers(let conf):
+                            case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                                .userGroups(let conf), .local(let conf), .groupInfo(let conf),
+                                .groupMembers(let conf):
                                 config_free(conf)
                         }
                     }
@@ -777,9 +777,8 @@ public extension LibSession {
         public func configNeedsDump(_ config: LibSession.Config?) -> Bool {
             switch config {
                 case .none: return false
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     return config_needs_dump(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
             }
@@ -927,6 +926,10 @@ public extension LibSession {
                             in: config,
                             groupSessionId: sessionId
                         )
+                        
+                    case .local:
+                        pendingChanges = []
+                        Log.error(.libSession, "Tried to process merge of local config")
                     
                     case .invalid:
                         pendingChanges = []
@@ -1492,6 +1495,7 @@ private extension Optional where Wrapped == Int32 {
             case .contacts: return .contacts(conf)
             case .convoInfoVolatile: return .convoInfoVolatile(conf)
             case .userGroups: return .userGroups(conf)
+            case .local: return .local(conf)
             case .groupInfo: return .groupInfo(conf)
             case .groupMembers: return .groupMembers(conf)
             
@@ -1525,7 +1529,7 @@ private extension SessionId {
     init(hex: String, dumpVariant: ConfigDump.Variant) {
         switch (try? SessionId(from: hex), dumpVariant) {
             case (.some(let sessionId), _): self = sessionId
-            case (_, .userProfile), (_, .contacts), (_, .convoInfoVolatile), (_, .userGroups):
+            case (_, .userProfile), (_, .contacts), (_, .convoInfoVolatile), (_, .userGroups), (_, .local):
                 self = SessionId(.standard, hex: hex)
                 
             case (_, .groupInfo), (_, .groupMembers), (_, .groupKeys):

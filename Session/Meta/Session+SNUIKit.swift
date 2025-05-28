@@ -24,7 +24,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool) {
         Task { [dependencies] in
             let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
-                try await cache.perform(for: .userProfile) {
+                try await cache.perform(for: .local) {
                     await cache.set(.theme, theme)
                     await cache.set(.themePrimaryColor, primaryColor)
                     await cache.set(.themeMatchSystemDayNightCycle, matchSystemNightModeSetting)

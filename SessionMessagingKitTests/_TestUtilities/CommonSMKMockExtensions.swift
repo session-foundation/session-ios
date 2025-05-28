@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUtil
+import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
@@ -32,6 +33,10 @@ extension LibSession.OpenGroupUrlInfo: Mocked {
         roomToken: .mock,
         publicKey: .mock
     )
+}
+
+extension LibSession.ObservableKey: Mocked {
+    static var mock: LibSession.ObservableKey = "mockObservableKey"
 }
 
 extension SessionThread: Mocked {
@@ -110,4 +115,35 @@ extension NotificationContent: Mocked {
 
 extension Preferences.NotificationSettings: Mocked {
     static var mock: Preferences.NotificationSettings = .defaultFor(.mock)
+}
+
+enum MockLibSessionConvertible: Int, Codable, LibSessionConvertibleEnum, Mocked {
+    typealias LibSessionType = Int
+    
+    static var mock: MockLibSessionConvertible = .mockValue
+    
+    case mockValue = 0
+    
+    public static var defaultLibSessionValue: LibSessionType { 0 }
+    public var libSessionValue: LibSessionType { 0 }
+    
+    public init(_ libSessionValue: LibSessionType) {
+        self = .mockValue
+    }
+}
+
+extension Preferences.Sound: Mocked {
+    static var mock: Preferences.Sound = .defaultNotificationSound
+}
+
+extension Preferences.NotificationPreviewType: Mocked {
+    static var mock: Preferences.NotificationPreviewType = .defaultPreviewType
+}
+
+extension Theme: Mocked {
+    static var mock: Theme = .defaultTheme
+}
+
+extension Theme.PrimaryColor: Mocked {
+    static var mock: Theme.PrimaryColor = .defaultPrimaryColor
 }

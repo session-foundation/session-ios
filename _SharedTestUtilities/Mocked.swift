@@ -112,6 +112,14 @@ extension Log.Category: Mocked {
     static var mock: Log.Category = .create("mock", defaultLevel: .debug)
 }
 
+extension Setting.BoolKey: Mocked {
+    static var mock: Setting.BoolKey = "mockBool"
+}
+
+extension Setting.EnumKey: Mocked {
+    static var mock: Setting.EnumKey = "mockEnum"
+}
+
 // MARK: - Encodable Convenience
 
 extension Mocked where Self: Encodable {
