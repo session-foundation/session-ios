@@ -469,6 +469,24 @@ extension MessageReceiver {
                     using: dependencies
                 )
             },
+            groupNameRetriever: { threadId, threadVariant in
+                switch threadVariant {
+                    case .group:
+                        let groupId: SessionId = SessionId(.group, hex: threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupName(groupSessionId: groupId)
+                        }
+                        
+                    case .community:
+                        return try? OpenGroup
+                            .select(.name)
+                            .filter(id: threadId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                    default: return nil
+                }
+            },
             shouldShowForMessageRequest: {
                 // We only want to show a notification for the first interaction in the thread
                 return (numPreviousInteractionsForMessageRequest == 0)
@@ -574,6 +592,24 @@ extension MessageReceiver {
                                 threadVariant: thread.variant,
                                 using: dependencies
                             )
+                        },
+                        groupNameRetriever: { threadId, threadVariant in
+                            switch threadVariant {
+                                case .group:
+                                    let groupId: SessionId = SessionId(.group, hex: threadId)
+                                    return dependencies.mutate(cache: .libSession) { cache in
+                                        cache.groupName(groupSessionId: groupId)
+                                    }
+                                    
+                                case .community:
+                                    return try? OpenGroup
+                                        .select(.name)
+                                        .filter(id: threadId)
+                                        .asRequest(of: String.self)
+                                        .fetchOne(db)
+                                    
+                                default: return nil
+                            }
                         },
                         shouldShowForMessageRequest: { false }
                     )

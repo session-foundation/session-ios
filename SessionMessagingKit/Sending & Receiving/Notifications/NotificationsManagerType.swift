@@ -149,32 +149,31 @@ public extension NotificationsManagerType {
         isMessageRequest: Bool,
         notificationSettings: Preferences.NotificationSettings,
         displayNameRetriever: (String) -> String?,
+        groupNameRetriever: (String, SessionThread.Variant) -> String?,
         using dependencies: Dependencies
     ) throws -> String {
         switch (notificationSettings.previewType, message.sender, isMessageRequest, threadVariant) {
             /// If it's a message request or shouldn't have a title then use something generic
-            case (.noNameNoPreview, _, _, _), (_, _, true, _), (_, .none, _, _):
+            case (.noNameNoPreview, _, _, _), (_, .none, _, _), (_, _, true, _):
                 return Constants.app_name
                 
             case (.nameNoPreview, .some(let sender), _, .contact), (.nameAndPreview, .some(let sender), _, .contact):
                 return displayNameRetriever(sender)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
                 
-            case (.nameNoPreview, .some(let sender), _, .group), (.nameAndPreview, .some(let sender), _, .group):
-                let groupId: SessionId = SessionId(.group, hex: threadId)
+            case (.nameNoPreview, .some(let sender), _, .group), (.nameAndPreview, .some(let sender), _, .group),
+                (.nameNoPreview, .some(let sender), _, .community), (.nameAndPreview, .some(let sender), _, .community):
                 let senderName: String = displayNameRetriever(sender)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
-                let groupName: String = dependencies.mutate(cache: .libSession) { cache in
-                    cache.groupName(groupSessionId: groupId)
-                }
-                .defaulting(to: "groupUnknown".localized())
+                let groupName: String = groupNameRetriever(threadId, threadVariant)
+                    .defaulting(to: "groupUnknown".localized())
                 
                 return "notificationsIosGroup"
                     .put(key: "name", value: senderName)
                     .put(key: "conversation_name", value: groupName)
                     .localized()
                 
-            default: throw MessageReceiverError.ignorableMessage
+            case (_, _, _, .legacyGroup): throw MessageReceiverError.ignorableMessage
         }
     }
     
@@ -270,6 +269,7 @@ public extension NotificationsManagerType {
         extensionBaseUnreadCount: Int?,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String) -> String?,
+        groupNameRetriever: (String, SessionThread.Variant) -> String?,
         shouldShowForMessageRequest: () -> Bool
     ) throws {
         let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
@@ -327,6 +327,7 @@ public extension NotificationsManagerType {
                     isMessageRequest: isMessageRequest,
                     notificationSettings: notificationSettings,
                     displayNameRetriever: displayNameRetriever,
+                    groupNameRetriever: groupNameRetriever,
                     using: dependencies
                 ),
                 body: notificationBody(

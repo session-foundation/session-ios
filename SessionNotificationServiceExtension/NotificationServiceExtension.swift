@@ -729,6 +729,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever,
+            groupNameRetriever: { threadId, threadVariant in
+                switch threadVariant {
+                    case .group:
+                        let groupId: SessionId = SessionId(.group, hex: threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupName(groupSessionId: groupId)
+                        }
+                        
+                    case .community: return nil  /// Communities currently don't support PNs
+                    default: return nil
+                }
+            },
             shouldShowForMessageRequest: {
                 !dependencies[singleton: .extensionHelper]
                     .hasAtLeastOneDedupeRecord(threadId: threadId)

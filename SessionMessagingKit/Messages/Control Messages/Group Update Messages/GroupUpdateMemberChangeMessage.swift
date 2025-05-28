@@ -58,14 +58,15 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         changeType: ChangeType,
         memberSessionIds: [String],
         historyShared: Bool,
-        adminSignature: Authentication.Signature
+        adminSignature: Authentication.Signature,
+        sender: String? = nil
     ) {
         self.changeType = changeType
         self.memberSessionIds = memberSessionIds
         self.historyShared = historyShared
         self.adminSignature = adminSignature
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Signature Generation
