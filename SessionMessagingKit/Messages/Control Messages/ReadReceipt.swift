@@ -12,8 +12,8 @@ public final class ReadReceipt: ControlMessage {
 
     // MARK: - Initialization
     
-    internal init(timestamps: [UInt64]) {
-        super.init()
+    internal init(timestamps: [UInt64], sender: String? = nil) {
+        super.init(sender: sender)
         
         self.timestamps = timestamps
     }

@@ -49,8 +49,8 @@ public final class TypingIndicator: ControlMessage {
 
     // MARK: - Initialization
 
-    internal init(kind: Kind) {
-        super.init()
+    internal init(kind: Kind, sender: String? = nil) {
+        super.init(sender: sender)
         
         self.kind = kind
     }

@@ -18,10 +18,10 @@ public final class LibSessionMessage: Message, NotProtoConvertible {
 
     // MARK: - Initialization
     
-    internal init(ciphertext: Data) {
+    internal init(ciphertext: Data, sender: String? = nil) {
         self.ciphertext = ciphertext
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Codable

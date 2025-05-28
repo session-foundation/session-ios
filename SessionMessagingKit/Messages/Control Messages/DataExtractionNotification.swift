@@ -30,10 +30,12 @@ public final class DataExtractionNotification: ControlMessage {
     
     public init(
         kind: Kind,
-        sentTimestampMs: UInt64? = nil
+        sentTimestampMs: UInt64? = nil,
+        sender: String? = nil
     ) {
         super.init(
-            sentTimestampMs: sentTimestampMs
+            sentTimestampMs: sentTimestampMs,
+            sender: sender
         )
         
         self.kind = kind

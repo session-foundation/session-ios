@@ -58,14 +58,15 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         changeType: ChangeType,
         updatedName: String? = nil,
         updatedExpiration: UInt32? = nil,
-        adminSignature: Authentication.Signature
+        adminSignature: Authentication.Signature,
+        sender: String? = nil
     ) {
         self.changeType = changeType
         self.updatedName = updatedName
         self.updatedExpiration = updatedExpiration
         self.adminSignature = adminSignature
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Signature Generation

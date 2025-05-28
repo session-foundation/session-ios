@@ -105,13 +105,16 @@ public final class CallMessage: ControlMessage {
         uuid: String,
         kind: Kind,
         sdps: [String],
-        sentTimestampMs: UInt64? = nil
+        state: MessageInfo.State? = nil,
+        sentTimestampMs: UInt64? = nil,
+        sender: String? = nil
     ) {
         self.uuid = uuid
         self.kind = kind
         self.sdps = sdps
+        self.state = state
         
-        super.init(sentTimestampMs: sentTimestampMs)
+        super.init(sentTimestampMs: sentTimestampMs, sender: sender)
     }
 
     // MARK: - Codable
