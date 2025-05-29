@@ -80,6 +80,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     // MARK: - Content
     
+    let searchable: Bool = false
     let title: String = "disappearingMessages".localized()
     lazy var subtitle: String? = {
         switch (threadVariant, isNoteToSelf) {

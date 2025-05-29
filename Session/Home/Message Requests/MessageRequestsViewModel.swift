@@ -123,6 +123,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     
     // MARK: - Content
     
+    let searchable: Bool = false
     public let title: String = "sessionMessageRequests".localized()
     public let initialLoadMessage: String? = "loading".localized()
     public let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("messageRequestsNonePending".localized())

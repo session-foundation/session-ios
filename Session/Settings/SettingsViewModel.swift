@@ -119,6 +119,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let hideRecoveryPasswordPermanently: Bool
     }
     
+    let searchable: Bool = false
+    
     let title: String = "sessionSettings".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

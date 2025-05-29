@@ -116,6 +116,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         let disappearingMessagesConfig: DisappearingMessagesConfiguration
     }
     
+    let searchable: Bool = false
+    
     var title: String {
         switch threadVariant {
             case .contact: return "sessionSettings".localized()
