@@ -59,6 +59,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         memberAuthData: Data,
         profile: VisibleMessage.VMProfile? = nil,
         adminSignature: Authentication.Signature,
+        sentTimestampMs: UInt64? = nil,
         sender: String? = nil
     ) {
         self.inviteeSessionIdHexString = inviteeSessionIdHexString
@@ -68,7 +69,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         self.profile = profile
         self.adminSignature = adminSignature
         
-        super.init(sender: sender)
+        super.init(sentTimestampMs: sentTimestampMs, sender: sender)
     }
     
     // MARK: - Signature Generation

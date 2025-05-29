@@ -120,7 +120,11 @@ public class Dependencies {
         }
     }
     
-    // MARK: - Random Access Functions
+    // MARK: - Random
+    
+    public func randomUUID() -> UUID {
+        return UUID()
+    }
     
     public func randomElement<T: Collection>(_ collection: T) -> T.Element? {
         return collection.randomElement()
