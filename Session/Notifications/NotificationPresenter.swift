@@ -131,13 +131,15 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         addNotificationRequest(
             content: content,
-            notificationSettings: notificationSettings
+            notificationSettings: notificationSettings,
+            extensionBaseUnreadCount: nil
         )
     }
     
     public func addNotificationRequest(
         content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
     ) {
         var trigger: UNNotificationTrigger?
         let shouldPresentNotification: Bool = shouldPresentNotification(

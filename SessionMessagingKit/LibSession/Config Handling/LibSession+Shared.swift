@@ -694,7 +694,6 @@ public extension LibSession.Cache {
                     sound: sound,
                     mutedUntil: (contact.mute_until > 0 ? TimeInterval(contact.mute_until) : nil)
                 )
-                
             
             case .community:
                 guard
@@ -717,7 +716,7 @@ public extension LibSession.Cache {
                     sound: sound,
                     mutedUntil: (community.mute_until > 0 ? TimeInterval(community.mute_until) : nil)
                 )
-                
+            
             case .group:
                 guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else {
                     return .defaultFor(threadVariant)

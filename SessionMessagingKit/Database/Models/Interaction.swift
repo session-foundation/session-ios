@@ -501,6 +501,7 @@ public extension Interaction {
 public extension Interaction {
     struct ReadInfo: Decodable, FetchableRecord {
         let id: Int64
+        let serverHash: String?
         let variant: Interaction.Variant
         let timestampMs: Int64
         let wasRead: Bool
@@ -561,7 +562,7 @@ public extension Interaction {
         // Since there is no guarantee on the order messages are inserted into the database
         // fetch the timestamp for the interaction and set everything before that as read
         let maybeInteractionInfo: Interaction.ReadInfo? = try Interaction
-            .select(.id, .variant, .timestampMs, .wasRead)
+            .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
             .filter(id: interactionId)
             .asRequest(of: Interaction.ReadInfo.self)
             .fetchOne(db)
@@ -591,6 +592,7 @@ public extension Interaction {
                 interactionInfo: [
                     Interaction.ReadInfo(
                         id: interactionId,
+                        serverHash: nil,
                         variant: variant,
                         timestampMs: 0,
                         wasRead: false
@@ -609,7 +611,7 @@ public extension Interaction {
             .filter(Interaction.Columns.timestampMs <= interactionInfo.timestampMs)
             .filter(Interaction.Columns.wasRead == false)
         let interactionInfoToMarkAsRead: [Interaction.ReadInfo] = try interactionQuery
-            .select(.id, .variant, .timestampMs, .wasRead)
+            .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
             .asRequest(of: Interaction.ReadInfo.self)
             .fetchAll(db)
         
@@ -776,15 +778,15 @@ public extension Interaction {
         // Clear out any notifications for the interactions we mark as read
         dependencies[singleton: .notificationsManager].cancelNotifications(
             identifiers: interactionInfo
-                .map { interactionInfo in
+                .map { info in
                     Interaction.notificationIdentifier(
-                        for: interactionInfo.id,
+                        for: (info.serverHash ?? "\(info.id)"),
                         threadId: threadId,
                         shouldGroupMessagesForThread: false
                     )
                 }
                 .appending(Interaction.notificationIdentifier(
-                    for: 0,
+                    for: "0",
                     threadId: threadId,
                     shouldGroupMessagesForThread: true
                 ))
@@ -894,17 +896,21 @@ public extension Interaction {
     func notificationIdentifier(shouldGroupMessagesForThread: Bool) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         return Interaction.notificationIdentifier(
-            for: (id ?? 0),
+            for: (serverHash ?? "\(id ?? 0)"),
             threadId: threadId,
             shouldGroupMessagesForThread: shouldGroupMessagesForThread
         )
     }
     
-    static func notificationIdentifier(for id: Int64, threadId: String, shouldGroupMessagesForThread: Bool) -> String {
+    static func notificationIdentifier(
+        for interactionIdentifier: String,
+        threadId: String,
+        shouldGroupMessagesForThread: Bool
+    ) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         guard !shouldGroupMessagesForThread else { return threadId }
         
-        return "\(threadId)-\(id)"
+        return "\(threadId)-\(interactionIdentifier)"
     }
     
     static func isUserMentioned(
@@ -1208,7 +1214,7 @@ public extension Interaction.Variant {
     
     /// This flag controls whether the `wasRead` flag is automatically set to true based on the message variant (as a result they will
     /// or won't affect the unread count)
-    fileprivate var canBeUnread: Bool {
+    var canBeUnread: Bool {
         switch self {
             case .standardIncoming: return true
             case .infoCall: return true
@@ -1369,9 +1375,17 @@ public extension Interaction {
         
         /// Remove any notifications for the messages
         dependencies[singleton: .notificationsManager].cancelNotifications(
-            identifiers: interactionIds.reduce(into: []) { result, id in
-                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: true))
-                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: false))
+            identifiers: interactionInfo.reduce(into: []) { result, info in
+                result.append(Interaction.notificationIdentifier(
+                    for: (info.serverHash ?? "\(info.id)"),
+                    threadId: threadId,
+                    shouldGroupMessagesForThread: true)
+                )
+                result.append(Interaction.notificationIdentifier(
+                    for: (info.serverHash ?? "\(info.id)"),
+                    threadId: threadId,
+                    shouldGroupMessagesForThread: false)
+                )
             }
         )
         

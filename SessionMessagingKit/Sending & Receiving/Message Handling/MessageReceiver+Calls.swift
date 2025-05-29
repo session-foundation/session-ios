@@ -21,13 +21,21 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
         
         switch message.kind {
-            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
+            case .preOffer:
+                try MessageReceiver.handleNewCallMessage(
+                    db,
+                    message: message,
+                    suppressNotifications: suppressNotifications,
+                    using: dependencies
+                )
+            
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message, using: dependencies)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
             case .provisionalAnswer: break // TODO: [CALLS] Implement
@@ -48,6 +56,7 @@ extension MessageReceiver {
     private static func handleNewCallMessage(
         _ db: Database,
         message: CallMessage,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         Log.info(.calls, "Received pre-offer message with uuid: \(message.uuid).")
@@ -80,18 +89,20 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-                if !interaction.wasRead {
+                if !suppressNotifications && !interaction.wasRead {
+                    /// Update the `CallMessage.state` value so the correct notification logic can occur
                     message.state = .missed
                     
                     try? dependencies[singleton: .notificationsManager].notifyUser(
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,
-                        interactionId: interactionId,
+                        interactionIdentifier: (interaction.serverHash ?? "\(interactionId)"),
                         interactionVariant: interaction.variant,
                         attachmentDescriptionInfo: nil,
                         openGroupUrlInfo: nil,
                         applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
                         currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
                         displayNameRetriever: { sessionId in
                             Profile.displayNameNoFallback(
@@ -122,18 +133,20 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-                if !interaction.wasRead {
+                if !suppressNotifications && !interaction.wasRead {
+                    /// Update the `CallMessage.state` value so the correct notification logic can occur
                     message.state = state
                     
                     try? dependencies[singleton: .notificationsManager].notifyUser(
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,
-                        interactionId: interactionId,
+                        interactionIdentifier: (interaction.serverHash ?? "\(interactionId)"),
                         interactionVariant: interaction.variant,
                         attachmentDescriptionInfo: nil,
                         openGroupUrlInfo: nil,
                         applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
                         currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
                         displayNameRetriever: { sessionId in
                             Profile.displayNameNoFallback(

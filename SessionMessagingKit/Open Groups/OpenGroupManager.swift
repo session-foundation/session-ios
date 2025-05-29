@@ -573,6 +573,7 @@ public final class OpenGroupManager {
                                 message: messageInfo.message,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                                 associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
+                                suppressNotifications: false,
                                 using: dependencies
                             )
                             largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
@@ -765,6 +766,7 @@ public final class OpenGroupManager {
                             message: messageInfo.message,
                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: proto,
+                            suppressNotifications: false,
                             using: dependencies
                         )
                 }

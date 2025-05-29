@@ -163,6 +163,14 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(args: [threadId, threadVariant, contactProfile, visibleMessage, openGroupName, openGroupUrlInfo])
     }
     
+    func conversationLastRead(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int64? {
+        return mock(args: [threadId, threadVariant, openGroupUrlInfo])
+    }
+    
     func isMessageRequest(
         threadId: String,
         threadVariant: SessionThread.Variant
@@ -297,6 +305,15 @@ extension Mock where T == LibSessionCacheType {
                 )
             }
             .thenReturn(true)
+        self
+            .when {
+                $0.conversationLastRead(
+                    threadId: .any,
+                    threadVariant: .any,
+                    openGroupUrlInfo: .any
+                )
+            }
+            .thenReturn(nil)
         self
             .when { $0.canPerformChange(threadId: .any, threadVariant: .any, changeTimestampMs: .any) }
             .thenReturn(true)

@@ -1002,8 +1002,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try ConfigDump.deleteAll(db)
         }
         
-        /// Remove all dedupe record files
-        dependencies[singleton: .extensionHelper].deleteAllDedupeRecords()
+        /// Remove the `ExtensionHelper` cache
+        dependencies[singleton: .extensionHelper].deleteCache()
         
         Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         

@@ -49,13 +49,25 @@ public class NSENotificationPresenter: NotificationsManagerType {
     
     public func addNotificationRequest(
         content: NotificationContent,
-        notificationSettings: Preferences.NotificationSettings
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
     ) {
+        let notificationContent: UNMutableNotificationContent = content.toMutableContent(
+            shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
+        )
+        
+        /// Since we will have already written the message to disk at this stage we can just add the number of unread message files
+        /// directly to the `originalUnreadCount` in order to get the updated unread count
+        if
+            let extensionBaseUnreadCount: Int = extensionBaseUnreadCount,
+            let unreadPendingMessageCount: Int = dependencies[singleton: .extensionHelper].unreadMessageCount()
+        {
+            notificationContent.badge = NSNumber(value: extensionBaseUnreadCount + unreadPendingMessageCount)
+        }
+        
         let request = UNNotificationRequest(
             identifier: content.identifier,
-            content: content.toMutableContent(
-                shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
-            ),
+            content: notificationContent,
             trigger: nil
         )
         

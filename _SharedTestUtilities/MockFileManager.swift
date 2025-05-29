@@ -54,8 +54,8 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     }
     
     func contents(atPath: String) -> Data? { return mock(args: [atPath]) }
-    func contentsOfDirectory(at url: URL) throws -> [URL] { return mock(args: [url]) }
-    func contentsOfDirectory(atPath path: String) throws -> [String] { return mock(args: [path]) }
+    func contentsOfDirectory(at url: URL) throws -> [URL] { return try mockThrowing(args: [url]) }
+    func contentsOfDirectory(atPath path: String) throws -> [String] { return try mockThrowing(args: [path]) }
     func isDirectoryEmpty(at url: URL) -> Bool { return mock(args: [url]) }
     func isDirectoryEmpty(atPath path: String) -> Bool { return mock(args: [path]) }
     
