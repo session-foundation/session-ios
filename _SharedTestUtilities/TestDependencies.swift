@@ -173,7 +173,12 @@ public class TestDependencies: Dependencies {
         }
     }
     
-    // MARK: - Random Access Functions
+    // MARK: - Random
+    
+    public var uuid: UUID? = nil
+    public override func randomUUID() -> UUID {
+        return (uuid ?? UUID())
+    }
     
     public override func randomElement<T: Collection>(_ collection: T) -> T.Element? {
         return collection.first

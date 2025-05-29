@@ -135,7 +135,9 @@ public extension NotificationsManagerType {
         switch (threadVariant, isMessageRequest) {
             case (.community, _), (.legacyGroup, _), (.contact, false), (.group, false): break
             case (.contact, true), (.group, true):
-                guard shouldShowForMessageRequest() else { throw MessageReceiverError.ignorableMessageRequestMessage }
+                guard shouldShowForMessageRequest() else {
+                    throw MessageReceiverError.ignorableMessageRequestMessage
+                }
                 break
         }
         
@@ -310,7 +312,7 @@ public extension NotificationsManagerType {
                 threadVariant: threadVariant,
                 identifier: {
                     switch (message as? VisibleMessage)?.reaction {
-                        case .some: return UUID().uuidString
+                        case .some: return dependencies.randomUUID().uuidString
                         default:
                             return Interaction.notificationIdentifier(
                                 for: interactionIdentifier,
