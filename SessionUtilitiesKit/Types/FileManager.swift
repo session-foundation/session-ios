@@ -17,6 +17,7 @@ public extension Singleton {
 
 public protocol FileManagerType {
     var temporaryDirectory: String { get }
+    var documentsDirectoryPath: String { get }
     var appSharedDataDirectoryPath: String { get }
     var temporaryDirectoryAccessibleAfterFirstAuth: String { get }
     
@@ -125,6 +126,11 @@ public class SessionFileManager: FileManagerType {
     private let dependencies: Dependencies
     private let fileManager: FileManager = .default
     public var temporaryDirectory: String
+    
+    public var documentsDirectoryPath: String {
+        return (fileManager.urls(for: .documentDirectory, in: .userDomainMask).first?.path)
+            .defaulting(to: "")
+    }
     
     public var appSharedDataDirectoryPath: String {
         return (fileManager.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?.path)
