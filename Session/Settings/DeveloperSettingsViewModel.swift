@@ -209,6 +209,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let forceSlowDatabaseQueries: Bool
     }
     
+    let searchable: Bool = false
     let title: String = "Developer Settings"
     
     lazy var observation: TargetObservation = ObservationBuilder

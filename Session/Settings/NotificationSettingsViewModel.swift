@@ -59,6 +59,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         let previewType: Preferences.NotificationPreviewType
     }
     
+    let searchable: Bool = false
+    
     let title: String = "sessionNotifications".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

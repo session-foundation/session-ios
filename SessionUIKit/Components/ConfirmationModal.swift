@@ -90,6 +90,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var textFieldErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .danger
+        result.textAlignment = .center
+        result.isHidden = true
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var textViewContainer: UIView = {
         let result: UIView = UIView()
         result.themeBorderColor = .borderSeparator
@@ -122,6 +134,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var textViewErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .danger
+        result.textAlignment = .center
+        result.isHidden = true
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var imageViewContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
@@ -150,7 +174,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textViewContainer, imageViewContainer ])
+        let result = UIStackView(
+            arrangedSubviews: [
+                titleLabel,
+                explanationLabel,
+                warningLabel,
+                textFieldContainer,
+                textFieldErrorLabel,
+                textViewContainer,
+                textViewErrorLabel,
+                imageViewContainer
+            ]
+        )
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -371,11 +406,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     explanation: explanation,
                                     warning: warning,
                                     options: options.enumerated().map { otherIndex, otherInfo in
-                                        (
-                                            otherInfo.title,
-                                            otherInfo.enabled,
-                                            (index == otherIndex),
-                                            otherInfo.accessibility
+                                        Info.Body.RadioOptionInfo(
+                                            title: otherInfo.title,
+                                            enabled: otherInfo.enabled,
+                                            selected: (index == otherIndex),
+                                            accessibility: otherInfo.accessibility
                                         )
                                     }
                                 )
@@ -432,6 +467,35 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         explanationLabel.isAccessibilityElement = true
         explanationLabel.accessibilityIdentifier = "Modal description"
         explanationLabel.accessibilityLabel = explanationLabel.text
+    }
+    
+    // MARK: - Error Handling
+    
+    public func updateContent(withError error: String? = nil, additionalError: String? = nil) {
+        switch self.info.body {
+            case .input:
+                if let error = error {
+                    textField.themeTextColor = .danger
+                    textFieldContainer.themeBorderColor = .danger
+                    textFieldErrorLabel.text = error
+                    textFieldErrorLabel.isHidden = false
+                }
+            case .dualInput:
+                if let error = error {
+                    textField.themeTextColor = .danger
+                    textFieldContainer.themeBorderColor = .danger
+                    textFieldErrorLabel.text = error
+                    textFieldErrorLabel.isHidden = false
+                }
+                if let additionalError = additionalError {
+                    textView.themeTextColor = .danger
+                    textViewContainer.themeBorderColor = .danger
+                    textViewErrorLabel.text = additionalError
+                    textViewErrorLabel.isHidden = false
+                }
+            default:
+                break
+        }
     }
     
     // MARK: - UITextFieldDelegate
@@ -779,6 +843,24 @@ public extension ConfirmationModal.Info {
             case inherit
             case circular
         }
+        public struct RadioOptionInfo: Equatable, Hashable {
+            public let title: String
+            public let enabled: Bool
+            public let selected: Bool
+            public let accessibility: Accessibility?
+            
+            public init(
+                title: String,
+                enabled: Bool,
+                selected: Bool = false,
+                accessibility: Accessibility? = nil
+            ) {
+                self.title = title
+                self.enabled = enabled
+                self.selected = selected
+                self.accessibility = accessibility
+            }
+        }
         
         case none
         case text(
@@ -803,12 +885,7 @@ public extension ConfirmationModal.Info {
         case radio(
             explanation: NSAttributedString?,
             warning: NSAttributedString?,
-            options: [(
-                title: String,
-                enabled: Bool,
-                selected: Bool,
-                accessibility: Accessibility?
-            )]
+            options: [RadioOptionInfo]
         )
         case image(
             identifier: String,
@@ -844,7 +921,7 @@ public extension ConfirmationModal.Info {
                     return (
                         lhsExplanation == rhsExplanation &&
                         lhsWarning == rhsWarning &&
-                        lhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" } == rhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" }
+                        lhsOptions == rhsOptions
                     )
                     
                 case (.image(let lhsIdentifier, let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsIdentifier, let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
@@ -879,7 +956,7 @@ public extension ConfirmationModal.Info {
                 case .radio(let explanation, let warning, let options):
                     explanation.hash(into: &hasher)
                     warning.hash(into: &hasher)
-                    options.map { "\($0.0)-\($0.1)-\($0.2)" }.hash(into: &hasher)
+                    options.hash(into: &hasher)
                 
                 case .image(let identifier, let source, let placeholder, let icon, let style, let accessibility, _, _):
                     identifier.hash(into: &hasher)

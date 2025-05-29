@@ -112,6 +112,7 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
         let alternateAppIconName: String?
     }
     
+    let searchable: Bool = false
     let title: String = "sessionAppearance".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

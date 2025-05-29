@@ -31,15 +31,14 @@ import UIKit
 
     override func copy(_ sender: Any?) {
         UIPasteboard.general.string = text
-        UIMenuController.shared.setMenuVisible(false, animated: true)
+        UIMenuController.shared.hideMenu(from: self)
     }
 
     @objc func showMenu(sender: Any?) {
         becomeFirstResponder()
         let menu = UIMenuController.shared
         if !menu.isMenuVisible {
-            menu.setTargetRect(bounds, in: self)
-            menu.setMenuVisible(true, animated: true)
+            menu.showMenu(from: self, rect: bounds)
         }
     }
 

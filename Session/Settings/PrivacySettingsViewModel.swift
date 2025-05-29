@@ -93,6 +93,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let localNetworkPermission: Bool
     }
     
+    let searchable: Bool = false
     let title: String = "sessionPrivacy".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

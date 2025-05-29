@@ -51,6 +51,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         let shouldAutoPlayConsecutiveAudioMessages: Bool
     }
     
+    let searchable: Bool = false
     let title: String = "sessionConversations".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

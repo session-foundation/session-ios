@@ -16,6 +16,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let selectedUsersSubject: CurrentValueSubject<Set<WithProfile<T>>, Never> = CurrentValueSubject([])
     
+    public let searchable: Bool
     public let title: String
     public let infoBanner: InfoBanner.Info?
     public let emptyState: String?
@@ -41,6 +42,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
+        self.searchable = true
         self.title = title
         self.infoBanner = infoBanner
         self.emptyState = emptyState
