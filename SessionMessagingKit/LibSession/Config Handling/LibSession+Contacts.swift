@@ -43,7 +43,6 @@ internal extension LibSessionCacheType {
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let targetContactData: [String: ContactData] = try LibSession.extractContacts(
             from: conf,
             serverTimestampMs: serverTimestampMs,
@@ -659,6 +658,26 @@ public extension LibSession {
                     }
                 }
         }
+    }
+}
+
+// MARK: - State Access
+
+public extension LibSession.Cache {
+    func isContactBlocked(contactId: String) -> Bool {
+        guard
+            case .contacts(let conf) = config(for: .contacts, sessionId: userSessionId),
+            var cContactId: [CChar] = contactId.cString(using: .utf8)
+        else { return false }
+        
+        var contact: contacts_contact = contacts_contact()
+        
+        guard contacts_get(conf, &contact, &cContactId) else {
+            LibSessionError.clear(conf)
+            return false
+        }
+        
+        return contact.blocked
     }
 }
 

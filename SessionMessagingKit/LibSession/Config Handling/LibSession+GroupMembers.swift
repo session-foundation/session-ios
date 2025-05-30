@@ -34,7 +34,6 @@ internal extension LibSessionCacheType {
         guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the two member sets
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let updatedMembers: Set<GroupMember> = try LibSession.extractMembers(from: conf, groupSessionId: groupSessionId)
         let existingMembers: Set<GroupMember> = (try? GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -368,7 +367,11 @@ internal extension LibSession {
         // isn't an admin (non-admins can't update `GroupMembers` anyway)
         let targetMembers: [GroupMember] = updatedMembers
             .filter { (try? SessionId(from: $0.groupId))?.prefix == .group }
-            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.groupId), using: dependencies) }
+            .filter { member in
+                dependencies.mutate(cache: .libSession, { cache in
+                    cache.isAdmin(groupSessionId: SessionId(.group, hex: member.groupId))
+                })
+            }
         
         // If we only updated the current user contact then no need to continue
         guard

@@ -75,26 +75,46 @@ public enum AppSetup {
             onComplete: { result in
                 // Now that the migrations are complete there are a few more states which need
                 // to be setup
-                dependencies[singleton: .storage].read { db in
-                    guard
-                        Identity.userExists(db, using: dependencies),
-                        let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db)
-                    else { return }
-                    
-                    let userSessionId: SessionId = SessionId(.standard, publicKey: userKeyPair.publicKey)
+                typealias UserInfo = (sessionId: SessionId, ed25519SecretKey: [UInt8], unreadCount: Int?)
+                let maybeUserInfo: UserInfo? = dependencies[singleton: .storage].read { db in
+                    guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+                        return nil
+                    }
                     
                     /// Cache the users session id so we don't need to fetch it from the database every time
                     dependencies.mutate(cache: .general) {
-                        $0.setCachedSessionId(sessionId: userSessionId)
+                        $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
                     }
                     
                     /// Load the `libSession` state into memory
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     let cache: LibSession.Cache = LibSession.Cache(
                         userSessionId: userSessionId,
                         using: dependencies
                     )
                     cache.loadState(db, requestId: requestId)
                     dependencies.set(cache: .libSession, to: cache)
+                    
+                    return (
+                        userSessionId,
+                        ed25519KeyPair.secretKey,
+                        try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                    )
+                }
+                
+                /// Save the `UserMetadata` and replicate `ConfigDump` data if needed
+                if let userInfo: UserInfo = maybeUserInfo {
+                    try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                        sessionId: userInfo.sessionId,
+                        ed25519SecretKey: userInfo.ed25519SecretKey,
+                        unreadCount: userInfo.unreadCount
+                    )
+                    
+                    Task {
+                        dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
+                            userSessionId: userInfo.sessionId
+                        )
+                    }
                 }
                 
                 /// Ensure any recurring jobs are properly scheduled

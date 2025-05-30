@@ -106,7 +106,7 @@ public final class GroupPoller: SwarmPoller {
                 cache.conversationLastRead(
                     threadId: pollerDestination.target,
                     threadVariant: .group,
-                    openGroup: nil
+                    openGroupUrlInfo: nil
                 )
             }
             .map { lastReadTimestampMs in

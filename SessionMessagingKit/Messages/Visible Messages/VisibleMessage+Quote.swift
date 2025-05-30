@@ -8,17 +8,17 @@ public extension VisibleMessage {
 
     struct VMQuote: Codable {
         public let timestamp: UInt64?
-        public let publicKey: String?
+        public let authorId: String?
         public let text: String?
         public let attachmentId: String?
 
-        public func isValid(isSending: Bool) -> Bool { timestamp != nil && publicKey != nil }
+        public func isValid(isSending: Bool) -> Bool { timestamp != nil && authorId != nil }
         
         // MARK: - Initialization
 
-        internal init(timestamp: UInt64, publicKey: String, text: String?, attachmentId: String?) {
+        internal init(timestamp: UInt64, authorId: String, text: String?, attachmentId: String?) {
             self.timestamp = timestamp
-            self.publicKey = publicKey
+            self.authorId = authorId
             self.text = text
             self.attachmentId = attachmentId
         }
@@ -28,7 +28,7 @@ public extension VisibleMessage {
         public static func fromProto(_ proto: SNProtoDataMessageQuote) -> VMQuote? {
             return VMQuote(
                 timestamp: proto.id,
-                publicKey: proto.author,
+                authorId: proto.author,
                 text: proto.text,
                 attachmentId: nil
             )
@@ -39,11 +39,11 @@ public extension VisibleMessage {
         }
 
         public func toProto(_ db: Database) -> SNProtoDataMessageQuote? {
-            guard let timestamp = timestamp, let publicKey = publicKey else {
+            guard let timestamp = timestamp, let authorId = authorId else {
                 Log.warn(.messageSender, "Couldn't construct quote proto from: \(self).")
                 return nil
             }
-            let quoteProto = SNProtoDataMessageQuote.builder(id: timestamp, author: publicKey)
+            let quoteProto = SNProtoDataMessageQuote.builder(id: timestamp, author: authorId)
             if let text = text { quoteProto.setText(text) }
             addAttachmentsIfNeeded(db, to: quoteProto)
             do {
@@ -86,7 +86,7 @@ public extension VisibleMessage {
             """
             Quote(
                 timestamp: \(timestamp?.description ?? "null"),
-                publicKey: \(publicKey ?? "null"),
+                authorId: \(authorId ?? "null"),
                 text: \(text ?? "null"),
                 attachmentId: \(attachmentId ?? "null")
             )
@@ -101,7 +101,7 @@ public extension VisibleMessage.VMQuote {
     static func from(_ db: Database, quote: Quote) -> VisibleMessage.VMQuote {
         return VisibleMessage.VMQuote(
             timestamp: UInt64(quote.timestampMs),
-            publicKey: quote.authorId,
+            authorId: quote.authorId,
             text: quote.body,
             attachmentId: quote.attachmentId
         )

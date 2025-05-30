@@ -43,7 +43,7 @@ class SynchronousStorage: Storage {
     }
     
     @discardableResult override func write<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T?
@@ -94,7 +94,7 @@ class SynchronousStorage: Storage {
     }
     
     @discardableResult override func read<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         _ value: @escaping (Database) throws -> T?
@@ -147,7 +147,7 @@ class SynchronousStorage: Storage {
     // MARK: - Async Methods
     
     override func readPublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         value: @escaping (Database) throws -> T
@@ -190,7 +190,7 @@ class SynchronousStorage: Storage {
     }
     
     override func writeAsync<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T,
@@ -206,7 +206,7 @@ class SynchronousStorage: Storage {
     }
     
     override func writePublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T
