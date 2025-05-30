@@ -136,12 +136,59 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         )
     }
     
+    // MARK: - Schedule New Session Network Page local notifcation
+    
+    public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {
+        guard
+            force ||
+            dependencies[defaults: .standard, key: .isSessionNetworkPageNotificationScheduled] != true
+        else { return }
+        
+        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
+            cache.notificationSettings(
+                threadId: nil,
+                threadVariant: .contact,
+                openGroupUrlInfo: nil
+            )
+        }
+        let identifier: String = "sessionNetworkPageLocalNotifcation_\(UUID().uuidString)" // stringlint:disable
+        
+        // Schedule the notification after 1 hour
+        var content: NotificationContent = NotificationContent(
+            threadId: nil,
+            threadVariant: nil,
+            identifier: identifier,
+            category: .info,
+            title: Constants.app_name,
+            body: "sessionNetworkNotificationLive"
+                .put(key: "token_name_long", value: Constants.token_name_long)
+                .put(key: "network_name", value: Constants.network_name)
+                .localized(),
+            delay: (force ? 10 : 3600),
+            sound: notificationSettings.sound,
+            userInfo: [:],
+            applicationState: dependencies[singleton: .appContext].reportedApplicationState
+        )
+        
+        addNotificationRequest(
+            content: content,
+            notificationSettings: notificationSettings,
+            extensionBaseUnreadCount: nil
+        )
+        dependencies[defaults: .standard, key: .isSessionNetworkPageNotificationScheduled] = true
+    }
+    
     public func addNotificationRequest(
         content: NotificationContent,
         notificationSettings: Preferences.NotificationSettings,
         extensionBaseUnreadCount: Int?
     ) {
-        var trigger: UNNotificationTrigger?
+        var trigger: UNNotificationTrigger? = content.delay.map { delayInterval in
+            UNTimeIntervalNotificationTrigger(
+                timeInterval: delayInterval,
+                repeats: false
+            )
+        }
         let shouldPresentNotification: Bool = shouldPresentNotification(
             threadId: content.threadId,
             category: content.category,
@@ -160,10 +207,13 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 )
                 
                 if shouldGroupNotification {
-                    trigger = UNTimeIntervalNotificationTrigger(
-                        timeInterval: Notifications.delayForGroupedNotifications,
-                        repeats: false
-                    )
+                    /// Only set a trigger for grouped notifications if we don't already have one
+                    if trigger == nil {
+                        trigger = UNTimeIntervalNotificationTrigger(
+                            timeInterval: Notifications.delayForGroupedNotifications,
+                            repeats: false
+                        )
+                    }
                     
                     let numberExistingNotifications: Int? = notifications[content.identifier]?
                         .content
@@ -226,7 +276,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
 
 private extension NotificationPresenter {
     private func shouldPresentNotification(
-        threadId: String,
+        threadId: String?,
         category: NotificationCategory,
         applicationState: UIApplication.State,
         using dependencies: Dependencies

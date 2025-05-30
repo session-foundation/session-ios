@@ -26,13 +26,4 @@ public extension NotificationCategory {
             case .deprecatedIncomingMessage: return "Signal.AppNotificationCategory.incomingMessage"
         }
     }
-
-    var actions: [AppNotificationAction] {
-        switch self {
-            case .incomingMessage: return [.markAsRead, .reply]
-            // TODO: Remove in future release
-            case .deprecatedIncomingMessage: return [.markAsRead, .reply]
-            default: return []
-        }
-    }
 }

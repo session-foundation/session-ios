@@ -4,12 +4,13 @@ import UIKit
 import UserNotifications
 
 public struct NotificationContent {
-    public let threadId: String
-    public let threadVariant: SessionThread.Variant
+    public let threadId: String?
+    public let threadVariant: SessionThread.Variant?
     public let identifier: String
     public let category: NotificationCategory
     public let title: String?
     public let body: String?
+    public let delay: TimeInterval?
     public let sound: Preferences.Sound
     public let userInfo: [AnyHashable: Any]
     public let applicationState: UIApplication.State
@@ -17,12 +18,13 @@ public struct NotificationContent {
     // MARK: - Init
     
     public init(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
         identifier: String,
         category: NotificationCategory,
         title: String? = nil,
         body: String? = nil,
+        delay: TimeInterval? = nil,
         sound: Preferences.Sound = .none,
         userInfo: [AnyHashable: Any] = [:],
         applicationState: UIApplication.State
@@ -33,6 +35,7 @@ public struct NotificationContent {
         self.category = category
         self.title = title
         self.body = body
+        self.delay = delay
         self.sound = sound
         self.userInfo = userInfo
         self.applicationState = applicationState
@@ -52,6 +55,7 @@ public struct NotificationContent {
             category: category,
             title: (title ?? self.title),
             body: (body ?? self.body),
+            delay: self.delay,
             sound: (sound ?? self.sound),
             userInfo: userInfo,
             applicationState: applicationState
@@ -60,10 +64,10 @@ public struct NotificationContent {
     
     public func toMutableContent(shouldPlaySound: Bool) -> UNMutableNotificationContent {
         let content: UNMutableNotificationContent = UNMutableNotificationContent()
-        content.threadIdentifier = threadId
         content.categoryIdentifier = category.identifier
         content.userInfo = userInfo
         
+        if let threadId: String = threadId { content.threadIdentifier = threadId }
         if let title: String = title { content.title = title }
         if let body: String = body { content.body = body }
         

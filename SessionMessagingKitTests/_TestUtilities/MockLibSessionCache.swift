@@ -187,7 +187,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     }
     
     func notificationSettings(
-        threadId: String,
+        threadId: String?,
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Preferences.NotificationSettings {

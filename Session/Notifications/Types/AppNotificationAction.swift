@@ -34,6 +34,10 @@ extension NotificationCategory {
             case .incomingMessage: return [.markAsRead, .reply]
             case .errorMessage: return []
             case .threadlessErrorMessage: return []
+            case .info: return []
+            
+            // TODO: Remove in future release
+            case .deprecatedIncomingMessage: return [.markAsRead, .reply]
         }
     }
 }

@@ -953,7 +953,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int32
     func notificationSettings(
-        threadId: String,
+        threadId: String?,
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Preferences.NotificationSettings
@@ -1108,7 +1108,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int32 { return LibSession.defaultNewThreadPriority }
     func notificationSettings(
-        threadId: String,
+        threadId: String?,
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Preferences.NotificationSettings { return .defaultFor(threadVariant) }

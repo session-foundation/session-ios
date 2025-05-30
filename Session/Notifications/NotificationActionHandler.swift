@@ -63,7 +63,7 @@ public class NotificationActionHandler {
             case UNNotificationDefaultActionIdentifier:
                 Log.debug("[NotificationActionHandler] Default action")
                 switch categoryIdentifier {
-                    case AppNotificationCategory.info.identifier:
+                    case NotificationCategory.info.identifier:
                         return showPromotedScreen()
                             .setFailureType(to: Error.self)
                             .eraseToAnyPublisher()

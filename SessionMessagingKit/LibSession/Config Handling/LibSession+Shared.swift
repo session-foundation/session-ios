@@ -655,11 +655,11 @@ public extension LibSession.Cache {
     }
     
     func notificationSettings(
-        threadId: String,
+        threadId: String?,
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Preferences.NotificationSettings {
-        guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else {
+        guard var cThreadId: [CChar] = threadId?.cString(using: .utf8) else {
             return .defaultFor(threadVariant)
         }
         
