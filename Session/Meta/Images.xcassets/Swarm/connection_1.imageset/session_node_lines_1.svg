@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="153"
+   height="133"
+   fill="none"
+   version="1.1"
+   id="svg6"
+   sodipodi:docname="session_node_lines_1.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview6"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="8.7218045"
+     inkscape:cx="76.475"
+     inkscape:cy="66.5"
+     inkscape:window-width="3440"
+     inkscape:window-height="1371"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg6" />
+  <g
+     filter="url(#a)"
+     id="g1"
+     transform="matrix(1.0063756,0,0,1.0098072,-0.82638361,-0.59664492)" />
+  <defs
+     id="defs6">
+    <filter
+       id="a"
+       width="104.91"
+       height="104.91"
+       x="24.382"
+       y="13.99"
+       color-interpolation-filters="sRGB"
+       filterUnits="userSpaceOnUse">
+      <feFlood
+         flood-opacity="0"
+         result="BackgroundImageFix"
+         id="feFlood2" />
+      <feColorMatrix
+         in="SourceAlpha"
+         result="hardAlpha"
+         values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+         id="feColorMatrix2" />
+      <feMorphology
+         in="SourceAlpha"
+         operator="dilate"
+         radius="7"
+         result="effect1_dropShadow_0_1"
+         id="feMorphology2" />
+      <feOffset
+         id="feOffset2" />
+      <feGaussianBlur
+         stdDeviation="8.2"
+         id="feGaussianBlur2" />
+      <feComposite
+         in2="hardAlpha"
+         operator="out"
+         id="feComposite2" />
+      <feColorMatrix
+         values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 0"
+         id="feColorMatrix3" />
+      <feBlend
+         in2="BackgroundImageFix"
+         result="effect1_dropShadow_0_1"
+         id="feBlend3" />
+      <feBlend
+         in="SourceGraphic"
+         in2="effect1_dropShadow_0_1"
+         result="shape"
+         id="feBlend4" />
+    </filter>
+    <filter
+       id="b"
+       width="91.098"
+       height="91.098"
+       x="31.288"
+       y="20.895"
+       color-interpolation-filters="sRGB"
+       filterUnits="userSpaceOnUse">
+      <feFlood
+         flood-opacity="0"
+         result="BackgroundImageFix"
+         id="feFlood4" />
+      <feColorMatrix
+         in="SourceAlpha"
+         result="hardAlpha"
+         values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+         id="feColorMatrix4" />
+      <feMorphology
+         in="SourceAlpha"
+         operator="dilate"
+         radius="7"
+         result="effect1_dropShadow_0_1"
+         id="feMorphology4" />
+      <feOffset
+         id="feOffset4" />
+      <feGaussianBlur
+         stdDeviation="8.2"
+         id="feGaussianBlur4" />
+      <feComposite
+         in2="hardAlpha"
+         operator="out"
+         id="feComposite4" />
+      <feColorMatrix
+         values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 0"
+         id="feColorMatrix5" />
+      <feBlend
+         in2="BackgroundImageFix"
+         result="effect1_dropShadow_0_1"
+         id="feBlend5" />
+      <feBlend
+         in="SourceGraphic"
+         in2="effect1_dropShadow_0_1"
+         result="shape"
+         id="feBlend6" />
+    </filter>
+  </defs>
+  <path
+     fill="#ffffff"
+     fill-rule="evenodd"
+     d="m 76.3138,66.886758 c 0.213595,0.102841 0.470126,0.01304 0.572966,-0.200553 0.102822,-0.213614 0.01304,-0.47013 -0.200568,-0.572971 -0.213613,-0.10284 -0.470109,-0.01304 -0.572949,0.200553 -0.102839,0.213614 -0.01304,0.470148 0.200551,0.572971 m -0.03063,0.06364 c 0.248736,0.119774 0.54748,0.01519 0.667236,-0.23356 0.119755,-0.248755 0.01519,-0.547485 -0.233558,-0.667241 -0.248752,-0.119757 -0.547479,-0.0152 -0.667252,0.233559 -0.119756,0.248755 -0.0152,0.547485 0.233557,0.667242"
+     clip-rule="evenodd"
+     id="path1"
+     style="stroke-width:0.0172089" />
+</svg>

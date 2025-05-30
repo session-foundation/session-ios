@@ -33,6 +33,8 @@ public protocol NotificationsManagerType {
     func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread, applicationState: UIApplication.State)
     func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State)
     
+    func scheduleSessionNetworkPageLocalNotifcation(force: Bool)
+    
     func cancelNotifications(identifiers: [String])
     func clearAllNotifications()
 }
@@ -57,6 +59,8 @@ public struct NoopNotificationsManager: NotificationsManagerType {
     public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State) {}
     public func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread, applicationState: UIApplication.State) {}
     public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {}
+    
+    public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {}
     
     public func cancelNotifications(identifiers: [String]) {}
     public func clearAllNotifications() {}

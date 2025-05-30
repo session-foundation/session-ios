@@ -57,13 +57,21 @@ public class NotificationActionHandler {
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
         let applicationState: UIApplication.State = UIApplication.shared.applicationState
+        let categoryIdentifier = response.notification.request.content.categoryIdentifier
 
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
                 Log.debug("[NotificationActionHandler] Default action")
-                return showThread(userInfo: userInfo)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                switch categoryIdentifier {
+                    case AppNotificationCategory.info.identifier:
+                        return showPromotedScreen()
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    default:
+                        return showThread(userInfo: userInfo)
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                }
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO - mark as read?
@@ -84,8 +92,21 @@ public class NotificationActionHandler {
 
         switch action {
             case .markAsRead: return markAsRead(userInfo: userInfo)
-                
             case .reply:
+                guard let textInputResponse = response as? UNTextInputNotificationResponse else {
+                    return Fail(error: NotificationError.failDebug("response had unexpected type: \(response)"))
+                        .eraseToAnyPublisher()
+                }
+
+                return reply(
+                    userInfo: userInfo,
+                    replyText: textInputResponse.userText,
+                    applicationState: applicationState
+                )
+            
+            // TODO: Remove in future release
+            case .deprecatedMarkAsRead: return markAsRead(userInfo: userInfo)
+            case .deprecatedReply:
                 guard let textInputResponse = response as? UNTextInputNotificationResponse else {
                     return Fail(error: NotificationError.failDebug("response had unexpected type: \(response)"))
                         .eraseToAnyPublisher()
@@ -219,6 +240,11 @@ public class NotificationActionHandler {
     
     func showHomeVC() -> AnyPublisher<Void, Never> {
         dependencies[singleton: .app].showHomeView()
+        return Just(()).eraseToAnyPublisher()
+    }
+    
+    func showPromotedScreen() -> AnyPublisher<Void, Never> {
+        dependencies[singleton: .app].showPromotedScreen()
         return Just(()).eraseToAnyPublisher()
     }
     

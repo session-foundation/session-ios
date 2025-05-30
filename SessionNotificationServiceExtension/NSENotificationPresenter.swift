@@ -286,6 +286,8 @@ public class NSENotificationPresenter: NotificationsManagerType {
         // Not possible in the NotificationServiceExtension
     }
     
+    public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {}
+    
     // MARK: - Clearing
     
     public func cancelNotifications(identifiers: [String]) {

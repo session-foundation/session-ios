@@ -74,6 +74,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         // Settings
         .settings_tertiaryAction: .primary,
         .settings_tabBackground: .classicDark1,
+        .settings_glowingBackground: .primary,
         
         // Appearance
         .appearance_sectionBackground: .classicDark1,
@@ -195,6 +196,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         // Settings
         .settings_tertiaryAction: .primary,
         .settings_tabBackground: .classicDark1,
+        .settings_glowingBackground: .primary,
         
         // Appearance
         .appearance_sectionBackground: .classicDark1,

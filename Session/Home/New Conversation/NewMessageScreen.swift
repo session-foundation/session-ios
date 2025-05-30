@@ -133,7 +133,6 @@ struct NewMessageScreen: View {
 struct EnterAccountIdScreen: View {
     @Binding var accountIdOrONS: String
     @Binding var error: String?
-    @State var isTextFieldInErrorMode: Bool = false
     var continueAction: () -> ()
     
     var body: some View {
