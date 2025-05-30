@@ -29,7 +29,7 @@ internal extension Data {
     //
     // See: https://blog.flanker017.me/cve-2017-2416-gif-remote-exec/
     // See: https://www.w3.org/Graphics/GIF/spec-gif89a.txt
-    var suiKitHasValidGifSize: Bool {
+    var suiKitGifSize: CGSize? {
         let signatureLength: Int = 3
         let versionLength: Int = 3
         let widthLength: Int = 2
@@ -37,7 +37,7 @@ internal extension Data {
         let prefixLength: Int = (signatureLength + versionLength)
         let bufferLength: Int = (signatureLength + versionLength + widthLength + heightLength)
         
-        guard count > bufferLength else { return false }
+        guard count > bufferLength else { return nil }
 
         var bytes: [UInt8] = [UInt8](repeating: 0, count: bufferLength)
         self.copyBytes(to: &bytes, from: (self.startIndex..<self.startIndex.advanced(by: bufferLength)))
@@ -46,17 +46,34 @@ internal extension Data {
         let gif89APrefix: [UInt8] = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]
         
         guard bytes.starts(with: gif87APrefix) || bytes.starts(with: gif89APrefix) else {
-            return false
+            return nil
         }
         
-        let width: UInt = (UInt(bytes[prefixLength]) | (UInt(bytes[prefixLength + 1]) << 8))
-        let height: UInt = (UInt(bytes[prefixLength + 2]) | (UInt(bytes[prefixLength + 3]) << 8))
+        let width: Int = Int(bytes[prefixLength]) | (Int(bytes[prefixLength + 1]) << 8)
+        let height: Int = Int(bytes[prefixLength + 2]) | (Int(bytes[prefixLength + 3]) << 8)
+        
+        return CGSize(width: width, height: height)
+    }
+    
+    var suiKitHasValidGifSize: Bool {
+        guard let size: CGSize = suiKitGifSize else { return false }
+        
+        return size.suiKitIsValidGifSize
+    }
+}
 
+internal extension CGSize {
+    var suiKitIsValidGifSize: Bool {
         // We need to ensure that the image size is "reasonable"
         // We impose an arbitrary "very large" limit on image size
         // to eliminate harmful values
-        let maxValidSize: UInt = (1 << 18)
+        let maxValidSize: Int = (1 << 18)
 
-        return (width > 0 && width < maxValidSize && height > 0 && height < maxValidSize)
+        return (
+            Int(width) > 0 &&
+            Int(width) < maxValidSize &&
+            Int(height) > 0 &&
+            Int(height) < maxValidSize
+        )
     }
 }

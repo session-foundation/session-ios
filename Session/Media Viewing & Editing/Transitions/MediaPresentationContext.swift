@@ -13,10 +13,11 @@ enum Media {
             case let .gallery(item, dependencies):
                 // For videos attempt to load a large thumbnail, for other items just try to load
                 // the source file directly
-                guard !item.isVideo else { return item.attachment.existingThumbnail(size: .large, using: dependencies) }
-                guard let originalFilePath: String = item.attachment.originalFilePath(using: dependencies) else { return nil }
-                
-                return UIImage(contentsOfFile: originalFilePath)
+                switch (item.isVideo, item.attachment.originalFilePath(using: dependencies)) {
+                    case (false, .some(let filePath)): return UIImage(contentsOfFile: filePath)
+                    default:
+                        return item.attachment.existingThumbnail(size: .large, using: dependencies)
+                }
                 
             case let .image(image): return image
         }
