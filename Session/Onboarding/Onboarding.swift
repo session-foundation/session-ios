@@ -82,6 +82,7 @@ extension Onboarding {
         
         public var displayName: String
         public var _displayNamePublisher: AnyPublisher<String?, Error>?
+        private var hasInitialDisplayName: Bool
         private var userProfileConfigMessage: ProcessedMessage?
         private var disposables: Set<AnyCancellable> = Set()
         
@@ -102,35 +103,46 @@ extension Onboarding {
             self.dependencies = dependencies
             self.initialFlow = flow
             
-            /// Determine the current state based on what's in the database
-            typealias StoredData = (
-                state: State,
-                displayName: String,
-                ed25519KeyPair: KeyPair,
-                x25519KeyPair: KeyPair
-            )
-            let storedData: StoredData = dependencies[singleton: .storage].read { db -> StoredData in
-                // If we have no ed25519KeyPair then the user doesn't have an account
+            /// Try to load the users `ed25519KeyPair` from the database
+            let ed25519KeyPair: KeyPair = dependencies[singleton: .storage]
+                .read { db -> KeyPair? in Identity.fetchUserEd25519KeyPair(db) }
+                .defaulting(to: .empty)
+            
+            /// Retrieve the users `displayName` from `libSession` (the source of truth)
+            let displayName: String = dependencies.mutate(cache: .libSession) { $0.profile }.name
+            let hasInitialDisplayName: Bool = dependencies.mutate(cache: .libSession) {
+                $0.displayName?.nullIfEmpty != nil
+            }
+            
+            self.ed25519KeyPair = ed25519KeyPair
+            self.displayName = displayName
+            self.hasInitialDisplayName = hasInitialDisplayName
+            self.x25519KeyPair = {
                 guard
-                    let x25519KeyPair: KeyPair = Identity.fetchUserKeyPair(db),
-                    let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
-                else { return (.noUser, "", KeyPair.empty, KeyPair.empty) }
+                    ed25519KeyPair != .empty,
+                    let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                        .x25519(ed25519Pubkey: ed25519KeyPair.publicKey)
+                    ),
+                    let x25519SecretKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                        .x25519(ed25519Seckey: ed25519KeyPair.secretKey)
+                    )
+                else { return .empty }
                 
-                // If we have no display name then collect one (this can happen if the
-                // app crashed during onboarding which would leave the user in an invalid
-                // state with no display name)
-                let displayName: String = Profile.fetchOrCreateCurrentUser(db, using: dependencies).name
-                guard !displayName.isEmpty else { return (.missingName, "anonymous".localized(), x25519KeyPair, ed25519KeyPair) }
+                return KeyPair(publicKey: x25519PublicKey, secretKey: x25519SecretKey)
+            }()
+            self.userSessionId = (x25519KeyPair != .empty ?
+                SessionId(.standard, publicKey: x25519KeyPair.publicKey) :
+                .invalid
+            )
+            self.state = {
+                guard ed25519KeyPair != .empty else { return .noUser }
+                guard hasInitialDisplayName else { return .missingName }
                 
-                // Otherwise we have enough for a full user and can start the app
-                return (.completed, displayName, x25519KeyPair, ed25519KeyPair)
-            }.defaulting(to: (.noUser, "", KeyPair.empty, KeyPair.empty))
-
-            /// Store the initial `displayName` value in case we need it
-            self.displayName = storedData.displayName
+                return .completed
+            }()
             
             /// Update the cached values depending on the `initialState`
-            switch storedData.state {
+            switch state {
                 case .noUser, .noUserFailedIdentity:
                     /// Remove the `LibSession.Cache` just in case (to ensure no previous state remains)
                     dependencies.remove(cache: .libSession)
@@ -147,8 +159,8 @@ extension Onboarding {
                         /// recover somehow
                         self.state = .noUserFailedIdentity
                         self.seed = Data()
-                        self.ed25519KeyPair = KeyPair(publicKey: [], secretKey: [])
-                        self.x25519KeyPair = KeyPair(publicKey: [], secretKey: [])
+                        self.ed25519KeyPair = .empty
+                        self.x25519KeyPair = .empty
                         self.userSessionId = .invalid
                         self.useAPNS = false
                         return
@@ -157,17 +169,10 @@ extension Onboarding {
                     /// The identity data was successfully generated so store it for the onboarding process
                     self.state = .noUser
                     self.seed = finalSeedData
-                    self.ed25519KeyPair = identity.ed25519KeyPair
-                    self.x25519KeyPair = identity.x25519KeyPair
-                    self.userSessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
                     self.useAPNS = false
                     
                 case .missingName, .completed:
-                    self.state = storedData.state
                     self.seed = Data()
-                    self.ed25519KeyPair = storedData.ed25519KeyPair
-                    self.x25519KeyPair = storedData.x25519KeyPair
-                    self.userSessionId = dependencies[cache: .general].sessionId
                     self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
                     
                     /// If we are already in a completed state then updated the completion subject accordingly
@@ -193,6 +198,7 @@ extension Onboarding {
             self.userSessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
             self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
             self.displayName = displayName
+            self.hasInitialDisplayName = !displayName.isEmpty
             self._displayNamePublisher = nil
         }
         
@@ -230,7 +236,7 @@ extension Onboarding {
                 using: dependencies
             )
             
-            typealias PollResult = (configMessage: ProcessedMessage, displayName: String)
+            typealias PollResult = (configMessage: ProcessedMessage, displayName: String?)
             let publisher: AnyPublisher<String?, Error> = poller
                 .poll(forceSynchronousProcessing: true)
                 .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
@@ -245,7 +251,7 @@ extension Onboarding {
                     cache.loadDefaultStateFor(
                         variant: .userProfile,
                         sessionId: userSessionId,
-                        userEd25519KeyPair: identity.ed25519KeyPair,
+                        userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
                     try cache.unsafeDirectMergeConfigMessage(
@@ -260,7 +266,7 @@ extension Onboarding {
                         ]
                     )
                     
-                    return (targetMessage, cache.userProfileDisplayName)
+                    return (targetMessage, cache.displayName)
                 }
                 .handleEvents(
                     receiveOutput: { [weak self] result in
@@ -269,8 +275,8 @@ extension Onboarding {
                         /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
                         /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
                         /// config request running slow)
-                        if self?.displayName.isEmpty == true {
-                            self?.displayName = result.displayName
+                        if self?.hasInitialDisplayName != true, let displayName = result.displayName {
+                            self?.displayName = displayName
                         }
                         
                         self?.userProfileConfigMessage = result.configMessage
@@ -366,6 +372,8 @@ extension Onboarding {
                                         .messages
                                 )
                             }
+                            
+                            try? $0.updateProfile(displayName: displayName)
                         }
                         
                         /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided during the onboarding

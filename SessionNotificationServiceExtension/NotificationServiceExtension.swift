@@ -3,7 +3,6 @@
 import Foundation
 import AVFAudio
 import Combine
-import GRDB
 import CallKit
 import UserNotifications
 import BackgroundTasks
@@ -66,8 +65,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         var processedNotification: ProcessedNotification = (self.cachedNotificationInfo, .invalid, "", nil, nil)
         
         do {
-            let mainAppUnreadCount: Int = try performSetup(requestId: request.identifier)
+            let mainAppUnreadCount: Int = try performSetup(notificationInfo)
             notificationInfo = try extractNotificationInfo(notificationInfo, mainAppUnreadCount)
+            try setupGroupIfNeeded(notificationInfo)
+            
             processedNotification = try processNotification(notificationInfo)
             try handleNotification(processedNotification)
         }
@@ -83,8 +84,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Setup
 
-    private func performSetup(requestId: String) throws -> Int {
-        Log.info(.cat, "Performing setup for requestId: \(requestId).")
+    private func performSetup(_ info: NotificationInfo) throws -> Int {
+        Log.info(.cat, "Performing setup for requestId: \(info.requestId).")
         
         // stringlint:ignore_start
         Log.setup(with: Logger(
@@ -114,36 +115,30 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         dependencies.mutate(cache: .general) {
             $0.setSecretKey(ed25519SecretKey: userMetadata.ed25519SecretKey)
         }
-        var migrationResult: Result<Void, Error> = .failure(StorageError.startupFailed)
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        AppSetup.setupEnvironment(
-            requestId: requestId,
-            appSpecificBlock: { },
-            migrationsCompletion: { result in
-                migrationResult = result
-                semaphore.signal()
-            },
+        
+        /// Load the `libSession` state into memory using the `extensionHelper`
+        let cache: LibSession.Cache = LibSession.Cache(
+            userSessionId: userMetadata.sessionId,
             using: dependencies
         )
-        
-        semaphore.wait()
-        
-        /// Ensure the migration was successful or throw the error
-        do { _ = try migrationResult.successOrThrow() }
-        catch { throw NotificationError.migration(error) }
-        
-        /// Ensure storage is actually valid
-        guard dependencies[singleton: .storage].isValid else {
-            throw NotificationError.databaseInvalid
-        }
-        
-        /// If the app wasn't ready then mark it as ready now
-        if !dependencies[singleton: .appReadiness].isAppReady {
-            /// Note that this does much more than set a flag; it will also run all deferred blocks
-            dependencies[singleton: .appReadiness].setAppReady()
-        }
+        dependencies[singleton: .extensionHelper].loadUserConfigState(
+            into: cache,
+            userSessionId: userMetadata.sessionId,
+            userEd25519SecretKey: userMetadata.ed25519SecretKey
+        )
+        dependencies.set(cache: .libSession, to: cache)
         
         return userMetadata.unreadCount
+    }
+    
+    private func setupGroupIfNeeded(_ info: NotificationInfo) throws {
+        try dependencies.mutate(cache: .libSession) { cache in
+            try dependencies[singleton: .extensionHelper].loadGroupConfigStateIfNeeded(
+                into: cache,
+                swarmPublicKey: info.metadata.accountId,
+                userEd25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+            )
+        }
     }
     
     // MARK: - Notification Handling
@@ -178,7 +173,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             data: info.data,
             origin: .swarm(
                 publicKey: info.metadata.accountId,
-                namespace: info.metadata.namespace,
+                namespace: {
+                    switch (info.metadata.namespace, (try? SessionId(from: info.metadata.accountId))?.prefix) {
+                        /// There was a bug at one point where the metadata would include a `null` value for the namespace
+                        /// because the storage server didn't have an explicit `namespace_id` for the
+                        /// `revokedRetrievableGroupMessages` namespace
+                        ///
+                        /// This code tries to work around that issue
+                        ///
+                        /// **Note:** This issue was present in storage server version `2.10.0` but this work-around should
+                        /// be removed once the network has been fully updated with a fix
+                        case (.unknown, .group):
+                            return .revokedRetrievableGroupMessages
+                        
+                        default: return info.metadata.namespace
+                    }
+                }(),
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
@@ -253,8 +263,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         serverTimestampMs: Int64,
         data: Data
     ) throws {
-        // TODO: [Database Relocation] Handle the config message case in a separate PR
-        return try dependencies.mutate(cache: .libSession) { cache in
+        try dependencies.mutate(cache: .libSession) { cache in
             try cache.mergeConfigMessages(
                 swarmPublicKey: swarmPublicKey,
                 messages: [
@@ -265,11 +274,71 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         data: data
                     )
                 ],
-                afterMerge: { sessionId, variant, config, _ in
-                    // TODO: [Database Relocation] Handle the config message case in a separate PR
+                afterMerge: { sessionId, variant, config, timestampMs in
+                    try updateConfigIfNeeded(
+                        cache: cache,
+                        config: config,
+                        variant: variant,
+                        sessionId: sessionId,
+                        timestampMs: timestampMs
+                    )
                 }
             )
         }
+        
+        /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait
+        /// for a poll to return
+        do {
+            try dependencies[singleton: .extensionHelper].saveMessage(
+                SnodeReceivedMessage(
+                    snode: nil,
+                    publicKey: notification.info.metadata.accountId,
+                    namespace: notification.info.metadata.namespace,
+                    rawMessage: GetMessagesResponse.RawMessage(
+                        base64EncodedDataString: notification.info.data.base64EncodedString(),
+                        expirationMs: notification.info.metadata.expirationTimestampMs,
+                        hash: notification.info.metadata.hash,
+                        timestampMs: serverTimestampMs
+                    )
+                ),
+                isUnread: false
+            )
+        }
+        catch { Log.error(.cat, "Failed to save config message to disk: \(error).") }
+        
+        /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
+        /// show duplicate PNs
+        try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
+        
+        /// No notification should be shown for config messages so we can just succeed silently here
+        completeSilenty(notification.info, .success(notification.info.metadata))
+    }
+    
+    private func updateConfigIfNeeded(
+        cache: LibSessionCacheType,
+        config: LibSession.Config?,
+        variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        timestampMs: Int64
+    ) throws {
+        guard cache.configNeedsDump(config) else {
+            return dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
+                sessionId: sessionId,
+                variant: variant
+            )
+        }
+        
+        /// Update the replicated extension config dump (this way any subsequent push notifications will use the correct
+        /// data - eg. group encryption keys)
+        try dependencies[singleton: .extensionHelper].replicate(
+            dump: cache.createDump(
+                config: config,
+                for: variant,
+                sessionId: sessionId,
+                timestampMs: timestampMs
+            ),
+            replaceExisting: true
+        )
     }
     
     private func handleStandardMessage(
@@ -289,14 +358,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             using: dependencies
         )
         
+        /// No need to check blinded ids as Communities currently don't support PNs
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let currentUserSessionIds: Set<String> = [userSessionId.hexString]
+        
         /// Define the `displayNameRetriever` so it can be reused
         let displayNameRetriever: (String) -> String? = { [dependencies] sessionId in
             (dependencies
                 .mutate(cache: .libSession) { cache in
                     cache.profile(
+                        contactId: sessionId,
                         threadId: threadId,
                         threadVariant: threadVariant,
-                        contactId: sessionId,
                         visibleMessage: (messageInfo.message as? VisibleMessage)
                     )
                 }?
@@ -315,18 +388,187 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// message so need database access in order to do anything (including removing existing notifications) so just ignore them
             case is ReadReceipt, is UnsendRequest: break
             
-            /// Control messages for `group` conversations
-            case is GroupUpdateInviteMessage, is GroupUpdateInfoChangeMessage,
-                is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage,
-                is GroupUpdateMemberLeftMessage, is GroupUpdateMemberLeftNotificationMessage,
-                is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
-                // TODO: [Database Relocation] Handle group control messages in a separate PR
-                return handleNotificationViaDatabase(notification)
+            /// The invite control message for `group` conversations can result in a member who was kicked from a group
+            /// being re-added so we should handle that case (as it could result in the user starting to get valid notifications again)
+            ///
+            /// Otherwise just save the message to disk
+            case let inviteMessage as GroupUpdateInviteMessage:
+                try MessageReceiver.validateGroupInvite(message: inviteMessage, using: dependencies)
                 
-            /// Custom `group` conversation messages (eg. `kickedMessage`)
-            case is LibSessionMessage:
-                // TODO: [Database Relocation] Handle the LibSession message in a separate PR
-                return handleNotificationViaDatabase(notification)
+                /// Only update the state if the user had previously been kicked from the group
+                try dependencies.mutate(cache: .libSession) { cache in
+                    guard
+                        cache.wasKickedFromGroup(groupSessionId: inviteMessage.groupSessionId),
+                        let config: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId)
+                    else { return }
+                    
+                    try cache.markAsInvited(groupSessionIds: [inviteMessage.groupSessionId.hexString])
+                    try LibSession.upsert(
+                        groups: [
+                            LibSession.GroupUpdateInfo(
+                                groupSessionId: inviteMessage.groupSessionId.hexString,
+                                authData: inviteMessage.memberAuthData
+                            )
+                        ],
+                        in: config,
+                        using: dependencies
+                    )
+                    
+                    try updateConfigIfNeeded(
+                        cache: cache,
+                        config: config,
+                        variant: .userGroups,
+                        sessionId: userSessionId,
+                        timestampMs: (
+                            inviteMessage.sentTimestampMs.map { Int64($0) } ??
+                            Int64(dependencies.dateNow.timeIntervalSince1970 * 1000)
+                        )
+                    )
+                }
+                
+                /// Save the message and complete silently
+                try saveMessage(
+                    notification,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    messageInfo: messageInfo,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+                completeSilenty(notification.info, .success(notification.info.metadata))
+                return
+            
+            /// The promote control message for `group` conversations can result in a member who was kicked from a group
+            /// being re-added so we should handle that case (as it could result in the user starting to get valid notifications again)
+            ///
+            /// Otherwise just save the message to disk
+            case let promoteMessage as GroupUpdatePromoteMessage:
+                guard
+                    let sender: String = promoteMessage.sender,
+                    let sentTimestampMs: UInt64 = promoteMessage.sentTimestampMs,
+                    let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .ed25519KeyPair(seed: Array(promoteMessage.groupIdentitySeed))
+                    )
+                else { throw MessageReceiverError.invalidMessage }
+                
+                let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
+                
+                try dependencies.mutate(cache: .libSession) { cache in
+                    guard let userGroupsConfig: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId) else {
+                        return
+                    }
+                    
+                    /// Add the admin key to the `userGroups` config
+                    try LibSession.upsert(
+                        groups: [
+                            LibSession.GroupUpdateInfo(
+                                groupSessionId: groupSessionId.hexString,
+                                groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey)
+                            )
+                        ],
+                        in: userGroupsConfig,
+                        using: dependencies
+                    )
+                    
+                    /// If we were previously marked as kicked from the group then we need to mark the user as invited again to
+                    /// clear the kicked state
+                    if cache.wasKickedFromGroup(groupSessionId: groupSessionId) {
+                        try cache.markAsInvited(groupSessionIds: [groupSessionId.hexString])
+                    }
+                    
+                    /// Save the updated `userGroups` config
+                    try updateConfigIfNeeded(
+                        cache: cache,
+                        config: userGroupsConfig,
+                        variant: .userGroups,
+                        sessionId: userSessionId,
+                        timestampMs: Int64(sentTimestampMs)
+                    )
+                    
+                    /// If we have a `groupKeys` config then we also need to update it with the admin key
+                    guard let groupKeysConfig: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                        return
+                    }
+                    
+                    try cache.loadAdminKey(
+                        groupIdentitySeed: promoteMessage.groupIdentitySeed,
+                        groupSessionId: groupSessionId
+                    )
+                    try updateConfigIfNeeded(
+                        cache: cache,
+                        config: groupKeysConfig,
+                        variant: .groupKeys,
+                        sessionId: groupSessionId,
+                        timestampMs: Int64(sentTimestampMs)
+                    )
+                }
+                
+                /// Save the message to disk and complete silently
+                try saveMessage(
+                    notification,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    messageInfo: messageInfo,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+                completeSilenty(notification.info, .success(notification.info.metadata))
+                return
+                
+            /// The `kickedMessage` for a `group` conversation will result in the credentials for the group being removed and
+            /// if the device receives subsequent notifications for the group which fail to decrypt (due to key rotation after being kicked)
+            /// then they will fail silently instead of using the fallback notification
+            case let libSessionMessage as LibSessionMessage:
+                let info: [MessageReceiver.LibSessionMessageInfo] = try MessageReceiver.decryptLibSessionMessage(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: libSessionMessage,
+                    using: dependencies
+                )
+                
+                try info.forEach { senderSessionId, domain, plaintext in
+                    switch domain {
+                        case LibSession.Crypto.Domain.kickedMessage:
+                            /// Ensure the `groupKicked` message was valid before continuing
+                            try LibSessionMessage.validateGroupKickedMessage(
+                                plaintext: plaintext,
+                                userSessionId: userSessionId,
+                                groupSessionId: senderSessionId,
+                                using: dependencies
+                            )
+                            
+                            /// Mark the group as kicked and save the updated config dump
+                            try dependencies.mutate(cache: .libSession) { cache in
+                                try cache.markAsKicked(groupSessionIds: [senderSessionId.hexString])
+                                
+                                guard let config: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId) else {
+                                    return
+                                }
+                                
+                                try updateConfigIfNeeded(
+                                    cache: cache,
+                                    config: config,
+                                    variant: .userGroups,
+                                    sessionId: userSessionId,
+                                    timestampMs: (
+                                        libSessionMessage.sentTimestampMs.map { Int64($0) } ??
+                                        Int64(dependencies.dateNow.timeIntervalSince1970 * 1000)
+                                    )
+                                )
+                            }
+                            
+                        default: Log.error(.messageReceiver, "Received libSession encrypted message with unsupported domain: \(domain)")
+                    }
+                }
+                
+                /// Save the message and generate any deduplication files needed
+                try saveMessage(
+                    notification,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    messageInfo: messageInfo,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+                completeSilenty(notification.info, .success(notification.info.metadata))
+                return
                 
             case let callMessage as CallMessage:
                 switch callMessage.kind {
@@ -397,12 +639,65 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 }
                 
             case is VisibleMessage: break
-            default: throw MessageReceiverError.unknownMessage(proto)
+            
+            /// For any other message we don't have any custom handling (and don't want to show a notification) so just save these
+            /// messages to disk to be processed on next launch (letting the main app do any error handling) and just complete silently
+            default:
+                try saveMessage(
+                    notification,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    messageInfo: messageInfo,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+                completeSilenty(notification.info, .success(notification.info.metadata))
+                return
         }
         
-        /// No need to check blinded ids as Communities currently don't support PNs
-        let currentUserSessionIds: Set<String> = [dependencies[cache: .general].sessionId.hexString]
+        /// Save the message and generate any deduplication files needed
+        try saveMessage(
+            notification,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            messageInfo: messageInfo,
+            currentUserSessionIds: currentUserSessionIds
+        )
         
+        /// Try to show a notification for the message
+        try dependencies[singleton: .notificationsManager].notifyUser(
+            message: messageInfo.message,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIdentifier: notification.info.metadata.hash,
+            interactionVariant: Interaction.Variant(
+                message: messageInfo.message,
+                currentUserSessionIds: currentUserSessionIds
+            ),
+            attachmentDescriptionInfo: proto.dataMessage?.attachments.map { attachment in
+                Attachment.DescriptionInfo(id: "", proto: attachment)
+            },
+            openGroupUrlInfo: nil,  /// Communities currently don't support PNs
+            applicationState: .background,
+            extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever,
+            shouldShowForMessageRequest: {
+                !dependencies[singleton: .extensionHelper]
+                    .hasAtLeastOneDedupeRecord(threadId: threadId)
+            }
+        )
+        
+        /// Since we succeeded we can complete silently
+        completeSilenty(notification.info, .success(notification.info.metadata))
+    }
+    
+    private func saveMessage(
+        _ notification: ProcessedNotification,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        messageInfo: MessageReceiveJob.Details.MessageInfo,
+        currentUserSessionIds: Set<String>
+    ) throws {
         /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait
         /// for a poll to return
         do {
@@ -451,33 +746,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 uniqueIdentifier: callMessage.uuid
             )
         }
-        
-        /// Try to show a notification for the message
-        try dependencies[singleton: .notificationsManager].notifyUser(
-            message: messageInfo.message,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            interactionIdentifier: notification.info.metadata.hash,
-            interactionVariant: Interaction.Variant(
-                message: messageInfo.message,
-                currentUserSessionIds: currentUserSessionIds
-            ),
-            attachmentDescriptionInfo: proto.dataMessage?.attachments.map { attachment in
-                Attachment.DescriptionInfo(id: "", proto: attachment)
-            },
-            openGroupUrlInfo: nil,  /// Communities currently don't support PNs
-            applicationState: .background,
-            extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
-            currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: displayNameRetriever,
-            shouldShowForMessageRequest: {
-                !dependencies[singleton: .extensionHelper]
-                    .hasAtLeastOneDedupeRecord(threadId: threadId)
-            }
-        )
-        
-        /// Since we succeeded we can complete silently
-        completeSilenty(notification.info, .success(notification.info.metadata))
     }
     
     private func handleError(
@@ -486,7 +754,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         processedNotification: ProcessedNotification?,
         contentHandler: ((UNNotificationContent) -> Void)
     ) {
-        switch (error, processedNotification?.threadVariant, info.metadata.namespace.isConfigNamespace) {
+        switch (error, (try? SessionId(from: info.metadata.accountId))?.prefix, info.metadata.namespace.isConfigNamespace) {
             case (NotificationError.migration(let error), _, _):
                 self.completeSilenty(info, .errorDatabaseMigrations(error))
                 
@@ -578,158 +846,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
     }
     
-    @available(*, deprecated, message: "This function will be removed as part of the Database Relocation work, but is being build in parts so will remain for now")
-    private func handleNotificationViaDatabase(_ notification: ProcessedNotification) {
-        // HACK: It is important to use write synchronously here to avoid a race condition
-        // where the completeSilenty() is called before the local notification request
-        // is added to notification center
-        dependencies[singleton: .storage].write { [weak self, dependencies] db in
-            var processedThreadId: String?
-            var processedThreadVariant: SessionThread.Variant?
-            var threadDisplayName: String?
-            
-            do {
-                switch notification.processedMessage {
-                    case .config, .invalid: return
-                    case .standard(let threadId, let threadVariant, let proto, let messageInfo, _):
-                        /// Only allow the cases with don't have updated handling through
-                        switch messageInfo.message {
-                            case is GroupUpdateInviteMessage, is GroupUpdateInfoChangeMessage,
-                                is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage,
-                                is GroupUpdateMemberLeftMessage, is GroupUpdateMemberLeftNotificationMessage,
-                                is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
-                                break
-                                
-                            case is LibSessionMessage: break
-                            default: throw MessageReceiverError.invalidMessage
-                        }
-                        
-                        processedThreadId = threadId
-                        processedThreadVariant = threadVariant
-                        threadDisplayName = SessionThread.displayName(
-                            threadId: threadId,
-                            variant: threadVariant,
-                            closedGroupName: (threadVariant != .group && threadVariant != .legacyGroup ? nil :
-                                try? ClosedGroup
-                                    .select(.name)
-                                    .filter(id: threadId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            ),
-                            openGroupName: (threadVariant != .community ? nil :
-                                try? OpenGroup
-                                    .select(.name)
-                                    .filter(id: threadId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            ),
-                            isNoteToSelf: (threadId == dependencies[cache: .general].sessionId.hexString),
-                            profile: (threadVariant != .contact ? nil :
-                                try? Profile
-                                    .filter(id: threadId)
-                                    .fetchOne(db)
-                            )
-                        )
-                        
-                        try MessageReceiver.handle(
-                            db,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            message: messageInfo.message,
-                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                            associatedWithProto: proto,
-                            suppressNotifications: false,
-                            using: dependencies
-                        )
-                }
-                
-                /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
-                /// show duplicate PNs
-                try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
-                
-                db.afterNextTransaction(
-                    onCommit: { _ in self?.completeSilenty(notification.info, .success(notification.info.metadata)) },
-                    onRollback: { _ in self?.completeSilenty(notification.info, .errorTransactionFailure) }
-                )
-            }
-            catch {
-                // If an error occurred we want to rollback the transaction (by throwing) and then handle
-                // the error outside of the database
-                let handleError = {
-                    // Dispatch to the next run loop to ensure we are out of the database write thread before
-                    // handling the result (and suspending the database)
-                    DispatchQueue.main.async {
-                        switch (error, notification.threadVariant, notification.info.metadata.namespace.isConfigNamespace) {
-                            case (MessageReceiverError.noGroupKeyPair, _, _):
-                                self?.completeSilenty(notification.info, .errorLegacyPushNotification)
-
-                            case (MessageReceiverError.outdatedMessage, _, _):
-                                self?.completeSilenty(notification.info, .ignoreDueToOutdatedMessage)
-                                
-                            case (MessageReceiverError.ignorableMessage, _, _):
-                                self?.completeSilenty(notification.info, .ignoreDueToRequiresNoNotification)
-                                
-                            case (MessageReceiverError.ignorableMessageRequestMessage, _, _):
-                                self?.completeSilenty(notification.info, .ignoreDueToMessageRequest)
-                                
-                            case (MessageReceiverError.duplicateMessage, _, _):
-                                self?.completeSilenty(notification.info, .ignoreDueToDuplicateMessage)
-                                
-                            /// If it was a `decryptionFailed` error, but it was for a config namespace then just fail silently (don't
-                            /// want to show the fallback notification in this case)
-                            case (MessageReceiverError.decryptionFailed, _, true):
-                                self?.completeSilenty(notification.info, .errorMessageHandling(.decryptionFailed))
-                                
-                            /// If it was a `decryptionFailed` error for a group conversation and the group doesn't exist or
-                            /// doesn't have auth info (ie. group destroyed or member kicked), then just fail silently (don't want
-                            /// to show the fallback notification in these cases)
-                            case (MessageReceiverError.decryptionFailed, .group, _):
-                                guard
-                                    let group: ClosedGroup = try? ClosedGroup.fetchOne(db, id: notification.threadId), (
-                                        group.groupIdentityPrivateKey != nil ||
-                                        group.authData != nil
-                                    )
-                                else {
-                                    self?.completeSilenty(notification.info, .errorMessageHandling(.decryptionFailed))
-                                    return
-                                }
-                                
-                                /// The thread exists and we should have been able to decrypt so show the fallback message
-                                self?.handleFailure(
-                                    notification.info,
-                                    threadVariant: notification.threadVariant,
-                                    threadDisplayName: notification.threadDisplayName,
-                                    resolution: .errorMessageHandling(.decryptionFailed)
-                                )
-                                
-                            case (let msgError as MessageReceiverError, _, _):
-                                self?.handleFailure(
-                                    notification.info,
-                                    threadVariant: notification.threadVariant,
-                                    threadDisplayName: notification.threadDisplayName,
-                                    resolution: .errorMessageHandling(msgError)
-                                )
-                                
-                            default:
-                                self?.handleFailure(
-                                    notification.info,
-                                    threadVariant: notification.threadVariant,
-                                    threadDisplayName: notification.threadDisplayName,
-                                    resolution: .errorOther(error)
-                                )
-                        }
-                    }
-                }
-                
-                db.afterNextTransaction(
-                    onCommit: { _ in  handleError() },
-                    onRollback: { _ in handleError() }
-                )
-                throw error
-            }
-        }
-    }
-    
     // MARK: Handle completion
     
     override public func serviceExtensionTimeWillExpire() {
@@ -738,15 +854,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func completeSilenty(_ info: NotificationInfo, _ resolution: NotificationResolution) {
-        // This can be called from within database threads so to prevent blocking and weird
-        // behaviours make sure to send it to the main thread instead
-        // TODO: [Database Relocation] Should be able to remove this
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { [weak self] in
-                self?.completeSilenty(info, resolution)
-            }
-        }
-        
         // Ensure we only run this once
         guard _hasCompleted.performUpdateAndMap({ (true, $0) }) == false else { return }
         
@@ -863,20 +970,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         threadDisplayName: String?,
         resolution: NotificationResolution
     ) {
-        // This can be called from within database threads so to prevent blocking and weird
-        // behaviours make sure to send it to the main thread instead
-        // TODO: [Database Relocation] Should be able to remove this
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { [weak self] in
-                self?.handleFailure(
-                    info,
-                    threadVariant: threadVariant,
-                    threadDisplayName: threadDisplayName,
-                    resolution: resolution
-                )
-            }
-        }
-        
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
         let targetThreadVariant: SessionThread.Variant = (threadVariant ?? .contact) /// Fallback to `contact`
         let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in

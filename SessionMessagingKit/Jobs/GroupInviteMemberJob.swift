@@ -31,21 +31,18 @@ public enum GroupInviteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let currentInfo: (groupName: String, adminProfile: Profile) = dependencies[singleton: .storage].read({ db in
-                let maybeGroupName: String? = try ClosedGroup
+            let groupName: String = dependencies[singleton: .storage].read({ db in
+                try ClosedGroup
                     .filter(id: threadId)
                     .select(.name)
                     .asRequest(of: String.self)
                     .fetchOne(db)
-                
-                guard let groupName: String = maybeGroupName else { throw StorageError.objectNotFound }
-                
-                return (groupName, Profile.fetchOrCreateCurrentUser(db, using: dependencies))
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
@@ -65,11 +62,12 @@ public enum GroupInviteMemberJob: JobExecutor {
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,
                         groupSessionId: SessionId(.group, hex: threadId),
-                        groupName: currentInfo.groupName,
+                        groupName: groupName,
                         memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile.init(
-                            profile: currentInfo.adminProfile,
-                            blocksCommunityMessageRequests: nil
+                        profile: VisibleMessage.VMProfile(
+                            displayName: adminProfile.name,
+                            profileKey: adminProfile.profileEncryptionKey,
+                            profilePictureUrl: adminProfile.profilePictureUrl
                         ),
                         sentTimestampMs: UInt64(sentTimestampMs),
                         authMethod: try Authentication.with(

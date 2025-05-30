@@ -161,7 +161,13 @@ public enum PushNotificationAPI {
                                         .configGroupMembers,
                                         .revokedRetrievableGroupMessages
                                     ]
-                                    default: return [.default, .configConvoInfoVolatile]
+                                    default: return [
+                                        .default,
+                                        .configUserProfile,
+                                        .configContacts,
+                                        .configConvoInfoVolatile,
+                                        .configUserGroups
+                                    ]
                                 }
                             }(),
                             /// Note: Unfortunately we always need the message content because without the content

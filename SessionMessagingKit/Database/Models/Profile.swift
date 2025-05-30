@@ -289,18 +289,6 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(using dependencies: Dependencies) -> Profile {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        return dependencies[singleton: .storage]
-            .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
-            .defaulting(to: defaultFor(userSessionId.hexString))
-    }
-    
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
     static func fetchOrCreateCurrentUser(_ db: Database, using dependencies: Dependencies) -> Profile {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         

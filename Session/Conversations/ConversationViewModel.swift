@@ -709,7 +709,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
         let threadData: SessionThreadViewModel = self.internalThreadData
-        let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
+        let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,

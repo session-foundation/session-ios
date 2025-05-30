@@ -87,6 +87,10 @@ extension Interaction: Mocked {
     )
 }
 
+extension VisibleMessage: Mocked {
+    static var mock: VisibleMessage = VisibleMessage(text: "mock")
+}
+
 extension KeychainStorage.DataKey: Mocked {
     static var mock: KeychainStorage.DataKey = .dbCipherKeySpec
 }

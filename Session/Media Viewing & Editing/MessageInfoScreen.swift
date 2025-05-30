@@ -612,7 +612,10 @@ struct MessageInfoView_Previews: PreviewProvider {
             expiresInSeconds: nil,
             state: .failed,
             isSenderModeratorOrAdmin: false,
-            currentUserProfile: Profile.fetchOrCreateCurrentUser(using: dependencies),
+            currentUserProfile: Profile(
+                id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                name: "TestUser"
+            ),
             quote: nil,
             quoteAttachment: nil,
             linkPreview: nil,

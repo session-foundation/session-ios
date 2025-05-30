@@ -676,8 +676,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
-                                        title: "notificationsIosGroup".localized(),
-                                        body: "messageNewYouveGot".localized(),
+                                        title: "notificationsIosGroup"
+                                            .put(key: "name", value: "0511...1111")
+                                            .put(key: "conversation_name", value: "TestGroupName")
+                                            .localized(),
+                                        body: "messageNewYouveGot"
+                                            .putNumber(1)
+                                            .localized(),
                                         sound: .defaultNotificationSound,
                                         applicationState: .active
                                     ),
@@ -3273,10 +3278,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             )
                         }
                         
-                        var cGroupId: [CChar] = groupId.hexString.cString(using: .utf8)!
-                        var userGroup: ugroups_group_info = ugroups_group_info()
-                        expect(user_groups_get_group(userGroupsConfig.conf, &userGroup, &cGroupId)).to(beTrue())
-                        expect(ugroups_group_is_kicked(&userGroup)).to(beTrue())
+                        expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                            try $0.markAsKicked(groupSessionIds: [groupId.hexString])
+                        })
                     }
                 }
                 

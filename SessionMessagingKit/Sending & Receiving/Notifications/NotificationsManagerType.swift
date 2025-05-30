@@ -119,15 +119,15 @@ public extension NotificationsManagerType {
         /// Ensure the sender isn't blocked (this should be checked when parsing the message but we should also check here in case
         /// that logic ever changes)
         guard
-            !dependencies.mutate(cache: .libSession, { cache in
-                cache.isContactBlocked(contactId: sender)
+            dependencies.mutate(cache: .libSession, { cache in
+                !cache.isContactBlocked(contactId: sender)
             })
         else { throw MessageReceiverError.senderBlocked }
         
         /// Ensure the message hasn't already been maked as read (don't want to show notification in that case)
         guard
-            !dependencies.mutate(cache: .libSession, { cache in
-                cache.timestampAlreadyRead(
+            dependencies.mutate(cache: .libSession, { cache in
+                !cache.timestampAlreadyRead(
                     threadId: threadId,
                     threadVariant: threadVariant,
                     timestampMs: (message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread

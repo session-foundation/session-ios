@@ -427,46 +427,6 @@ internal extension LibSessionCacheType {
         return ugroups_group_is_kicked(&userGroup)
     }
     
-    func markAsInvited(
-        _ db: Database,
-        groupSessionIds: [String],
-        using dependencies: Dependencies
-    ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
-            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try groupSessionIds.forEach { groupId in
-                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var userGroup: ugroups_group_info = ugroups_group_info()
-                
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
-                
-                ugroups_group_set_invited(&userGroup)
-                user_groups_set_group(conf, &userGroup)
-            }
-        }
-    }
-    
-    func markAsKicked(
-        _ db: Database,
-        groupSessionIds: [String],
-        using dependencies: Dependencies
-    ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
-            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try groupSessionIds.forEach { groupId in
-                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var userGroup: ugroups_group_info = ugroups_group_info()
-                
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
-                
-                ugroups_group_set_kicked(&userGroup)
-                user_groups_set_group(conf, &userGroup)
-            }
-        }
-    }
-    
     func markAsDestroyed(
         _ db: Database,
         groupSessionIds: [String],
@@ -601,7 +561,7 @@ internal extension LibSession {
             }
     }
     
-    static func upsert(
+    public static func upsert(
         groups: [GroupUpdateInfo],
         in config: Config?,
         using dependencies: Dependencies
@@ -875,6 +835,20 @@ public extension LibSession {
         }
     }
     
+    func markAsInvited(
+        _ db: Database,
+        groupSessionIds: [String],
+        using dependencies: Dependencies
+    ) throws {
+        guard !groupSessionIds.isEmpty else { return }
+        
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { _ in
+                try cache.markAsInvited(groupSessionIds: groupSessionIds)
+            }
+        }
+    }
+    
     static func markAsKicked(
         _ db: Database,
         groupSessionIds: [String],
@@ -883,7 +857,9 @@ public extension LibSession {
         guard !groupSessionIds.isEmpty else { return }
         
         try dependencies.mutate(cache: .libSession) { cache in
-            try cache.markAsKicked(db, groupSessionIds: groupSessionIds, using: dependencies)
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { _ in
+                try cache.markAsKicked(groupSessionIds: groupSessionIds)
+            }
         }
     }
     
@@ -914,6 +890,42 @@ public extension LibSession {
     }
 }
 
+// MARK: - State Changes
+
+public extension LibSession.Cache {
+    func markAsInvited(groupSessionIds: [String]) throws {
+        guard case .userGroups(let conf) =  config(for: .userGroups, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject
+        }
+        
+        try groupSessionIds.forEach { groupId in
+            var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var userGroup: ugroups_group_info = ugroups_group_info()
+            
+            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+            
+            ugroups_group_set_invited(&userGroup)
+            user_groups_set_group(conf, &userGroup)
+        }
+    }
+    
+    func markAsKicked(groupSessionIds: [String]) throws {
+        guard case .userGroups(let conf) =  config(for: .userGroups, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject
+        }
+        
+        try groupSessionIds.forEach { groupId in
+            var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var userGroup: ugroups_group_info = ugroups_group_info()
+            
+            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+            
+            ugroups_group_set_kicked(&userGroup)
+            user_groups_set_group(conf, &userGroup)
+        }
+    }
+}
+
 // MARK: - State Access
 
 public extension LibSession.Cache {
@@ -928,6 +940,20 @@ public extension LibSession.Cache {
         else { return false }
         
         return (userGroup.have_auth_data || userGroup.have_secretkey)
+    }
+    
+    func secretKey(groupSessionId: SessionId) -> [UInt8]? {
+        var userGroup: ugroups_group_info = ugroups_group_info()
+        
+        /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &userGroup, &cGroupId),
+            userGroup.have_secretkey
+        else { return nil }
+        
+        return userGroup.get(\.secretkey, nullIfEmpty: true)
     }
     
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool {
@@ -1114,7 +1140,7 @@ public extension LibSession {
         let wasKickedFromGroup: Bool?
         let wasGroupDestroyed: Bool?
         
-        init(
+        public init(
             groupSessionId: String,
             groupIdentityPrivateKey: Data? = nil,
             name: String? = nil,

@@ -300,6 +300,74 @@ public class ExtensionHelper: ExtensionHelperType {
         try? refreshModifiedDate(at: path)
     }
     
+    public func loadUserConfigState(
+        into cache: LibSessionCacheType,
+        userSessionId: SessionId,
+        userEd25519SecretKey: [UInt8]
+    ) {
+        ConfigDump.Variant.userVariants
+            .sorted { $0.loadOrder < $1.loadOrder }
+            .forEach { variant in
+                guard
+                    let path: String = dumpFilePath(for: userSessionId, variant: variant),
+                    let dump: Data = try? read(from: path),
+                    let config: LibSession.Config = try? cache.loadState(
+                        for: variant,
+                        sessionId: userSessionId,
+                        userEd25519SecretKey: userEd25519SecretKey,
+                        groupEd25519SecretKey: nil,
+                        cachedData: dump
+                    )
+                else {
+                    /// If a file doesn't exist at the path then assume we don't have a config dump and just load in a default one
+                    return cache.loadDefaultStateFor(
+                        variant: variant,
+                        sessionId: userSessionId,
+                        userEd25519SecretKey: userEd25519SecretKey,
+                        groupEd25519SecretKey: nil
+                    )
+                }
+                
+                cache.setConfig(for: variant, sessionId: userSessionId, to: config)
+            }
+    }
+    
+    public func loadGroupConfigStateIfNeeded(
+        into cache: LibSessionCacheType,
+        swarmPublicKey: String,
+        userEd25519SecretKey: [UInt8]
+    ) throws {
+        guard
+            let groupSessionId: SessionId = try? SessionId(from: swarmPublicKey),
+            groupSessionId.prefix == .group
+        else { return }
+        
+        let groupEd25519SecretKey: [UInt8]? = cache.secretKey(groupSessionId: groupSessionId)
+        
+        try ConfigDump.Variant.groupVariants
+            .sorted { $0.loadOrder < $1.loadOrder }
+            .forEach { variant in
+                /// If a file doesn't exist at the path then assume we don't have a config dump and don't do anything (we wouldn't
+                /// be able to handle a notification without a valid config anyway)
+                guard
+                    let path: String = dumpFilePath(for: groupSessionId, variant: variant),
+                    let dump: Data = try? read(from: path)
+                else { return }
+                
+                cache.setConfig(
+                    for: variant,
+                    sessionId: groupSessionId,
+                    to: try cache.loadState(
+                        for: variant,
+                        sessionId: groupSessionId,
+                        userEd25519SecretKey: userEd25519SecretKey,
+                        groupEd25519SecretKey: groupEd25519SecretKey,
+                        cachedData: dump
+                    )
+                )
+            }
+    }
+    
     // MARK: - Messages
     
     // stringlint:ignore_contents
@@ -422,8 +490,10 @@ public class ExtensionHelper: ExtensionHelperType {
             })
             .defaulting(to: [])
             .inserting(currentUserConversationHash, at: 0)
-        var successCount: Int = 0
-        var failureCount: Int = 0
+        var successConfigCount: Int = 0
+        var failureConfigCount: Int = 0
+        var successStandardCount: Int = 0
+        var failureStandardCount: Int = 0
         
         try await dependencies[singleton: .storage].writeAsync { [weak self, dependencies] db in
             guard let this = self else { return }
@@ -479,10 +549,10 @@ public class ExtensionHelper: ExtensionHelperType {
                             )
                     }
                     
-                    successCount += configMessageHashes.count
+                    successConfigCount += configMessageHashes.count
                 }
                 catch {
-                    failureCount += configMessageHashes.count
+                    failureConfigCount += configMessageHashes.count
                     Log.error(.cat, "Discarding some config message changes due to error: \(error)")
                 }
                 
@@ -543,10 +613,10 @@ public class ExtensionHelper: ExtensionHelperType {
                             sortedMessages: [(message.namespace, [message], nil)],
                             using: dependencies
                         )
-                        successCount += 1
+                        successStandardCount += 1
                     }
                     catch {
-                        failureCount += 1
+                        failureStandardCount += 1
                         Log.error(.cat, "Discarding standard message due to error: \(error)")
                     }
                 }
@@ -557,7 +627,7 @@ public class ExtensionHelper: ExtensionHelperType {
             }
         }
         
-        Log.info(.cat, "Finished: Successfully processed \(successCount) messages, \(failureCount) messages failed.")
+        Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
         await messagesLoadedStream.send(true)
     }
     
@@ -642,6 +712,16 @@ public protocol ExtensionHelperType {
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
     func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId)
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
+    func loadUserConfigState(
+        into cache: LibSessionCacheType,
+        userSessionId: SessionId,
+        userEd25519SecretKey: [UInt8]
+    )
+    func loadGroupConfigStateIfNeeded(
+        into cache: LibSessionCacheType,
+        swarmPublicKey: String,
+        userEd25519SecretKey: [UInt8]
+    ) throws
     
     // MARK: - Messages
     
