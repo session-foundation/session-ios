@@ -348,8 +348,9 @@ public extension LibSession {
                             oldAvatarKey != (info.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                         )
                     {
-                        dependencies[singleton: .displayPictureManager].displayPicture(
-                            owner: .user(updatedProfile)
+                        dependencies[singleton: .displayPictureManager].scheduleDownload(
+                            for: .user(updatedProfile),
+                            currentFileInvalid: false
                         )
                     }
                     

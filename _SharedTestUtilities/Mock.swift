@@ -109,6 +109,13 @@ public class Mock<T>: DependenciesSettable {
         return builder
     }
     
+    internal func when<R>(_ callBlock: @escaping (inout T) async throws -> R) -> MockFunctionBuilder<T, R> {
+        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
+        functionConsumer.functionBuilders.append(builder.build)
+        
+        return builder
+    }
+    
     // MARK: - Convenience
     
     private func summaries(for argument: Any) -> [ParameterCombination] {
@@ -338,7 +345,7 @@ internal class MockFunction {
 // MARK: - MockFunctionBuilder
 
 internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
-    private let callBlock: (inout T) throws -> R
+    private let callBlock: (inout T) async throws -> R
     private let mockInit: (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>
     private var functionName: String?
     private var parameterCount: Int?
@@ -358,7 +365,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - Initialization
     
-    init(_ callBlock: @escaping (inout T) throws -> R, mockInit: @escaping (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>) {
+    init(_ callBlock: @escaping (inout T) async throws -> R, mockInit: @escaping (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>) {
         self.callBlock = callBlock
         self.mockInit = mockInit
     }
@@ -503,9 +510,9 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - Build
     
-    func build() throws -> MockFunction {
+    func build() async throws -> MockFunction {
         var completionMock = mockInit(self, nil) as! T
-        _ = try? callBlock(&completionMock)
+        _ = try? await callBlock(&completionMock)
         
         guard
             let name: String = functionName,
@@ -584,7 +591,7 @@ internal class FunctionConsumer: MockFunctionHandler {
     }
     
     var trackCalls: Bool = true
-    var functionBuilders: [() throws -> MockFunction?] = []
+    var functionBuilders: [() async throws -> MockFunction?] = []
     var functionHandlers: [Key: [String: MockFunction]] = [:]
     @ThreadSafeObject var calls: [Key: [CallDetails]] = [:]
     
@@ -600,7 +607,17 @@ internal class FunctionConsumer: MockFunctionHandler {
         
         if !functionBuilders.isEmpty {
             functionBuilders
-                .compactMap { try? $0() }
+                .compactMap { builder in
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    var result: MockFunction?
+                    
+                    Task {
+                        result = try? await builder()
+                        semaphore.signal()
+                    }
+                    semaphore.wait()
+                    return result
+                }
                 .forEach { function in
                     let key: Key = Key(name: function.name, paramCount: function.parameterCount)
                     var updatedHandlers: [String: MockFunction] = (functionHandlers[key] ?? [:])

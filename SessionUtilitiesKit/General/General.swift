@@ -22,7 +22,6 @@ public enum General {
         public var sessionId: SessionId = SessionId.invalid
         public var ed25519SecretKey: [UInt8] = []
         public var recentReactionTimestamps: [Int64] = []
-        public let placeholderCache: LRUCache<String, UIImage> = LRUCache(maxCacheSize: 50)
         public var contextualActionLookupMap: [Int: [String: [Int: Any]]] = [:]
         
         public var userExists: Bool { !ed25519SecretKey.isEmpty }
@@ -66,7 +65,6 @@ public protocol ImmutableGeneralCacheType: ImmutableCacheType {
     var ed25519Seed: [UInt8] { get }
     var ed25519SecretKey: [UInt8] { get }
     var recentReactionTimestamps: [Int64] { get }
-    var placeholderCache: LRUCache<String, UIImage> { get }
     var contextualActionLookupMap: [Int: [String: [Int: Any]]] { get }
 }
 
@@ -76,7 +74,6 @@ public protocol GeneralCacheType: ImmutableGeneralCacheType, MutableCacheType {
     var ed25519Seed: [UInt8] { get }
     var ed25519SecretKey: [UInt8] { get }
     var recentReactionTimestamps: [Int64] { get set }
-    var placeholderCache: LRUCache<String, UIImage> { get }
     var contextualActionLookupMap: [Int: [String: [Int: Any]]] { get set }
     
     func setSecretKey(ed25519SecretKey: [UInt8])

@@ -22,8 +22,8 @@ final class LinkPreviewView: UIView {
     
     public var previewView: UIView { hStackView }
 
-    private lazy var imageView: UIImageView = {
-        let result: UIImageView = UIImageView()
+    private lazy var imageView: SessionImageView = {
+        let result: SessionImageView = SessionImageView()
         result.contentMode = .scaleAspectFill
         
         return result

@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/libsession-util-spm",
       "state" : {
-        "revision" : "250c672e7d51b950004900b8422040bbedf5580a",
-        "version" : "1.4.0"
+        "revision" : "de7e51153b43783442c680482db676a8b19be61d",
+        "version" : "1.4.1"
       }
     },
     {

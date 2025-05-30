@@ -374,6 +374,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
+        viewModel.dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: false)
+        
         self.viewHasAppeared = true
         self.autoLoadNextPageIfNeeded()
     }
@@ -576,7 +578,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     private func updateNavBarButtons(userProfile: Profile) {
         // Profile picture view
-        let profilePictureView = ProfilePictureView(size: .navigation)
+        let profilePictureView = ProfilePictureView(
+            size: .navigation,
+            dataManager: viewModel.dependencies[singleton: .imageDataManager]
+        )
         profilePictureView.accessibilityIdentifier = "User settings"
         profilePictureView.accessibilityLabel = "User settings"
         profilePictureView.isAccessibilityElement = true

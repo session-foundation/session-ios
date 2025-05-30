@@ -107,8 +107,9 @@ final class QuoteView: UIView {
             imageContainerView.set(.height, to: thumbnailSize)
             mainStackView.addArrangedSubview(imageContainerView)
             
-            let imageView: UIImageView = UIImageView(
-                image: UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate)
+            let imageView: SessionImageView = SessionImageView(
+                image: UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate),
+                dataManager: dependencies[singleton: .imageDataManager]
             )
             imageView.themeTintColor = {
                 switch mode {
@@ -131,22 +132,30 @@ final class QuoteView: UIView {
             
             // Generate the thumbnail if needed
             if attachment.isVisualMedia {
-                attachment.thumbnail(
-                    size: .small,
-                    using: dependencies,
-                    success: { [imageView] image, _ in
-                        guard Thread.isMainThread else {
-                            DispatchQueue.main.async {
-                                imageView.image = image
-                                imageView.contentMode = .scaleAspectFill
-                            }
-                            return
-                        }
+                let thumbnailPath: String = attachment.thumbnailPath(for: Attachment.ThumbnailSize.medium.dimension)
+                
+                imageView.loadImage(
+                    identifier: thumbnailPath,
+                    from: { [weak self] () -> Data? in
+                        guard let self = self else { return nil }
                         
-                        imageView.image = image
-                        imageView.contentMode = .scaleAspectFill
+                        var data: Data?
+                        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                        
+                        attachment.thumbnail(
+                            size: .medium,
+                            using: self.dependencies,
+                            success: { _, _, imageData in
+                                data = try? imageData()
+                                semaphore.signal()
+                            },
+                            failure: { semaphore.signal() }
+                        )
+                        semaphore.wait()
+                        
+                        return data
                     },
-                    failure: {}
+                    onComplete: { [weak imageView] in imageView?.contentMode = .scaleAspectFill }
                 )
             }
         }

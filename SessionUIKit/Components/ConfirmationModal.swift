@@ -129,7 +129,28 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero)
+    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero, dataManager: nil)
+    
+    private lazy var textToConfirmContainer: UIView = {
+        let result: UIView = UIView()
+        result.themeBorderColor = .borderSeparator
+        result.layer.cornerRadius = 11
+        result.layer.borderWidth = 1
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var textToConfirmLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .alert_text
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
     
     private lazy var confirmButton: UIButton = {
         let result: UIButton = Modal.createButton(
@@ -150,7 +171,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textViewContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textToConfirmContainer, textViewContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -226,6 +247,9 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         textFieldContainer.addSubview(textField)
         textField.pin(to: textFieldContainer, withInset: 12)
+        
+        textToConfirmContainer.addSubview(textToConfirmLabel)
+        textToConfirmLabel.pin(to: textToConfirmContainer, withInset: 12)
         
         textViewContainer.addSubview(textView)
         textViewContainer.addSubview(textViewPlaceholder)
@@ -389,23 +413,32 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let placeholder, let value, let icon, let style, let accessibility, let onClick):
+            case .image(let identifier, let source, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
+                profileView.setDataManager(dataManager)
                 profileView.update(
                     ProfilePictureView.Info(
-                        imageData: (value ?? placeholder),
+                        identifier: identifier,
+                        source: (source ?? placeholder),
                         icon: icon
                     )
                 )
                 internalOnBodyTap = onClick
                 contentTapGestureRecognizer.isEnabled = false
                 imageViewTapGestureRecognizer.isEnabled = true
-        }
+            
+            case .inputConfirmation(let explanation, let textToConfirm):
+                explanationLabel.attributedText = explanation
+                explanationLabel.scrollMode = .never
+                explanationLabel.isHidden = (explanation == nil)
+                textToConfirmLabel.attributedText = textToConfirm
+                textToConfirmContainer.isHidden = false
+            }
         
         confirmButton.accessibilityIdentifier = info.confirmTitle
         confirmButton.isAccessibilityElement = true
@@ -477,15 +510,17 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let updatedValueData), .image(let placeholderData, _, let icon, let style, let accessibility, let onClick)):
+                case (.image(let updatedIdentifier, let updatedData), .image(_, _, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
-                                placeholderData: placeholderData,
-                                valueData: updatedValueData,
+                                identifier: updatedIdentifier,
+                                source: updatedData.map { ImageDataManager.DataSource.data($0) },
+                                placeholder: placeholder,
                                 icon: icon,
                                 style: style,
                                 accessibility: accessibility,
+                                dataManager: dataManager,
                                 onClick: onClick
                             )
                         )
@@ -569,7 +604,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(Data?)
+        case image(identifier: String, data: Data?)
     }
     
     struct Info: Equatable, Hashable {
@@ -807,12 +842,19 @@ public extension ConfirmationModal.Info {
             )]
         )
         case image(
-            placeholderData: Data?,
-            valueData: Data?,
+            identifier: String,
+            source: ImageDataManager.DataSource?,
+            placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
             accessibility: Accessibility?,
+            dataManager: ImageDataManagerType,
             onClick: ((@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
+        )
+        
+        case inputConfirmation(
+            explanation: NSAttributedString?,
+            textToConfirm: NSAttributedString?
         )
         
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {
@@ -841,10 +883,11 @@ public extension ConfirmationModal.Info {
                         lhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" } == rhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" }
                     )
                     
-                case (.image(let lhsPlaceholder, let lhsValue, let lhsIcon, let lhsStyle, let lhsAccessibility, _), .image(let rhsPlaceholder, let rhsValue, let rhsIcon, let rhsStyle, let rhsAccessibility, _)):
+                case (.image(let lhsIdentifier, let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsIdentifier, let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
                     return (
+                        lhsIdentifier == rhsIdentifier &&
+                        lhsSource == rhsSource &&
                         lhsPlaceholder == rhsPlaceholder &&
-                        lhsValue == rhsValue &&
                         lhsIcon == rhsIcon &&
                         lhsStyle == rhsStyle &&
                         lhsAccessibility == rhsAccessibility
@@ -874,13 +917,18 @@ public extension ConfirmationModal.Info {
                     warning.hash(into: &hasher)
                     options.map { "\($0.0)-\($0.1)-\($0.2)" }.hash(into: &hasher)
                 
-                case .image(let placeholder, let value, let icon, let style, let accessibility, _):
+                case .image(let identifier, let source, let placeholder, let icon, let style, let accessibility, _, _):
+                    identifier.hash(into: &hasher)
+                    source.hash(into: &hasher)
                     placeholder.hash(into: &hasher)
-                    value.hash(into: &hasher)
                     icon.hash(into: &hasher)
                     style.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
-            }
+                
+                case .inputConfirmation(let explanation, let textToConfirm):
+                    explanation.hash(into: &hasher)
+                    textToConfirm.hash(into: &hasher)
+                }
         }
     }
 }

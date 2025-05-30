@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUtil
+import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
@@ -106,4 +107,8 @@ extension NotificationContent: Mocked {
 
 extension Preferences.NotificationSettings: Mocked {
     static var mock: Preferences.NotificationSettings = .defaultFor(.mock)
+}
+
+extension ImageDataManager.DataSource: Mocked {
+    static var mock: ImageDataManager.DataSource = ImageDataManager.DataSource.data(Data([1, 2, 3]))
 }

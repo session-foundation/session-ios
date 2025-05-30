@@ -187,6 +187,23 @@ extension View {
             return self
         }
     }
+    
+    @inlinable public func framing(minWidth: CGFloat? = nil, idealWidth: CGFloat? = nil, maxWidth: CGFloat? = nil, minHeight: CGFloat? = nil, idealHeight: CGFloat? = nil, maxHeight: CGFloat? = nil, width: CGFloat? = nil, height: CGFloat? = nil, alignment: Alignment = .center) -> some View {
+        return frame(
+            minWidth: minWidth,
+            idealWidth: idealWidth,
+            maxWidth: maxWidth,
+            minHeight: minHeight,
+            idealHeight: idealHeight,
+            maxHeight: maxHeight,
+            alignment: alignment
+        )
+        .frame(
+            width: width,
+            height: height,
+            alignment: alignment
+        )
+    }
 }
 
 extension Binding {
@@ -198,5 +215,62 @@ extension Binding {
                 self.wrappedValue = newValue
             }
         )
+    }
+}
+
+// MARK: - Interaction Callback
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// stringlint:ignore_contents
+public extension View {
+    private func onScrolled(scrollCoordinateSpaceName: String, _ action: @escaping () -> Void) -> some View {
+        self
+            .background(
+                GeometryReader { geometry in
+                    let offsetY = geometry.frame(in: .named(scrollCoordinateSpaceName)).minY
+                    
+                    Color.clear
+                        .preference(key: ScrollOffsetPreferenceKey.self, value: offsetY)
+                        .onChange(of: offsetY) { _ in
+                            action()
+                        }
+                }
+            )
+    }
+    
+    /// This function triggers a callback when any interaction is performed on a UI element
+    ///
+    /// **Note:** It looks like there were some bugs in the Gesture Recognizer systens prior to iOS 18.0 (specifically breaking scrolling
+    /// in a `ScrollView` when this function is used), as a result we instead need to call this function on the content within the
+    /// `ScrollView` and set `.coordinateSpace(name: coordinateSpaceName)` on the `ScrollView`
+    @ViewBuilder
+    func onAnyInteraction(
+        scrollCoordinateSpaceName: String = "scroll",
+        action: @escaping () -> Void
+    ) -> some View {
+        if #unavailable(iOS 18.0) {
+            self
+                .onScrolled(scrollCoordinateSpaceName: scrollCoordinateSpaceName) { action() }
+                .onTapGesture { action() }
+                .onLongPressGesture {action() }
+        } else {
+            self
+                .simultaneousGesture(
+                    DragGesture().onChanged { _ in action() }
+                )
+                .simultaneousGesture(
+                    LongPressGesture().onEnded { _ in action() }
+                )
+                .simultaneousGesture(
+                    TapGesture().onEnded { action() }
+                )
+        }
     }
 }

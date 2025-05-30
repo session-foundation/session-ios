@@ -1928,7 +1928,6 @@ extension ConversationVC:
         ) ?? []
         
         let messageInfoViewController = MessageInfoViewController(
-            mediaCache: mediaCache,
             actions: actions,
             messageViewModel: cellViewModel,
             using: viewModel.dependencies

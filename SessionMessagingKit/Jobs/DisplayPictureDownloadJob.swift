@@ -125,9 +125,15 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     
                     // Update the cache first (in case the DBWrite thread is blocked, this way other threads
                     // can retrieve from the cache and avoid triggering a download)
-                    dependencies.mutate(cache: .displayPicture) { cache in
-                        cache.imageData[finalFileName] = decryptedData
+                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        await dependencies[singleton: .imageDataManager].loadImageData(
+                            identifier: finalFileName,
+                            source: .data(decryptedData)
+                        )
+                        semaphore.signal()
                     }
+                    semaphore.wait()
                     
                     // Store the updated information in the database
                     dependencies[singleton: .storage].write { db in

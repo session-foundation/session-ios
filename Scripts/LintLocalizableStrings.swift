@@ -70,6 +70,10 @@ extension ProjectState {
         .prefix("@available(", caseSensitive: false),
         .prefix("print(", caseSensitive: false),
         .prefix("Log.Category =", caseSensitive: false),
+        .previousLine(
+            numEarlier: 1,
+            .suffix("-> Log.Category {", caseSensitive: false)
+        ),
         .contains("fatalError(", caseSensitive: false),
         .contains("precondition(", caseSensitive: false),
         .contains("preconditionFailure(", caseSensitive: false),
@@ -340,7 +344,7 @@ enum ScriptAction: String {
                     return
                 }
                 
-                if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed, .sortedKeys ]) {
+                if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed, .sortedKeys, .prettyPrinted ]) {
                     do {
                         try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
                     } catch {

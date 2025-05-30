@@ -21,7 +21,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         return result
     }()
 
-    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
+        size: .list,
+        dataManager: nil
+    )
 
     private lazy var displayNameLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -274,6 +277,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     // MARK: --Search Results
     public func updateForDefaultContacts(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
+        profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
@@ -306,6 +310,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         searchText: String,
         using dependencies: Dependencies
     ) {
+        profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
@@ -363,6 +368,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         searchText: String,
         using dependencies: Dependencies
     ) {
+        profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
@@ -448,6 +454,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 cellViewModel.threadVariant == .community
             )
         )
+        profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,

@@ -14,7 +14,6 @@ struct MessageInfoScreen: View {
     
     static private let cornerRadius: CGFloat = 17
     
-    var mediaCache: LRUCache<String, Any>
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     let dependencies: Dependencies
@@ -98,7 +97,6 @@ struct MessageInfoScreen: View {
                                             // Attachment carousel view
                                             SessionCarouselView_SwiftUI(
                                                 index: $index,
-                                                mediaCache: mediaCache,
                                                 isOutgoing: (messageViewModel.variant == .standardOutgoing),
                                                 contentInfos: attachments,
                                                 using: dependencies
@@ -110,7 +108,6 @@ struct MessageInfoScreen: View {
                                             )
                                         } else {
                                             MediaView_SwiftUI(
-                                                mediaCache: mediaCache,
                                                 attachment: attachments[0],
                                                 isOutgoing: (messageViewModel.variant == .standardOutgoing),
                                                 shouldSupressControls: true,
@@ -299,7 +296,8 @@ struct MessageInfoScreen: View {
                                         ProfilePictureSwiftUI(
                                             size: size,
                                             info: info,
-                                            additionalInfo: additionalInfo
+                                            additionalInfo: additionalInfo,
+                                            dataManager: dependencies[singleton: .imageDataManager]
                                         )
                                         .frame(
                                             width: size.viewSize,
@@ -568,13 +566,11 @@ struct InfoBlock<Content>: View where Content: View {
 
 final class MessageInfoViewController: SessionHostingViewController<MessageInfoScreen> {
     init(
-        mediaCache: LRUCache<String, Any>,
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         using dependencies: Dependencies
     ) {
         let messageInfoView = MessageInfoScreen(
-            mediaCache: mediaCache,
             actions: actions,
             messageViewModel: messageViewModel,
             dependencies: dependencies
@@ -637,7 +633,6 @@ struct MessageInfoView_Previews: PreviewProvider {
     
     static var previews: some View {
         MessageInfoScreen(
-            mediaCache: LRUCache(),
             actions: actions,
             messageViewModel: messageViewModel,
             dependencies: Dependencies.createEmpty()

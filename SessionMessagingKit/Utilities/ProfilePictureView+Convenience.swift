@@ -45,30 +45,31 @@ public extension ProfilePictureView {
     ) -> (Info?, Info?) {
         // If we are given an explicit 'displayPictureFilename' then only use that (this could be for
         // either Community conversations or updated groups)
-        if let displayPictureFilename: String = displayPictureFilename {
+        if
+            let displayPictureFilename: String = displayPictureFilename,
+            let path: String = try? dependencies[singleton: .displayPictureManager]
+                .filepath(for: displayPictureFilename)
+        {
             return (Info(
-                imageData: dependencies[singleton: .displayPictureManager].displayPicture(
-                    owner: .file(displayPictureFilename)
-                ),
+                identifier: displayPictureFilename,
+                source: .url(URL(fileURLWithPath: path)),
                 icon: profileIcon
             ), nil)
         }
         
-        
         // Otherwise there are conversation-type-specific behaviours
         switch threadVariant {
             case .community:
-                let placeholderImage: UIImage = {
-                    switch size {
-                        case .navigation, .message: return #imageLiteral(resourceName: "SessionWhite16")
-                        case .list: return #imageLiteral(resourceName: "SessionWhite24")
-                        case .hero: return #imageLiteral(resourceName: "SessionWhite40")
-                    }
-                }()
-                
                 return (
                     Info(
-                        imageData: placeholderImage.pngData(),
+                        identifier: "\(publicKey)-placeholder",
+                        source: {
+                            switch size {
+                                case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
+                                case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
+                                case .hero: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                            }
+                        }(),
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -86,37 +87,55 @@ public extension ProfilePictureView {
                 
                 return (
                     Info(
-                        imageData: (
-                            profile.map { dependencies[singleton: .displayPictureManager].displayPicture(owner: .user($0)) } ??
-                            PlaceholderIcon.generate(
-                                seed: (profile?.id ?? publicKey),
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: (additionalProfile != nil ?
-                                    size.multiImageSize :
-                                    size.viewSize
+                        identifier: (profile?.profilePictureFileName)
+                            .defaulting(to: "\(profile?.id ?? publicKey)-placeholder"),
+                        source: (
+                            profile?.profilePictureFileName
+                                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
+                            .image(
+                                "\(profile?.id ?? publicKey)-placeholder",
+                                PlaceholderIcon.generate(
+                                    seed: (profile?.id ?? publicKey),
+                                    text: (profile?.displayName(for: threadVariant))
+                                        .defaulting(to: publicKey),
+                                    size: (additionalProfile != nil ?
+                                           size.multiImageSize :
+                                            size.viewSize
+                                          )
                                 )
-                            ).pngData()
+                            )
                         ),
                         icon: profileIcon
                     ),
                     additionalProfile
-                        .map { otherProfile in
+                        .map { other in
                             Info(
-                                imageData: (
-                                    dependencies[singleton: .displayPictureManager].displayPicture(owner: .user(otherProfile)) ??
-                                    PlaceholderIcon.generate(
-                                        seed: otherProfile.id,
-                                        text: otherProfile.displayName(for: threadVariant),
-                                        size: size.multiImageSize
-                                    ).pngData()
+                                identifier: (other.profilePictureFileName)
+                                    .defaulting(to: "\(other.id)-placeholder"),
+                                source: (
+                                    other.profilePictureFileName
+                                        .map { fileName in
+                                            try? dependencies[singleton: .displayPictureManager]
+                                                .filepath(for: fileName)
+                                        }
+                                        .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
+                                    .image(
+                                        "\(other.id)-placeholder",
+                                        PlaceholderIcon.generate(
+                                            seed: other.id,
+                                            text: other.displayName(for: threadVariant),
+                                            size: size.multiImageSize
+                                        )
+                                    )
                                 ),
                                 icon: additionalProfileIcon
                             )
                         }
                         .defaulting(
                             to: Info(
-                                imageData: UIImage(systemName: "person.fill")?.pngData(),
+                                identifier: "GroupFallbackIcon",    // stringlint:ignore
+                                source: .image("person.fill", UIImage(systemName: "person.fill")),
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -135,14 +154,21 @@ public extension ProfilePictureView {
                 
                 return (
                     Info(
-                        imageData: (
-                            profile.map { dependencies[singleton: .displayPictureManager].displayPicture(owner: .user($0)) } ??
-                            PlaceholderIcon.generate(
-                                seed: publicKey,
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: size.viewSize
-                            ).pngData()
+                        identifier: (profile?.profilePictureFileName)
+                            .defaulting(to: "\(publicKey)-placeholder"),
+                        source: (
+                            profile?.profilePictureFileName
+                                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
+                            .image(
+                                "\(profile?.id ?? publicKey)-placeholder",
+                                PlaceholderIcon.generate(
+                                    seed: publicKey,
+                                    text: (profile?.displayName(for: threadVariant))
+                                        .defaulting(to: publicKey),
+                                    size: size.viewSize
+                                )
+                            )
                         ),
                         icon: profileIcon
                     ),
@@ -176,10 +202,15 @@ public extension ProfilePictureSwiftUI {
             using: dependencies
         )
         
-        if let info = info {
-            self.init(size: size, info: info, additionalInfo: additionalInfo)
-        } else {
-            return nil
+        switch info {
+            case .none: return nil
+            case .some(let info):
+                self.init(
+                    size: size,
+                    info: info,
+                    additionalInfo: additionalInfo,
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
         }
     }
 }

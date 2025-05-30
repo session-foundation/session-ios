@@ -180,7 +180,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     private func showLockScreen() {
-        let screenLockVC = SAEScreenLockViewController(shareViewDelegate: self)
+        let screenLockVC = SAEScreenLockViewController(shareViewDelegate: self, using: dependencies)
         setViewControllers([ screenLockVC ], animated: false)
     }
     
@@ -763,16 +763,32 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String]) {}
     
     func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage {
-        if let cachedIcon: UIImage = dependencies[cache: .general].placeholderCache.get(key: cacheKey) {
-            return cachedIcon
-        }
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        var cachedIcon: UIImage?
         
-        let generatedImage: UIImage = generator()
-        dependencies.mutate(cache: .general) {
-            $0.placeholderCache.set(key: cacheKey, value: generatedImage)
+        Task {
+            switch await dependencies[singleton: .imageDataManager].cachedImage(identifier: cacheKey)?.type {
+                case .staticImage(let image): cachedIcon = image
+                case .animatedImage(let frames, _): cachedIcon = frames.first // Shouldn't be possible
+                case .none: break
+            }
+            
+            semaphore.signal()
         }
+        semaphore.wait()
         
-        return generatedImage
+        switch cachedIcon {
+            case .some(let image): return image
+            case .none:
+                let generatedImage: UIImage = generator()
+                Task {
+                    await dependencies[singleton: .imageDataManager].cacheImage(
+                        generatedImage,
+                        for: cacheKey
+                    )
+                }
+                return generatedImage
+        }
     }
     
     func shouldShowStringKeys() -> Bool {

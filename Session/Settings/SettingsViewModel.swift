@@ -21,8 +21,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] resultImageData in
-            self?.onDisplayPictureSelected?(.image(resultImageData))
+        onImageDataPicked: { [weak self] identifier, resultImageData in
+            self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
         }
     )
     
@@ -76,6 +76,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case messageRequests
         case appearance
         case inviteAFriend
+        case sessionNetwork
         case recoveryPhrase
         case help
         case developerSettings
@@ -250,179 +251,227 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let menus: SectionModel = SectionModel(
-            model: .menus,
-            elements: [
-                SessionCell.Info(
-                    id: .path,
-                    leadingAccessory: .custom(
-                        info: PathStatusViewAccessory.Info()
-                    ),
-                    title: "onionRoutingPath".localized(),
-                    onTap: { [weak self, dependencies] in self?.transitionToScreen(PathVC(using: dependencies)) }
+        var menuElements: [SessionCell.Info<TableItem>] = []
+        menuElements.append(
+            SessionCell.Info(
+                id: .path,
+                leadingAccessory: .custom(
+                    info: PathStatusViewAccessory.Info()
                 ),
-                SessionCell.Info(
-                    id: .privacy,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_privacy")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionPrivacy".localized(),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(viewModel: PrivacySettingsViewModel(using: dependencies))
-                        )
-                    }
+                title: "onionRoutingPath".localized(),
+                onTap: { [weak self, dependencies] in self?.transitionToScreen(PathVC(using: dependencies)) }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .privacy,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_privacy")?
+                        .withRenderingMode(.alwaysTemplate)
                 ),
-                SessionCell.Info(
-                    id: .notifications,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_speaker")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionNotifications".localized(),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(viewModel: NotificationSettingsViewModel(using: dependencies))
-                        )
-                    }
+                title: "sessionPrivacy".localized(),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(
+                        SessionTableViewController(viewModel: PrivacySettingsViewModel(using: dependencies))
+                    )
+                }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .notifications,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_speaker")?
+                        .withRenderingMode(.alwaysTemplate)
                 ),
-                SessionCell.Info(
-                    id: .conversations,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_msg")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionConversations".localized(),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(viewModel: ConversationSettingsViewModel(using: dependencies))
-                        )
-                    }
+                title: "sessionNotifications".localized(),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(
+                        SessionTableViewController(viewModel: NotificationSettingsViewModel(using: dependencies))
+                    )
+                }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .conversations,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_msg")?
+                        .withRenderingMode(.alwaysTemplate)
                 ),
-                SessionCell.Info(
-                    id: .messageRequests,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_msg_req")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionMessageRequests".localized(),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies))
-                        )
-                    }
+                title: "sessionConversations".localized(),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(
+                        SessionTableViewController(viewModel: ConversationSettingsViewModel(using: dependencies))
+                    )
+                }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .messageRequests,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_msg_req")?
+                        .withRenderingMode(.alwaysTemplate)
                 ),
-                SessionCell.Info(
-                    id: .appearance,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_apperance")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionAppearance".localized(),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(viewModel: AppearanceViewModel(using: dependencies))
-                        )
-                    }
+                title: "sessionMessageRequests".localized(),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(
+                        SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies))
+                    )
+                }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .appearance,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_apperance")?
+                        .withRenderingMode(.alwaysTemplate)
                 ),
-                SessionCell.Info(
-                    id: .inviteAFriend,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_invite")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionInviteAFriend".localized(),
-                    onTap: { [weak self] in
-                        let invitation: String = "accountIdShare"
-                            .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "account_id", value: state.profile.id)
-                            .put(key: "session_download_url", value: Constants.session_download_url)
-                            .localized()
-                        
-                        self?.transitionToScreen(
-                            UIActivityViewController(
-                                activityItems: [ invitation ],
-                                applicationActivities: nil
-                            ),
-                            transitionType: .present
-                        )
-                    }
+                title: "sessionAppearance".localized(),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(
+                        SessionTableViewController(viewModel: AppearanceViewModel(using: dependencies))
+                    )
+                }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .inviteAFriend,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_invite")?
+                        .withRenderingMode(.alwaysTemplate)
                 ),
-                (state.hideRecoveryPasswordPermanently ? nil :
-                    SessionCell.Info(
-                        id: .recoveryPhrase,
-                        leadingAccessory: .icon(
-                            UIImage(named: "SessionShield")?
-                                .withRenderingMode(.alwaysTemplate)
+                title: "sessionInviteAFriend".localized(),
+                onTap: { [weak self] in
+                    let invitation: String = "accountIdShare"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .put(key: "account_id", value: state.profile.id)
+                        .put(key: "session_download_url", value: Constants.session_download_url)
+                        .localized()
+                    
+                    self?.transitionToScreen(
+                        UIActivityViewController(
+                            activityItems: [ invitation ],
+                            applicationActivities: nil
                         ),
-                        title: "sessionRecoveryPassword".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Recovery password menu item",
-                            label: "Recovery password menu item"
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            guard let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen(using: dependencies) else {
-                                let targetViewController: UIViewController = ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "theError".localized(),
-                                        body: .text("recoveryPasswordErrorLoad".localized()),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text
-                                    )
+                        transitionType: .present
+                    )
+                }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .sessionNetwork,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_session_network")?
+                        .withRenderingMode(.alwaysTemplate)
+                ),
+                title: Constants.network_name,
+                trailingAccessory: .custom(
+                    info: NewTagView.Info()
+                ),
+                onTap: { [weak self, dependencies] in
+                    let viewController: SessionHostingViewController = SessionHostingViewController(
+                        rootView: SessionNetworkScreen(
+                            viewModel: SessionNetworkScreenContent.ViewModel(dependencies: dependencies)
+                        )
+                    )
+                    viewController.setNavBarTitle(Constants.network_name)
+                    self?.transitionToScreen(viewController)
+                }
+            )
+        )
+        
+        if !state.hideRecoveryPasswordPermanently {
+            menuElements.append(
+                SessionCell.Info(
+                    id: .recoveryPhrase,
+                    leadingAccessory: .icon(
+                        UIImage(named: "SessionShield")?
+                            .withRenderingMode(.alwaysTemplate)
+                    ),
+                    title: "sessionRecoveryPassword".localized(),
+                    accessibility: Accessibility(
+                        identifier: "Recovery password menu item",
+                        label: "Recovery password menu item"
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        guard let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen(using: dependencies) else {
+                            let targetViewController: UIViewController = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "theError".localized(),
+                                    body: .text("recoveryPasswordErrorLoad".localized()),
+                                    cancelTitle: "okay".localized(),
+                                    cancelStyle: .alert_text
                                 )
-                                self?.transitionToScreen(targetViewController, transitionType: .present)
-                                return
-                            }
-                            
-                            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
-                            viewController.setNavBarTitle("sessionRecoveryPassword".localized())
-                            self?.transitionToScreen(viewController)
-                        }
-                    )
-                ),
-                SessionCell.Info(
-                    id: .help,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_help")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionHelp".localized(),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(viewModel: HelpViewModel(using: dependencies))
-                        )
-                    }
-                ),
-                (!state.developerModeEnabled ? nil :
-                    SessionCell.Info(
-                        id: .developerSettings,
-                        leadingAccessory: .icon(
-                            UIImage(systemName: "wrench.and.screwdriver")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "Developer Settings",    // stringlint:ignore
-                        styling: SessionCell.StyleInfo(tintColor: .warning),
-                        onTap: { [weak self, dependencies] in
-                            self?.transitionToScreen(
-                                SessionTableViewController(viewModel: DeveloperSettingsViewModel(using: dependencies))
                             )
+                            self?.transitionToScreen(targetViewController, transitionType: .present)
+                            return
                         }
-                    )
-                ),
-                SessionCell.Info(
-                    id: .clearData,
-                    leadingAccessory: .icon(
-                        Lucide.image(icon: .trash2, size: 24)?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: "sessionClearData".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(NukeDataModal(using: dependencies), transitionType: .present)
+                        
+                        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
+                        viewController.setNavBarTitle("sessionRecoveryPassword".localized())
+                        self?.transitionToScreen(viewController)
                     }
                 )
-            ].compactMap { $0 }
+            )
+        }
+        
+        menuElements.append(
+            SessionCell.Info(
+                id: .help,
+                leadingAccessory: .icon(
+                    UIImage(named: "icon_help")?
+                        .withRenderingMode(.alwaysTemplate)
+                ),
+                title: "sessionHelp".localized(),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(
+                        SessionTableViewController(viewModel: HelpViewModel(using: dependencies))
+                    )
+                }
+            )
+        )
+        
+        if state.developerModeEnabled {
+            menuElements.append(
+                SessionCell.Info(
+                    id: .developerSettings,
+                    leadingAccessory: .icon(
+                        UIImage(systemName: "wrench.and.screwdriver")?
+                            .withRenderingMode(.alwaysTemplate)
+                    ),
+                    title: "Developer Settings",    // stringlint:ignore
+                    styling: SessionCell.StyleInfo(tintColor: .warning),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(viewModel: DeveloperSettingsViewModel(using: dependencies))
+                        )
+                    }
+                )
+            )
+        }
+        
+        menuElements.append(
+            SessionCell.Info(
+                id: .clearData,
+                leadingAccessory: .icon(
+                    Lucide.image(icon: .trash2, size: 24)?
+                        .withRenderingMode(.alwaysTemplate)
+                ),
+                title: "sessionClearData".localized(),
+                styling: SessionCell.StyleInfo(tintColor: .danger),
+                onTap: { [weak self, dependencies] in
+                    self?.transitionToScreen(NukeDataModal(using: dependencies), transitionType: .present)
+                }
+            )
+        )
+        let menus: SectionModel = SectionModel(
+            model: .menus,
+            elements: menuElements
         )
         
         return [profileInfo, sessionId, menus]
@@ -501,22 +550,27 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func updateProfilePicture(currentFileName: String?) {
-        let existingImageData: Data? = dependencies[singleton: .storage].read { [userSessionId, dependencies] db in
-            dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(userSessionId.hexString))
-        }
+        let iconName: String = "profile_placeholder" // stringlint:ignore
+        
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "profileDisplayPictureSet".localized(),
                     body: .image(
-                        placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                        valueData: existingImageData,
+                        identifier: (currentFileName ?? iconName),
+                        source: currentFileName
+                            .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
+                        placeholder: UIImage(named: iconName).map {
+                            ImageDataManager.DataSource.image(iconName, $0)
+                        },
                         icon: .rightPlus,
                         style: .circular,
                         accessibility: Accessibility(
                             identifier: "Upload",
                             label: "Upload"
                         ),
+                        dataManager: dependencies[singleton: .imageDataManager],
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -525,19 +579,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let valueData, _, _, _, _): return (valueData != nil)
+                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(existingImageData != nil),
+                    cancelEnabled: .bool(currentFileName != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let valueData), _, _, _, _):
+                            case .image(_, .some(let source), _, _, _, _, _, _):
+                                guard let imageData: Data = source.imageData else { return }
+                                
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(valueData),
+                                    displayPictureUpdate: .currentUserUploadImageData(imageData),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                                 

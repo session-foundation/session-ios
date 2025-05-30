@@ -29,11 +29,6 @@ class MockGeneralCache: Mock<GeneralCacheType>, GeneralCacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var placeholderCache: LRUCache<String, UIImage> {
-        get { return (mock() ?? LRUCache()) }
-        set { mockNoReturn(args: [newValue]) }
-    }
-    
     var contextualActionLookupMap: [Int: [String: [Int: Any]]] {
         get { return (mock() ?? [:]) }
         set { mockNoReturn(args: [newValue]) }

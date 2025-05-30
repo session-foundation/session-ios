@@ -47,6 +47,8 @@ public class NSENotificationPresenter: NotificationsManagerType {
         // Not possible in the NotificationServiceExtension
     }
     
+    public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {}
+    
     public func addNotificationRequest(
         content: NotificationContent,
         notificationSettings: Preferences.NotificationSettings,

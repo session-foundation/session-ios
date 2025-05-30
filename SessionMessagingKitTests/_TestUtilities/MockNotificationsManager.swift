@@ -48,6 +48,10 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         mockNoReturn(args: [content, notificationSettings, extensionBaseUnreadCount])
     }
     
+    public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {
+        mockNoReturn(args: [force])
+    }
+    
     public func cancelNotifications(identifiers: [String]) {
         mockNoReturn(args: [identifiers])
     }

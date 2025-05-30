@@ -1011,15 +1011,46 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
 
 extension MediaPageViewController: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        let mediaView = currentViewController.mediaView
-
-        guard let mediaSuperview: UIView = mediaView.superview else { return nil }
+        let mediaView: SessionImageView = currentViewController.mediaView
         
-        let presentationFrame = coordinateSpace.convert(mediaView.frame, from: mediaSuperview)
+        guard
+            let mediaSuperview: UIView = mediaView.superview,
+            let mediaSize: CGSize = {
+                /// Because we load images in the background now it can take a small amount of time for the image to actually be
+                /// loaded in that case we want to use the size of the image found in the image metadata (which we read in
+                /// synchronously when scheduling an image to be loaded)
+                guard let image: UIImage = mediaView.image else {
+                    return mediaView.imageSizeMetadata
+                }
+                
+                return image.size
+            }()
+        else { return nil }
+        
+        var topInset: CGFloat = 0
+        var leftInset: CGFloat = 0
+        var scaledWidth: CGFloat = mediaSize.width
+        var scaledHeight: CGFloat = mediaSize.height
+
+        if mediaSize.width > mediaSize.height {
+            scaledWidth = mediaSuperview.frame.width
+            scaledHeight = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
+            topInset = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
+        }
+        else if mediaSize.width < mediaSize.height {
+            scaledWidth = (mediaSize.width * (mediaSuperview.frame.height / mediaSize.height))
+            scaledHeight = mediaSuperview.frame.height
+            leftInset = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
+        }
         
         return MediaPresentationContext(
             mediaView: mediaView,
-            presentationFrame: presentationFrame,
+            presentationFrame: CGRect(
+                x: leftInset,
+                y: topInset,
+                width: scaledWidth,
+                height: scaledHeight
+            ),
             cornerRadius: 0,
             cornerMask: CACornerMask()
         )
