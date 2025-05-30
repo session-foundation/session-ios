@@ -676,8 +676,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
-                                        title: "notificationsIosGroup".localized(),
-                                        body: "messageNewYouveGot".localized(),
+                                        title: "notificationsIosGroup"
+                                            .put(key: "name", value: "0511...1111")
+                                            .put(key: "conversation_name", value: "TestGroupName")
+                                            .localized(),
+                                        body: "messageNewYouveGot"
+                                            .putNumber(1)
+                                            .localized(),
                                         sound: .defaultNotificationSound,
                                         applicationState: .active
                                     ),
