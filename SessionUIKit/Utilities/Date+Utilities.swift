@@ -37,6 +37,14 @@ public extension Date {
         return formatter.string(from: self)
     }
     
+    func formatted(_ dateFormat: String) -> String {
+        let formatter: DateFormatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = dateFormat
+        
+        return formatter.string(from: self)
+    }
+    
     var formattedForBanner: String {
         return Date.localTimeAndDateFormatter.string(from: self)
     }

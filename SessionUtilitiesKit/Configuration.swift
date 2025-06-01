@@ -30,6 +30,9 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                 [], // Fix thread FTS
                 [
                     _005_AddJobUniqueHash.self
+                ],
+                [
+                    _006_RenameTableSettingToKeyValueStore.self
                 ]
             ]
         )

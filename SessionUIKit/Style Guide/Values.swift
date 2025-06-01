@@ -46,6 +46,7 @@ public enum Values {
     // MARK: - Distances
     public static let verySmallSpacing = CGFloat(4)
     public static let smallSpacing = CGFloat(8)
+    public static let mediumSmallSpacing = CGFloat(12)
     public static let mediumSpacing = CGFloat(16)
     public static let largeSpacing = CGFloat(24)
     public static let veryLargeSpacing = CGFloat(35)

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="153"
+   height="133"
+   fill="none"
+   version="1.1"
+   id="svg6"
+   sodipodi:docname="session_nodes_1.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview6"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="8.7218045"
+     inkscape:cx="76.532328"
+     inkscape:cy="66.5"
+     inkscape:window-width="3440"
+     inkscape:window-height="1371"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg6" />
+  <g
+     filter="url(#a)"
+     id="g1"
+     transform="matrix(1.0063756,0,0,1.0098072,-0.82638361,-0.59664492)" />
+  <g
+     filter="url(#b)"
+     id="g2"
+     transform="matrix(1.0063756,0,0,1.0098072,-0.82638361,-0.59664492)">
+    <circle
+       cx="76.836998"
+       cy="66.445"
+       r="22.143999"
+       fill="#ffffff"
+       transform="rotate(25.708,76.837,66.445)"
+       id="circle1" />
+  </g>
+  <defs
+     id="defs6">
+    <filter
+       id="a"
+       width="104.91"
+       height="104.91"
+       x="24.382"
+       y="13.99"
+       color-interpolation-filters="sRGB"
+       filterUnits="userSpaceOnUse">
+      <feFlood
+         flood-opacity="0"
+         result="BackgroundImageFix"
+         id="feFlood2" />
+      <feColorMatrix
+         in="SourceAlpha"
+         result="hardAlpha"
+         values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+         id="feColorMatrix2" />
+      <feMorphology
+         in="SourceAlpha"
+         operator="dilate"
+         radius="7"
+         result="effect1_dropShadow_0_1"
+         id="feMorphology2" />
+      <feOffset
+         id="feOffset2" />
+      <feGaussianBlur
+         stdDeviation="8.2"
+         id="feGaussianBlur2" />
+      <feComposite
+         in2="hardAlpha"
+         operator="out"
+         id="feComposite2" />
+      <feColorMatrix
+         values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 0"
+         id="feColorMatrix3" />
+      <feBlend
+         in2="BackgroundImageFix"
+         result="effect1_dropShadow_0_1"
+         id="feBlend3" />
+      <feBlend
+         in="SourceGraphic"
+         in2="effect1_dropShadow_0_1"
+         result="shape"
+         id="feBlend4" />
+    </filter>
+    <filter
+       id="b"
+       width="91.098"
+       height="91.098"
+       x="31.288"
+       y="20.895"
+       color-interpolation-filters="sRGB"
+       filterUnits="userSpaceOnUse">
+      <feFlood
+         flood-opacity="0"
+         result="BackgroundImageFix"
+         id="feFlood4" />
+      <feColorMatrix
+         in="SourceAlpha"
+         result="hardAlpha"
+         values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+         id="feColorMatrix4" />
+      <feMorphology
+         in="SourceAlpha"
+         operator="dilate"
+         radius="7"
+         result="effect1_dropShadow_0_1"
+         id="feMorphology4" />
+      <feOffset
+         id="feOffset4" />
+      <feGaussianBlur
+         stdDeviation="8.2"
+         id="feGaussianBlur4" />
+      <feComposite
+         in2="hardAlpha"
+         operator="out"
+         id="feComposite4" />
+      <feColorMatrix
+         values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 0"
+         id="feColorMatrix5" />
+      <feBlend
+         in2="BackgroundImageFix"
+         result="effect1_dropShadow_0_1"
+         id="feBlend5" />
+      <feBlend
+         in="SourceGraphic"
+         in2="effect1_dropShadow_0_1"
+         result="shape"
+         id="feBlend6" />
+    </filter>
+  </defs>
+  <path
+     fill="#ffffff"
+     fill-rule="evenodd"
+     d="M 66.017,88.919 C 78.429,94.895 93.336,89.677 99.312,77.265 105.287,64.852 100.07,49.946 87.657,43.97 75.244,37.994 60.339,43.212 54.363,55.624 48.387,68.037 53.605,82.944 66.017,88.919 m -1.78,3.698 C 78.691,99.577 96.051,93.5 103.01,79.045 109.969,64.59 103.893,47.231 89.438,40.272 74.983,33.313 57.624,39.389 50.664,53.844 43.705,68.299 49.781,85.658 64.236,92.617"
+     clip-rule="evenodd"
+     id="path1"
+     transform="matrix(1.0063756,0,0,1.0098072,-0.82638361,-0.59664492)" />
+</svg>

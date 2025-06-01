@@ -171,6 +171,10 @@ private extension Collection where Element == NSAttributedString.HTMLTag {
             switch tag {
                 case .bold where self.contains(.italic), .italic where self.contains(.bold):
                     result[.font] = fontWith(font, traits: [.traitBold, .traitItalic])
+                
+                case .bold where self.contains(.icon), .icon where self.contains(.bold):
+                    result[.font] = fontWith(Lucide.font(ofSize: (font.pointSize + 1)), traits: [.traitBold])
+                    result[.baselineOffset] = Lucide.defaultBaselineOffset
 
                 case .bold: result[.font] = fontWith(font, traits: [.traitBold])
                 case .italic: result[.font] = fontWith(font, traits: [.traitItalic])
@@ -213,6 +217,10 @@ public extension String {
     
     func formatted(baseFont: UIFont) -> NSAttributedString {
         return NSAttributedString(stringWithHTMLTags: self, font: baseFont)
+    }
+    
+    func formatted() -> NSAttributedString {
+        return formatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
     }
     
     func deformatted() -> String {
