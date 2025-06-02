@@ -78,8 +78,6 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     
     // MARK: - Content
     
-    let searchable: Bool = false
-    
     let title: String = "notificationsSound".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

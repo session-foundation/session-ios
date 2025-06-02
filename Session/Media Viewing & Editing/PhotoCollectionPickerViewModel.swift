@@ -57,8 +57,6 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
 
     // MARK: - Content
 
-    let searchable: Bool = false
-    
     let title: String = "notificationsSound".localized()
 
     lazy var observation: TargetObservation = ObservationBuilder

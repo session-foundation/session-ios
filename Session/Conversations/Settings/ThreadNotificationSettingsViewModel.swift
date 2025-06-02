@@ -43,7 +43,6 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     
     // MARK: - Content
     
-    let searchable: Bool = false
     let title: String = "sessionNotifications".localized()
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = threadViewModelSubject

@@ -29,7 +29,6 @@ class SessionListViewModel<T: Listable>: SessionTableViewModel, NavigationItemSo
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let selectedOptionsSubject: CurrentValueSubject<Set<T>, Never>
     
-    let searchable: Bool = false
     let title: String
     private let options: [T]
     private let behaviour: Behaviour

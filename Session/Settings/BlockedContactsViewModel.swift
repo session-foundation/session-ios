@@ -96,7 +96,6 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     
     // MARK: - Content
     
-    let searchable: Bool = false
     let title: String = "conversationsBlockedContacts".localized()
     let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("blockBlockedNone".localized())
             .eraseToAnyPublisher()

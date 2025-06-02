@@ -29,8 +29,6 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     
     // MARK: - Content
     
-    let searchable: Bool = false
-    
     let title: String = "notificationsContent".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

@@ -116,8 +116,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         let disappearingMessagesConfig: DisappearingMessagesConfiguration
     }
     
-    let searchable: Bool = false
-    
     var title: String {
         switch threadVariant {
             case .contact: return "sessionSettings".localized()
@@ -949,7 +947,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             cancelStyle: .alert_text
                         ),
                         onTap: { [weak self, dependencies] in
-                            dependencies[singleton: .storage].write { db in
+                            dependencies[singleton: .storage].writeAsync { db in
                                 try SessionThread.deleteOrLeave(
                                     db,
                                     type: .leaveGroupAsync,
@@ -985,7 +983,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies] in
+                        onTap: { [weak self, dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 try SessionThread.deleteOrLeave(
                                     db,
@@ -995,6 +993,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     using: dependencies
                                 )
                             }
+                            
+                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
                  ),
@@ -1022,7 +1022,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies] in
+                        onTap: { [weak self, dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 try SessionThread.deleteOrLeave(
                                     db,
@@ -1032,9 +1032,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     using: dependencies
                                 )
                             }
+                            
+                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
-                 ),
+                ),
                 
                 // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
                 (!dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
@@ -1058,7 +1060,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         ),
                         onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
                     )
-                 )
+                )
             ].compactMap { $0 }
         )
         

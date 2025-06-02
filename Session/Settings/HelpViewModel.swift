@@ -44,7 +44,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     
     // MARK: - Content
     
-    let searchable: Bool = false
     let title: String = "sessionHelp".localized()
     
     lazy var observation: TargetObservation = [

@@ -31,6 +31,7 @@ protocol SessionTableViewModel: AnyObject, SectionedTableData {
 }
 
 extension SessionTableViewModel {
+    var searchable: Bool { false }
     var subtitle: String? { nil }
     var initialLoadMessage: String? { nil }
     var cellType: SessionTableViewCellType { .general }

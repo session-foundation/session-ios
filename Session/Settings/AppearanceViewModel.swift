@@ -61,7 +61,6 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
         let authDarkModeEnabled: Bool
     }
     
-    let searchable: Bool = false
     let title: String = "sessionAppearance".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder

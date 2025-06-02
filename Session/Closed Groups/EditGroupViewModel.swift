@@ -90,8 +90,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         )
     }
     
-    let searchable: Bool = false
-    
     let title: String = "groupEdit".localized()
     
     var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> {
