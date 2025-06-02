@@ -37,12 +37,11 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
     }
     
     public func notifyForFailedSend(
-        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
     ) {
-        mockNoReturn(args: [threadId, threadVariant, applicationState], untrackedArgs: [db])
+        mockNoReturn(args: [threadId, threadVariant, applicationState])
     }
     
     public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {

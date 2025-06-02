@@ -37,7 +37,7 @@ public enum GroupLeavingJob: JobExecutor {
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> LeaveType in
+            .readPublisher(value: { db -> RequestType in
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
                     Log.error(.cat, "Failed due to non-existent group")
                     throw MessageSenderError.invalidClosedGroupUpdate

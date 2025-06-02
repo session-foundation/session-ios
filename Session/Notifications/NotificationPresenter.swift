@@ -79,7 +79,6 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     // MARK: - Presentation
     
     public func notifyForFailedSend(
-        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
@@ -107,25 +106,34 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         switch notificationSettings.previewType {
             case .noNameNoPreview: content = content.with(title: Constants.app_name)
             case .nameNoPreview, .nameAndPreview:
+                typealias ThreadInfo = (profile: Profile?, openGroupName: String?, openGroupUrlInfo: LibSession.OpenGroupUrlInfo?)
+                let threadInfo: ThreadInfo? = dependencies[singleton: .storage].read { db in
+                    return (
+                        (threadVariant != .contact ? nil :
+                            try? Profile.fetchOne(db, id: threadId)
+                        ),
+                        (threadVariant != .community ? nil :
+                            try? OpenGroup
+                                .select(.name)
+                                .filter(id: threadId)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                        ),
+                        (threadVariant != .community ? nil :
+                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
+                        )
+                    )
+                }
+                
                 content = content.with(
                     title: dependencies.mutate(cache: .libSession) { cache in
                         cache.conversationDisplayName(
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            contactProfile: (threadVariant != .contact ? nil :
-                                try? Profile.fetchOne(db, id: threadId)
-                            ),
+                            contactProfile: threadInfo?.profile,
                             visibleMessage: nil,    /// This notification is unrelated to the received message
-                            openGroupName: (threadVariant != .community ? nil :
-                                try? OpenGroup
-                                    .select(.name)
-                                    .filter(id: threadId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            ),
-                            openGroupUrlInfo: (threadVariant != .community ? nil :
-                                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
-                            )
+                            openGroupName: threadInfo?.openGroupName,
+                            openGroupUrlInfo: threadInfo?.openGroupUrlInfo
                         )
                     }
                 )
@@ -156,7 +164,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         let identifier: String = "sessionNetworkPageLocalNotifcation_\(UUID().uuidString)" // stringlint:disable
         
         // Schedule the notification after 1 hour
-        var content: NotificationContent = NotificationContent(
+        let content: NotificationContent = NotificationContent(
             threadId: nil,
             threadVariant: nil,
             identifier: identifier,

@@ -222,14 +222,11 @@ public class NotificationActionHandler {
                     switch result {
                         case .finished: break
                         case .failure:
-                            dependencies[singleton: .storage].read { db in
-                                dependencies[singleton: .notificationsManager].notifyForFailedSend(
-                                    db,
-                                    threadId: threadId,
-                                    threadVariant: threadVariant,
-                                    applicationState: applicationState
-                                )
-                            }
+                            dependencies[singleton: .notificationsManager].notifyForFailedSend(
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                applicationState: applicationState
+                            )
                     }
                 }
             )

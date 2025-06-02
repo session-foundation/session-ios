@@ -28,7 +28,11 @@ public protocol NotificationsManagerType {
     func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any]
     func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool
     
-    func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State)
+    func notifyForFailedSend(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        applicationState: UIApplication.State
+    )
     func scheduleSessionNetworkPageLocalNotifcation(force: Bool)
     func addNotificationRequest(
         content: NotificationContent,
@@ -370,7 +374,11 @@ public struct NoopNotificationsManager: NotificationsManagerType {
         return false
     }
     
-    public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {}
+    public func notifyForFailedSend(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        applicationState: UIApplication.State
+    ) {}
     public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {}
     
     public func addNotificationRequest(

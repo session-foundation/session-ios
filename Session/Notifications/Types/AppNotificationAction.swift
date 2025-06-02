@@ -41,13 +41,3 @@ extension NotificationCategory {
         }
     }
 }
-
-extension NotificationCategory {
-    var actions: [AppNotificationAction] {
-        switch self {
-            case .incomingMessage: return [.markAsRead, .reply]
-            case .errorMessage: return []
-            case .threadlessErrorMessage: return []
-        }
-    }
-}

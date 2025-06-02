@@ -41,15 +41,12 @@ extension SessionNetworkAPI {
                     .eraseToAnyPublisher()
             }
             
-            return dependencies[singleton: .storage]
-                .readPublisher { db -> Network.PreparedRequest<Info> in
-                    try SessionNetworkAPI
-                        .prepareInfo(
-                            db,
-                            using: dependencies
-                        )
+            return Result {
+                try SessionNetworkAPI
+                    .prepareInfo(using: dependencies)
                 }
-                .flatMap { $0.send(using: dependencies) }
+                .publisher
+                .flatMap { [dependencies] in $0.send(using: dependencies) }
                 .map { _, info in info }
                 .flatMapStorageWritePublisher(using: dependencies) { [dependencies] db, info -> Bool in
                     // Token info
