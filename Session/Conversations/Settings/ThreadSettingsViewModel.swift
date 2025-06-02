@@ -904,7 +904,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies] in
+                        onTap: { [weak self, dependencies] in
                             self?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(

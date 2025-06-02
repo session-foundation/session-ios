@@ -139,10 +139,10 @@ public extension ProfilePictureView {
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
-                                    top: 5,
-                                    left: 5,
-                                    bottom: -3,
-                                    right: 5
+                                    top: 4,
+                                    left: 4,
+                                    bottom: -6,
+                                    right: 4
                                 ),
                                 icon: additionalProfileIcon
                             )

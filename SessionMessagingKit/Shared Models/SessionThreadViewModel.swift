@@ -1175,11 +1175,15 @@ public extension SessionThreadViewModel {
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let contactProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .contactProfile)
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
+        let closedGroupProfileFront: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileFront)
+        let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
+        let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let aggregateInteraction: TypedTableAlias<AggregateInteraction> = TypedTableAlias(name: "aggregateInteraction")
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let closedGroupUserCount: TypedTableAlias<ClosedGroupUserCount> = TypedTableAlias(name: "closedGroupUserCount")
+        let profile: TypedTableAlias<Profile> = TypedTableAlias()
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
         /// the `disappearingMessageSConfiguration` entry below otherwise the query will fail to parse and might throw
@@ -1232,6 +1236,9 @@ public extension SessionThreadViewModel {
         
                 \(disappearingMessagesConfiguration.allColumns),
                 \(contactProfile.allColumns),
+                \(closedGroupProfileFront.allColumns),
+                \(closedGroupProfileBack.allColumns),
+                \(closedGroupProfileBackFallback.allColumns),
                 \(contact[.lastKnownClientVersion]) AS \(ViewModel.Columns.contactLastKnownClientVersion),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroupUserCount[.closedGroupUserCount]),
@@ -1304,6 +1311,36 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(contactProfile) ON \(contactProfile[.id]) = \(thread[.id])
             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
             LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
+            LEFT JOIN \(closedGroupProfileFront) ON (
+                \(closedGroupProfileFront[.id]) = (
+                    SELECT MIN(\(groupMember[.profileId]))
+                    FROM \(GroupMember.self)
+                    JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                    WHERE (
+                        \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
+                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
+                        \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
+                    )
+                )
+            )
+            LEFT JOIN \(closedGroupProfileBack) ON (
+                \(closedGroupProfileBack[.id]) != \(closedGroupProfileFront[.id]) AND
+                \(closedGroupProfileBack[.id]) = (
+                    SELECT MAX(\(groupMember[.profileId]))
+                    FROM \(GroupMember.self)
+                    JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                    WHERE (
+                        \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
+                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
+                        \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
+                    )
+                )
+            )
+            LEFT JOIN \(closedGroupProfileBackFallback) ON (
+                \(closedGroup[.threadId]) IS NOT NULL AND
+                \(closedGroupProfileBack[.id]) IS NULL AND
+                \(closedGroupProfileBackFallback[.id]) = \(SQL("\(userSessionId.hexString)"))
+            )
             LEFT JOIN (
                 SELECT
                     \(groupMember[.groupId]),
@@ -1322,12 +1359,18 @@ public extension SessionThreadViewModel {
             let adapters = try splittingRowAdapters(columnCounts: [
                 numColumnsBeforeProfiles,
                 DisappearingMessagesConfiguration.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
             return ScopeAdapter.with(ViewModel.self, [
                 .disappearingMessagesConfiguration: adapters[1],
-                .contactProfile: adapters[2]
+                .contactProfile: adapters[2],
+                .closedGroupProfileFront: adapters[3],
+                .closedGroupProfileBack: adapters[4],
+                .closedGroupProfileBackFallback: adapters[5]
             ])
         }
     }

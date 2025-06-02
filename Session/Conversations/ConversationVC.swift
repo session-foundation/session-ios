@@ -787,6 +787,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.profile != updatedThreadData.profile ||
+            viewModel.threadData.additionalProfile != updatedThreadData.additionalProfile ||
             viewModel.threadData.displayPictureFilename != updatedThreadData.displayPictureFilename
         {
             updateNavBarButtons(
@@ -1381,7 +1382,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 threadVariant: threadData.threadVariant,
                 displayPictureFilename: threadData.displayPictureFilename,
                 profile: threadData.profile,
-                additionalProfile: nil,
+                additionalProfile: threadData.additionalProfile,
                 using: viewModel.dependencies
             )
             profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
