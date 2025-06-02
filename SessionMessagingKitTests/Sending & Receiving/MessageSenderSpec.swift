@@ -59,6 +59,8 @@ class MessageSenderSpec: QuickSpec {
         describe("a MessageSender") {
             // MARK: -- when preparing to send to a contact
             context("when preparing to send to a contact") {
+                @TestState var preparedRequest: Network.PreparedRequest<Message>?
+                
                 beforeEach {
                     mockCrypto
                         .when {
@@ -72,21 +74,26 @@ class MessageSenderSpec: QuickSpec {
                 
                 // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
-                    let result: Network.PreparedRequest<Void>? = mockStorage.read { db in
-                        try? MessageSender.preparedSend(
-                            db,
+                    expect {
+                        preparedRequest = try MessageSender.preparedSend(
                             message: VisibleMessage(
                                 text: "TestMessage"
                             ),
                             to: .contact(publicKey: "05\(TestConstants.publicKey)"),
                             namespace: .default,
                             interactionId: nil,
-                            fileIds: [],
+                            attachments: nil,
+                            authMethod: Authentication.standard(
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                            ),
+                            onEvent: nil,
                             using: dependencies
                         )
-                    }
+                    }.toNot(throwError())
                     
-                    expect(result).toNot(beNil())
+                    expect(preparedRequest).toNot(beNil())
                 }
             }
         }

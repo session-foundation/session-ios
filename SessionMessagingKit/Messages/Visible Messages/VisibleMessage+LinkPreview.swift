@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public extension VisibleMessage {
@@ -31,24 +30,12 @@ public extension VisibleMessage {
         }
 
         public func toProto() -> SNProtoDataMessagePreview? {
-            preconditionFailure("Use toProto(using:) instead.")
-        }
-
-        public func toProto(_ db: Database) -> SNProtoDataMessagePreview? {
             guard let url = url else {
                 Log.warn(.messageSender, "Couldn't construct link preview proto from: \(self).")
                 return nil
             }
             let linkPreviewProto = SNProtoDataMessagePreview.builder(url: url)
             if let title = title { linkPreviewProto.setTitle(title) }
-            
-            if
-                let attachmentId = attachmentId,
-                let attachment: Attachment = try? Attachment.fetchOne(db, id: attachmentId),
-                let attachmentProto = attachment.buildProto()
-            {
-                linkPreviewProto.setImage(attachmentProto)
-            }
             
             do {
                 return try linkPreviewProto.build()
@@ -75,7 +62,7 @@ public extension VisibleMessage {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage.VMLinkPreview {
-    static func from(_ db: Database, linkPreview: LinkPreview) -> VisibleMessage.VMLinkPreview {
+    static func from(linkPreview: LinkPreview) -> VisibleMessage.VMLinkPreview {
         return VisibleMessage.VMLinkPreview(
             title: linkPreview.title,
             url: linkPreview.url,

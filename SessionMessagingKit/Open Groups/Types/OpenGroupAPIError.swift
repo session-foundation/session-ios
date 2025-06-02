@@ -10,6 +10,7 @@ public enum OpenGroupAPIError: Error, CustomStringConvertible {
     case noPublicKey
     case invalidEmoji
     case invalidPoll
+    case blindedLookupMissingCommunityInfo
     
     public var description: String {
         switch self {
@@ -18,6 +19,7 @@ public enum OpenGroupAPIError: Error, CustomStringConvertible {
             case .noPublicKey: return "Couldn't find server public key."
             case .invalidEmoji: return "The emoji is invalid."
             case .invalidPoll: return "Poller in invalid state."
+            case .blindedLookupMissingCommunityInfo: return "Blinded lookup missing community info."
         }
     }
 }

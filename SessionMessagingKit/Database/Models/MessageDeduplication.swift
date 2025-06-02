@@ -40,24 +40,36 @@ public extension MessageDeduplication {
         uniqueIdentifier: String?,
         legacyIdentifier: String? = nil,
         message: Message?,
-        serverExpirationTimestamp: Int64?,
+        serverExpirationTimestamp: TimeInterval?,
+        ignoreDedupeFiles: Bool,
         using dependencies: Dependencies
     ) throws {
         /// If we don't have a `uniqueIdentifier` then we can't dedupe the message
         guard let uniqueIdentifier: String = uniqueIdentifier else { return }
         
-        /// Ensure this isn't a duplicate message received as a PN first
-        try ensureMessageIsNotADuplicate(
-            threadId: threadId,
-            uniqueIdentifier: uniqueIdentifier,
-            legacyIdentifier: legacyIdentifier,
-            using: dependencies
-        )
+        /// If we aren't ignoring dedupe files then check to ensure they don't already exist (ie. a message was received as a push
+        /// notification but doesn't yet exist in the database)
+        if !ignoreDedupeFiles {
+            /// Ensure this isn't a duplicate message received as a PN first
+            try ensureMessageIsNotADuplicate(
+                threadId: threadId,
+                uniqueIdentifier: uniqueIdentifier,
+                legacyIdentifier: legacyIdentifier,
+                using: dependencies
+            )
+            
+            /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can related to the same call
+            try ensureCallMessageIsNotADuplicate(
+                threadId: threadId,
+                callMessage: message as? CallMessage,
+                using: dependencies
+            )
+        }
         
         /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
         /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
         let finalExpiryTimestampSeconds: Int64? = serverExpirationTimestamp
-            .map { $0 + (SnodeReceivedMessage.serverClockToleranceMs * 2) }
+            .map { Int64($0) + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
         
         /// When we delete a `contact` conversation we want to keep the dedupe records around because, if we don't, the
         /// conversation will just reappear (this isn't an issue for `legacyGroup` conversations because they no longer poll)
@@ -92,6 +104,16 @@ public extension MessageDeduplication {
             threadId: threadId,
             uniqueIdentifier: uniqueIdentifier,
             legacyIdentifier: legacyIdentifier,
+            using: dependencies
+        )
+        
+        /// Insert & create special call-specific dedupe records
+        try insertCallDedupeRecordsIfNeeded(
+            db,
+            threadId: threadId,
+            callMessage: message as? CallMessage,
+            expirationTimestampSeconds: finalExpiryTimestampSeconds,
+            shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread,
             using: dependencies
         )
         
@@ -194,6 +216,78 @@ public extension MessageDeduplication {
             throw MessageReceiverError.duplicateMessage
         }
     }
+}
+
+// MARK: - CallMessage Convenience
+
+public extension MessageDeduplication {
+    static func insertCallDedupeRecordsIfNeeded(
+        _ db: Database,
+        threadId: String,
+        callMessage: CallMessage?,
+        expirationTimestampSeconds: Int64?,
+        shouldDeleteWhenDeletingThread: Bool,
+        using dependencies: Dependencies
+    ) throws {
+        guard let callMessage: CallMessage = callMessage else { return }
+        
+        switch (callMessage.kind, callMessage.state) {
+            /// If the call was ended, was missed or had a permission issue then reject all subsequent messages associated with the call
+            case (.endCall, _), (_, .missed), (_, .permissionDenied), (_, .permissionDeniedMicrophone):
+                _ = try MessageDeduplication(
+                    threadId: threadId,
+                    uniqueIdentifier: callMessage.uuid,
+                    expirationTimestampSeconds: expirationTimestampSeconds,
+                    shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
+                ).insert(db)
+                
+            /// We only want to handle a single `preOffer` so add a custom record for that
+            case (.preOffer, _):
+                _ = try MessageDeduplication(
+                    threadId: threadId,
+                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                    expirationTimestampSeconds: expirationTimestampSeconds,
+                    shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
+                ).insert(db)
+            
+            /// For any other combinations we don't want to deduplicate messages (as they are needed to keep the call going)
+            default: break
+        }
+        
+        /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe call messages
+        try createCallDedupeFilesIfNeeded(
+            threadId: threadId,
+            callMessage: callMessage,
+            using: dependencies
+        )
+    }
+    
+    static func createCallDedupeFilesIfNeeded(
+        threadId: String,
+        callMessage: CallMessage?,
+        using dependencies: Dependencies
+    ) throws {
+        guard let callMessage: CallMessage = callMessage else { return }
+        
+        switch (callMessage.kind, callMessage.state) {
+            /// If the call was ended, was missed or had a permission issue then reject all subsequent messages associated with the call
+            case (.endCall, _), (_, .missed), (_, .permissionDenied), (_, .permissionDeniedMicrophone):
+                try dependencies[singleton: .extensionHelper].createDedupeRecord(
+                    threadId: threadId,
+                    uniqueIdentifier: callMessage.uuid
+                )
+                
+            /// We only want to handle a single `preOffer` so add a custom record for that
+            case (.preOffer, _):
+                try dependencies[singleton: .extensionHelper].createDedupeRecord(
+                    threadId: threadId,
+                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier
+                )
+            
+            /// For any other combinations we don't want to deduplicate messages (as they are needed to keep the call going)
+            default: break
+        }
+    }
     
     static func ensureCallMessageIsNotADuplicate(
         threadId: String,
@@ -203,6 +297,16 @@ public extension MessageDeduplication {
         guard let callMessage: CallMessage = callMessage else { return }
         
         do {
+            /// We only want to handle the `preOffer` message once
+            if callMessage.kind == .preOffer {
+                try MessageDeduplication.ensureMessageIsNotADuplicate(
+                    threadId: threadId,
+                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                    using: dependencies
+                )
+            }
+            
+            /// If a call has officially "ended" then we don't want to handle _any_ further messages related to it
             try MessageDeduplication.ensureMessageIsNotADuplicate(
                 threadId: threadId,
                 uniqueIdentifier: callMessage.uuid,
@@ -219,12 +323,13 @@ public extension MessageDeduplication {
     static func insert(
         _ db: Database,
         processedMessage: ProcessedMessage,
+        ignoreDedupeFiles: Bool,
         using dependencies: Dependencies
     ) throws {
         typealias StandardInfo = (
             threadVariant: SessionThread.Variant,
             message: Message,
-            serverExpirationTimestamp: Int64?
+            serverExpirationTimestamp: TimeInterval?
         )
         
         let standardInfo: StandardInfo? = {
@@ -234,7 +339,7 @@ public extension MessageDeduplication {
                     return (
                         threadVariant,
                         messageInfo.message,
-                        messageInfo.serverExpirationTimestamp.map { Int64($0) }
+                        messageInfo.serverExpirationTimestamp
                     )
             }
         }()
@@ -247,6 +352,7 @@ public extension MessageDeduplication {
             legacyIdentifier: getLegacyIdentifier(for: processedMessage),
             message: standardInfo?.message,
             serverExpirationTimestamp: standardInfo?.serverExpirationTimestamp,
+            ignoreDedupeFiles: ignoreDedupeFiles,
             using: dependencies
         )
     }
@@ -274,7 +380,7 @@ private extension MessageDeduplication {
         legacyIdentifier: String?,
         legacyVariant: _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant?,
         timestampMs: Int64?,
-        serverExpirationTimestamp: Int64?,
+        serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
         typealias Variant = _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant
@@ -286,8 +392,8 @@ private extension MessageDeduplication {
         
         let expirationTimestampSeconds: Int64? = {
             /// If we have a server expiration for the hash then we should use that value as the priority
-            if let serverExpirationTimestamp: Int64 = serverExpirationTimestamp {
-                return serverExpirationTimestamp
+            if let serverExpirationTimestamp: TimeInterval = serverExpirationTimestamp {
+                return Int64(serverExpirationTimestamp)
             }
             
             /// If we got here then it means we have no way to know when the message should expire but messages stored on
@@ -304,7 +410,7 @@ private extension MessageDeduplication {
         /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
         /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
         let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-            .map { $0 + (SnodeReceivedMessage.serverClockToleranceMs * 2) }
+            .map { $0 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
         
         /// When we delete a `contact` conversation we want to keep the dedupe records around because, if we don't, the
         /// conversation will just reappear (this isn't an issue for `legacyGroup` conversations because they no longer poll)
@@ -370,4 +476,8 @@ private extension MessageDeduplication {
                 return "LegacyRecord-\(variant.rawValue)-\(timestampMs)" // stringlint:ignore
         }
     }
+}
+
+public extension CallMessage {
+    var preOfferDedupeIdentifier: String { "\(uuid)-preOffer" }
 }

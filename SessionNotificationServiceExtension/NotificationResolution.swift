@@ -18,14 +18,12 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToRequiresNoNotification
     case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
+    case ignoreDueToDuplicateCall
     case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
     
     case errorTimeout
     case errorNotReadyForExtensions
     case errorLegacyPushNotification
-    case errorDatabaseInvalid
-    case errorDatabaseMigrations(Error)
-    case errorTransactionFailure
     case errorCallFailure
     case errorNoContent(PushNotificationAPI.NotificationMetadata)
     case errorProcessing(PushNotificationAPI.ProcessResult)
@@ -46,6 +44,9 @@ enum NotificationResolution: CustomStringConvertible {
             
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
+                
+            case .ignoreDueToDuplicateCall:
+                return "Ignored: Duplicate call (probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
                 return "Ignored: Notification content from namespace: \(metadata.namespace) was too long: \(metadata.dataLength)"
@@ -53,9 +54,6 @@ enum NotificationResolution: CustomStringConvertible {
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
             case .errorLegacyPushNotification: return "Failed: Legacy push notifications are no longer supported"
-            case .errorDatabaseInvalid: return "Failed: Database in invalid state"
-            case .errorDatabaseMigrations(let error): return "Failed: Database migration error: \(error)"
-            case .errorTransactionFailure: return "Failed: Unexpected database transaction rollback"
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
             case .errorNoContent(let metadata):
@@ -72,14 +70,13 @@ enum NotificationResolution: CustomStringConvertible {
             case .success, .successCall, .ignoreDueToMainAppRunning, .ignoreDueToNoContentFromApple,
                 .ignoreDueToNonLegacyGroupLegacyNotification, .ignoreDueToOutdatedMessage,
                 .ignoreDueToRequiresNoNotification, .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage,
-                .ignoreDueToContentSize:
+                .ignoreDueToDuplicateCall, .ignoreDueToContentSize:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:
                 return .warn
                 
-            case .errorTimeout, .errorDatabaseInvalid, .errorDatabaseMigrations, .errorTransactionFailure,
-                    .errorProcessing, .errorMessageHandling, .errorOther:
+            case .errorTimeout, .errorProcessing, .errorMessageHandling, .errorOther:
                 return .error
         }
     }

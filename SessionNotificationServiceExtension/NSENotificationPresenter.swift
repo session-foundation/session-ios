@@ -43,7 +43,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
     
     // MARK: - Presentation
     
-    public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {
+    public func notifyForFailedSend(threadId: String, threadVariant: SessionThread.Variant, applicationState: UIApplication.State) {
         // Not possible in the NotificationServiceExtension
     }
     

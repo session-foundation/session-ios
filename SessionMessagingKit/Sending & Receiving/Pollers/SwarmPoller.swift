@@ -156,7 +156,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     source: .snode(snode),
                     swarmPublicKey: pollerDestination.target,
                     shouldStoreMessages: shouldStoreMessages,
-                    ignoreDedupeRecords: false,
+                    ignoreDedupeFiles: false,
                     forceSynchronousProcessing: forceSynchronousProcessing,
                     sortedMessages: sortedMessages,
                     using: dependencies
@@ -231,7 +231,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         source: PollSource,
         swarmPublicKey: String,
         shouldStoreMessages: Bool,
-        ignoreDedupeRecords: Bool,
+        ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
         using dependencies: Dependencies
@@ -296,36 +296,13 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                         )
                         hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
                         
-                        /// Only continue if we want to check/insert dedupe records
-                        guard !ignoreDedupeRecords else { return processedMessage }
-                        
-                        /// Insert the standard dedupe record
+                        /// Insert the standard dedupe record ignoring dedupe files if needed
                         try MessageDeduplication.insert(
                             db,
                             processedMessage: processedMessage,
+                            ignoreDedupeFiles: ignoreDedupeFiles,
                             using: dependencies
                         )
-                        
-                        /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can
-                        /// related to the same call
-                        switch processedMessage {
-                            case .standard(let threadId, _, _, let messageInfo, _):
-                                guard let callMessage: CallMessage = messageInfo.message as? CallMessage else {
-                                    break
-                                }
-                                
-                                try MessageDeduplication.ensureCallMessageIsNotADuplicate(
-                                    threadId: threadId,
-                                    callMessage: callMessage,
-                                    using: dependencies
-                                )
-                                try dependencies[singleton: .extensionHelper].createDedupeRecord(
-                                    threadId: threadId,
-                                    uniqueIdentifier: callMessage.uuid
-                                )
-                                
-                            default: break
-                        }
                         
                         return processedMessage
                     }

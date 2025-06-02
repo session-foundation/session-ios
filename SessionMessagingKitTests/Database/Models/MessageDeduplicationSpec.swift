@@ -44,8 +44,8 @@ class MessageDeduplicationSpec: QuickSpec {
             return result
         }()
         
-        // MARK: - a MessageDeduplication
-        describe("a MessageDeduplication") {
+        // MARK: - MessageDeduplication - Inserting
+        describe("MessageDeduplication") {
             // MARK: -- when inserting
             context("when inserting") {
                 // MARK: ---- inserts a record correctly
@@ -59,18 +59,19 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId",
                                 message: nil,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
                     }
                     
+                    let expectedTimestamp: Int64 = (1234567890 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000))
                     let records: [MessageDeduplication]? = mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
                     expect(records?.count).to(equal(1))
                     expect(records?.first?.threadId).to(equal("testThreadId"))
                     expect(records?.first?.uniqueIdentifier).to(equal("testId"))
-                    expect(records?.first?.expirationTimestampSeconds)
-                        .to(equal(1234567890 + (SnodeReceivedMessage.serverClockToleranceMs * 2)))
+                    expect(records?.first?.expirationTimestampSeconds).to(equal(expectedTimestamp))
                     expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
                     expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
@@ -88,6 +89,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId",
                                 message: nil,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -110,6 +112,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -131,6 +134,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId1",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -140,6 +144,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId2",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -149,6 +154,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId3",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -165,6 +171,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     adminSignature: .standard(signature: "TestSignature".bytes)
                                 ),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -178,6 +185,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     sentTimestampMs: 1234567890000
                                 ),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -187,6 +195,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId6",
                                 message: GroupUpdateMemberLeftMessage(),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -200,6 +209,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     sentTimestampMs: 1234567800000
                                 ),
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -209,6 +219,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId8",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -218,6 +229,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId9",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                             try MessageDeduplication.insert(
@@ -227,6 +239,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 uniqueIdentifier: "testId10",
                                 message: nil,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -260,6 +273,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -289,6 +303,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     ),
                                     uniqueIdentifier: "testId"
                                 ),
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -318,6 +333,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                     data: Data([1, 2, 3]),
                                     uniqueIdentifier: "testId"
                                 ),
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.toNot(throwError())
@@ -350,6 +366,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.duplicateMessage))
@@ -385,6 +402,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(MessageReceiverError.duplicateMessage))
@@ -407,6 +425,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(TestError.mock))
@@ -434,6 +453,7 @@ class MessageDeduplicationSpec: QuickSpec {
                                 legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
+                                ignoreDedupeFiles: false,
                                 using: dependencies
                             )
                         }.to(throwError(TestError.mock))
@@ -441,6 +461,99 @@ class MessageDeduplicationSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when inserting a call message
+            context("when inserting a call message") {
+                // MARK: ---- inserts a preOffer record correctly
+                it("inserts a preOffer record correctly") {
+                    mockStorage.write { db in
+                        expect {
+                            try MessageDeduplication.insertCallDedupeRecordsIfNeeded(
+                                db,
+                                threadId: "testThreadId",
+                                callMessage: CallMessage(
+                                    uuid: "12345",
+                                    kind: .preOffer,
+                                    sdps: [],
+                                    sentTimestampMs: 1234567890
+                                ),
+                                expirationTimestampSeconds: 1234567891,
+                                shouldDeleteWhenDeletingThread: false,
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    let records: [MessageDeduplication]? = mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) }
+                    expect(records?.count).to(equal(1))
+                    expect(records?.first?.threadId).to(equal("testThreadId"))
+                    expect(records?.first?.uniqueIdentifier).to(equal("12345-preOffer"))
+                    expect(records?.first?.expirationTimestampSeconds).to(equal(1234567891))
+                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
+                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345-preOffer")
+                    })
+                }
+                
+                // MARK: ---- inserts a generic record correctly
+                it("inserts a generic record correctly") {
+                    mockStorage.write { db in
+                        expect {
+                            try MessageDeduplication.insertCallDedupeRecordsIfNeeded(
+                                db,
+                                threadId: "testThreadId",
+                                callMessage: CallMessage(
+                                    uuid: "12345",
+                                    kind: .endCall,
+                                    sdps: [],
+                                    sentTimestampMs: 1234567890
+                                ),
+                                expirationTimestampSeconds: 1234567891,
+                                shouldDeleteWhenDeletingThread: false,
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    let records: [MessageDeduplication]? = mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) }
+                    expect(records?.count).to(equal(1))
+                    expect(records?.first?.threadId).to(equal("testThreadId"))
+                    expect(records?.first?.uniqueIdentifier).to(equal("12345"))
+                    expect(records?.first?.expirationTimestampSeconds).to(equal(1234567891))
+                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
+                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345")
+                    })
+                }
+                
+                // MARK: ---- does nothing if no call message is provided
+                it("does nothing if no call message is provided") {
+                    mockStorage.write { db in
+                        expect {
+                            try MessageDeduplication.insertCallDedupeRecordsIfNeeded(
+                                db,
+                                threadId: "testThreadId",
+                                callMessage: nil,
+                                expirationTimestampSeconds: 1234567891,
+                                shouldDeleteWhenDeletingThread: false,
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    let records: [MessageDeduplication]? = mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) }
+                    expect(records?.count).to(equal(0))
+                    expect(mockExtensionHelper).toNot(call {
+                        try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any)
+                    })
+                }
+            }
+        }
+            
+        // MARK: - MessageDeduplication - Deleting
+        describe("MessageDeduplication") {
             // MARK: -- when deleting a dedupe record
             context("when deleting a dedupe record") {
                 // MARK: ---- deletes the record successfully
@@ -614,7 +727,10 @@ class MessageDeduplicationSpec: QuickSpec {
                     })
                 }
             }
-            
+        }
+        
+        // MARK: - MessageDeduplication - Creating
+        describe("MessageDeduplication") {
             // MARK: -- when creating a dedupe file
             context("when creating a dedupe file") {
                 // MARK: ---- creates the file successfully
@@ -731,6 +847,137 @@ class MessageDeduplicationSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when creating a call message dedupe file
+            context("when creating a call message dedupe file") {
+                // MARK: ---- creates a preOffer file correctly
+                it("creates a preOffer file correctly") {
+                    expect {
+                        try MessageDeduplication.createCallDedupeFilesIfNeeded(
+                            threadId: "testThreadId",
+                            callMessage: CallMessage(
+                                uuid: "12345",
+                                kind: .preOffer,
+                                sdps: [],
+                                sentTimestampMs: 1234567890
+                            ),
+                            using: dependencies
+                        )
+                    }.toNot(throwError())
+                    
+                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345-preOffer")
+                    })
+                }
+                
+                // MARK: ---- creates a generic file correctly
+                it("creates a generic file correctly") {
+                    expect {
+                        try MessageDeduplication.createCallDedupeFilesIfNeeded(
+                            threadId: "testThreadId",
+                            callMessage: CallMessage(
+                                uuid: "12345",
+                                kind: .endCall,
+                                sdps: [],
+                                sentTimestampMs: 1234567890
+                            ),
+                            using: dependencies
+                        )
+                    }.toNot(throwError())
+                    
+                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345")
+                    })
+                }
+                
+                // MARK: ---- creates a files for the correct call message kinds
+                it("creates a files for the correct call message kinds") {
+                    var resultIdentifiers: [String] = []
+                    var resultKinds: [CallMessage.Kind] = []
+                    
+                    CallMessage.Kind.allCases.forEach { kind in
+                        mockExtensionHelper
+                            .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                            .then { args in
+                                guard let identifier: String = args[test: 1] as? String else { return }
+                                
+                                resultIdentifiers.append(identifier)
+                                resultKinds.append(kind)
+                            }
+                            .thenReturn(())
+                        
+                        expect {
+                            try MessageDeduplication.createCallDedupeFilesIfNeeded(
+                                threadId: "testThreadId",
+                                callMessage: CallMessage(
+                                    uuid: "12345",
+                                    kind: kind,
+                                    sdps: [],
+                                    sentTimestampMs: 1234567890
+                                ),
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    expect(resultIdentifiers).to(equal(["12345-preOffer", "12345"]))
+                    expect(resultKinds).to(equal([.preOffer, .endCall]))
+                }
+                
+                // MARK: ---- creates files for the correct call message states
+                it("creates files for the correct call message states") {
+                    var resultIdentifiers: [String] = []
+                    var resultStates: [CallMessage.MessageInfo.State] = []
+                    
+                    CallMessage.MessageInfo.State.allCases.forEach { state in
+                        let message: CallMessage = CallMessage(
+                            uuid: "12345",
+                            kind: .answer,
+                            sdps: [],
+                            sentTimestampMs: 1234567890
+                        )
+                        message.state = state
+                        mockExtensionHelper
+                            .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                            .then { args in
+                                guard let identifier: String = args[test: 1] as? String else { return }
+                                
+                                resultIdentifiers.append(identifier)
+                                resultStates.append(state)
+                            }
+                            .thenReturn(())
+                        
+                        expect {
+                            try MessageDeduplication.createCallDedupeFilesIfNeeded(
+                                threadId: "testThreadId",
+                                callMessage: message,
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    expect(resultIdentifiers).to(equal(["12345", "12345", "12345"]))
+                    expect(resultStates).to(equal([.missed, .permissionDenied, .permissionDeniedMicrophone]))
+                }
+                
+                // MARK: ---- does nothing if no call message is provided
+                it("does nothing if no call message is provided") {
+                    expect {
+                        try MessageDeduplication.createCallDedupeFilesIfNeeded(
+                            threadId: "testThreadId",
+                            callMessage: nil,
+                            using: dependencies
+                        )
+                    }.toNot(throwError())
+                    
+                    expect(mockExtensionHelper).toNot(call {
+                        try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any)
+                    })
+                }
+            }
+        }
+        
+        // MARK: - MessageDeduplication - Ensuring
+        describe("MessageDeduplication") {
             // MARK: -- when ensuring a message is not a duplicate
             context("when ensuring a message is not a duplicate") {
                 // MARK: ---- does not throw when not a duplicate
@@ -880,4 +1127,22 @@ class MessageDeduplicationSpec: QuickSpec {
             }
         }
     }
+}
+
+// MARK: - Convenience
+
+extension CallMessage.Kind: @retroactive CaseIterable {
+    public static var allCases: [CallMessage.Kind] = {
+        var result: [CallMessage.Kind] = []
+        switch CallMessage.Kind.preOffer {
+            case .preOffer: result.append(.preOffer); fallthrough
+            case .offer: result.append(.offer); fallthrough
+            case .answer: result.append(.answer); fallthrough
+            case .provisionalAnswer: result.append(.provisionalAnswer); fallthrough
+            case .iceCandidates: result.append(.iceCandidates(sdpMLineIndexes: [], sdpMids: [])); fallthrough
+            case .endCall: result.append(.endCall)
+        }
+        
+        return result
+    }()
 }

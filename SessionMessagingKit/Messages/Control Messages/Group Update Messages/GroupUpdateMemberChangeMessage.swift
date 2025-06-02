@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateMemberChangeMessage: ControlMessage {
@@ -130,7 +129,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let memberChangeMessageBuilder: SNProtoGroupUpdateMemberChangeMessage.SNProtoGroupUpdateMemberChangeMessageBuilder = SNProtoGroupUpdateMemberChangeMessage.builder(
                 type: {

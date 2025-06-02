@@ -30,11 +30,10 @@ public class NotificationActionHandler {
     
     // MARK: - Handling
     
-    func handleNotificationResponse(
+    @MainActor func handleNotificationResponse(
         _ response: UNNotificationResponse,
         completionHandler: @escaping () -> Void
     ) {
-        Log.assertOnMainThread()
         handleNotificationResponse(response)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .receive(on: DispatchQueue.main, using: dependencies)
@@ -51,8 +50,7 @@ public class NotificationActionHandler {
             )
     }
 
-    func handleNotificationResponse(_ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
-        Log.assertOnMainThread()
+    @MainActor func handleNotificationResponse(_ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
         assert(dependencies[singleton: .appReadiness].isAppReady)
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
@@ -141,18 +139,21 @@ public class NotificationActionHandler {
         replyText: String,
         applicationState: UIApplication.State
     ) -> AnyPublisher<Void, Error> {
-        guard let threadId = userInfo[NotificationUserInfoKey.threadId] as? String else {
-            return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
-                .eraseToAnyPublisher()
-        }
-        
-        guard let thread: SessionThread = dependencies[singleton: .storage].read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
-            return Fail<Void, Error>(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
+        guard
+            let threadId = userInfo[NotificationUserInfoKey.threadId] as? String,
+            let threadVariantRaw = userInfo[NotificationUserInfoKey.threadVariantRaw] as? Int,
+            let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
+        else {
+            return Fail<Void, Error>(error: NotificationError.failDebug("thread information was unexpectedly nil"))
                 .eraseToAnyPublisher()
         }
         
         return dependencies[singleton: .storage]
-            .writePublisher { [dependencies] db -> Network.PreparedRequest<Void> in
+            .writePublisher { [dependencies] db -> (Message, Message.Destination, Int64?, AuthenticationMethod) in
+                guard (try? SessionThread.exists(db, id: threadId)) == true else {
+                    throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
+                }
+                
                 let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
                     .filter(id: threadId)
@@ -160,7 +161,7 @@ public class NotificationActionHandler {
                     .fetchOne(db)
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
-                    threadVariant: thread.variant,
+                    threadVariant: threadVariant,
                     authorId: dependencies[cache: .general].sessionId.hexString,
                     variant: .standardOutgoing,
                     body: replyText,
@@ -177,47 +178,62 @@ public class NotificationActionHandler {
                     db,
                     interactionId: interaction.id,
                     threadId: threadId,
-                    threadVariant: thread.variant,
+                    threadVariant: threadVariant,
                     includingOlder: true,
                     trySendReadReceipt: try SessionThread.canSendReadReceipt(
                         db,
                         threadId: threadId,
-                        threadVariant: thread.variant,
+                        threadVariant: threadVariant,
                         using: dependencies
                     ),
                     using: dependencies
                 )
                 
-                return try MessageSender.preparedSend(
+                let visibleMessage: VisibleMessage = VisibleMessage.from(db, interaction: interaction)
+                let destination: Message.Destination = try Message.Destination.from(
                     db,
-                    interaction: interaction,
-                    fileIds: [],
                     threadId: threadId,
-                    threadVariant: thread.variant,
+                    threadVariant: threadVariant
+                )
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
                     using: dependencies
                 )
+                
+                return (visibleMessage, destination, interaction.id, authMethod)
             }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
+            .tryFlatMap { [dependencies] message, destination, interactionId, authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                try MessageSender.preparedSend(
+                    message: message,
+                    to: destination,
+                    namespace: destination.defaultNamespace,
+                    interactionId: interactionId,
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
+                    using: dependencies
+                ).send(using: dependencies)
+            }
             .map { _ in () }
             .handleEvents(
                 receiveCompletion: { [dependencies] result in
                     switch result {
                         case .finished: break
                         case .failure:
-                            dependencies[singleton: .storage].read { db in
-                                dependencies[singleton: .notificationsManager].notifyForFailedSend(
-                                    db,
-                                    in: thread,
-                                    applicationState: applicationState
-                                )
-                            }
+                            dependencies[singleton: .notificationsManager].notifyForFailedSend(
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                applicationState: applicationState
+                            )
                     }
                 }
             )
             .eraseToAnyPublisher()
     }
 
-    func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
+    @MainActor func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
         guard
             let threadId = userInfo[NotificationUserInfoKey.threadId] as? String,
             let threadVariantRaw = userInfo[NotificationUserInfoKey.threadVariantRaw] as? Int,

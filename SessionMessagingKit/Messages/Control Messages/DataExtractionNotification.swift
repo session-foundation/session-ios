@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class DataExtractionNotification: ControlMessage {
@@ -83,7 +82,7 @@ public final class DataExtractionNotification: ControlMessage {
         return DataExtractionNotification(kind: kind)
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         guard let kind = kind else {
             Log.warn(.messageSender, "Couldn't construct data extraction notification proto from: \(self).")
             return nil

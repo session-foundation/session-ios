@@ -28,7 +28,11 @@ public protocol NotificationsManagerType {
     func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any]
     func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool
     
-    func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State)
+    func notifyForFailedSend(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        applicationState: UIApplication.State
+    )
     func scheduleSessionNetworkPageLocalNotifcation(force: Bool)
     func addNotificationRequest(
         content: NotificationContent,
@@ -100,14 +104,6 @@ public extension NotificationsManagerType {
                     case .missed, .permissionDenied, .permissionDeniedMicrophone: break
                     default: throw MessageReceiverError.ignorableMessage
                 }
-                
-                /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can
-                /// related to the same call
-                try MessageDeduplication.ensureCallMessageIsNotADuplicate(
-                    threadId: threadId,
-                    callMessage: callMessage,
-                    using: dependencies
-                )
             
             /// Group invitations and promotions may show notifications in some cases
             case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage: break
@@ -378,7 +374,11 @@ public struct NoopNotificationsManager: NotificationsManagerType {
         return false
     }
     
-    public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {}
+    public func notifyForFailedSend(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        applicationState: UIApplication.State
+    ) {}
     public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {}
     
     public func addNotificationRequest(

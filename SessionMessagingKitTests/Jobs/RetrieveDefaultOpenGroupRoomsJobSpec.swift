@@ -254,8 +254,15 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 }
                 let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
                     try OpenGroupAPI.preparedCapabilitiesAndRooms(
-                        db,
-                        on: OpenGroupAPI.defaultServer,
+                        authMethod: Authentication.community(
+                            info: LibSession.OpenGroupCapabilityInfo(
+                                roomToken: "",
+                                server: OpenGroupAPI.defaultServer,
+                                publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                capabilities: []
+                            ),
+                            forceBlinded: false
+                        ),
                         using: dependencies
                     )
                 }

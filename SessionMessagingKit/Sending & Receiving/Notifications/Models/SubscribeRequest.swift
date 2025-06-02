@@ -33,34 +33,36 @@ extension PushNotificationAPI {
             private let notificationsEncryptionKey: Data
             
             override var verificationBytes: [UInt8] {
-                /// The signature data collected and stored here is used by the PN server to subscribe to the swarms
-                /// for the given account; the specific rules are governed by the storage server, but in general:
-                ///
-                /// A signature must have been produced (via the timestamp) within the past 14 days.  It is
-                /// recommended that clients generate a new signature whenever they re-subscribe, and that
-                /// re-subscriptions happen more frequently than once every 14 days.
-                ///
-                /// A signature is signed using the account's Ed25519 private key (or Ed25519 subaccount, if using
-                /// subaccount authentication with a `subaccount_token`, for future closed group subscriptions),
-                /// and signs the value:
-                /// `"MONITOR" || HEX(ACCOUNT) || SIG_TS || DATA01 || NS[0] || "," || ... || "," || NS[n]`
-                ///
-                /// Where `SIG_TS` is the `sig_ts` value as a base-10 string; `DATA01` is either "0" or "1" depending
-                /// on whether the subscription wants message data included; and the trailing `NS[i]` values are a
-                /// comma-delimited list of namespaces that should be subscribed to, in the same sorted order as
-                /// the `namespaces` parameter.
-                "MONITOR".bytes
-                    .appending(contentsOf: authMethod.swarmPublicKey.bytes)
-                    .appending(contentsOf: "\(timestamp)".bytes)
-                    .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
-                    .appending(
-                        contentsOf: namespaces
-                            .map { $0.rawValue }    // Intentionally not using `verificationString` here
-                            .sorted()
-                            .map { "\($0)" }
-                            .joined(separator: ",")
-                            .bytes
-                    )
+                get throws {
+                    /// The signature data collected and stored here is used by the PN server to subscribe to the swarms
+                    /// for the given account; the specific rules are governed by the storage server, but in general:
+                    ///
+                    /// A signature must have been produced (via the timestamp) within the past 14 days.  It is
+                    /// recommended that clients generate a new signature whenever they re-subscribe, and that
+                    /// re-subscriptions happen more frequently than once every 14 days.
+                    ///
+                    /// A signature is signed using the account's Ed25519 private key (or Ed25519 subaccount, if using
+                    /// subaccount authentication with a `subaccount_token`, for future closed group subscriptions),
+                    /// and signs the value:
+                    /// `"MONITOR" || HEX(ACCOUNT) || SIG_TS || DATA01 || NS[0] || "," || ... || "," || NS[n]`
+                    ///
+                    /// Where `SIG_TS` is the `sig_ts` value as a base-10 string; `DATA01` is either "0" or "1" depending
+                    /// on whether the subscription wants message data included; and the trailing `NS[i]` values are a
+                    /// comma-delimited list of namespaces that should be subscribed to, in the same sorted order as
+                    /// the `namespaces` parameter.
+                    "MONITOR".bytes
+                        .appending(contentsOf: try authMethod.swarmPublicKey.bytes)
+                        .appending(contentsOf: "\(timestamp)".bytes)
+                        .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
+                        .appending(
+                            contentsOf: namespaces
+                                .map { $0.rawValue }    // Intentionally not using `verificationString` here
+                                .sorted()
+                                .map { "\($0)" }
+                                .joined(separator: ",")
+                                .bytes
+                        )
+                }
             }
             
             // MARK: - Initialization

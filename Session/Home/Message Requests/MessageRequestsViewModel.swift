@@ -146,6 +146,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         .map { [dependencies] viewModel -> SessionCell.Info<SessionThreadViewModel> in
                             SessionCell.Info(
                                 id: viewModel.populatingPostQueryData(
+                                    recentReactionEmoji: nil,
+                                    openGroupCapabilities: nil,
                                     currentUserSessionIds: (groupedOldData[viewModel.threadId]?
                                         .first?
                                         .id
