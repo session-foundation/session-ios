@@ -905,14 +905,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             cancelStyle: .alert_text
                         ),
                         onTap: { [dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteCommunityAndContent,
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    using: dependencies
-                                )
+                            self?.dismissScreen(type: .popToRoot) {
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteCommunityAndContent,
+                                        threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     )
@@ -947,17 +949,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             cancelStyle: .alert_text
                         ),
                         onTap: { [weak self, dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .leaveGroupAsync,
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    using: dependencies
-                                )
+                            self?.dismissScreen(type: .popToRoot) {
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .leaveGroupAsync,
+                                        threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        using: dependencies
+                                    )
+                                }
                             }
-                            
-                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
                 ),
@@ -984,17 +986,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             cancelStyle: .alert_text
                         ),
                         onTap: { [weak self, dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteContactConversationAndMarkHidden,
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    using: dependencies
-                                )
+                            self?.dismissScreen(type: .popToRoot) {
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteContactConversationAndMarkHidden,
+                                        threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        using: dependencies
+                                    )
+                                }
                             }
-                            
-                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
                  ),
@@ -1023,17 +1025,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             cancelStyle: .alert_text
                         ),
                         onTap: { [weak self, dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteContactConversationAndContact,
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    using: dependencies
-                                )
+                            self?.dismissScreen(type: .popToRoot) {
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteContactConversationAndContact,
+                                        threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        using: dependencies
+                                    )
+                                }
                             }
-                            
-                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
                 ),
