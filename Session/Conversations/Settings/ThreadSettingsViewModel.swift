@@ -856,10 +856,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     onTap: { [dependencies] in
                         dependencies[singleton: .storage].writeAsync(
                             updates: { db in
-                                // Clear any interactions for the deleted thread
-                                try Interaction
-                                    .filter(Interaction.Columns.threadId == threadViewModel.threadId)
-                                    .deleteAll(db)
+                                try Interaction.markAllAsDeleted(
+                                    db,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    options: [.local, .noArtifacts],
+                                    using: dependencies
+                                )
                             }, completion: { [weak self] result in
                                 switch result {
                                     case .failure(let error):

@@ -202,7 +202,7 @@ internal extension LibSessionCacheType {
                 threadId: groupSessionId.hexString,
                 threadVariant: .group,
                 interactionIds: Set(interactionIdsToRemove),
-                localOnly: false,
+                options: [.local, .network],
                 using: dependencies
             )
             
@@ -247,7 +247,7 @@ internal extension LibSessionCacheType {
                 threadId: groupSessionId.hexString,
                 threadVariant: .group,
                 interactionIds: Set(interactionIdsToRemove),
-                localOnly: false,
+                options: [.local, .network],
                 using: dependencies
             )
             

@@ -1312,6 +1312,17 @@ public extension Interaction {
         let serverHash: String?
     }
     
+    struct DeletionOption: OptionSet, Codable {
+        public let rawValue: Int
+        public init(rawValue: Int) {
+            self.rawValue = rawValue
+        }
+
+        public static let local       = DeletionOption(rawValue: 1 << 0)
+        public static let network     = DeletionOption(rawValue: 1 << 1)
+        public static let noArtifacts = DeletionOption(rawValue: 1 << 2)
+    }
+    
     /// When deleting a message we should also delete any reactions which were on the message, so fetch and
     /// return those hashes as well
     static func serverHashesForDeletion(
@@ -1335,12 +1346,36 @@ public extension Interaction {
         return Set(messageHashes + reactionHashes + additionalServerHashesToRemove)
     }
     
+    static func markAllAsDeleted(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        options: DeletionOption,
+        using dependencies: Dependencies
+    ) throws {
+        let interactionIds: Set<Int64> = try Interaction
+            .select(.id)
+            .filter(Interaction.Columns.threadId == threadId)
+            .asRequest(of: Int64.self)
+            .fetchAll(db)
+            .asSet()
+        
+        try markAsDeleted(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIds: interactionIds,
+            options: options,
+            using: dependencies
+        )
+    }
+    
     static func markAsDeleted(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         interactionIds: Set<Int64>,
-        localOnly: Bool,
+        options: DeletionOption,
         using dependencies: Dependencies
     ) throws {
         let interactionInfo: [InteractionVariantInfo] = try Interaction
@@ -1468,6 +1503,8 @@ public extension Interaction {
             .asSet()
         _ = try Interaction.deleteAll(db, ids: infoMessageIds)
         
+        let localOnly: Bool = (options.contains(.local) && !options.contains(.network))
+        
         /// Mark non-info messages as deleted (ie. remove as much message data as we can)
         try interactionInfo
             .filter { !$0.variant.isInfoMessage }
@@ -1485,17 +1522,23 @@ public extension Interaction {
                     }
                 }()
                 
-                try Interaction
-                    .filter(ids: info.map { $0.id })
-                    .updateAll(
-                        db,
-                        Interaction.Columns.variant.set(to: targetVariant),
-                        Interaction.Columns.body.set(to: nil),
-                        Interaction.Columns.wasRead.set(to: true),
-                        Interaction.Columns.hasMention.set(to: false),
-                        Interaction.Columns.linkPreviewUrl.set(to: nil),
-                        Interaction.Columns.state.set(to: Interaction.State.deleted)
-                    )
+                if options.contains(.noArtifacts) {
+                    try Interaction
+                        .filter(ids: info.map { $0.id })
+                        .deleteAll(db)
+                } else {
+                    try Interaction
+                        .filter(ids: info.map { $0.id })
+                        .updateAll(
+                            db,
+                            Interaction.Columns.variant.set(to: targetVariant),
+                            Interaction.Columns.body.set(to: nil),
+                            Interaction.Columns.wasRead.set(to: true),
+                            Interaction.Columns.hasMention.set(to: false),
+                            Interaction.Columns.linkPreviewUrl.set(to: nil),
+                            Interaction.Columns.state.set(to: Interaction.State.deleted)
+                        )
+                }
             }
         
         /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
