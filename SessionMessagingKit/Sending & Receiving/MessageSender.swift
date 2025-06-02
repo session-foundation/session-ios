@@ -63,6 +63,7 @@ public final class MessageSender {
                         to: destination,
                         interactionId: interactionId,
                         fileIds: fileIds,
+                        userSessionId: userSessionId,
                         messageSendTimestampMs: messageSendTimestampMs,
                         using: dependencies
                     )
@@ -123,22 +124,15 @@ public final class MessageSender {
             case (.syncMessage, _), (_, .none): break
             case (.contact(let publicKey), _) where publicKey == userSessionId.hexString: break
             case (_, .some(var messageWithProfile)):
-                let profile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
-                
-                if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
-                    messageWithProfile.profile = VisibleMessage.VMProfile(
-                        displayName: profile.name,
-                        profileKey: profileKey,
-                        profilePictureUrl: profilePictureUrl,
-                        blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
-                    )
-                }
-                else {
-                    messageWithProfile.profile = VisibleMessage.VMProfile(
-                        displayName: profile.name,
-                        blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
-                    )
-                }
+                messageWithProfile.profile = dependencies
+                    .mutate(cache: .libSession) { $0.profile(contactId: userSessionId.hexString) }
+                    .map { profile in
+                        VisibleMessage.VMProfile(
+                            displayName: profile.name,
+                            profileKey: profile.profileEncryptionKey,
+                            profilePictureUrl: profile.profilePictureUrl
+                        )
+                    }
         }
         
         // Perform any pre-send actions
@@ -305,6 +299,7 @@ public final class MessageSender {
         to destination: Message.Destination,
         interactionId: Int64?,
         fileIds: [String],
+        userSessionId: SessionId,
         messageSendTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Void> {
@@ -354,10 +349,20 @@ public final class MessageSender {
         try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)
         
         // Attach the user's profile
-        message.profile = VisibleMessage.VMProfile(
-            profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
-            blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
-        )
+        message.profile = dependencies
+            .mutate(cache: .libSession) { cache in
+                cache.profile(contactId: userSessionId.hexString).map {
+                    ($0, cache.get(.checkForCommunityMessageRequests))
+                }
+            }
+            .map { profile, checkForCommunityMessageRequests in
+                VisibleMessage.VMProfile(
+                    displayName: profile.name,
+                    profileKey: profile.profileEncryptionKey,
+                    profilePictureUrl: profile.profilePictureUrl,
+                    blocksCommunityMessageRequests: !checkForCommunityMessageRequests
+                )
+            }
 
         guard !(message.profile?.displayName ?? "").isEmpty else { throw MessageSenderError.noUsername }
         
@@ -441,23 +446,19 @@ public final class MessageSender {
         message.sender = userSessionId.hexString
         
         // Attach the user's profile if needed
-        if let message: VisibleMessage = message as? VisibleMessage {
-            let profile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+        switch (message as? MessageWithProfile) {
+            case .some(var messageWithProfile):
+                messageWithProfile.profile = dependencies
+                    .mutate(cache: .libSession) { $0.profile(contactId: userSessionId.hexString) }
+                    .map { profile in
+                        VisibleMessage.VMProfile(
+                            displayName: profile.name,
+                            profileKey: profile.profileEncryptionKey,
+                            profilePictureUrl: profile.profilePictureUrl
+                        )
+                    }
             
-            if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
-                message.profile = VisibleMessage.VMProfile(
-                    displayName: profile.name,
-                    profileKey: profileKey,
-                    profilePictureUrl: profilePictureUrl,
-                    blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
-                )
-            }
-            else {
-                message.profile = VisibleMessage.VMProfile(
-                    displayName: profile.name,
-                    blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
-                )
-            }
+            default: break
         }
         
         // Perform any pre-send actions

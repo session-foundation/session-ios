@@ -194,8 +194,8 @@ public enum MessageReceiver {
         
         // Don't process the envelope any further if the sender is blocked
         guard
-            !dependencies.mutate(cache: .libSession, { cache in
-                cache.isContactBlocked(contactId: sender)
+            dependencies.mutate(cache: .libSession, { cache in
+                !cache.isContactBlocked(contactId: sender)
             }) ||
             message.processWithBlockedSender
         else { throw MessageReceiverError.senderBlocked }

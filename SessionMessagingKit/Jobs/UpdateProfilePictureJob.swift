@@ -51,7 +51,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
         }
         
         // Note: The user defaults flag is updated in DisplayPictureManager
-        let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
+        let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
             .map { dependencies[singleton: .displayPictureManager].loadDisplayPictureFromDisk(for: $0) }
             .map { .currentUserUploadImageData($0) }

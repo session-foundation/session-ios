@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionUtil
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -54,6 +55,7 @@ class ExtensionHelperSpec: QuickSpec {
                     .thenReturn(true)
                 fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
                 fileManager.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
+                fileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                 fileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
                 fileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
             }
@@ -836,6 +838,218 @@ class ExtensionHelperSpec: QuickSpec {
                     expect(mockFileManager).toNot(call { try $0.setAttributes(.any, ofItemAtPath: .any) })
                 }
             }
+            
+            // MARK: -- when loading user configs
+            context("when loading user configs") {
+                beforeEach {
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
+                }
+                
+                // MARK: ---- sets the configs for each of the user variants
+                it("sets the configs for each of the user variants") {
+                    let ptr: UnsafeMutablePointer<config_object> = UnsafeMutablePointer<config_object>.allocate(capacity: 1)
+                    let configs: [LibSession.Config] = [
+                        .userProfile(ptr), .userGroups(ptr), .contacts(ptr), .convoInfoVolatile(ptr)
+                    ]
+                    configs.forEach { config in
+                        mockLibSessionCache
+                            .when {
+                                try $0.loadState(
+                                    for: config.variant,
+                                    sessionId: .any,
+                                    userEd25519SecretKey: .any,
+                                    groupEd25519SecretKey: .any,
+                                    cachedData: .any
+                                )
+                            }
+                            .thenReturn(config)
+                    }
+                    
+                    extensionHelper.loadUserConfigState(
+                        into: mockLibSessionCache,
+                        userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .userProfile,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            to: .userProfile(ptr)
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .userGroups,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            to: .userGroups(ptr)
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .contacts,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            to: .contacts(ptr)
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .convoInfoVolatile,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            to: .convoInfoVolatile(ptr)
+                        )
+                    })
+                    
+                    ptr.deallocate()
+                }
+                
+                // MARK: ---- loads the default states when failing to load config data
+                it("loads the default states when failing to load config data") {
+                    mockLibSessionCache
+                        .when {
+                            try $0.loadState(
+                                for: .any,
+                                sessionId: .any,
+                                userEd25519SecretKey: .any,
+                                groupEd25519SecretKey: .any,
+                                cachedData: .any
+                            )
+                        }
+                        .thenReturn(nil)
+                    
+                    extensionHelper.loadUserConfigState(
+                        into: mockLibSessionCache,
+                        userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.loadDefaultStateFor(
+                            variant: .userProfile,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            groupEd25519SecretKey: nil
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.loadDefaultStateFor(
+                            variant: .userGroups,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            groupEd25519SecretKey: nil
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.loadDefaultStateFor(
+                            variant: .contacts,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            groupEd25519SecretKey: nil
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.loadDefaultStateFor(
+                            variant: .convoInfoVolatile,
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            groupEd25519SecretKey: nil
+                        )
+                    })
+                }
+            }
+            
+            // MARK: -- when loading group configs
+            context("when loading group configs") {
+                beforeEach {
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
+                }
+                
+                // MARK: ---- sets the configs for each of the group variants
+                it("sets the configs for each of the group variants") {
+                    let ptr: UnsafeMutablePointer<config_object> = UnsafeMutablePointer<config_object>.allocate(capacity: 1)
+                    let keysPtr: UnsafeMutablePointer<config_group_keys> = UnsafeMutablePointer<config_group_keys>.allocate(capacity: 1)
+                    let configs: [LibSession.Config] = [
+                        .groupKeys(keysPtr, info: ptr, members: ptr), .groupMembers(ptr), .groupInfo(ptr)
+                    ]
+                    configs.forEach { config in
+                        mockLibSessionCache
+                            .when {
+                                try $0.loadState(
+                                    for: config.variant,
+                                    sessionId: .any,
+                                    userEd25519SecretKey: .any,
+                                    groupEd25519SecretKey: .any,
+                                    cachedData: .any
+                                )
+                            }
+                            .thenReturn(config)
+                    }
+                    
+                    expect {
+                        try extensionHelper.loadGroupConfigStateIfNeeded(
+                            into: mockLibSessionCache,
+                            swarmPublicKey: "03\(TestConstants.publicKey)",
+                            userEd25519SecretKey: [1, 2, 3]
+                        )
+                    }.toNot(throwError())
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .groupKeys,
+                            sessionId: SessionId(.group, hex: TestConstants.publicKey),
+                            to: .groupKeys(keysPtr, info: ptr, members: ptr)
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .groupMembers,
+                            sessionId: SessionId(.group, hex: TestConstants.publicKey),
+                            to: .groupMembers(ptr)
+                        )
+                    })
+                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.setConfig(
+                            for: .groupInfo,
+                            sessionId: SessionId(.group, hex: TestConstants.publicKey),
+                            to: .groupInfo(ptr)
+                        )
+                    })
+                    
+                    keysPtr.deallocate()
+                    ptr.deallocate()
+                }
+                
+                // MARK: ---- does nothing if it cannot get a dump for the config
+                it("does nothing if it cannot get a dump for the config") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    
+                    expect {
+                        try extensionHelper.loadGroupConfigStateIfNeeded(
+                            into: mockLibSessionCache,
+                            swarmPublicKey: "03\(TestConstants.publicKey)",
+                            userEd25519SecretKey: [1, 2, 3]
+                        )
+                    }.toNot(throwError())
+                    expect(mockLibSessionCache).toNot(call {
+                        $0.setConfig(for: .any, sessionId: .any, to: .any)
+                    })
+                }
+                
+                // MARK: ---- does nothing if the provided public key is not for a group
+                it("does nothing if the provided public key is not for a group") {
+                    expect {
+                        try extensionHelper.loadGroupConfigStateIfNeeded(
+                            into: mockLibSessionCache,
+                            swarmPublicKey: "05\(TestConstants.publicKey)",
+                            userEd25519SecretKey: [1, 2, 3]
+                        )
+                    }.toNot(throwError())
+                    expect(mockLibSessionCache).toNot(call {
+                        $0.setConfig(for: .any, sessionId: .any, to: .any)
+                    })
+                }
+            }
         }
         
         // MARK: - an ExtensionHelper - Messages
@@ -1454,7 +1668,7 @@ class ExtensionHelperSpec: QuickSpec {
                                     defaultLevel: .info
                                 )
                             ],
-                            message: "Finished: Successfully processed 1 messages, 0 messages failed.",
+                            message: "Finished: Successfully processed 1/1 standard messages, 0/0 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
                             function: "loadMessages()"
                         )
@@ -1514,7 +1728,7 @@ class ExtensionHelperSpec: QuickSpec {
                                     defaultLevel: .info
                                 )
                             ],
-                            message: "Finished: Successfully processed 0 messages, 1 messages failed.",
+                            message: "Finished: Successfully processed 0/0 standard messages, 0/1 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
                             function: "loadMessages()"
                         )
@@ -1574,7 +1788,7 @@ class ExtensionHelperSpec: QuickSpec {
                                     defaultLevel: .info
                                 )
                             ],
-                            message: "Finished: Successfully processed 0 messages, 1 messages failed.",
+                            message: "Finished: Successfully processed 0/1 standard messages, 0/0 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
                             function: "loadMessages()"
                         )
@@ -1623,7 +1837,7 @@ class ExtensionHelperSpec: QuickSpec {
                                     defaultLevel: .info
                                 )
                             ],
-                            message: "Finished: Successfully processed 1 messages, 0 messages failed.",
+                            message: "Finished: Successfully processed 1/1 standard messages, 0/0 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
                             function: "loadMessages()"
                         )

@@ -88,12 +88,10 @@ extension MessageReceiver {
         }
     }
     
-    // MARK: - Specific Handling
+    // MARK: - Validation
     
-    private static func handleGroupInvite(
-        _ db: Database,
+    public static func validateGroupInvite(
         message: GroupUpdateInviteMessage,
-        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -120,6 +118,23 @@ extension MessageReceiver {
                 )
             )
         else { throw MessageReceiverError.invalidMessage }
+    }
+    
+    // MARK: - Specific Handling
+    
+    private static func handleGroupInvite(
+        _ db: Database,
+        message: GroupUpdateInviteMessage,
+        suppressNotifications: Bool,
+        using dependencies: Dependencies
+    ) throws {
+        guard
+            let sender: String = message.sender,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs
+        else { throw MessageReceiverError.invalidMessage }
+        
+        // Ensure the message is valid
+        try validateGroupInvite(message: message, using: dependencies)
         
         // Update profile if needed
         if let profile = message.profile {
@@ -194,11 +209,7 @@ extension MessageReceiver {
         
         if forceMarkAsInvited {
             dependencies.mutate(cache: .libSession) { cache in
-                try? cache.markAsInvited(
-                    db,
-                    groupSessionIds: [groupSessionId],
-                    using: dependencies
-                )
+                try? cache.markAsInvited(groupSessionIds: [groupSessionId])
             }
         }
             
@@ -797,17 +808,13 @@ extension MessageReceiver {
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
-        /// Ignore the message if the `memberSessionIds` doesn't contain the current users session id,
-        /// it was sent before the user joined the group or if the `adminSignature` isn't valid
-        guard
-            let (memberId, keysGen): (SessionId, Int) = try? LibSessionMessage.groupKicked(plaintext: plaintext),
-            let currentKeysGen: Int = try? LibSession.currentGeneration(
-                groupSessionId: groupSessionId,
-                using: dependencies
-            ),
-            memberId == userSessionId,
-            keysGen >= currentKeysGen
-        else { throw MessageReceiverError.invalidMessage }
+        /// Ensure the `groupKicked` message was valid before continuing
+        try LibSessionMessage.validateGroupKickedMessage(
+            plaintext: plaintext,
+            userSessionId: userSessionId,
+            groupSessionId: groupSessionId,
+            using: dependencies
+        )
         
         /// If we haven't already handled being kicked from the group then update the name of the group in `USER_GROUPS` so
         /// that if the user doesn't delete the group and links a new device, the group will have the same name as on the current device

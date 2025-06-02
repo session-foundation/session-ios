@@ -20,17 +20,20 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
-        userEd25519KeyPair: KeyPair,
+        userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     ) {
-        mockNoReturn(args: [variant, sessionId, userEd25519KeyPair, groupEd25519SecretKey])
+        mockNoReturn(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey])
     }
     
-    func loadAdminKey(
-        groupIdentitySeed: Data,
-        groupSessionId: SessionId
-    ) throws {
-        try mockThrowingNoReturn(args: [groupIdentitySeed, groupSessionId])
+    func loadState(
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519SecretKey: [UInt8],
+        groupEd25519SecretKey: [UInt8]?,
+        cachedData: Data?
+    ) throws -> LibSession.Config {
+        return try mockThrowing(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey, cachedData])
     }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool {
@@ -133,7 +136,22 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     ) throws {
         try mockThrowingNoReturn(args: [swarmPublicKey, messages])
     }
+    
     // MARK: - State Access
+    
+    var displayName: String? { mock() }
+    
+    func has(_ key: Setting.BoolKey) -> Bool {
+        return mock(args: [key])
+    }
+    
+    func get(_ key: Setting.BoolKey) -> Bool {
+        return mock(args: [key])
+    }
+    
+    func updateProfile(displayName: String, profilePictureUrl: String?, profileEncryptionKey: Data?) throws {
+        try mockThrowingNoReturn(args: [displayName, profilePictureUrl, profileEncryptionKey])
+    }
     
     func canPerformChange(
         threadId: String,
@@ -206,20 +224,39 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     }
     
     func profile(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
         contactId: String,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile? {
-        return mock(args: [threadId, threadVariant, contactId, visibleMessage])
+        return mock(args: [contactId, threadId, threadVariant, visibleMessage])
     }
     
     func hasCredentials(groupSessionId: SessionId) -> Bool {
         return mock(args: [groupSessionId])
     }
     
+    func secretKey(groupSessionId: SessionId) -> [UInt8]? {
+        return mock(args: [groupSessionId])
+    }
+    
     func isAdmin(groupSessionId: SessionId) -> Bool {
         return mock(args: [groupSessionId])
+    }
+    
+    func loadAdminKey(
+        groupIdentitySeed: Data,
+        groupSessionId: SessionId
+    ) throws {
+        try mockThrowingNoReturn(args: [groupIdentitySeed, groupSessionId])
+    }
+    
+    func markAsInvited(groupSessionIds: [String]) throws {
+        try mockThrowingNoReturn(args: [groupSessionIds])
+    }
+    
+    func markAsKicked(groupSessionIds: [String]) throws {
+        try mockThrowingNoReturn(args: [groupSessionIds])
     }
     
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool {
@@ -261,6 +298,16 @@ extension Mock where T == LibSessionCacheType {
         self.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
         self.when { $0.removeConfigs(for: .any) }.thenReturn(())
         self.when { $0.hasConfig(for: .any, sessionId: .any) }.thenReturn(true)
+        self
+            .when {
+                $0.loadDefaultStateFor(
+                    variant: .any,
+                    sessionId: .any,
+                    userEd25519SecretKey: .any,
+                    groupEd25519SecretKey: .any
+                )
+            }
+            .thenReturn(())
         self
             .when { try $0.pendingChanges(swarmPublicKey: .any) }
             .thenReturn(LibSession.PendingChanges())
@@ -330,12 +377,18 @@ extension Mock where T == LibSessionCacheType {
             .when { $0.notificationSettings(threadId: .any, threadVariant: .any, openGroupUrlInfo: .any) }
             .thenReturn(.defaultFor(.contact))
         self.when { $0.isContactBlocked(contactId: .any) }.thenReturn(false)
+        self
+            .when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }
+            .thenReturn(Profile(id: "TestProfileId", name: "TestProfileName"))
         self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)
+        self.when { $0.secretKey(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
         self.when { try $0.loadAdminKey(groupIdentitySeed: .any, groupSessionId: .any) }.thenReturn(())
+        self.when { try $0.markAsKicked(groupSessionIds: .any) }.thenReturn(())
+        self.when { try $0.markAsInvited(groupSessionIds: .any) }.thenReturn(())
+        self.when { $0.wasKickedFromGroup(groupSessionId: .any) }.thenReturn(false)
         self.when { $0.groupName(groupSessionId: .any) }.thenReturn("TestGroupName")
         self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
-        self.when { $0.wasKickedFromGroup(groupSessionId: .any) }.thenReturn(false)
         self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
     }

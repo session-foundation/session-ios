@@ -489,10 +489,11 @@ internal extension LibSession {
         // Update the user profile first (if needed)
         if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
             try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
-                    try LibSession.update(
-                        profile: updatedUserProfile,
-                        in: config
+                try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
+                    try cache.updateProfile(
+                        displayName: updatedUserProfile.name,
+                        profilePictureUrl: updatedUserProfile.profilePictureUrl,
+                        profileEncryptionKey: updatedUserProfile.profileEncryptionKey
                     )
                 }
             }
