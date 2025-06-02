@@ -1352,7 +1352,7 @@ public extension Interaction {
         threadVariant: SessionThread.Variant,
         options: DeletionOption,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> Int {
         let interactionIds: Set<Int64> = try Interaction
             .select(.id)
             .filter(Interaction.Columns.threadId == threadId)
@@ -1368,6 +1368,8 @@ public extension Interaction {
             options: options,
             using: dependencies
         )
+        
+        return interactionIds.count
     }
     
     static func markAsDeleted(

@@ -858,7 +858,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             updates: { db in
                                 try Interaction.markAllAsDeleted(
                                     db,
-                                    threadId: threadViewModel.threadId,
+                                    threadId: threadViewModel.id,
                                     threadVariant: threadViewModel.threadVariant,
                                     options: [.local, .noArtifacts],
                                     using: dependencies
