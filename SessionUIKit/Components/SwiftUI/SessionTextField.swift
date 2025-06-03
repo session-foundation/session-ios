@@ -7,35 +7,54 @@ import UIKit
 public struct SessionTextField<ExplanationView>: View where ExplanationView: View {
     @Binding var text: String
     @Binding var error: String?
-    @State var previousError: String = ""
+    @State var lastErroredText: String?
     @State var textThemeColor: ThemeValue = .textPrimary
+    @State fileprivate var textChanged: ((String) -> Void)?
+    
+    public enum SessionTextFieldType {
+        case thin
+        case normal
+    }
     
     let explanationView: () -> ExplanationView
     let placeholder: String
+    let font: Font
+    let type: SessionTextFieldType
     let accessibility: Accessibility
-    var isErrorMode: Bool {
-        guard previousError.isEmpty else { return true }
-        if error?.isEmpty == false { return true }
-        return false
-    }
+    var isErrorMode: Bool { error?.isEmpty == false }
     
-    let height: CGFloat = isIPhone5OrSmaller ? CGFloat(48) : CGFloat(80)
-    let cornerRadius: CGFloat = 13
+    let height: CGFloat
+    let padding: CGFloat
+    let cornerRadius: CGFloat
     
     public init(
         _ text: Binding<String>,
         placeholder: String,
+        font: Font = .system(size: Values.smallFontSize),
         error: Binding<String?>,
-        accessibility: Accessibility = Accessibility(),
+        type: SessionTextFieldType = .normal,
+        accessibility: Accessibility = Accessibility(identifier: "SessionTextField"),
         @ViewBuilder explanationView: @escaping () -> ExplanationView = {
             EmptyView()
         }
     ) {
         self._text = text
         self.placeholder = placeholder
+        self.font = font
+        self.type = type
         self.accessibility = accessibility
         self._error = error
         self.explanationView = explanationView
+        switch self.type {
+            case .thin:
+                self.height = isIPhone5OrSmaller ? CGFloat(40) : CGFloat(45)
+                self.padding = Values.mediumSpacing
+                self.cornerRadius = CGFloat(7)
+            case .normal:
+                self.height = isIPhone5OrSmaller ? CGFloat(48) : CGFloat(80)
+                self.padding = Values.largeSpacing
+                self.cornerRadius = CGFloat(13)
+        }
         UITextView.appearance().backgroundColor = .clear
     }
     
@@ -49,34 +68,22 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                 if text.isEmpty {
                     Text(placeholder)
                         .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: isErrorMode ? .danger : .textSecondary)
+                        .foregroundColor(themeColor: .textSecondary)
                 }
                 
                 if #available(iOS 16.0, *) {
-                    SwiftUI.TextField(
+                    TextField(
                         "",
-                        text: $text.onChange{ value in
-                            if error?.isEmpty == false && text != value {
-                                previousError = error!
-                                error = nil
-                            }
-                        },
+                        text: $text,
                         axis: .vertical
                     )
-                    .font(.system(size: Values.smallFontSize))
+                    .font(font)
                     .foregroundColor(themeColor: textThemeColor)
                     .accessibility(self.accessibility)
                 } else {
                     ZStack {
-                        TextEditor(
-                            text: $text.onChange{ value in
-                                if error?.isEmpty == false && text != value {
-                                    previousError = error!
-                                    error = nil
-                                }
-                            }
-                        )
-                        .font(.system(size: Values.smallFontSize))
+                        TextEditor(text: $text)
+                        .font(font)
                         .foregroundColor(themeColor: textThemeColor)
                         .textViewTransparentScrolling()
                         .accessibility(self.accessibility)
@@ -85,7 +92,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                         
                         // FIXME: This is a workaround for dynamic height of the TextEditor.
                         Text(text.isEmpty ? placeholder : text)
-                            .font(.system(size: Values.smallFontSize))
+                            .font(font)
                             .opacity(0)
                             .padding(.all, 4)
                             .frame(
@@ -96,44 +103,64 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.horizontal, Values.largeSpacing)
-            .frame(maxWidth: .infinity)
-            .frame(height: self.height)
-            .overlay(
-                RoundedRectangle(
-                    cornerSize: CGSize(
-                        width: self.cornerRadius,
-                        height: self.cornerRadius
-                    )
-                )
-                .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
+            .padding(.horizontal, self.padding)
+            .padding(.vertical, Values.smallSpacing)
+            .framing(
+                maxWidth: .infinity,
+                minHeight: self.type == .thin ? self.height : nil,
+                height: self.type == .thin ? nil : self.height
             )
-            .onReceive(Just(error)) { newValue in
-                textThemeColor = (newValue?.isEmpty == false) ? .danger : .textPrimary
+            .overlay(
+                RoundedRectangle(cornerRadius: self.cornerRadius)
+                    .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
+            )
+            .onChange(of: text) { newText in
+                textThemeColor = (newText == lastErroredText ? .danger : .textPrimary)
+            }
+            .onChange(of: error) { newError in
+                if newError != nil {
+                    lastErroredText = text
+                    textThemeColor = .danger
+                }
             }
             
             // Error message
-            ZStack {
-                if isErrorMode {
-                    Text(error ?? previousError)
-                        .bold()
-                        .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: .danger)
-                        .multilineTextAlignment(.center)
-                        .accessibility(
-                            Accessibility(
-                                identifier: "Error message",
-                                label: error ?? previousError
+            switch self.type {
+                case .thin:
+                    if isErrorMode {
+                        Text(error ?? "")
+                            .bold()
+                            .font(.system(size: Values.smallFontSize))
+                            .foregroundColor(themeColor: .danger)
+                            .multilineTextAlignment(.center)
+                            .accessibility(
+                                Accessibility(
+                                    identifier: "Error message"
+                                )
                             )
-                        )
-                } else {
-                    explanationView()
-                }
+                    }
+                case .normal:
+                    ZStack {
+                        if isErrorMode {
+                            Text(error ?? "")
+                                .bold()
+                                .font(.system(size: Values.smallFontSize))
+                                .foregroundColor(themeColor: .danger)
+                                .multilineTextAlignment(.center)
+                                .accessibility(
+                                    Accessibility(
+                                        identifier: "Error message"
+                                    )
+                                )
+                        } else {
+                            explanationView()
+                        }
+                    }
+                    .frame(
+                        height: 54,
+                        alignment: .top
+                    )
             }
-            .frame(
-                height: 54,
-                alignment: .top
-            )
         }
     }
 }

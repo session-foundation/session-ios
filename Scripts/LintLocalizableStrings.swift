@@ -70,6 +70,10 @@ extension ProjectState {
         .prefix("@available(", caseSensitive: false),
         .prefix("print(", caseSensitive: false),
         .prefix("Log.Category =", caseSensitive: false),
+        .previousLine(
+            numEarlier: 1,
+            .suffix("-> Log.Category {", caseSensitive: false)
+        ),
         .contains("fatalError(", caseSensitive: false),
         .contains("precondition(", caseSensitive: false),
         .contains("preconditionFailure(", caseSensitive: false),

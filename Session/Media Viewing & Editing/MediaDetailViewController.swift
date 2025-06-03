@@ -20,17 +20,14 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     
     // MARK: - UI
     
-    private var mediaViewBottomConstraint: NSLayoutConstraint?
-    private var mediaViewLeadingConstraint: NSLayoutConstraint?
-    private var mediaViewTopConstraint: NSLayoutConstraint?
-    private var mediaViewTrailingConstraint: NSLayoutConstraint?
-    
     private lazy var scrollView: UIScrollView = {
         let result: UIScrollView = UIScrollView()
         result.showsVerticalScrollIndicator = false
         result.showsHorizontalScrollIndicator = false
         result.contentInsetAdjustmentBehavior = .never
         result.decelerationRate = .fast
+        result.minimumZoomScale = 1
+        result.maximumZoomScale = 10
         result.zoomScale = 1
         result.delegate = self
         
@@ -57,14 +54,14 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         // the root view so that interacting with the video player
         // progres bar doesn't trigger any of these gestures.
         let doubleTap: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: MediaDetailViewController.self,
+            target: self,
             action: #selector(didDoubleTapImage(_:))
         )
         doubleTap.numberOfTapsRequired = 2
         result.addGestureRecognizer(doubleTap)
 
         let singleTap: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: MediaDetailViewController.self,
+            target: self,
             action: #selector(didSingleTapImage(_:))
         )
         singleTap.require(toFail: doubleTap)
@@ -100,22 +97,20 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         
         super.init(nibName: nil, bundle: nil)
         
-        // We cache the image data in case the attachment stream is deleted.
-        galleryItem.attachment.thumbnail(
-            size: .large,
-            using: dependencies,
-            success: { [weak self] thumbnailPath, _, _ in
-                self?.mediaView.loadImage(from: thumbnailPath) {
-                    guard self?.isViewLoaded == true else { return }
-                    
-                    self?.scrollView.zoomScale = 1
-                    self?.updateMinZoomScale()
-                }
-            },
-            failure: {
-                Log.error(.media, "Could not load media.")
-            }
-        )
+        switch (galleryItem.attachment.isVideo, galleryItem.attachment.originalFilePath(using: dependencies)) {
+            case (false, .some(let filePath)): mediaView.loadImage(from: filePath)
+            default:
+                galleryItem.attachment.thumbnail(
+                    size: .large,
+                    using: dependencies,
+                    success: { [weak self] thumbnailPath, _, _ in
+                        self?.mediaView.loadImage(from: thumbnailPath)
+                    },
+                    failure: {
+                        Log.error(.media, "Could not load media.")
+                    }
+                )
+        }
     }
     
     required init?(coder: NSCoder) {
@@ -135,16 +130,11 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         
         scrollView.pin(to: self.view)
         playVideoButton.center(in: self.view)
-        mediaViewLeadingConstraint = mediaView.pin(.leading, to: .leading, of: scrollView)
-        mediaViewTopConstraint = mediaView.pin(.top, to: .top, of: scrollView)
-        mediaViewTrailingConstraint = mediaView.pin(.trailing, to: .trailing, of: scrollView)
-        mediaViewBottomConstraint = mediaView.pin(.bottom, to: .bottom, of: scrollView)
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        
-        self.resetMediaFrame()
+        mediaView.center(in: scrollView)
+        mediaView.pin(.leading, to: .leading, of: scrollView.contentLayoutGuide)
+        mediaView.pin(.top, to: .top, of: scrollView.contentLayoutGuide)
+        mediaView.pin(.trailing, to: .trailing, of: scrollView.contentLayoutGuide)
+        mediaView.pin(.bottom, to: .bottom, of: scrollView.contentLayoutGuide)
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -166,8 +156,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
-        self.updateMinZoomScale()
-        self.centerMediaViewConstraints()
+        self.centerContentIfNeeded()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -177,34 +166,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     }
     
     // MARK: - Functions
-    
-    private func updateMinZoomScale() {
-        let maybeImageSize: CGSize? = mediaView.image?.size
-        
-        guard let imageSize: CGSize = maybeImageSize else {
-            self.scrollView.minimumZoomScale = 1
-            self.scrollView.maximumZoomScale = 1
-            self.scrollView.zoomScale = 1
-            return
-        }
-        
-        let viewSize: CGSize = self.scrollView.bounds.size
-        
-        guard imageSize.width > 0 && imageSize.height > 0 else {
-            Log.error(.media, "Invalid image dimensions (\(imageSize.width), \(imageSize.height))")
-            return
-        }
-        
-        let scaleWidth: CGFloat = (viewSize.width / imageSize.width)
-        let scaleHeight: CGFloat = (viewSize.height / imageSize.height)
-        let minScale: CGFloat = min(scaleWidth, scaleHeight)
-
-        if minScale != self.scrollView.minimumZoomScale {
-            self.scrollView.minimumZoomScale = minScale
-            self.scrollView.maximumZoomScale = (minScale * 8)
-            self.scrollView.zoomScale = minScale
-        }
-    }
     
     public func zoomOut(animated: Bool) {
         if self.scrollView.zoomScale != self.scrollView.minimumZoomScale {
@@ -225,12 +186,12 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
             return
         }
         
-        let doubleTapZoomScale: CGFloat = 2
+        let doubleTapZoomScale: CGFloat = 4
         let zoomWidth: CGFloat = (self.scrollView.bounds.width / doubleTapZoomScale)
         let zoomHeight: CGFloat = (self.scrollView.bounds.height / doubleTapZoomScale)
 
         // Center zoom rect around tapLocation
-        let tapLocation: CGPoint = gesture.location(in: self.scrollView)
+        let tapLocation: CGPoint = gesture.location(in: self.mediaView)
         let zoomX: CGFloat = max(0, tapLocation.x - zoomWidth / 2)
         let zoomY: CGFloat = max(0, tapLocation.y - zoomHeight / 2)
         let zoomRect: CGRect = CGRect(x: zoomX, y: zoomY, width: zoomWidth, height: zoomHeight)
@@ -249,48 +210,36 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         return self.mediaView
     }
     
-    private func centerMediaViewConstraints() {
+    private func centerContentIfNeeded() {
         let scrollViewSize: CGSize = self.scrollView.bounds.size
         let imageViewSize: CGSize = self.mediaView.frame.size
         
-        // We want to modify the yOffset so the content remains centered on the screen (we can do this
-        // by subtracting half the parentViewController's y position)
-        //
-        // Note: Due to weird partial-pixel value rendering behaviours we need to round the inset either
-        // up or down depending on which direction the partial-pixel would end up rounded to make it
-        // align correctly
-        let halfHeightDiff: CGFloat = ((self.scrollView.bounds.size.height - self.mediaView.frame.size.height) / 2)
-        let shouldRoundUp: Bool = (round(halfHeightDiff) - halfHeightDiff > 0)
+        guard
+            scrollViewSize.width > 0 &&
+            scrollViewSize.height > 0 &&
+            imageViewSize.width > 0 &&
+            imageViewSize.height > 0
+        else { return }
+        
+        var topInset: CGFloat = 0
+        var leftInset: CGFloat = 0
 
-        let yOffset: CGFloat = (
-            round((scrollViewSize.height - imageViewSize.height) / 2) -
-            (shouldRoundUp ?
-                ceil((self.parent?.view.frame.origin.y ?? 0) / 2) :
-                floor((self.parent?.view.frame.origin.y ?? 0) / 2)
-            )
-        )
+        if imageViewSize.height < scrollViewSize.height {
+            topInset = (scrollViewSize.height - imageViewSize.height) / 2.0
+        }
+        if imageViewSize.width < scrollViewSize.width {
+            leftInset = (scrollViewSize.width - imageViewSize.width) / 2.0
+        }
 
-        self.mediaViewTopConstraint?.constant = yOffset
-        self.mediaViewBottomConstraint?.constant = yOffset
-
-        let xOffset: CGFloat = max(0, (scrollViewSize.width - imageViewSize.width) / 2)
-        self.mediaViewLeadingConstraint?.constant = xOffset
-        self.mediaViewTrailingConstraint?.constant = xOffset
+        topInset = max(0, topInset)
+        leftInset = max(0, leftInset)
+        
+        scrollView.contentInset = UIEdgeInsets(top: topInset, left: leftInset, bottom: 0, right: 0)
     }
     
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        self.centerMediaViewConstraints()
+        self.centerContentIfNeeded()
         self.view.layoutIfNeeded()
-    }
-
-    private func resetMediaFrame() {
-        // HACK: Setting the frame to itself *seems* like it should be a no-op, but
-        // it ensures the content is drawn at the right frame. In particular I was
-        // reproducibly seeing some images squished (they were EXIF rotated, maybe
-        // related). similar to this report:
-        // https://stackoverflow.com/questions/27961884/swift-uiimageview-stretched-aspect
-        self.view.layoutIfNeeded()
-        self.mediaView.frame = self.mediaView.frame
     }
 
     // MARK: - Video Playback

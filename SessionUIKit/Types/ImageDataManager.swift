@@ -117,7 +117,8 @@ public actor ImageDataManager: ImageDataManagerType {
                     let imageData: Data = dataSource.imageData,
                     let imageFormat: SUIKImageFormat = imageData.suiKitGuessedImageFormat.nullIfUnknown,
                     (imageFormat != .gif || imageData.suiKitHasValidGifSize),
-                    let source: CGImageSource = CGImageSourceCreateWithData(imageData as CFData, nil)
+                    let source: CGImageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+                    CGImageSourceGetCount(source) > 0
                 else { return continuation.resume(returning: nil) }
                 
                 let count: Int = CGImageSourceGetCount(source)
@@ -132,7 +133,18 @@ public actor ImageDataManager: ImageDataManagerType {
                             return continuation.resume(returning: nil)
                         }
                         
-                        let image: UIImage = UIImage(cgImage: cgImage)
+                        /// Extract image orientation if present
+                        var orientation: UIImage.Orientation = .up
+                        
+                        if
+                            let imageProperties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                            let rawCgOrientation: UInt32 = imageProperties[kCGImagePropertyOrientation] as? UInt32,
+                            let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+                        {
+                            orientation = UIImage.Orientation(cgOrientation)
+                        }
+                        
+                        let image: UIImage = UIImage(cgImage: cgImage, scale: 1, orientation: orientation)
                         let decodedImage: UIImage = (image.predecodedImage() ?? image)
                         let processedData: ProcessedImageData = ProcessedImageData(
                             type: .staticImage(decodedImage)
@@ -367,7 +379,7 @@ extension UIImage {
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         guard let drawnImage: CGImage = context.makeImage() else { return self }
         
-        return UIImage(cgImage: drawnImage)
+        return UIImage(cgImage: drawnImage, scale: self.scale, orientation: self.imageOrientation)
     }
 }
 
@@ -387,6 +399,34 @@ extension AVAsset {
             maxTrackSize.width < (3 * 1024) &&
             maxTrackSize.height < (3 * 1024)
         )
+    }
+}
+
+public extension ImageDataManager.DataSource {
+    var sizeFromMetadata: CGSize? {
+        guard
+            let imageData: Data = imageData,
+            let imageFormat: SUIKImageFormat = imageData.suiKitGuessedImageFormat.nullIfUnknown
+        else { return nil }
+        
+        /// We can extract the size of a `GIF` directly so do that
+        if imageFormat == .gif, let gifSize: CGSize = imageData.suiKitGifSize {
+            guard gifSize.suiKitIsValidGifSize else { return nil }
+            
+            return gifSize
+        }
+        
+        guard
+            let source: CGImageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+            CGImageSourceGetCount(source) > 0,
+            let imageProperties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let pixelWidth = imageProperties[kCGImagePropertyPixelWidth] as? Int,
+            let pixelHeight = imageProperties[kCGImagePropertyPixelHeight] as? Int,
+            pixelWidth > 0,
+            pixelHeight > 0
+        else { return nil }
+        
+        return CGSize(width: pixelWidth, height: pixelHeight)
     }
 }
 

@@ -15,6 +15,8 @@ public class SessionImageView: UIImageView {
     private var currentFrameIndex: Int = 0
     private var accumulatedTime: TimeInterval = 0
     
+    public var imageSizeMetadata: CGSize?
+    
     public override var image: UIImage? {
         didSet {
             /// If we set an image directly then it'll be a static image so we should stop the animation loop and remove
@@ -26,6 +28,7 @@ public class SessionImageView: UIImageView {
             animationFrameDurations = nil
             currentFrameIndex = 0
             accumulatedTime = 0
+            imageSizeMetadata = nil
         }
     }
     
@@ -217,6 +220,7 @@ public class SessionImageView: UIImageView {
         /// No need to kick of an async task if we were given an image directly
         switch source {
             case .image(_, .some(let image)):
+                imageSizeMetadata = image.size
                 return handleLoadedImageData(
                     ImageDataManager.ProcessedImageData(type: .staticImage(image))
                 )
@@ -224,7 +228,10 @@ public class SessionImageView: UIImageView {
             default: break
         }
         
-        /// Otherwise schedule the background task for loading
+        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
+        /// background task for loading
+        imageSizeMetadata = source.sizeFromMetadata
+        
         guard let dataManager: ImageDataManagerType = self.dataManager else {
             #if DEBUG
             preconditionFailure("Error! No `ImageDataManager` configured for `SessionImageView")
@@ -258,6 +265,7 @@ public class SessionImageView: UIImageView {
         animationFrameDurations = nil
         currentFrameIndex = 0
         accumulatedTime = 0
+        imageSizeMetadata = nil
     }
     
     @MainActor

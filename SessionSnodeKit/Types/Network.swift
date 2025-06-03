@@ -55,6 +55,27 @@ public enum NetworkStatus {
 // MARK: - FileServer Convenience
 
 public extension Network {
+    enum NetworkAPI {
+        static let networkAPIServer = "http://networkv1.getsession.org"
+        static let networkAPIServerPublicKey = "cbf461a4431dc9174dceef4421680d743a2a0e1a3131fc794240bcb0bc3dd449"
+        
+        public enum Endpoint: EndpointType {
+            case info
+            case price
+            case token
+            
+            public static var name: String { "NetworkAPI.Endpoint" }
+            
+            public var path: String {
+                switch self {
+                    case .info: return "info"
+                    case .price: return "price"
+                    case .token: return "token"
+                }
+            }
+        }
+    }
+    
     enum FileServer {
         fileprivate static let fileServer = "http://filev2.getsession.org"
         fileprivate static let fileServerPublicKey = "da21e1d886c6fbaea313f75298bd64aab03a97ce985b46bb2dad9f2089c8ee59"

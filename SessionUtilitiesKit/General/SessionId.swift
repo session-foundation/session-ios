@@ -7,11 +7,12 @@ public struct SessionId: Equatable, Hashable, CustomStringConvertible {
     public static let invalid: SessionId = SessionId(.standard, publicKey: [])
     
     public enum Prefix: String, CaseIterable, Hashable {
-        case standard = "05"    // Used for identified users, open groups, etc.
-        case blinded15 = "15"   // Used for authentication and participants in open groups with blinding enabled
-        case blinded25 = "25"   // Used for authentication and participants in open groups with blinding enabled
-        case unblinded = "00"   // Used for authentication in open groups with blinding disabled
-        case group = "03"       // Used for update group conversations
+        case standard = "05"            // Used for identified users, open groups, etc.
+        case blinded15 = "15"           // Used for authentication and participants in open groups with blinding enabled
+        case blinded25 = "25"           // Used for authentication and participants in open groups with blinding enabled
+        case unblinded = "00"           // Used for authentication in open groups with blinding disabled
+        case group = "03"               // Used for update group conversations
+        case versionBlinded07 = "07"    // Used for authentication with the file and session network servers
         
         public init(from stringValue: String?) throws {
             guard let stringValue: String = stringValue else { throw SessionIdError.emptyValue }
@@ -42,6 +43,7 @@ public struct SessionId: Equatable, Hashable, CustomStringConvertible {
                 case .blinded25: return "26"
                 case .unblinded: return "01"
                 case .group: return "04"
+                case .versionBlinded07: return "08"
             }
         }
     }
