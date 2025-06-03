@@ -70,6 +70,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case idActions
         
         case path
+        case donate
         case privacy
         case notifications
         case conversations
@@ -260,6 +261,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 ),
                 title: "onionRoutingPath".localized(),
                 onTap: { [weak self, dependencies] in self?.transitionToScreen(PathVC(using: dependencies)) }
+            )
+        )
+        menuElements.append(
+            SessionCell.Info(
+                id: .donate,
+                leadingAccessory: .icon(
+                    .heart,
+                    customTint: .explicitPrimary(.green)
+                ),
+                title: "donate".localized(),
+                styling: SessionCell.StyleInfo(
+                    tintColor: .explicitPrimary(.green)
+                ),
+                onTap: { [weak self] in self?.openDonationsUrl() }
             )
         )
         menuElements.append(
@@ -718,5 +733,36 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
         
         self.transitionToScreen(shareVC, transitionType: .present)
+    }
+    
+    private func openDonationsUrl() {
+        guard let url: URL = URL(string: Constants.session_donations_url) else { return }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                hasCloseButton: true,
+                onConfirm: { modal in
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                    modal.dismiss(animated: true)
+                },
+                onCancel: { modal in
+                    UIPasteboard.general.string = url.absoluteString
+                    
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        self.transitionToScreen(modal, transitionType: .present)
     }
 }
