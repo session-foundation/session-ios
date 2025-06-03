@@ -58,8 +58,6 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                     
                     if let lastUpdatedTimeString = viewModel.lastUpdatedTimeString {
                         ZStack {
-                            Spacer(minLength: Values.largeSpacing)
-                            
                             Text(
                                 "updated"
                                     .put(key: "relative_time", value: lastUpdatedTimeString)
@@ -71,6 +69,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                                 maxWidth: .infinity,
                                 alignment: .center
                             )
+                            .padding(.top, Values.largeSpacing)
                             .accessibility(
                                 Accessibility(identifier: "Last updated timestamp")
                             )
@@ -163,6 +162,7 @@ extension SessionNetworkScreen {
                 )
                 .font(Font.Body.largeRegular)
                 .foregroundColor(themeColor: .textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibility(
                     Accessibility(identifier: "Learn more link")
                 )
@@ -392,10 +392,7 @@ extension SessionNetworkScreen {
                             .font(.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .lineLimit(1)
-                            .frame(
-                                maxHeight: .infinity,
-                                alignment: .leading
-                            )
+                            .fixedSize()
                         
                         AdaptiveText(
                             textOptions: [
@@ -418,7 +415,6 @@ extension SessionNetworkScreen {
                     )
                     .frame(
                         maxWidth: .infinity,
-                        maxHeight: .infinity,
                         alignment: .leading
                     )
                     .background(
@@ -494,6 +490,7 @@ extension SessionNetworkScreen {
                 )
                 .font(.Body.largeRegular)
                 .foregroundColor(themeColor: .textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
                 
                 ZStack{
                     Line(color: .borderSeparator)
