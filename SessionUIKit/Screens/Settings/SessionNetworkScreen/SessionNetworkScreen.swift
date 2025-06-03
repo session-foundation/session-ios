@@ -17,83 +17,96 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
     }
     
     public var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(
-                alignment: .leading,
-                spacing: Values.mediumSmallSpacing
-            ) {
-                SessionNetworkSection(
-                    linkOutAction: {
-                        openUrl(Constants.session_network_url)
-                    }
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                
-                StatsSection(
-                    dataModel: $viewModel.dataModel,
-                    isRefreshing: $viewModel.isRefreshing,
-                    lastRefreshWasSuccessful: $viewModel.lastRefreshWasSuccessful,
-                    isShowingTooltip: $isShowingTooltip
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                
-                SessionTokenSection(
-                    dataModel: $viewModel.dataModel,
-                    isRefreshing: $viewModel.isRefreshing,
-                    linkOutAction: {
-                        openUrl(Constants.session_staking_url)
-                    }
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                
-                if let lastUpdatedTimeString = viewModel.lastUpdatedTimeString {
-                    Spacer(minLength: Values.largeSpacing)
-                    
-                    Text(
-                        "updated"
-                            .put(key: "relative_time", value: lastUpdatedTimeString)
-                            .localized()
+        GeometryReader { geometry in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(
+                    alignment: .leading,
+                    spacing: Values.mediumSmallSpacing
+                ) {
+                    SessionNetworkSection(
+                        linkOutAction: {
+                            openUrl(Constants.session_network_url)
+                        }
                     )
-                    .font(.Body.custom(Values.smallFontSize))
-                    .foregroundColor(themeColor: .textSecondary)
                     .frame(
                         maxWidth: .infinity,
-                        alignment: .center
+                        alignment: .leading
                     )
-                    .accessibility(
-                        Accessibility(identifier: "Last updated timestamp")
+                    
+                    StatsSection(
+                        dataModel: $viewModel.dataModel,
+                        isRefreshing: $viewModel.isRefreshing,
+                        lastRefreshWasSuccessful: $viewModel.lastRefreshWasSuccessful,
+                        isShowingTooltip: $isShowingTooltip
                     )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                    
+                    SessionTokenSection(
+                        dataModel: $viewModel.dataModel,
+                        isRefreshing: $viewModel.isRefreshing,
+                        linkOutAction: {
+                            openUrl(Constants.session_staking_url)
+                        }
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                    
+                    if let lastUpdatedTimeString = viewModel.lastUpdatedTimeString {
+                        ZStack {
+                            Spacer(minLength: Values.largeSpacing)
+                            
+                            Text(
+                                "updated"
+                                    .put(key: "relative_time", value: lastUpdatedTimeString)
+                                    .localized()
+                            )
+                            .font(.Body.custom(Values.smallFontSize))
+                            .foregroundColor(themeColor: .textSecondary)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: .center
+                            )
+                            .accessibility(
+                                Accessibility(identifier: "Last updated timestamp")
+                            )
+                        }
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity,
+                            alignment: .bottom
+                        )
+                    }
+                }
+                .padding(Values.largeSpacing)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: geometry.size.height
+                )
+                .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
+                    guard self.isShowingTooltip else {
+                        return
+                    }
+                    
+                    withAnimation(.spring()) {
+                        self.isShowingTooltip = false
+                    }
                 }
             }
-            .padding(Values.largeSpacing)
-            .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
-                guard self.isShowingTooltip else {
-                    return
-                }
-                
-                withAnimation(.spring()) {
-                    self.isShowingTooltip = false
-                }
+            .onAppear {
+                viewModel.fetchDataFromNetwork()
             }
+            .refreshable {
+                viewModel.fetchDataFromNetwork()
+            }
+            .backgroundColor(themeColor: .backgroundPrimary)
+            .toastView(message: $copied)
+            .coordinateSpace(name: coordinateSpaceName)
         }
-        .onAppear {
-            viewModel.fetchDataFromNetwork()
-        }
-        .refreshable {
-            viewModel.fetchDataFromNetwork()
-        }
-        .backgroundColor(themeColor: .backgroundPrimary)
-        .toastView(message: $copied)
-        .coordinateSpace(name: coordinateSpaceName)
     }
     
     private func openUrl(_ urlString: String) {
