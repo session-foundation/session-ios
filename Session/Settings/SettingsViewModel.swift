@@ -268,11 +268,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 id: .donate,
                 leadingAccessory: .icon(
                     .heart,
-                    customTint: .explicitPrimary(.green)
+                    customTint: .sessionButton_border
                 ),
                 title: "donate".localized(),
                 styling: SessionCell.StyleInfo(
-                    tintColor: .explicitPrimary(.green)
+                    tintColor: .sessionButton_border
                 ),
                 onTap: { [weak self] in self?.openDonationsUrl() }
             )
