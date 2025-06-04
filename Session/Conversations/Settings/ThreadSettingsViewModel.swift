@@ -651,10 +651,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
                     SessionCell.Info(
                         id: .blockUser,
-                        leadingAccessory: .icon(
-                            UIImage(named: "table_ic_block")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
+                        leadingAccessory: .icon(.ban),
                         title: "deleteAfterGroupPR1BlockThisUser".localized(),
                             trailingAccessory: .toggle(
                             threadViewModel.threadIsBlocked == true,

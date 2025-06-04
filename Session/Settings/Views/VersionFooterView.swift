@@ -13,7 +13,7 @@ class VersionFooterView: UIView {
     
     private lazy var logoImageView: UIImageView = {
         let result: UIImageView = UIImageView(
-            image: UIImage(named: "oxen_logo")?
+            image: UIImage(named: "token_logo")?
                 .withRenderingMode(.alwaysTemplate)
         )
         result.setContentHuggingPriority(.required, for: .vertical)

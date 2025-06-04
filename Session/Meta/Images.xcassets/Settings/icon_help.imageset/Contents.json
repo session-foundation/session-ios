@@ -1,8 +1,19 @@
 {
   "images" : [
     {
-      "filename" : "icon_help.pdf",
-      "idiom" : "universal"
+      "filename" : "Question-custom.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "Question-custom@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "Question-custom@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
     }
   ],
   "info" : {

@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "clock-11-custom.png",
+      "filename" : "token_logo.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "clock-11-custom@2x.png",
+      "filename" : "token_logo@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "clock-11-custom@3x.png",
+      "filename" : "token_logo@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
