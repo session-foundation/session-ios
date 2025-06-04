@@ -1394,7 +1394,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             initialValue: current,
                             accessibility: Accessibility(
                                 identifier: "Username input"
-                            )
+                            ),
+                            inputChecker: { text in
+                                let nickname: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                
+                                guard !Profile.isTooLong(profileName: nickname) else {
+                                    return "nicknameErrorShorter".localized()
+                                }
+                                
+                                return nil
+                            }
                         ),
                         onChange: { [weak self] updatedName in self?.updatedName = updatedName }
                     ),
@@ -1474,14 +1483,28 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 initialValue: currentName,
                                 accessibility: Accessibility(
                                     identifier: "Group name text field"
-                                )
+                                ),
+                                inputChecker: { text in
+                                    let groupName: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    guard !LibSession.isTooLong(groupName: groupName) else {
+                                        return "groupNameEnterShorter".localized()
+                                    }
+                                    return nil
+                                }
                             ),
                             secondInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupDescriptionEnter".localized(),
                                 initialValue: currentDescription,
                                 accessibility: Accessibility(
                                     identifier: "Group description text field"
-                                )
+                                ),
+                                inputChecker: { text in
+                                    let groupDescription: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    guard !LibSession.isTooLong(groupDescription: groupDescription) else {
+                                        return "updateGroupInformationEnterShorterDescription".localized()
+                                    }
+                                    return nil
+                                }
                             ),
                             onChange: { updatedName, updatedDescription in
                                 self?.updatedName = updatedName

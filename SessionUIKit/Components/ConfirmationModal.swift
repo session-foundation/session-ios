@@ -378,6 +378,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     textField?.accessibilityLabel = text
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
+                    self.updateContent(withError: inputInfo.inputChecker?(text))
                 }
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
@@ -404,6 +405,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     textView?.accessibilityLabel = secondText
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
+                    self.updateContent(
+                        withError:firstInputInfo.inputChecker?(firstText),
+                        additionalError: secondInputInfo.inputChecker?(secondText)
+                    )
                 }
                 
             case .radio(let explanation, let warning, let options):
@@ -506,25 +511,23 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     public func updateContent(withError error: String? = nil, additionalError: String? = nil) {
         switch self.info.body {
             case .input:
-                if let error = error {
-                    textField.themeTextColor = .danger
-                    textFieldContainer.themeBorderColor = .danger
-                    textFieldErrorLabel.text = error
-                    textFieldErrorLabel.isHidden = false
-                }
+                let hasError: Bool = (error?.isEmpty == false)
+                textFieldErrorLabel.text = error
+                textField.themeTextColor = hasError ? .danger : .textPrimary
+                textFieldContainer.themeBorderColor = hasError ? .danger : .borderSeparator
+                textFieldErrorLabel.isHidden = !hasError
             case .dualInput:
-                if let error = error {
-                    textField.themeTextColor = .danger
-                    textFieldContainer.themeBorderColor = .danger
-                    textFieldErrorLabel.text = error
-                    textFieldErrorLabel.isHidden = false
-                }
-                if let additionalError = additionalError {
-                    textView.themeTextColor = .danger
-                    textViewContainer.themeBorderColor = .danger
-                    textViewErrorLabel.text = additionalError
-                    textViewErrorLabel.isHidden = false
-                }
+                let hasError: Bool = (error?.isEmpty == false)
+                textFieldErrorLabel.text = error
+                textField.themeTextColor = hasError ? .danger : .textPrimary
+                textFieldContainer.themeBorderColor = hasError ? .danger : .borderSeparator
+                textFieldErrorLabel.isHidden = !hasError
+            
+                let hasAdditionalError: Bool = (additionalError?.isEmpty == false)
+                textViewErrorLabel.text = additionalError
+                textView.themeTextColor = hasAdditionalError ? .danger : .textPrimary
+                textViewContainer.themeBorderColor = hasAdditionalError ? .danger : .borderSeparator
+                textViewErrorLabel.isHidden = !hasAdditionalError
             default:
                 break
         }
@@ -858,17 +861,34 @@ public extension ConfirmationModal.Info {
             public let initialValue: String?
             public let clearButton: Bool
             public let accessibility: Accessibility?
+            public let inputChecker: ((String) -> String?)?
             
             public init(
                 placeholder: String,
                 initialValue: String? = nil,
                 clearButton: Bool = false,
-                accessibility: Accessibility? = nil
+                accessibility: Accessibility? = nil,
+                inputChecker: ((String) -> String?)? = nil
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
                 self.clearButton = clearButton
                 self.accessibility = accessibility
+                self.inputChecker = inputChecker
+            }
+            
+            public static func == (lhs: InputInfo, rhs: InputInfo) -> Bool {
+                lhs.placeholder == rhs.placeholder &&
+                lhs.initialValue == rhs.initialValue &&
+                lhs.clearButton == rhs.clearButton &&
+                lhs.accessibility == rhs.accessibility
+            }
+            
+            public func hash(into hasher: inout Hasher) {
+                placeholder.hash(into: &hasher)
+                initialValue?.hash(into: &hasher)
+                clearButton.hash(into: &hasher)
+                accessibility?.hash(into: &hasher)
             }
         }
         public enum ImageStyle: Equatable, Hashable {
