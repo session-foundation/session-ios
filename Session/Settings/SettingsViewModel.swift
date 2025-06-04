@@ -385,6 +385,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         .withRenderingMode(.alwaysTemplate)
                 ),
                 title: Constants.network_name,
+                trailingAccessory: .custom(
+                    info: NewTagView.Info()
+                ),
                 onTap: { [weak self, dependencies] in
                     let viewController: SessionHostingViewController = SessionHostingViewController(
                         rootView: SessionNetworkScreen(
