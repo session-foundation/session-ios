@@ -469,14 +469,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return [profileInfo, sessionId, donationAndCommunity, network, settings, helpAndData]
     }
     
-    public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(numTaps: 9) { [dependencies] in
-        /// Do nothing if developer mode is already enabled
-        guard !dependencies[singleton: .storage, key: .developerModeEnabled] else { return }
-        
-        dependencies[singleton: .storage].write { db in
-            db[.developerModeEnabled] = true
+    public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(
+        numVersionTapsRequired: 9,
+        logoTapCallback: { [weak self] in self?.openTokenUrl() },
+        versionTapCallback: { [dependencies] in
+            /// Do nothing if developer mode is already enabled
+            guard !dependencies[singleton: .storage, key: .developerModeEnabled] else { return }
+            
+            dependencies[singleton: .storage].write { db in
+                db[.developerModeEnabled] = true
+            }
         }
-    }).eraseToAnyPublisher()
+    )).eraseToAnyPublisher()
     
     // MARK: - Functions
     
@@ -714,6 +718,37 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func openDonationsUrl() {
         guard let url: URL = URL(string: Constants.session_donations_url) else { return }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                hasCloseButton: true,
+                onConfirm: { modal in
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                    modal.dismiss(animated: true)
+                },
+                onCancel: { modal in
+                    UIPasteboard.general.string = url.absoluteString
+                    
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        self.transitionToScreen(modal, transitionType: .present)
+    }
+    
+    private func openTokenUrl() {
+        guard let url: URL = URL(string: Constants.session_token_url) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
