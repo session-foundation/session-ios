@@ -118,8 +118,8 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
             )
             .onChange(of: text) { newText in
-                textThemeColor = (newText == lastErroredText ? .danger : .textPrimary)
                 error = inputChecker?(newText)
+                textThemeColor = ((newText == lastErroredText || error?.isEmpty == false) ? .danger : .textPrimary)
             }
             .onChange(of: error) { newError in
                 if newError != nil {
