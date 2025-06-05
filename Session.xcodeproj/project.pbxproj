@@ -179,6 +179,8 @@
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
+		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
+		9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */; };
 		947D7FD42D509FC900E8E413 /* SessionNetworkAPI+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD12D509FC900E8E413 /* SessionNetworkAPI+Models.swift */; };
 		947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */; };
 		947D7FD72D509FC900E8E413 /* SessionNetworkAPI+Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD22D509FC900E8E413 /* SessionNetworkAPI+Network.swift */; };
@@ -1479,7 +1481,9 @@
 		945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModel.swift; sourceTree = "<group>"; };
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandableLabel.swift; sourceTree = "<group>"; };
 		947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNetworkAPI.swift; sourceTree = "<group>"; };
 		947D7FD02D509FC900E8E413 /* SessionNetworkAPI+Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionNetworkAPI+Database.swift"; sourceTree = "<group>"; };
 		947D7FD12D509FC900E8E413 /* SessionNetworkAPI+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionNetworkAPI+Models.swift"; sourceTree = "<group>"; };
@@ -3020,6 +3024,7 @@
 			children = (
 				B84A89BB25DE328A0040017D /* ProfilePictureVC.swift */,
 				FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */,
+				9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */,
 				FD7115F328C71EB200B47552 /* ThreadDisappearingMessagesSettingsViewModel.swift */,
 			);
 			path = Settings;
@@ -3181,6 +3186,7 @@
 				C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */,
 				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
 				FD6673FC2D77F54400041530 /* ScreenLockViewController.swift */,
+				9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */,
 				FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */,
 				7B8914762A7CAAE200A4C627 /* SessionHostingViewController.swift */,
 				FDA335F42D911576007E0EB6 /* SessionImageView.swift */,
@@ -5861,6 +5867,7 @@
 				9422EE2B2B8C3A97004C740D /* String+Utilities.swift in Sources */,
 				FD37EA0128A60473003AE748 /* UIKit+Theme.swift in Sources */,
 				FD37E9CF28A1EB1B003AE748 /* Theme.swift in Sources */,
+				9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */,
 				FDE754BA2C9B97B8002A2623 /* UIDevice+Utilities.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
@@ -6576,6 +6583,7 @@
 				4CA46F4C219CCC630038ABDE /* CaptionView.swift in Sources */,
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
 				FDEF57242C3CF04700131302 /* (null) in Sources */,
+				9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */,
 				34BECE2E1F7ABCE000D7438D /* GifPickerViewController.swift in Sources */,
 				9422568C2C23F8C800C0FDBF /* DisplayNameScreen.swift in Sources */,
 				B84664F5235022F30083A1CD /* MentionUtilities.swift in Sources */,

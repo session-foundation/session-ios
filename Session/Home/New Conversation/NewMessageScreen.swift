@@ -147,28 +147,29 @@ struct EnterAccountIdScreen: View {
                 accessibility: Accessibility(
                     identifier: "Session id input box",
                     label: "Session id input box"
-                )
-            ) {
-                ZStack {
-                    (Text("messageNewDescriptionMobile".localized()) + Text(Image(systemName: "questionmark.circle")))
-                        .font(.system(size: Values.verySmallFontSize))
-                        .foregroundColor(themeColor: .textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .accessibility(
-                    Accessibility(
-                        identifier: "Help desk link",
-                        label: "Help desk link"
+                ),
+                explanationView:  {
+                    ZStack {
+                        (Text("messageNewDescriptionMobile".localized()) + Text(Image(systemName: "questionmark.circle")))
+                            .font(.system(size: Values.verySmallFontSize))
+                            .foregroundColor(themeColor: .textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .accessibility(
+                        Accessibility(
+                            identifier: "Help desk link",
+                            label: "Help desk link"
+                        )
                     )
-                )
-                .padding(.horizontal, Values.smallSpacing)
-                .padding(.top, Values.smallSpacing)
-                .onTapGesture {
-                    if let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us/articles/4439132747033-How-do-Session-ID-usernames-work-") {
-                        UIApplication.shared.open(url)
+                    .padding(.horizontal, Values.smallSpacing)
+                    .padding(.top, Values.smallSpacing)
+                    .onTapGesture {
+                        if let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us/articles/4439132747033-How-do-Session-ID-usernames-work-") {
+                            UIApplication.shared.open(url)
+                        }
                     }
                 }
-            }
+            )
             
             Spacer()
             

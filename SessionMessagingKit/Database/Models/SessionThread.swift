@@ -719,6 +719,7 @@ public extension SessionThread {
         closedGroupName: String? = nil,
         openGroupName: String? = nil,
         isNoteToSelf: Bool = false,
+        ignoringNickname: Bool = false,
         profile: Profile? = nil
     ) -> String {
         switch variant {
@@ -730,7 +731,7 @@ public extension SessionThread {
                     return Profile.truncated(id: threadId, truncating: .middle)
                 }
                 
-                return profile.displayName()
+                return profile.displayName(ignoringNickname: ignoringNickname)
         }
     }
     
