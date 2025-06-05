@@ -343,7 +343,7 @@ public extension UIContextualAction {
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
-                            icon: UIImage(named: "table_ic_block"),
+                            icon: Lucide.image(icon: .ban, size: 24),
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
