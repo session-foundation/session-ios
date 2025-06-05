@@ -481,6 +481,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     with: info,
                     tableSize: tableView.bounds.size,
                     onToggleExpansion: {
+                        cell.setNeedsLayout()
+                        cell.layoutIfNeeded()
                         tableView.beginUpdates()
                         tableView.endUpdates()
                     },

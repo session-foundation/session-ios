@@ -6,6 +6,7 @@ public class ExpandableLabel: UIView {
     private var oldSize: CGSize = .zero
     private var layoutLoopCounter: Int = 0
     private var isExpanded: Bool = false
+    private var toggleDebounceTimer: Timer?
     public var onToggleExpansion: (() -> Void)?
 
     public var font: UIFont {
@@ -163,14 +164,21 @@ public class ExpandableLabel: UIView {
     
     // MARK: - Interaction
     
-    @objc private func handleTapGesture() {
-        guard !buttonLabel.isHidden else { return }
-        
+    private func toggleExpansion() {
         isExpanded.toggle()
         buttonLabel.text = (isExpanded ? "viewLess".localized() : "viewMore".localized())
         label.numberOfLines = isExpanded ? 0 : (maxNumberOfLines - 1)
-        
+        label.invalidateIntrinsicContentSize()
         layoutIfNeeded()
         onToggleExpansion?()
+    }
+    
+    @objc private func handleTapGesture() {
+        guard !buttonLabel.isHidden else { return }
+        
+        toggleDebounceTimer?.invalidate()
+        toggleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
+            self?.toggleExpansion()
+        }
     }
 }
