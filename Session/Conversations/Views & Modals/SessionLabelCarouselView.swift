@@ -25,7 +25,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     }
     
     public struct LabelInfo {
-        let attributedText: NSAttributedString
+        let attributedText: ThemedAttributedString
         let accessibility: Accessibility?
         let type: LabelType
     }
@@ -144,7 +144,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             label.font = .systemFont(ofSize: Values.miniFontSize)
             label.themeTextColor = .textPrimary
             label.lineBreakMode = .byTruncatingTail
-            label.attributedText = $0.attributedText
+            label.themeAttributedText = $0.attributedText
             label.accessibilityIdentifier = $0.accessibility?.identifier
             label.accessibilityLabel = $0.accessibility?.label
             label.isAccessibilityElement = true

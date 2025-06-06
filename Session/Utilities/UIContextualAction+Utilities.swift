@@ -497,7 +497,7 @@ public extension UIContextualAction {
                                 }
                             }()
                             
-                            let confirmationModalExplanation: NSAttributedString = {
+                            let confirmationModalExplanation: ThemedAttributedString = {
                                 switch (threadViewModel.threadVariant, threadViewModel.currentUserIsClosedGroupAdmin) {
                                     case (.group, true):
                                         return "groupLeaveDescriptionAdmin"
@@ -608,11 +608,11 @@ public extension UIContextualAction {
                                     case (.community, _): return "delete".localized()
                                 }
                             }()
-                            let confirmationModalExplanation: NSAttributedString = {
+                            let confirmationModalExplanation: ThemedAttributedString = {
                                 guard !isMessageRequest else {
                                     switch threadViewModel.threadVariant {
-                                        case .group: return NSAttributedString(string: "groupInviteDelete".localized())
-                                        default: return NSAttributedString(string: "messageRequestsDelete".localized())
+                                        case .group: return ThemedAttributedString(string: "groupInviteDelete".localized())
+                                        default: return ThemedAttributedString(string: "messageRequestsDelete".localized())
                                     }
                                 }
                                 

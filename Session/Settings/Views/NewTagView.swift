@@ -13,7 +13,7 @@ final class NewTagView: UIView {
         let result = UILabel()
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.textAlignment = .natural
-        result.attributedText = "sessionNew".localizedFormatted(in: result)
+        result.themeAttributedText = "sessionNew".localizedFormatted(in: result)
         
         return result
     }()
@@ -41,7 +41,7 @@ final class NewTagView: UIView {
     // MARK: - Content
     
     func update() {
-        newTagLabel.attributedText = "sessionNew".localizedFormatted(in: newTagLabel)
+        newTagLabel.themeAttributedText = "sessionNew".localizedFormatted(in: newTagLabel)
     }
 }
 
