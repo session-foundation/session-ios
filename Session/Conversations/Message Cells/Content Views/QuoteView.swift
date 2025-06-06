@@ -197,41 +197,34 @@ final class QuoteView: UIView {
             }
         }()
         bodyLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        
-        ThemeManager.onThemeChange(observer: bodyLabel) { [weak bodyLabel, dependencies] theme, primaryColor in
-            guard let textColor: UIColor = theme.color(for: targetThemeColor) else { return }
-            
-            bodyLabel?.attributedText = body
-                .map {
-                    MentionUtilities.highlightMentions(
-                        in: $0,
-                        threadVariant: threadVariant,
-                        currentUserSessionId: currentUserSessionId,
-                        currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-                        currentUserBlinded25SessionId: currentUserBlinded25SessionId,
-                        location: {
-                            switch (mode, direction) {
-                                case (.draft, _): return .quoteDraft
-                                case (_, .outgoing): return .outgoingQuote
-                                case (_, .incoming): return .incomingQuote
-                            }
-                        }(),
-                        textColor: textColor,
-                        theme: theme,
-                        primaryColor: primaryColor,
-                        attributes: [
-                            .foregroundColor: textColor
-                        ],
-                        using: dependencies
-                    )
-                }
-                .defaulting(
-                    to: attachment.map {
-                        NSAttributedString(string: $0.shortDescription, attributes: [ .foregroundColor: textColor ])
-                    }
+        bodyLabel.themeAttributedText = body
+            .map {
+                MentionUtilities.highlightMentions(
+                    in: $0,
+                    threadVariant: threadVariant,
+                    currentUserSessionId: currentUserSessionId,
+                    currentUserBlinded15SessionId: currentUserBlinded15SessionId,
+                    currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+                    location: {
+                        switch (mode, direction) {
+                            case (.draft, _): return .quoteDraft
+                            case (_, .outgoing): return .outgoingQuote
+                            case (_, .incoming): return .incomingQuote
+                        }
+                    }(),
+                    textColor: targetThemeColor,
+                    attributes: [
+                        .themeForegroundColor: targetThemeColor
+                    ],
+                    using: dependencies
                 )
-                .defaulting(to: NSAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .foregroundColor: textColor ]))
-        }
+            }
+            .defaulting(
+                to: attachment.map {
+                    ThemedAttributedString(string: $0.shortDescription, attributes: [ .themeForegroundColor: targetThemeColor ])
+                }
+            )
+            .defaulting(to: ThemedAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .themeForegroundColor: targetThemeColor ]))
         
         // Label stack view
         let isCurrentUser: Bool = [

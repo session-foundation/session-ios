@@ -41,7 +41,7 @@ final class CallMissedTipsModal: Modal {
         result.textAlignment = .natural
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
-        result.attributedText = "callsYouMissedCallPermissions"
+        result.themeAttributedText = "callsYouMissedCallPermissions"
             .put(key: "name", value: caller)
             .localizedFormatted(in: result)
         

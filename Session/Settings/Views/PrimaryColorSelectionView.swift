@@ -181,7 +181,7 @@ extension PrimaryColorSelectionView {
         
         private func setupUI(color: Theme.PrimaryColor) {
             // Set the appropriate colours
-            selectionView.themeBackgroundColorForced = .primary(color)
+            selectionView.themeBackgroundColor = .explicitPrimary(color)
             
             // Add the UI
             addSubview(backgroundButton)

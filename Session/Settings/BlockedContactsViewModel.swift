@@ -179,7 +179,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 
                 return info.title?.text
             }
-        let confirmationBody: NSAttributedString = {
+        let confirmationBody: ThemedAttributedString = {
             let name: String = contactNames.first ?? ""
             switch contactNames.count {
                 case 1:

@@ -24,7 +24,7 @@ public class LoadingViewController: UIViewController {
     private var logoView: UIImageView = {
         let result: UIImageView = UIImageView(image: #imageLiteral(resourceName: "SessionGreen64"))
         result.contentMode = .scaleAspectFit
-        result.themeShadowColorForced = .primary(.green)
+        result.themeShadowColor = .explicitPrimary(.green)
         result.layer.shadowOffset = .zero
         result.layer.shadowRadius = 3
         result.layer.shadowOpacity = 0
@@ -36,7 +36,7 @@ public class LoadingViewController: UIViewController {
         let result: UIProgressView = UIProgressView(progressViewStyle: .bar)
         result.clipsToBounds = true
         result.progress = 0
-        result.themeTintColorForced = .primary(.green)
+        result.themeTintColor = .explicitPrimary(.green)
         result.themeProgressTintColorForced = .theme(.classicDark, color: .textPrimary, alpha: 0.1)
         result.layer.cornerRadius = 6
 

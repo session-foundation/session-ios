@@ -88,10 +88,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         pin(.bottom, to: .bottom, of: placeholderLabel)
         
         ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
-            switch theme.interfaceStyle {
-                case .light: self?.keyboardAppearance = .light
-                default: self?.keyboardAppearance = .dark
-            }
+            self?.keyboardAppearance = theme.keyboardAppearance
         }
     }
 
@@ -127,14 +124,15 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         ///
         /// **Note:** If we add any additional attributes these will need to be updated to match
         if currentText.isEmpty {
+            let fallbackColor: UIColor? = ThemeManager.currentTheme.color(
+                for: InputTextView.defaultThemeTextColor
+            )
             textView.textStorage.setAttributedString(
                 NSAttributedString(
                     string: truncatedText,
                     attributes: [
                         .font: textView.font ?? InputTextView.defaultFont,
-                        .foregroundColor: textView.textColor ?? ThemeManager.currentTheme.color(
-                            for: InputTextView.defaultThemeTextColor
-                        ) as Any
+                        .foregroundColor: textView.textColor ?? fallbackColor as Any
                     ]
                 )
             )

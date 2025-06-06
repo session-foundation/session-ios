@@ -58,25 +58,21 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         self.navigationItem.titleView = titleLabel
         self.navigationItem.leftBarButtonItem = closeButton
         
-        ThemeManager.onThemeChange(observer: self.unlockButton) { [weak self] theme, _ in
-            switch theme.interfaceStyle {
-                case .light:
-                    self?.unlockButton.setThemeTitleColorForced(.theme(theme, color: .textPrimary), for: .normal)
-                    self?.unlockButton.setThemeBackgroundColorForced(
-                        .theme(theme, color: .textPrimary),
-                        for: .highlighted
-                    )
-                    self?.unlockButton.themeBorderColorForced = .theme(theme, color: .textPrimary)
-                    
-                default:
-                    self?.unlockButton.setThemeTitleColorForced(.primary(.green), for: .normal)
-                    self?.unlockButton.setThemeBackgroundColorForced(
-                        .primary(.green, alpha: 0.3),
-                        for: .highlighted
-                    )
-                    self?.unlockButton.themeBorderColorForced = .primary(.green)
-            }
-        }
+        unlockButton.setThemeTitleColor(
+            .dynamicForInterfaceStyle(light: .textPrimary, dark: .explicitPrimary(.green)),
+            for: .normal
+        )
+        unlockButton.setThemeBackgroundColor(
+            .dynamicForInterfaceStyle(
+                light: .textPrimary,
+                dark: .value(.explicitPrimary(.green), alpha: 0.3)
+            ),
+            for: .highlighted
+        )
+        unlockButton.themeBorderColor = .dynamicForInterfaceStyle(
+            light: .textPrimary,
+            dark: .explicitPrimary(.green)
+        )
     }
     
     override func viewWillAppear(_ animated: Bool) {

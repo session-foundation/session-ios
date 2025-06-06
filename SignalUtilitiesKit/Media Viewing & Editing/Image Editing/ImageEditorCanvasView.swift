@@ -493,13 +493,12 @@ public class ImageEditorCanvasView: UIView {
         let fontSize = item.font.pointSize * imageFrame.size.width / item.fontReferenceImageWidth
 
         let text = item.text.filteredForDisplay
-        let attributedString: NSMutableAttributedString = NSMutableAttributedString(
+        let attributedString: ThemedAttributedString = ThemedAttributedString(
             string: text,
-            attributes: [ .font: item.font.withSize(fontSize) ]
-        )
-        attributedString.addThemeAttribute(
-            .foreground(item.color.color),
-            range: NSRange(location: 0, length: text.count)
+            attributes: [
+                .font: item.font.withSize(fontSize),
+                .foregroundColor: item.color.color
+            ]
         )
         let layer = EditorTextLayer(itemId: item.itemId)
         layer.string = attributedString
@@ -524,12 +523,14 @@ public class ImageEditorCanvasView: UIView {
         let maxSize = CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude)
         // TODO: Is there a more accurate way to measure text in a CATextLayer?
         //       CoreText?
-        let textBounds = attributedString.boundingRect(with: maxSize,
-                                                       options: [
-                                                        .usesLineFragmentOrigin,
-                                                        .usesFontLeading
+        let textBounds = attributedString.boundingRect(
+            with: maxSize,
+            options: [
+                .usesLineFragmentOrigin,
+                .usesFontLeading
             ],
-                                                       context: nil)
+            context: nil
+        )
         // The text item's center is specified in "image unit" coordinates, but
         // needs to be rendered in "canvas" coordinates.  The imageFrame
         // is the bounds of the image specified in "canvas" coordinates,

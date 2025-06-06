@@ -292,7 +292,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.accessibilityIdentifier = "Control message"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.attributedText = viewModel.emptyStateText(for: viewModel.threadData).formatted(in: result)
+        result.themeAttributedText = viewModel.emptyStateText(for: viewModel.threadData).formatted(in: result)
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -776,7 +776,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             )
             
             // Update the empty state
-            emptyStateLabel.attributedText = viewModel.emptyStateText(for: updatedThreadData).formatted(in: emptyStateLabel)
+            emptyStateLabel.themeAttributedText = viewModel
+                .emptyStateText(for: updatedThreadData)
+                .formatted(in: emptyStateLabel)
         }
         
         if

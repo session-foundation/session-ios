@@ -35,12 +35,12 @@ public class ScrollableLabel: UIView {
         }
     }
     
-    var attributedText: NSAttributedString? {
-        get { label.attributedText }
+    var themeAttributedText: ThemedAttributedString? {
+        get { label.themeAttributedText }
         set {
-            guard label.attributedText != newValue else { return }
+            guard label.themeAttributedText != newValue else { return }
             
-            label.attributedText = newValue
+            label.themeAttributedText = newValue
             updateContentSizeIfNeeded()
         }
     }

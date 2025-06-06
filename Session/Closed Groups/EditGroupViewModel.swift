@@ -723,7 +723,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 
                 return info.title?.text
             }
-        let confirmationBody: NSAttributedString = {
+        let confirmationBody: ThemedAttributedString = {
             switch memberNames.count {
                 case 1:
                     return "groupRemoveDescription"

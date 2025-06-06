@@ -58,7 +58,7 @@ struct LandingScreen: View {
 
     var body: some View {
         ZStack(alignment: .center) {
-            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .center,
@@ -141,9 +141,8 @@ struct LandingScreen: View {
                 Button {
                     openLegalUrl()
                 } label: {
-                    let attributedText: NSAttributedString = "onboardingTosPrivacy"
-                        .localized()
-                        .formatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize))
+                    let attributedText: ThemedAttributedString = "onboardingTosPrivacy"
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize))
                     AttributedText(attributedText)
                         .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
@@ -210,7 +209,7 @@ struct ChatBubble: View {
     let outgoing: Bool
     
     var body: some View {
-        let backgroundColor: Color? = ThemeManager.currentTheme.colorSwiftUI(for: (outgoing ? .messageBubble_outgoingBackground : .messageBubble_incomingBackground))
+        let backgroundColor: Color? = ThemeManager.currentTheme.color(for: (outgoing ? .messageBubble_outgoingBackground : .messageBubble_incomingBackground))
         Text(text)
             .foregroundColor(themeColor: (outgoing ? .messageBubble_outgoingText : .messageBubble_incomingText))
             .font(.system(size: 16))

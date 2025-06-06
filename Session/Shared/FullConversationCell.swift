@@ -294,15 +294,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         timestampLabel.isHidden = true
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
         bottomLabelStackView.isHidden = true
-        
-        ThemeManager.onThemeChange(observer: displayNameLabel) { [weak displayNameLabel] theme, _ in
-            guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                
-            displayNameLabel?.attributedText = NSMutableAttributedString(
-                string: cellViewModel.displayName,
-                attributes: [ .foregroundColor: textColor ]
-            )
-        }
+        displayNameLabel.themeAttributedText = ThemedAttributedString(
+            string: cellViewModel.displayName,
+            attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
+        )
     }
     
     public func updateForMessageSearchResult(
@@ -327,42 +322,32 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         timestampLabel.isHidden = false
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
         bottomLabelStackView.isHidden = false
-        
-        ThemeManager.onThemeChange(observer: displayNameLabel) { [weak displayNameLabel] theme, _ in
-            guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                
-            displayNameLabel?.attributedText = NSMutableAttributedString(
-                string: cellViewModel.displayName,
-                attributes: [ .foregroundColor: textColor ]
-            )
-        }
-        
-        ThemeManager.onThemeChange(observer: displayNameLabel) { [weak self, weak snippetLabel] theme, _ in
-            guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-            
-            snippetLabel?.attributedText = self?.getHighlightedSnippet(
-                content: Interaction.previewText(
-                    variant: (cellViewModel.interactionVariant ?? .standardIncoming),
-                    body: cellViewModel.interactionBody,
-                    authorDisplayName: cellViewModel.authorName(for: .contact),
-                    attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
-                    attachmentCount: cellViewModel.interactionAttachmentCount,
-                    isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
-                    using: dependencies
-                ),
-                authorName: (cellViewModel.authorId != cellViewModel.currentUserSessionId ?
-                    cellViewModel.authorName(for: .contact) :
-                    nil
-                ),
-                currentUserSessionId: cellViewModel.currentUserSessionId,
-                currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                searchText: searchText.lowercased(),
-                fontSize: Values.smallFontSize,
-                textColor: textColor,
+        displayNameLabel.themeAttributedText = ThemedAttributedString(
+            string: cellViewModel.displayName,
+            attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
+        )
+        snippetLabel.themeAttributedText = getHighlightedSnippet(
+            content: Interaction.previewText(
+                variant: (cellViewModel.interactionVariant ?? .standardIncoming),
+                body: cellViewModel.interactionBody,
+                authorDisplayName: cellViewModel.authorName(for: .contact),
+                attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
+                attachmentCount: cellViewModel.interactionAttachmentCount,
+                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
                 using: dependencies
-            )
-        }
+            ),
+            authorName: (cellViewModel.authorId != cellViewModel.currentUserSessionId ?
+                cellViewModel.authorName(for: .contact) :
+                nil
+            ),
+            currentUserSessionId: cellViewModel.currentUserSessionId,
+            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+            searchText: searchText.lowercased(),
+            fontSize: Values.smallFontSize,
+            textColor: .textPrimary,
+            using: dependencies
+        )
     }
     
     public func updateForContactAndGroupSearchResult(
@@ -385,43 +370,32 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = true
-        
-        ThemeManager.onThemeChange(observer: displayNameLabel) { [weak self, weak displayNameLabel] theme, _ in
-            guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-            
-            displayNameLabel?.attributedText = self?.getHighlightedSnippet(
-                content: cellViewModel.displayName,
-                currentUserSessionId: cellViewModel.currentUserSessionId,
-                currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                searchText: searchText.lowercased(),
-                fontSize: Values.mediumFontSize,
-                textColor: textColor,
-                using: dependencies
-            )
-        }
+        displayNameLabel.themeAttributedText = getHighlightedSnippet(
+            content: cellViewModel.displayName,
+            currentUserSessionId: cellViewModel.currentUserSessionId,
+            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+            searchText: searchText.lowercased(),
+            fontSize: Values.mediumFontSize,
+            textColor: .textPrimary,
+            using: dependencies
+        )
         
         switch cellViewModel.threadVariant {
             case .contact, .community: bottomLabelStackView.isHidden = true
                 
             case .legacyGroup, .group:
                 bottomLabelStackView.isHidden = (cellViewModel.threadMemberNames ?? "").isEmpty
-        
-                ThemeManager.onThemeChange(observer: displayNameLabel) { [weak self, weak snippetLabel] theme, _ in
-                    guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                    if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group {
-                        snippetLabel?.attributedText = self?.getHighlightedSnippet(
-                            content: (cellViewModel.threadMemberNames ?? ""),
-                            currentUserSessionId: cellViewModel.currentUserSessionId,
-                            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                            searchText: searchText.lowercased(),
-                            fontSize: Values.smallFontSize,
-                            textColor: textColor,
-                            using: dependencies
-                        )
-                    }
-                }
+                snippetLabel.themeAttributedText = getHighlightedSnippet(
+                    content: (cellViewModel.threadMemberNames ?? ""),
+                    currentUserSessionId: cellViewModel.currentUserSessionId,
+                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                    searchText: searchText.lowercased(),
+                    fontSize: Values.smallFontSize,
+                    textColor: .textPrimary,
+                    using: dependencies
+                )
         }
     }
 
@@ -487,34 +461,17 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             }()
             typingIndicatorView.isHidden = true
             typingIndicatorView.stopAnimation()
-            
-            ThemeManager.onThemeChange(observer: snippetLabel) { [weak self, weak snippetLabel] theme, _ in
-                if cellViewModel.interactionVariant == .infoGroupCurrentUserLeaving {
-                    guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
-                    
-                    snippetLabel?.attributedText = self?.getSnippet(
-                        cellViewModel: cellViewModel,
-                        textColor: textColor,
-                        using: dependencies
-                    )
-                } else if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving {
-                    guard let textColor: UIColor = theme.color(for: .danger) else { return }
-                    
-                    snippetLabel?.attributedText = self?.getSnippet(
-                        cellViewModel: cellViewModel,
-                        textColor: textColor,
-                        using: dependencies
-                    )
-                } else {
-                    guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                    
-                    snippetLabel?.attributedText = self?.getSnippet(
-                        cellViewModel: cellViewModel,
-                        textColor: textColor,
-                        using: dependencies
-                    )
-                }
-            }
+            snippetLabel.themeAttributedText = getSnippet(
+                cellViewModel: cellViewModel,
+                textColor: {
+                    switch cellViewModel.interactionVariant {
+                        case .infoGroupCurrentUserLeaving: return .textSecondary
+                        case .infoGroupCurrentUserErrorLeaving: return .danger
+                        default: return .textPrimary
+                    }
+                }(),
+                using: dependencies
+            )
         }
         
         let stateInfo = cellViewModel.interactionState?.statusIconInfo(
@@ -582,18 +539,18 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
 
     private func getSnippet(
         cellViewModel: SessionThreadViewModel,
-        textColor: UIColor,
+        textColor: ThemeValue,
         using dependencies: Dependencies
-    ) -> NSAttributedString {
+    ) -> ThemedAttributedString {
         guard cellViewModel.groupIsDestroyed != true else {
-            return NSAttributedString(
+            return ThemedAttributedString(
                 string: "groupDeletedMemberDescription"
                     .put(key: "group_name", value: cellViewModel.displayName)
                     .localizedDeformatted()
             )
         }
         guard cellViewModel.wasKickedFromGroup != true else {
-            return NSAttributedString(
+            return ThemedAttributedString(
                 string: "groupRemovedYou"
                     .put(key: "group_name", value: cellViewModel.displayName)
                     .localizedDeformatted()
@@ -601,31 +558,35 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         }
         
         // If we don't have an interaction then do nothing
-        guard cellViewModel.interactionId != nil else { return NSAttributedString() }
+        guard cellViewModel.interactionId != nil else { return ThemedAttributedString() }
         
-        let result = NSMutableAttributedString()
+        let result = ThemedAttributedString()
         
         if Date().timeIntervalSince1970 < (cellViewModel.threadMutedUntilTimestamp ?? 0) {
-            result.append(NSAttributedString(
+            result.append(ThemedAttributedString(
                 string: FullConversationCell.mutePrefix,
                 attributes: [
                     .font: UIFont(name: "ElegantIcons", size: 10) as Any,
-                    .foregroundColor: textColor
+                    .themeForegroundColor: textColor
                 ]
             ))
         }
         else if cellViewModel.threadOnlyNotifyForMentions == true {
             let imageAttachment = NSTextAttachment()
-            imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textColor)
+            imageAttachment.image = UIImage(named: "NotifyMentions.png")?
+                .withRenderingMode(.alwaysTemplate)
             imageAttachment.bounds = CGRect(x: 0, y: -2, width: Values.smallFontSize, height: Values.smallFontSize)
             
-            let imageString = NSAttributedString(attachment: imageAttachment)
+            let imageString = ThemedAttributedString(
+                attachment: imageAttachment,
+                attributes: [.themeForegroundColor: textColor]
+            )
             result.append(imageString)
-            result.append(NSAttributedString(
+            result.append(ThemedAttributedString(
                 string: "  ",
                 attributes: [
                     .font: UIFont(name: "ElegantIcons", size: 10) as Any,
-                    .foregroundColor: textColor
+                    .themeForegroundColor: textColor
                 ]
             ))
         }
@@ -636,12 +597,12 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             
-            result.append(NSAttributedString(
+            result.append(ThemedAttributedString(
                 string: "messageSnippetGroup"
                     .put(key: "author", value: authorName)
                     .put(key: "message_snippet", value: "")
                     .localized(),
-                attributes: [ .foregroundColor: textColor ]
+                attributes: [ .themeForegroundColor: textColor ]
             ))
         }
         
@@ -666,7 +627,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             }
         }()
         
-        result.append(NSAttributedString(
+        result.append(ThemedAttributedString(
             string: MentionUtilities.highlightMentionsNoAttributes(
                 in: previewText,
                 threadVariant: cellViewModel.threadVariant,
@@ -675,7 +636,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                 using: dependencies
             ),
-            attributes: [ .foregroundColor: textColor ]
+            attributes: [ .themeForegroundColor: textColor ]
         ))
             
         return result
@@ -689,23 +650,23 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         currentUserBlinded25SessionId: String?,
         searchText: String,
         fontSize: CGFloat,
-        textColor: UIColor,
+        textColor: ThemeValue,
         using dependencies: Dependencies
-    ) -> NSAttributedString {
+    ) -> ThemedAttributedString {
         guard !content.isEmpty, content != "noteToSelf".localized() else {
             if let authorName: String = authorName, !authorName.isEmpty {
-                return NSMutableAttributedString(
+                return ThemedAttributedString(
                     string: "messageSnippetGroup"
                         .put(key: "author", value: authorName)
                         .put(key: "message_snippet", value: content)
                         .localized(),
-                    attributes: [ .foregroundColor: textColor ]
+                    attributes: [ .themeForegroundColor: textColor ]
                 )
             }
             
-            return NSMutableAttributedString(
+            return ThemedAttributedString(
                 string: content,
-                attributes: [ .foregroundColor: textColor ]
+                attributes: [ .themeForegroundColor: textColor ]
             )
         }
         
@@ -721,11 +682,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             currentUserBlinded25SessionId: currentUserBlinded25SessionId,
             using: dependencies
         )
-        let result: NSMutableAttributedString = NSMutableAttributedString(
+        let result: ThemedAttributedString = ThemedAttributedString(
             string: mentionReplacedContent,
             attributes: [
-                .foregroundColor: textColor
-                    .withAlphaComponent(Values.lowOpacity)
+                .themeForegroundColor: ThemeValue.value(textColor, alpha: Values.lowOpacity)
             ]
         )
         
@@ -770,22 +730,22 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         }
                         
                         let legacyRange: NSRange = NSRange(targetRange, in: normalizedSnippet)
-                        result.addAttribute(.foregroundColor, value: textColor, range: legacyRange)
+                        result.addAttribute(.themeForegroundColor, value: textColor, range: legacyRange)
                         result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: fontSize), range: legacyRange)
                     }
             }
         
         // Now that we have generated the focused snippet add the author name as a prefix (if provided)
         return authorName
-            .map { authorName -> NSAttributedString? in
+            .map { authorName -> ThemedAttributedString? in
                 guard !authorName.isEmpty else { return nil }
                 
-                let authorPrefix: NSAttributedString = NSAttributedString(
+                let authorPrefix: ThemedAttributedString = ThemedAttributedString(
                     string: "messageSnippetGroup"
                         .put(key: "author", value: authorName)
                         .put(key: "message_snippet", value: "")
                         .localized(),
-                    attributes: [ .foregroundColor: textColor ]
+                    attributes: [ .themeForegroundColor: textColor ]
                 )
                 
                 return authorPrefix.appending(result)

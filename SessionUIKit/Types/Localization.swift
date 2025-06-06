@@ -104,18 +104,18 @@ final public class LocalizationHelper: CustomStringConvertible {
 
 public extension LocalizationHelper {
     func localizedDeformatted() -> String {
-        return NSAttributedString(stringWithHTMLTags: localized(), font: .systemFont(ofSize: 14)).string
+        return ThemedAttributedString(stringWithHTMLTags: localized(), font: .systemFont(ofSize: 14)).string
     }
     
-    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
-        return NSAttributedString(stringWithHTMLTags: localized(), font: baseFont)
+    func localizedFormatted(baseFont: UIFont) -> ThemedAttributedString {
+        return ThemedAttributedString(stringWithHTMLTags: localized(), font: baseFont)
     }
     
-    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
+    func localizedFormatted(in view: FontAccessible) -> ThemedAttributedString {
         return localizedFormatted(baseFont: (view.fontValue ?? .systemFont(ofSize: 14)))
     }
     
-    func localizedFormatted(_ font: UIFont = .systemFont(ofSize: 14)) -> NSAttributedString {
+    func localizedFormatted(_ font: UIFont = .systemFont(ofSize: 14)) -> ThemedAttributedString {
         return localizedFormatted(baseFont: font)
     }
 }
@@ -133,11 +133,11 @@ public extension String {
         return LocalizationHelper(template: self).localized()
     }
     
-    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
+    func localizedFormatted(baseFont: UIFont) -> ThemedAttributedString {
         return LocalizationHelper(template: self).localizedFormatted(baseFont: baseFont)
     }
     
-    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
+    func localizedFormatted(in view: FontAccessible) -> ThemedAttributedString {
         return LocalizationHelper(template: self).localizedFormatted(in: view)
     }
     

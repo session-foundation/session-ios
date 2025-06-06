@@ -76,10 +76,7 @@ public final class SNTextView : UITextView, UITextViewDelegate {
         pin(.bottom, to: .bottom, of: placeholderLabel)
         
         ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
-            switch theme.interfaceStyle {
-                case .light: self?.keyboardAppearance = .light
-                default: self?.keyboardAppearance = .dark
-            }
+            self?.keyboardAppearance = theme.keyboardAppearance
         }
     }
 

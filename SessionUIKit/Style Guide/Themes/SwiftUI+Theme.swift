@@ -4,26 +4,22 @@ import SwiftUI
 
 public extension View {
     func foregroundColor(themeColor: ThemeValue) -> some View {
-        return self.foregroundColor(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
-        )
+        return self.foregroundColor(ThemeManager.color(for: themeColor))
     }
     
     func backgroundColor(themeColor: ThemeValue) -> some View {
+        let targetColor: Color? = ThemeManager.color(for: themeColor)
+        
         if #available(iOSApplicationExtension 14.0, *) {
-            return self.background(
-                ThemeManager.currentTheme.colorSwiftUI(for: themeColor)?.ignoresSafeArea()
-            )
+            return self.background(targetColor?.ignoresSafeArea())
         } else {
-            return self.background(
-                ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
-            )
+            return self.background(targetColor)
         }
     }
     
     func shadow(themeColor: ThemeValue, radius: CGFloat) -> some View {
         return self.shadow(
-            color: ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            color: ThemeManager.color(for: themeColor) ?? Color.primary,
             radius: radius
         )
     }
@@ -31,21 +27,19 @@ public extension View {
 
 public extension Shape {
     func fill(themeColor: ThemeValue) -> some View {
-        return self.fill(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary
-        )
+        return self.fill(ThemeManager.color(for: themeColor) ?? Color.primary)
     }
     
     func stroke(themeColor: ThemeValue, lineWidth: CGFloat = 1) -> some View {
         return self.stroke(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            ThemeManager.color(for: themeColor) ?? Color.primary,
             lineWidth: lineWidth
         )
     }
     
     func stroke(themeColor: ThemeValue, style: StrokeStyle) -> some View {
         return self.stroke(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            ThemeManager.color(for: themeColor) ?? Color.primary,
             style: style
         )
     }
@@ -53,8 +47,6 @@ public extension Shape {
 
 public extension Text {
     func foregroundColor(themeColor: ThemeValue) -> Text {
-        return self.foregroundColor(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
-        )
+        return self.foregroundColor(ThemeManager.color(for: themeColor))
     }
 }

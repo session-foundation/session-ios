@@ -22,14 +22,6 @@ public extension UIView {
             
             switch newValue {
                 case .color(let color): backgroundColor = color
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        backgroundColor = value.color
-                        return
-                    }
-                    
-                    backgroundColor = value.color.withAlphaComponent(alpha)
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         backgroundColor = theme.color(for: value)
@@ -49,35 +41,6 @@ public extension UIView {
         get { return nil }
     }
     
-    var themeTintColorForced: ForcedThemeValue? {
-        set {
-            // First we should clear out any dynamic setting
-            ThemeManager.remove(self, keyPath: \.tintColor)
-            
-            switch newValue {
-                case .color(let color): tintColor = color
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        tintColor = value.color
-                        return
-                    }
-                    
-                    tintColor = value.color.withAlphaComponent(alpha)
-                
-                case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        tintColor = theme.color(for: value)
-                        return
-                    }
-                    
-                    tintColor = theme.color(for: value)?.withAlphaComponent(alpha)
-                    
-                case .none: tintColor = nil
-            }
-        }
-        get { return self.tintColor.map { .color($0) } }
-    }
-    
     var themeBorderColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.layer.borderColor, to: newValue) }
         get { return nil }
@@ -90,14 +53,6 @@ public extension UIView {
             
             switch newValue {
                 case .color(let color): layer.borderColor = color.cgColor
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        layer.borderColor = value.color.cgColor
-                        return
-                    }
-                    
-                    layer.borderColor = value.color.withAlphaComponent(alpha).cgColor
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         layer.borderColor = theme.color(for: value)?.cgColor
@@ -116,35 +71,6 @@ public extension UIView {
         set { ThemeManager.set(self, keyPath: \.layer.shadowColor, to: newValue) }
         get { return nil }
     }
-    
-    var themeShadowColorForced: ForcedThemeValue? {
-        set {
-            // First we should clear out any dynamic setting
-            ThemeManager.remove(self, keyPath: \.layer.shadowColor)
-            
-            switch newValue {
-                case .color(let color): layer.shadowColor = color.cgColor
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        layer.shadowColor = value.color.cgColor
-                        return
-                    }
-                    
-                    layer.shadowColor = value.color.withAlphaComponent(alpha).cgColor
-                
-                case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        layer.shadowColor = theme.color(for: value)?.cgColor
-                        return
-                    }
-                    
-                    layer.shadowColor = theme.color(for: value)?.withAlphaComponent(alpha).cgColor
-                    
-                case .none: layer.shadowColor = nil
-            }
-        }
-        get { return self.layer.shadowColor.map { .color(UIColor(cgColor: $0)) } }
-    }
 }
 
 public extension UILabel {
@@ -160,14 +86,6 @@ public extension UILabel {
             
             switch newValue {
                 case .color(let color): textColor = color
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        textColor = value.color
-                        return
-                    }
-                    
-                    textColor = value.color.withAlphaComponent(alpha)
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         textColor = theme.color(for: value)
@@ -196,14 +114,6 @@ public extension UITextView {
             
             switch newValue {
                 case .color(let color): textColor = color
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        textColor = value.color
-                        return
-                    }
-                    
-                    textColor = value.color.withAlphaComponent(alpha)
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         textColor = theme.color(for: value)
@@ -232,14 +142,6 @@ public extension UITextField {
             
             switch newValue {
                 case .color(let color): textColor = color
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        textColor = value.color
-                        return
-                    }
-                    
-                    textColor = value.color.withAlphaComponent(alpha)
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         textColor = theme.color(for: value)
@@ -293,14 +195,6 @@ public extension UIButton {
         
         switch newValue {
             case .color(let color): self.setBackgroundImage(color.toImage(), for: state)
-            case .primary(let value, let alpha):
-                guard let alpha: CGFloat = alpha else {
-                    self.setBackgroundImage(value.color.toImage(), for: state)
-                    return
-                }
-                
-                self.setBackgroundImage(value.color.withAlphaComponent(alpha).toImage(), for: state)
-                
             case .theme(let theme, let value, let alpha):
                 guard let alpha: CGFloat = alpha else {
                     self.setBackgroundImage(theme.color(for: value)?.toImage(), for: state)
@@ -350,14 +244,6 @@ public extension UIButton {
         
         switch newValue {
             case .color(let color): self.setTitleColor(color, for: state)
-            case .primary(let value, let alpha):
-                guard let alpha: CGFloat = alpha else {
-                    self.setTitleColor(value.color, for: state)
-                    return
-                }
-                
-                self.setTitleColor(value.color.withAlphaComponent(alpha), for: state)
-                
             case .theme(let theme, let value, let alpha):
                 guard let alpha: CGFloat = alpha else {
                     self.setTitleColor(theme.color(for: value), for: state)
@@ -398,14 +284,6 @@ public extension UIProgressView {
             
             switch newValue {
                 case .color(let color): progressTintColor = color
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        progressTintColor = value.color
-                        return
-                    }
-                    
-                    progressTintColor = value.color.withAlphaComponent(alpha)
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         progressTintColor = theme.color(for: value)
@@ -521,14 +399,6 @@ public extension CAShapeLayer {
             
             switch newValue {
                 case .color(let color): strokeColor = color.cgColor
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        strokeColor = value.color.cgColor
-                        return
-                    }
-                    
-                    strokeColor = value.color.withAlphaComponent(alpha).cgColor
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         strokeColor = theme.color(for: value)?.cgColor
@@ -555,14 +425,6 @@ public extension CAShapeLayer {
             
             switch newValue {
                 case .color(let color): fillColor = color.cgColor
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        fillColor = value.color.cgColor
-                        return
-                    }
-                    
-                    fillColor = value.color.withAlphaComponent(alpha).cgColor
-                
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         fillColor = theme.color(for: value)?.cgColor
@@ -591,14 +453,6 @@ public extension CALayer {
             
             switch newValue {
                 case .color(let color): backgroundColor = color.cgColor
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        backgroundColor = value.color.cgColor
-                        return
-                    }
-                    
-                    backgroundColor = value.color.withAlphaComponent(alpha).cgColor
-                    
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         backgroundColor = theme.color(for: value)?.cgColor
@@ -637,14 +491,6 @@ public extension CATextLayer {
             
             switch newValue {
                 case .color(let color): foregroundColor = color.cgColor
-                case .primary(let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        foregroundColor = value.color.cgColor
-                        return
-                    }
-                    
-                    foregroundColor = value.color.withAlphaComponent(alpha).cgColor
-                    
                 case .theme(let theme, let value, let alpha):
                     guard let alpha: CGFloat = alpha else {
                         foregroundColor = theme.color(for: value)?.cgColor
@@ -660,8 +506,50 @@ public extension CATextLayer {
     }
 }
 
-public extension NSMutableAttributedString {
-    func addThemeAttribute(_ attribute: ForcedThemeAttribute, range: NSRange) {
-        self.addAttribute(attribute.key, value: attribute.value, range: range)
+// MARK: - AttributedTextAssignable
+
+public protocol AttributedTextAssignable: AnyObject {
+    var attributedTextValue: NSAttributedString? { get set }
+}
+
+public protocol DirectAttributedTextAssignable: AttributedTextAssignable {
+    var attributedText: NSAttributedString? { get set }
+}
+
+extension DirectAttributedTextAssignable {
+    public var attributedTextValue: NSAttributedString? {
+        get { attributedText }
+        set { attributedText = newValue }
+    }
+}
+
+extension AttributedTextAssignable {
+    private var themeAttributedTextValue: ThemedAttributedString? {
+        get { attributedTextValue.map { ThemedAttributedString(attributedString: $0) } }
+        set { attributedTextValue = newValue?.value }
+    }
+    public var themeAttributedText: ThemedAttributedString? {
+        set { ThemeManager.set(self, keyPath: \.themeAttributedTextValue, to: newValue) }
+        get { return nil }
+    }
+}
+
+extension UILabel: DirectAttributedTextAssignable {}
+extension UITextField: DirectAttributedTextAssignable {
+    private var themeAttributedPlaceholderValue: ThemedAttributedString? {
+        get { attributedPlaceholder.map { ThemedAttributedString(attributedString: $0) } }
+        set { attributedPlaceholder = newValue?.value }
+    }
+    public var themeAttributedPlaceholder: ThemedAttributedString? {
+        set { ThemeManager.set(self, keyPath: \.themeAttributedPlaceholderValue, to: newValue) }
+        get { return nil }
+    }
+}
+
+/// UITextView has a `attributedText: NSAttributedString!` value so we need to conform to a different protocol
+extension UITextView: AttributedTextAssignable {
+    public var attributedTextValue: NSAttributedString? {
+        get { self.attributedText }
+        set { self.attributedText = newValue }
     }
 }

@@ -406,20 +406,14 @@ public final class ProfilePictureView: UIView {
             
             case .crown:
                 imageView.image = UIImage(systemName: "crown.fill")
+                imageView.themeTintColor = .dynamicForPrimary(
+                    .green,
+                    use: .profileIcon_greenPrimaryColor,
+                    otherwise: .profileIcon
+                )
                 backgroundView.themeBackgroundColor = .profileIcon_background
                 imageView.isHidden = false
                 label.isHidden = true
-                
-                ThemeManager.onThemeChange(observer: imageView) { [weak imageView] _, primaryColor in
-                    let targetColor: ThemeValue = (primaryColor == .green ?
-                        .profileIcon_greenPrimaryColor :
-                        .profileIcon
-                    )
-                    
-                    guard imageView?.themeTintColor != targetColor else { return }
-                    
-                    imageView?.themeTintColor = targetColor
-                }
                 
             case .rightPlus:
                 imageView.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))

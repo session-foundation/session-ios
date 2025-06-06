@@ -1141,7 +1141,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 info: ConfirmationModal.Info(
                     title: "Create Mock Contacts",
                     body: .dualInput(
-                        explanation: NSAttributedString(string: "How many contacts should be created?"),
+                        explanation: ThemedAttributedString(string: "How many contacts should be created?"),
                         firstInfo: ConfirmationModal.Info.Body.InputInfo(
                             placeholder: "Prefix",
                             initialValue: "Contact",
@@ -1330,7 +1330,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 info: ConfirmationModal.Info(
                     title: "Export App Data",
                     body: .input(
-                        explanation: NSAttributedString(
+                        explanation: ThemedAttributedString(
                             string: """
                             This will generate a file encrypted using the provided password includes all app data, attachments, settings and keys.
                             
@@ -1377,7 +1377,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 info: ConfirmationModal.Info(
                     title: "Import App Data",
                     body: .input(
-                        explanation: NSAttributedString(
+                        explanation: ThemedAttributedString(
                             string: """
                             Importing a database will result in the loss of all data stored locally.
                             

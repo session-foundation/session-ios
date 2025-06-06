@@ -122,7 +122,7 @@ final class InfoMessageCell: MessageCell {
             iconImageView.themeTintColor = .textSecondary
         }
         
-        self.label.attributedText = cellViewModel.body?.formatted(in: self.label)
+        self.label.themeAttributedText = cellViewModel.body?.formatted(in: self.label)
         
         if cellViewModel.canDoFollowingSetting() {
             self.actionLabel.isHidden = false
