@@ -76,7 +76,7 @@ public extension LibSession.Cache {
                 return (local_get_notification_content(conf) != Preferences.NotificationPreviewType.defaultLibSessionValue)
             
             case .defaultNotificationSound:
-                return (local_get_notification_sound(conf) != Preferences.Sound.defaultLibSessionValue)
+                return (local_get_ios_notification_sound(conf) != Preferences.Sound.defaultLibSessionValue)
             
             case .theme: return (local_get_theme(conf) != Theme.defaultLibSessionValue)
             case .themePrimaryColor:
@@ -114,7 +114,7 @@ public extension LibSession.Cache {
         let retriever: (UnsafePointer<config_object>) -> Any? = {
             switch key {
                 case .preferencesNotificationPreviewType: return local_get_notification_content
-                case .defaultNotificationSound: return local_get_notification_sound
+                case .defaultNotificationSound: return local_get_ios_notification_sound
                 case .theme: return local_get_theme
                 case .themePrimaryColor: return local_get_theme_primary_color
                 default: return { _ in nil }
@@ -171,11 +171,11 @@ public extension LibSession.Cache {
         
         switch key {
             case .defaultNotificationSound:
-                guard let value: CLIENT_NOTIFY_SOUND = libSessionValue as? CLIENT_NOTIFY_SOUND else {
+                guard let value: Int64 = libSessionValue as? Int64 else {
                     return Log.critical(.libSession, "Failed to set \(key) because we couldn't cast to the C type")
                 }
                 
-                local_set_notification_sound(conf, value)
+                local_set_ios_notification_sound(conf, value)
                 
             case .preferencesNotificationPreviewType:
                 guard let value: CLIENT_NOTIFY_CONTENT = libSessionValue as? CLIENT_NOTIFY_CONTENT else {
@@ -240,47 +240,13 @@ extension Preferences.NotificationPreviewType: LibSessionConvertibleEnum {
 }
 
 extension Preferences.Sound: LibSessionConvertibleEnum {
-    public typealias LibSessionType = CLIENT_NOTIFY_SOUND
+    public typealias LibSessionType = Int64
     
-    public static var defaultLibSessionValue: LibSessionType { CLIENT_NOTIFY_SOUND_DEFAULT }
-    public var libSessionValue: LibSessionType {
-        switch self {
-            case .none: return CLIENT_NOTIFY_SOUND_NONE
-            case .aurora: return CLIENT_NOTIFY_SOUND_AURORA
-            case .bamboo: return CLIENT_NOTIFY_SOUND_BAMBOO
-            case .chord: return CLIENT_NOTIFY_SOUND_CHORD
-            case .circles: return CLIENT_NOTIFY_SOUND_CIRCLES
-            case .complete: return CLIENT_NOTIFY_SOUND_COMPLETE
-            case .hello: return CLIENT_NOTIFY_SOUND_HELLO
-            case .input: return CLIENT_NOTIFY_SOUND_INPUT
-            case .keys: return CLIENT_NOTIFY_SOUND_KEYS
-            case .note: return CLIENT_NOTIFY_SOUND_NOTE
-            case .popcorn: return CLIENT_NOTIFY_SOUND_POPCORN
-            case .pulse: return CLIENT_NOTIFY_SOUND_PULSE
-            case .synth: return CLIENT_NOTIFY_SOUND_SYNTH
-            
-            /// Use the default for all other values
-            default: return Preferences.Sound.defaultLibSessionValue
-        }
-    }
+    public static var defaultLibSessionValue: LibSessionType { 0 }
+    public var libSessionValue: LibSessionType { Int64(rawValue) }
     
     public init(_ libSessionValue: LibSessionType) {
-        switch libSessionValue {
-            case CLIENT_NOTIFY_SOUND_NONE: self = .none
-            case CLIENT_NOTIFY_SOUND_AURORA: self = .aurora
-            case CLIENT_NOTIFY_SOUND_BAMBOO: self = .bamboo
-            case CLIENT_NOTIFY_SOUND_CHORD: self = .chord
-            case CLIENT_NOTIFY_SOUND_CIRCLES: self = .circles
-            case CLIENT_NOTIFY_SOUND_COMPLETE: self = .complete
-            case CLIENT_NOTIFY_SOUND_HELLO: self = .hello
-            case CLIENT_NOTIFY_SOUND_INPUT: self = .input
-            case CLIENT_NOTIFY_SOUND_KEYS: self = .keys
-            case CLIENT_NOTIFY_SOUND_NOTE: self = .note
-            case CLIENT_NOTIFY_SOUND_POPCORN: self = .popcorn
-            case CLIENT_NOTIFY_SOUND_PULSE: self = .pulse
-            case CLIENT_NOTIFY_SOUND_SYNTH: self = .synth
-            default: self = Preferences.Sound.default
-        }
+        self = (Preferences.Sound(rawValue: Int(libSessionValue)) ?? Preferences.Sound.default)
     }
 }
 
