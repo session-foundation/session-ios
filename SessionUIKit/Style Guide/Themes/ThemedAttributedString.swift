@@ -17,7 +17,7 @@ public extension NSAttributedString.Key {
     internal var originalKey: NSAttributedString.Key? {
         switch self {
             case .themeForegroundColor: return .foregroundColor
-            case .themeBackgroundColor: return .themeBackgroundColor
+            case .themeBackgroundColor: return .backgroundColor
             case .themeStrokeColor: return .strokeColor
             case .themeUnderlineColor: return .underlineColor
             default: return nil
@@ -41,14 +41,23 @@ public class ThemedAttributedString: Equatable, Hashable {
     }
     
     public init(attributedString: NSAttributedString) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributedString)
+        #endif
         self.value = NSMutableAttributedString(attributedString: attributedString)
     }
     
     public init(string: String, attributes: [NSAttributedString.Key: Any] = [:]) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributes)
+        #endif
         self.value = NSMutableAttributedString(string: string, attributes: attributes)
     }
     
     public init(attachment: NSTextAttachment, attributes: [NSAttributedString.Key: Any] = [:]) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributes)
+        #endif
         self.value = NSMutableAttributedString(attachment: attachment)
     }
     
@@ -65,16 +74,23 @@ public class ThemedAttributedString: Equatable, Hashable {
     }
     
     // MARK: - Forwarded Functions
+    
     public func attributedSubstring(from range: NSRange) -> ThemedAttributedString {
         return ThemedAttributedString(attributedString: value.attributedSubstring(from: range))
     }
     
     public func appending(string: String, attributes: [NSAttributedString.Key: Any]? = nil) -> ThemedAttributedString {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributes ?? [:])
+        #endif
         value.append(NSAttributedString(string: string, attributes: attributes))
         return self
     }
     
     public func append(_ attributedString: NSAttributedString) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributedString)
+        #endif
         value.append(attributedString)
     }
     
@@ -83,6 +99,9 @@ public class ThemedAttributedString: Equatable, Hashable {
     }
     
     public func appending(_ attributedString: NSAttributedString) -> ThemedAttributedString {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributedString)
+        #endif
         value.append(attributedString)
         return self
     }
@@ -93,14 +112,55 @@ public class ThemedAttributedString: Equatable, Hashable {
     }
     
     public func addAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes([name: value])
+        #endif
         value.addAttribute(name, value: attrValue, range: range)
     }
     
     public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attrs)
+        #endif
         value.addAttributes(attrs, range: range)
     }
     
     public func boundingRect(with size: CGSize, options: NSStringDrawingOptions = [], context: NSStringDrawingContext?) -> CGRect {
         return value.boundingRect(with: size, options: options, context: context)
     }
+    
+    // MARK: - Convenience
+    
+    #if DEBUG
+    private static func validateAttributes(_ attributes: [NSAttributedString.Key: Any]) {
+        for (key, value) in attributes {
+            if key.originalKey == nil && NSAttributedString.Key.themedKeys.contains(key) == false {
+                if value is ThemeValue {
+                    let errorMessage = """
+                    FATAL ERROR in ThemedAttributedString:
+                    You are assigning a custom ThemeValue to a standard system attribute key.
+                    
+                    - Problem Key: '\(key.rawValue)'
+                    - Problem Value: \(value)
+                    
+                    You should use the custom theme key '.theme\(key.rawValue.prefix(1))\(key.rawValue.dropFirst())' instead of '.\(key.rawValue)'.
+                    
+                    Example:
+                    - INCORRECT: [.foregroundColor: ThemeValue.textPrimary]
+                    - CORRECT:   [.themeForegroundColor: ThemeValue.textPrimary]
+                    """
+                    
+                    fatalError(errorMessage)
+                }
+            }
+        }
+    }
+    
+    private static func validateAttributes(_ attributedString: NSAttributedString) {
+        let fullRange = NSRange(location: 0, length: attributedString.length)
+        attributedString.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+            validateAttributes(attributes)
+        }
+    }
+    #endif
 }

@@ -17,7 +17,7 @@ public final class SNTextField: UITextField {
                 ThemedAttributedString(
                     string: $0,
                     attributes: [
-                        .foregroundColor: ThemeValue.textSecondary
+                        .themeForegroundColor: ThemeValue.textSecondary
                     ]
                 )
             }
@@ -59,7 +59,7 @@ public final class SNTextField: UITextField {
             ThemedAttributedString(
                 string: $0,
                 attributes: [
-                    .foregroundColor: ThemeValue.textSecondary
+                    .themeForegroundColor: ThemeValue.textSecondary
                 ]
             )
         }

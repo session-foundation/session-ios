@@ -367,28 +367,39 @@ public enum ThemeManager {
                 existingApplier: ThemeManager.get(for: view),
                 info: [ keyPath ]
             ) { [weak view] theme in
-                guard let attrString: NSMutableAttributedString = value?.value else {
+                guard let originalThemedString: ThemedAttributedString = value else {
                     view?[keyPath: keyPath] = nil
                     return
                 }
                 
-                let updatedAttrString: ThemedAttributedString = ThemedAttributedString(attributedString: attrString)
-                let fullRange: NSRange = NSRange(location: 0, length: attrString.length)
+                let newAttrString: NSMutableAttributedString = NSMutableAttributedString()
+                let fullRange: NSRange = NSRange(location: 0, length: originalThemedString.value.length)
                 
-                NSAttributedString.Key.themedKeys.forEach { key in
-                    guard let originalKey: NSAttributedString.Key = key.originalKey else { return }
+                originalThemedString.value.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+                    var newAttributes: [NSAttributedString.Key: Any] = attributes
                     
-                    attrString.enumerateAttribute(key, in: fullRange, options: []) { value, range, _ in
+                    /// Convert any of our custom attributes to their normal ones
+                    NSAttributedString.Key.themedKeys.forEach { key in
+                        guard let themeValue: ThemeValue = newAttributes[key] as? ThemeValue else {
+                            return
+                        }
+                        
+                        newAttributes.removeValue(forKey: key)
+                        
                         guard
-                            let value: ThemeValue = value as? ThemeValue,
-                            let color: UIColor = ThemeManager.resolvedColor(ThemeManager.color(for: value))
+                            let originalKey = key.originalKey,
+                            let color = ThemeManager.color(for: themeValue) as UIColor?
                         else { return }
                         
-                        updatedAttrString.value.addAttribute(originalKey, value: color, range: range)
+                        newAttributes[originalKey] = ThemeManager.resolvedColor(color)
                     }
+                    
+                    /// Add the themed substring to `newAttrString`
+                    let substring: String = originalThemedString.value.attributedSubstring(from: range).string
+                    newAttrString.append(NSAttributedString(string: substring, attributes: newAttributes))
                 }
                 
-                view?[keyPath: keyPath] = updatedAttrString
+                view?[keyPath: keyPath] = ThemedAttributedString(attributedString: newAttrString)
             },
             forKey: view
         )
