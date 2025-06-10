@@ -665,7 +665,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 expect(modal?.info.title).to(equal("groupInformationSet".localized()))
                                 expect(modal?.info.body).to(equal(
                                     .dualInput(
-                                        explanation: NSAttributedString(string: "Group name and description are visible to all group members."),
+                                        explanation: ThemedAttributedString(string: "Group name and description are visible to all group members."),
                                         firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                             placeholder: "groupNameEnter".localized(),
                                             initialValue: "TestGroup",
@@ -848,7 +848,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 expect(modal?.info.title).to(equal("groupInformationSet".localized()))
                                 expect(modal?.info.body).to(equal(
                                     .input(
-                                        explanation: NSAttributedString(string: "groupNameVisible".localized()),
+                                        explanation: ThemedAttributedString(string: "groupNameVisible".localized()),
                                         info: ConfirmationModal.Info.Body.InputInfo(
                                             placeholder: "groupNameEnter".localized(),
                                             initialValue: "TestGroup",
