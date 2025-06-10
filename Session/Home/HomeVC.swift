@@ -387,22 +387,25 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
-        DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges(didReturnFromBackground: true)
+        /// **Note:** When returning from the background we could have received notifications but the `PagedDatabaseObserver`
+        /// won't have them so we need to force a re-fetch of the current data to ensure everything is up to date
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.viewModel.pagedDataObserver?.resume()
         }
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        stopObservingChanges()
+        /// When going into the background we should stop listening to database changes (we will resume/reload after returning from
+        /// the background)
+        viewModel.pagedDataObserver?.suspend()
     }
     
     // MARK: - Updating
     
-    public func startObservingChanges(didReturnFromBackground: Bool = false, onReceivedInitialChange: (() -> ())? = nil) {
+    public func startObservingChanges(onReceivedInitialChange: (() -> Void)? = nil) {
         guard dataChangeObservable == nil else { return }
         
-        var runAndClearInitialChangeCallback: (() -> ())? = nil
+        var runAndClearInitialChangeCallback: (() -> Void)?
         
         runAndClearInitialChangeCallback = { [weak self] in
             guard self?.hasLoadedInitialStateData == true && self?.hasLoadedInitialThreadData == true else { return }
@@ -425,19 +428,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             self?.handleThreadUpdates(updatedThreadData, changeset: changeset)
             runAndClearInitialChangeCallback?()
         }
-        
-        // Note: When returning from the background we could have received notifications but the
-        // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
-        // data to ensure everything is up to date
-        if didReturnFromBackground {
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.pagedDataObserver?.reload()
-            }
-        }
     }
     
     private func stopObservingChanges() {
         // Stop observing database changes
+        self.dataChangeObservable?.cancel()
         self.dataChangeObservable = nil
         self.viewModel.onThreadChange = nil
     }

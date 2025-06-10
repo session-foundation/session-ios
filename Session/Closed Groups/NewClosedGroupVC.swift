@@ -339,6 +339,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             textField.text
         )
     }
+    
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        nameTextField.resignFirstResponder()
+        return false
+    }
 
     fileprivate func tableViewWasTouched(_ tableView: TableView, withView hitView: UIView?) {
         if nameTextField.isFirstResponder {

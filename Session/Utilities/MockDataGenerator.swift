@@ -13,9 +13,12 @@ enum MockDataGenerator {
     static var printProgress: Bool = true
     static var hasStartedGenerationThisRun: Bool = false
     
-    static func generateMockData(_ db: Database, using dependencies: Dependencies) {
+    static func generateMockData(_ db: Database, using dependencies: Dependencies) throws {
         // Don't re-generate the mock data if it already exists
-        guard !hasStartedGenerationThisRun && !(try! SessionThread.exists(db, id: "MockDatabaseThread")) else {
+        guard
+            !hasStartedGenerationThisRun &&
+            ((try? SessionThread.exists(db, id: "MockDatabaseThread")) == false)
+        else {
             hasStartedGenerationThisRun = true
             return
         }
@@ -69,20 +72,20 @@ enum MockDataGenerator {
         while dmThreadIndex < dmThreadCount {
             let remainingThreads: Int = (dmThreadCount - dmThreadIndex)
             
-            (0..<min(chunkSize, remainingThreads)).forEach { index in
+            try (0..<min(chunkSize, remainingThreads)).forEach { index in
                 let threadIndex: Int = (dmThreadIndex + index)
                 
                 logProgress("DM Thread \(threadIndex)", "Start")
             
                 let data: Data = Data(dmThreadRandomGenerator.nextBytes(count: 16))
-                let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
+                let randomSessionId: String = SessionId(.standard, publicKey: try Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
                 let isMessageRequest: Bool = Bool.random(using: &dmThreadRandomGenerator)
                 let contactNameLength: Int = ((5..<20).randomElement(using: &dmThreadRandomGenerator) ?? 0)
                 let numMessages: Int = (messageRangePerThread[threadIndex % messageRangePerThread.count]
                     .randomElement(using: &dmThreadRandomGenerator) ?? 0)
                 
                 // Generate the thread
-                let thread: SessionThread = try! SessionThread.upsert(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: randomSessionId,
                     variant: .contact,
@@ -94,7 +97,7 @@ enum MockDataGenerator {
                 )
                 
                 // Generate the contact
-                let contact: Contact = try! Contact(
+                let contact: Contact = try Contact(
                     id: randomSessionId,
                     isTrusted: true,
                     isApproved: (!isMessageRequest || Bool.random(using: &dmThreadRandomGenerator)),
@@ -107,7 +110,7 @@ enum MockDataGenerator {
                     using: dependencies
                 )
                 .upserted(db)
-                try! Profile(
+                try Profile(
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
@@ -117,14 +120,14 @@ enum MockDataGenerator {
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("DM Thread \(threadIndex)", "Generate \(numMessages) Messages")
-                (0..<numMessages).forEach { index in
+                try (0..<numMessages).forEach { index in
                     let isIncoming: Bool = (
                         Bool.random(using: &dmThreadRandomGenerator) &&
                         (!isMessageRequest || contact.isApproved)
                     )
                     let messageWords: Int = ((1..<20).randomElement(using: &dmThreadRandomGenerator) ?? 0)
                     
-                    _ = try! Interaction(
+                    _ = try Interaction(
                         threadId: thread.id,
                         threadVariant: thread.variant,
                         authorId: (isIncoming ? randomSessionId : userSessionId.hexString),
@@ -155,13 +158,13 @@ enum MockDataGenerator {
         while cgThreadIndex < closedGroupThreadCount {
             let remainingThreads: Int = (closedGroupThreadCount - cgThreadIndex)
             
-            (0..<min(chunkSize, remainingThreads)).forEach { index in
+            try (0..<min(chunkSize, remainingThreads)).forEach { index in
                 let threadIndex: Int = (cgThreadIndex + index)
                 
                 logProgress("Legacy Closed Group Thread \(threadIndex)", "Start")
                 
                 let data: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
-                let randomLegacyGroupPublicKey: String = SessionId(.standard, publicKey: try! Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
+                let randomLegacyGroupPublicKey: String = SessionId(.standard, publicKey: try Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
                 let groupNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                 let groupName: String = (0..<groupNameLength)
                     .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -174,12 +177,12 @@ enum MockDataGenerator {
                 var members: [String] = [userSessionId.hexString]
                 logProgress("Legacy Closed Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
                 
-                (0..<numGroupMembers).forEach { _ in
+                try (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
-                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData, using: dependencies).x25519KeyPair.publicKey).hexString
+                    let randomSessionId: String = SessionId(.standard, publicKey: try Identity.generate(from: contactData, using: dependencies).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                     
-                    try! Contact(
+                    try Contact(
                         id: randomSessionId,
                         isTrusted: true,
                         isApproved: true,
@@ -189,7 +192,7 @@ enum MockDataGenerator {
                         using: dependencies
                     )
                     .upserted(db)
-                    try! Profile(
+                    try Profile(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -200,7 +203,7 @@ enum MockDataGenerator {
                     members.append(randomSessionId)
                 }
                 
-                let thread: SessionThread = try! SessionThread.upsert(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: randomLegacyGroupPublicKey,
                     variant: .legacyGroup,
@@ -210,7 +213,7 @@ enum MockDataGenerator {
                     ),
                     using: dependencies
                 )
-                _ = try! ClosedGroup(
+                _ = try ClosedGroup(
                     threadId: randomLegacyGroupPublicKey,
                     name: groupName,
                     formationTimestamp: TimeInterval(floor(timestampNow - Double(index * 5))),
@@ -219,8 +222,8 @@ enum MockDataGenerator {
                 )
                 .upserted(db)
                 
-                members.forEach { memberId in
-                    try! GroupMember(
+                try members.forEach { memberId in
+                    try GroupMember(
                         groupId: randomLegacyGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
@@ -229,8 +232,8 @@ enum MockDataGenerator {
                     )
                     .upsert(db)
                 }
-                [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId.hexString].forEach { adminId in
-                    try! GroupMember(
+                try [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId.hexString].forEach { adminId in
+                    try GroupMember(
                         groupId: randomLegacyGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
@@ -256,7 +259,7 @@ enum MockDataGenerator {
         while ogThreadIndex < openGroupThreadCount {
             let remainingThreads: Int = (openGroupThreadCount - ogThreadIndex)
             
-            (0..<min(chunkSize, remainingThreads)).forEach { index in
+            try (0..<min(chunkSize, remainingThreads)).forEach { index in
                 let threadIndex: Int = (ogThreadIndex + index)
                     
                 logProgress("Open Group Thread \(threadIndex)", "Start")
@@ -282,11 +285,11 @@ enum MockDataGenerator {
                 var members: [String] = [userSessionId.hexString]
                 logProgress("Open Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
 
-                (0..<numGroupMembers).forEach { _ in
+                try (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(ogThreadRandomGenerator.nextBytes(count: 16))
-                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData, using: dependencies).x25519KeyPair.publicKey).hexString
+                    let randomSessionId: String = SessionId(.standard, publicKey: try Identity.generate(from: contactData, using: dependencies).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
-                    try! Contact(
+                    try Contact(
                         id: randomSessionId,
                         isTrusted: true,
                         isApproved: true,
@@ -296,7 +299,7 @@ enum MockDataGenerator {
                         using: dependencies
                     )
                     .upserted(db)
-                    try! Profile(
+                    try Profile(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
@@ -308,7 +311,7 @@ enum MockDataGenerator {
                 }
                 
                 // Create the open group model and the thread
-                let thread: SessionThread = try! SessionThread.upsert(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: randomGroupPublicKey,
                     variant: .community,
@@ -318,7 +321,7 @@ enum MockDataGenerator {
                     ),
                     using: dependencies
                 )
-                _ = try! OpenGroup(
+                _ = try OpenGroup(
                     server: serverName,
                     roomToken: roomName,
                     publicKey: randomGroupPublicKey,
@@ -336,14 +339,14 @@ enum MockDataGenerator {
                 // Generate the capabilities object
                 let hasBlinding: Bool = Bool.random(using: &dmThreadRandomGenerator)
                 
-                try! Capability(
+                try Capability(
                     openGroupServer: serverName.lowercased(),
                     variant: .sogs,
                     isMissing: false
                 ).upserted(db)
                 
                 if hasBlinding {
-                    try! Capability(
+                    try Capability(
                         openGroupServer: serverName.lowercased(),
                         variant: .blind,
                         isMissing: false
@@ -353,11 +356,11 @@ enum MockDataGenerator {
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("Open Group Thread \(threadIndex)", "Generate \(numMessages) Messages")
 
-                (0..<numMessages).forEach { index in
+                try (0..<numMessages).forEach { index in
                     let messageWords: Int = ((1..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
                     let senderId: String = (members.randomElement(using: &ogThreadRandomGenerator) ?? userSessionId.hexString)
                     
-                    _ = try! Interaction(
+                    _ = try Interaction(
                         threadId: thread.id,
                         threadVariant: thread.variant,
                         authorId: senderId,

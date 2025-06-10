@@ -25,14 +25,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     public let mode: CallMode
     let contactName: String
     var audioMode: AudioMode
-    var remoteSDP: RTCSessionDescription? = nil {
+    var remoteSDP: RTCSessionDescription? {
         didSet {
             if hasStartedConnecting, let sdp = remoteSDP {
                 webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
             }
         }
     }
-    var answerCallAction: CXAnswerCallAction? = nil
+    var answerCallAction: CXAnswerCallAction?
     // MARK: - Control
     
     lazy public var videoCapturer: RTCVideoCapturer = {
@@ -136,7 +136,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         set { endDate = newValue ? Date() : nil }
     }
     
-    var timeOutTimer: Timer? = nil
+    var timeOutTimer: Timer?
     var didTimeout = false
 
     var duration: TimeInterval {
@@ -150,7 +150,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         return Date().timeIntervalSince(connectedDate)
     }
     
-    var reconnectTimer: Timer? = nil
+    var reconnectTimer: Timer?
     
     // MARK: - Initialization
     
@@ -320,7 +320,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     return
                 }
                 
-                let updateToMissedIfNeeded: () throws -> () = {
+                let updateToMissedIfNeeded: () throws -> Void = {
                     let missedCallInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
                     
                     guard
@@ -456,7 +456,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     public func dataChannelDidOpen() {
         // Send initial video status
-        if (isVideoEnabled) {
+        if isVideoEnabled {
             webRTCSession.turnOnVideo()
         } else {
             webRTCSession.turnOffVideo()
@@ -510,7 +510,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false, using: dependencies) { [weak self, dependencies] _ in
             self?.didTimeout = true
             
-            dependencies[singleton: .callManager].endCall(self) { error in
+            dependencies[singleton: .callManager].endCall(self) { _ in
                 self?.timeOutTimer = nil
             }
         }
@@ -532,21 +532,21 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
 // TODO: Remove these when calls are out of beta
 extension SessionCall {
     // stringlint:ignore_contents
-    public static let call_connection_steps_sender: [String] = [
+    public static let callConnectionStepsSender: [String] = [
         "Creating Call 1/6",
         "Sending Call Offer 2/6",
         "Sending Connection Candidates 3/6",
         "Awaiting Recipient Answer... 4/6",
         "Handling Connection Candidates 5/6",
-        "Call Connected 6/6",
+        "Call Connected 6/6"
     ]
     // stringlint:ignore_contents
-    public static let call_connection_steps_receiver: [String] = [
+    public static let callConnectionStepsReceiver: [String] = [
         "Received Call Offer 1/5",
         "Answering Call 2/5",
         "Sending Connection Candidates 3/5",
         "Handling Connection Candidates 4/5",
-        "Call Connected 5/5",
+        "Call Connected 5/5"
     ]
     
     public protocol ConnectionStep {
@@ -620,8 +620,8 @@ extension SessionCall {
             DispatchQueue.main.async {
                 self.updateCallDetailedStatus?(
                     self.mode == .offer ?
-                    SessionCall.call_connection_steps_sender[self.currentConnectionStep.index] :
-                    SessionCall.call_connection_steps_receiver[self.currentConnectionStep.index]
+                    SessionCall.callConnectionStepsSender[self.currentConnectionStep.index] :
+                    SessionCall.callConnectionStepsReceiver[self.currentConnectionStep.index]
                 )
             }
             

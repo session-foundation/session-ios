@@ -212,14 +212,17 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
-        DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges(didReturnFromBackground: true)
+        /// **Note:** When returning from the background we could have received notifications but the `PagedDatabaseObserver`
+        /// won't have them so we need to force a re-fetch of the current data to ensure everything is up to date
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.viewModel.pagedDataObserver?.resume()
         }
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        stopObservingChanges()
+        /// When going into the background we should stop listening to database changes (we will resume/reload after returning from
+        /// the background)
+        viewModel.pagedDataObserver?.suspend()
     }
 
     override public func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -316,17 +319,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         }
     }
     
-    private func startObservingChanges(didReturnFromBackground: Bool = false) {
+    private func startObservingChanges() {
         // Start observing for data changes (will callback on the main thread)
         self.viewModel.onGalleryChange = { [weak self] updatedGalleryData, changeset in
             self?.handleUpdates(updatedGalleryData, changeset: changeset)
-        }
-        
-        // Note: When returning from the background we could have received notifications but the
-        // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
-        // data to ensure everything is up to date
-        if didReturnFromBackground {
-            self.viewModel.pagedDataObserver?.reload()
         }
     }
     

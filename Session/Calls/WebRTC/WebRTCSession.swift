@@ -22,7 +22,7 @@ public protocol WebRTCSessionDelegate: AnyObject {
 }
 
 /// See https://webrtc.org/getting-started/overview for more information.
-public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
+public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     private let dependencies: Dependencies
     public weak var delegate: WebRTCSessionDelegate?
     public let uuid: String
@@ -31,9 +31,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     private var iceCandidateSendTimer: Timer?
     
     private lazy var defaultICEServer: TurnServerInfo? = {
-        let url = Bundle.main.url(forResource: "Session-Turn-Server", withExtension: nil)!  // stringlint:ignroe
-        let data = try! Data(contentsOf: url)
-        let json = try! JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as! JSON
+        guard
+            let url = Bundle.main.url(forResource: "Session-Turn-Server", withExtension: nil),  // stringlint:ignroe
+                let data = try? Data(contentsOf: url),
+            let json = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON
+        else { return nil }
         return TurnServerInfo(attributes: json, random: 2)
     }()
     
