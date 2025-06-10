@@ -50,6 +50,8 @@ public class SnodeAuthenticatedRequestBody: Encodable {
                 
             case .groupMember(let sessionId, _):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
+                
+            case .community: throw CryptoError.signatureGenerationFailed
         }
         
         switch signature {

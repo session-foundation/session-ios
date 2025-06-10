@@ -53,6 +53,8 @@ public class ThreadPickerViewModel {
                     )
                     
                     return threadViewModel.populatingPostQueryData(
+                        recentReactionEmoji: nil,
+                        openGroupCapabilities: nil,
                         currentUserSessionIds: [userSessionId.hexString],
                         wasKickedFromGroup: wasKickedFromGroup,
                         groupIsDestroyed: groupIsDestroyed,

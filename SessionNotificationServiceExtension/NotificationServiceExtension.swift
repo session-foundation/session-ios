@@ -173,22 +173,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             data: info.data,
             origin: .swarm(
                 publicKey: info.metadata.accountId,
-                namespace: {
-                    switch (info.metadata.namespace, (try? SessionId(from: info.metadata.accountId))?.prefix) {
-                        /// There was a bug at one point where the metadata would include a `null` value for the namespace
-                        /// because the storage server didn't have an explicit `namespace_id` for the
-                        /// `revokedRetrievableGroupMessages` namespace
-                        ///
-                        /// This code tries to work around that issue
-                        ///
-                        /// **Note:** This issue was present in storage server version `2.10.0` but this work-around should
-                        /// be removed once the network has been fully updated with a fix
-                        case (.unknown, .group):
-                            return .revokedRetrievableGroupMessages
-                        
-                        default: return info.metadata.namespace
-                    }
-                }(),
+                namespace: info.metadata.namespace,
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
@@ -220,6 +205,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         openGroupUrlInfo: nil   /// Community PNs not currently supported
                     )
                 }
+                
+                /// There is some dedupe logic for a `CallMessage` as, depending on the state of the call, we may want to
+                /// consider the message a duplicate
+                try MessageDeduplication.ensureCallMessageIsNotADuplicate(
+                    threadId: threadId,
+                    callMessage: messageInfo.message as? CallMessage,
+                    using: dependencies
+                )
         }
         
         return (
@@ -443,7 +436,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// Otherwise just save the message to disk
             case let promoteMessage as GroupUpdatePromoteMessage:
                 guard
-                    let sender: String = promoteMessage.sender,
                     let sentTimestampMs: UInt64 = promoteMessage.sentTimestampMs,
                     let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: Array(promoteMessage.groupIdentitySeed))
@@ -579,14 +571,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 
-                /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can related to the
-                /// same call so we need to ensure the call message itself isn't a duplicate
-                try MessageDeduplication.ensureCallMessageIsNotADuplicate(
-                    threadId: threadId,
-                    callMessage: callMessage,
-                    using: dependencies
-                )
-                
                 // TODO: [Database Relocation] Need to store 'db[.areCallsEnabled]' in libSession
                 let areCallsEnabled: Bool = true // db[.areCallsEnabled]
                 let hasMicrophonePermission: Bool = {
@@ -599,23 +583,62 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     dependencies[defaults: .appGroup, key: .isCallOngoing] &&
                     (dependencies[defaults: .appGroup, key: .lastCallPreOffer] != nil)
                 )
+                
                 /// Handle the call as needed
-                switch ((areCallsEnabled && hasMicrophonePermission), isCallOngoing) {
-                    case (false, _):
+                switch ((areCallsEnabled && hasMicrophonePermission), isCallOngoing, callMessage.kind) {
+                    case (false, _, _):
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = (areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
                         
-                    case (true, true):
-                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
-                        // TODO: [Database Relocation] Need to properly implement this logic (without the database requirement)
-                        fatalError("NEED TO IMPLEMENT")
-//                        try MessageReceiver.handleIncomingCallOfferInBusyState(
-//                            db,
-//                            message: callMessage,
-//                            using: dependencies
-//                        )
+                    case (true, true, _):
+                        guard let sender: String = callMessage.sender else {
+                            throw MessageReceiverError.invalidMessage
+                        }
+                        guard
+                            let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                                .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+                            )
+                        else { throw SnodeAPIError.noKeyPair }
                         
-                    case (true, false):
+                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
+                        /// Update the `CallMessage.state` value so the correct notification logic can occur
+                        callMessage.state = .missed
+                        
+                        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                        try MessageReceiver
+                            .sendIncomingCallOfferInBusyStateResponse(
+                                threadId: threadId,
+                                message: callMessage,
+                                disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
+                                    cache.disappearingMessagesConfig(threadId: threadId, threadVariant: threadVariant)
+                                },
+                                authMethod: Authentication.standard(
+                                    sessionId: SessionId(.standard, hex: sender),
+                                    ed25519PublicKey: userEdKeyPair.publicKey,
+                                    ed25519SecretKey: userEdKeyPair.secretKey
+                                ),
+                                onEvent: { _ in },  /// Do nothing for any of the message sending events
+                                using: dependencies
+                            )
+                            .send(using: dependencies)
+                            .sinkUntilComplete(
+                                receiveCompletion: { result in
+                                    switch result {
+                                        case .finished: semaphore.signal()
+                                        case .failure(let error):
+                                            Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")
+                                            semaphore.signal()
+                                    }
+                                }
+                            )
+                        let result = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
+                        
+                        switch (result, hasCompleted) {
+                            case (.timedOut, _), (_, true): throw NotificationError.timeout
+                            case (.success, false): break    /// Show the notification and write the message to disk
+                        }
+                        
+                    case (true, false, .preOffer):
                         guard
                             let sender: String = callMessage.sender,
                             let sentTimestampMs: UInt64 = callMessage.sentTimestampMs,
@@ -628,6 +651,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             })
                         else { throw MessageReceiverError.invalidMessage }
                         
+                        /// Save the message and generate any deduplication files needed
+                        try saveMessage(
+                            notification,
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            messageInfo: messageInfo,
+                            currentUserSessionIds: currentUserSessionIds
+                        )
+                        
+                        /// Handle the message as a successful call
                         return handleSuccessForIncomingCall(
                             notification,
                             threadVariant: threadVariant,
@@ -636,6 +669,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             sentTimestampMs: sentTimestampMs,
                             displayNameRetriever: displayNameRetriever
                         )
+                        
+                    default: break  /// Send all other cases through the standard notification handling
                 }
                 
             case is VisibleMessage: break
@@ -718,10 +753,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     )
                 ),
                 isUnread: (
+                    /// Ensure the type of message can actually be unread
                     Interaction.Variant(
                         message: messageInfo.message,
                         currentUserSessionIds: currentUserSessionIds
                     )?.canBeUnread == true &&
+                    /// Ensure the message hasn't been read on another device
                     !dependencies.mutate(cache: .libSession, { cache in
                         cache.timestampAlreadyRead(
                             threadId: threadId,
@@ -729,7 +766,33 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             timestampMs: (messageInfo.message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
                             openGroupUrlInfo: nil  /// Communities currently don't support PNs
                         )
-                    })
+                    }) &&
+                    {
+                        /// If it's not a `CallMessage` or is a `preOffer` than it can be unread
+                        guard
+                            let callMessage: CallMessage = messageInfo.message as? CallMessage,
+                            callMessage.kind != .preOffer
+                        else { return true }
+                        
+                        /// If there is a dedupe record for the `preOffer` of this call, or a dedupe record for the call in general
+                        /// then it would have already incremented the unread count so this message shouldn't count
+                        do {
+                            try MessageDeduplication.ensureMessageIsNotADuplicate(
+                                threadId: threadId,
+                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                using: dependencies
+                            )
+                            try MessageDeduplication.ensureMessageIsNotADuplicate(
+                                threadId: threadId,
+                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                using: dependencies
+                            )
+                        }
+                        catch { return false }
+                        
+                        /// Otherwise the call should increment the count
+                        return true
+                    }()
                 )
             )
         }
@@ -738,14 +801,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
         /// show duplicate PNs
         try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
-        
-        /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can related to the same call
-        if let callMessage: CallMessage = messageInfo.message as? CallMessage {
-            try dependencies[singleton: .extensionHelper].createDedupeRecord(
-                threadId: threadId,
-                uniqueIdentifier: callMessage.uuid
-            )
-        }
+        try MessageDeduplication.createCallDedupeFilesIfNeeded(
+            threadId: threadId,
+            callMessage: messageInfo.message as? CallMessage,
+            using: dependencies
+        )
     }
     
     private func handleError(
@@ -755,12 +815,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         contentHandler: ((UNNotificationContent) -> Void)
     ) {
         switch (error, (try? SessionId(from: info.metadata.accountId))?.prefix, info.metadata.namespace.isConfigNamespace) {
-            case (NotificationError.migration(let error), _, _):
-                self.completeSilenty(info, .errorDatabaseMigrations(error))
-                
-            case (NotificationError.databaseInvalid, _, _):
-                self.completeSilenty(info, .errorDatabaseInvalid)
-                
+            case (NotificationError.timeout, _, _):
+                self.completeSilenty(info, .errorTimeout)
+            
             case (NotificationError.notReadyForExtension, _, _):
                 self.completeSilenty(info, .errorNotReadyForExtensions)
                 
@@ -800,6 +857,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             case (MessageReceiverError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)
+                
+            case (MessageReceiverError.duplicatedCall, _, _):
+                self.completeSilenty(info, .ignoreDueToDuplicateCall)
                 
             /// If it was a `decryptionFailed` error, but it was for a config namespace then just fail silently (don't
             /// want to show the fallback notification in this case)
@@ -1063,11 +1123,6 @@ private extension NotificationServiceExtension {
         case notReadyForExtension
         case processingErrorWithFallback(PushNotificationAPI.ProcessResult, PushNotificationAPI.NotificationMetadata)
         case processingError(PushNotificationAPI.ProcessResult, PushNotificationAPI.NotificationMetadata)
-        
-        @available(*, deprecated, message: "Should be removed as part of the database relocation work once the notification extension no longer needs the database")
-        case migration(Error)
-        
-        @available(*, deprecated, message: "Should be removed as part of the database relocation work once the notification extension no longer needs the database")
-        case databaseInvalid
+        case timeout
     }
 }

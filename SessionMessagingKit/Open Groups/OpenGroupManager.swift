@@ -236,16 +236,23 @@ public final class OpenGroupManager {
             return OpenGroupAPI.defaultServer
         }()
         
-        return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db in
-                try OpenGroupAPI.preparedCapabilitiesAndRoom(
-                    db,
-                    for: roomToken,
-                    on: targetServer,
+        return Result {
+            try OpenGroupAPI
+                .preparedCapabilitiesAndRoom(
+                    roomToken: roomToken,
+                    authMethod: Authentication.community(
+                        info: LibSession.OpenGroupCapabilityInfo(
+                            roomToken: roomToken,
+                            server: server,
+                            publicKey: publicKey,
+                            capabilities: []    /// We won't have `capabilities` before the first request so just hard code
+                        )
+                    ),
                     using: dependencies
                 )
             }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
+            .publisher
+            .flatMap { [dependencies] in $0.send(using: dependencies) }
             .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: Database, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
                 // Add the new open group to libSession
                 try LibSession.add(
@@ -560,6 +567,7 @@ public final class OpenGroupManager {
                     try MessageDeduplication.insert(
                         db,
                         processedMessage: processedMessage,
+                        ignoreDedupeFiles: false,
                         using: dependencies
                     )
                     
@@ -709,6 +717,7 @@ public final class OpenGroupManager {
                 try MessageDeduplication.insert(
                     db,
                     processedMessage: processedMessage,
+                    ignoreDedupeFiles: false,
                     using: dependencies
                 )
                 

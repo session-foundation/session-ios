@@ -205,7 +205,7 @@ enum _026_MessageDeduplicationTable: Migration {
             /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
             /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
             let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-                .map { $0 + (SnodeReceivedMessage.serverClockToleranceMs * 2) }
+                .map { $0 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
             
             /// If this record would have already expired then there is no need to insert a record for it
             guard (finalExpiryTimestampSeconds ?? timestampNowInSec) < timestampNowInSec else { return }
@@ -278,7 +278,7 @@ enum _026_MessageDeduplicationTable: Migration {
             /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
             /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
             let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-                .map { $0 + (SnodeReceivedMessage.serverClockToleranceMs * 2) }
+                .map { $0 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
             
             /// If this record would have already expired then there is no need to insert a record for it
             guard (finalExpiryTimestampSeconds ?? timestampNowInSec) < timestampNowInSec else { return }

@@ -68,7 +68,7 @@ public final class SnodeAPI {
             requests: requests,
             requireAllBatchResponses: true,
             snode: snode,
-            swarmPublicKey: authMethod.swarmPublicKey,
+            swarmPublicKey: try authMethod.swarmPublicKey,
             using: dependencies
         )
         .map { (_: ResponseInfoType, batchResponse: Network.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)] in
@@ -163,7 +163,7 @@ public final class SnodeAPI {
                 db,
                 for: snode,
                 namespace: namespace,
-                swarmPublicKey: authMethod.swarmPublicKey,
+                swarmPublicKey: try authMethod.swarmPublicKey,
                 using: dependencies
             )?
             .hash
@@ -173,9 +173,9 @@ public final class SnodeAPI {
                 return try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .getMessages,
-                        swarmPublicKey: authMethod.swarmPublicKey,
+                        swarmPublicKey: try authMethod.swarmPublicKey,
                         body: LegacyGetMessagesRequest(
-                            pubkey: authMethod.swarmPublicKey,
+                            pubkey: try authMethod.swarmPublicKey,
                             lastHash: (maybeLastHash ?? ""),
                             namespace: namespace,
                             maxCount: nil,
@@ -190,7 +190,7 @@ public final class SnodeAPI {
             return try SnodeAPI.prepareRequest(
                 request: Request(
                     endpoint: .getMessages,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: GetMessagesRequest(
                         lastHash: (maybeLastHash ?? ""),
                         namespace: namespace,
@@ -205,12 +205,12 @@ public final class SnodeAPI {
         }()
         
         return preparedRequest
-            .map { _, response -> (messages: [SnodeReceivedMessage], lastHash: String?) in
+            .tryMap { _, response -> (messages: [SnodeReceivedMessage], lastHash: String?) in
                 return (
-                    response.messages.compactMap { rawMessage -> SnodeReceivedMessage? in
+                    try response.messages.compactMap { rawMessage -> SnodeReceivedMessage? in
                         SnodeReceivedMessage(
                             snode: snode,
-                            publicKey: authMethod.swarmPublicKey,
+                            publicKey: try authMethod.swarmPublicKey,
                             namespace: namespace,
                             rawMessage: rawMessage
                         )
@@ -293,7 +293,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .getExpiries,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: GetExpiriesRequest(
                         messageHashes: serverHashes,
                         authMethod: authMethod,
@@ -319,7 +319,7 @@ public final class SnodeAPI {
                 return try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .sendMessage,
-                        swarmPublicKey: authMethod.swarmPublicKey,
+                        swarmPublicKey: try authMethod.swarmPublicKey,
                         body: LegacySendMessagesRequest(
                             message: message,
                             namespace: namespace
@@ -335,7 +335,7 @@ public final class SnodeAPI {
             return try SnodeAPI.prepareRequest(
                 request: Request(
                     endpoint: .sendMessage,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: SendMessageRequest(
                         message: message,
                         namespace: namespace,
@@ -353,7 +353,7 @@ public final class SnodeAPI {
         return request
             .tryMap { _, response -> SendMessagesResponse in
                 try response.validateResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     using: dependencies
                 )
 
@@ -380,7 +380,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .expire,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: UpdateExpiryRequest(
                         messageHashes: serverHashes,
                         expiryMs: UInt64(updatedExpiryMs),
@@ -395,7 +395,7 @@ public final class SnodeAPI {
             .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                 do {
                     return try response.validResultMap(
-                        swarmPublicKey: authMethod.swarmPublicKey,
+                        swarmPublicKey: try authMethod.swarmPublicKey,
                         validationData: serverHashes,
                         using: dependencies
                     )
@@ -453,7 +453,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .revokeSubaccount,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: RevokeSubaccountRequest(
                         subaccountsToRevoke: subaccountsToRevoke,
                         authMethod: authMethod,
@@ -465,7 +465,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     validationData: (subaccountsToRevoke, timestampMs),
                     using: dependencies
                 )
@@ -485,7 +485,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .unrevokeSubaccount,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: UnrevokeSubaccountRequest(
                         subaccountsToUnrevoke: subaccountsToUnrevoke,
                         authMethod: authMethod,
@@ -497,7 +497,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     validationData: (subaccountsToUnrevoke, timestampMs),
                     using: dependencies
                 )
@@ -518,7 +518,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteMessages,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     body: DeleteMessagesRequest(
                         messageHashes: serverHashes,
                         requireSuccessfulDeletion: requireSuccessfulDeletion,
@@ -530,7 +530,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 let validResultMap: [String: Bool] = try response.validResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     validationData: serverHashes,
                     using: dependencies
                 )
@@ -563,7 +563,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAll,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     requiresLatestNetworkTime: true,
                     body: DeleteAllMessagesRequest(
                         namespace: namespace,
@@ -583,7 +583,7 @@ public final class SnodeAPI {
                 }
                 
                 return try response.validResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     validationData: targetInfo.timestampMs,
                     using: dependencies
                 )
@@ -601,7 +601,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAllBefore,
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     requiresLatestNetworkTime: true,
                     body: DeleteAllBeforeRequest(
                         beforeMs: beforeMs,
@@ -616,7 +616,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 try response.validResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
                     validationData: beforeMs,
                     using: dependencies
                 )

@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 /// See https://developer.mozilla.org/en-US/docs/Web/API/RTCSessionDescription for more information.
@@ -30,7 +29,7 @@ public final class CallMessage: ControlMessage {
     // MARK: - Kind
     
     /// **Note:** Multiple ICE candidates may be batched together for performance
-    public enum Kind: Codable, CustomStringConvertible {
+    public enum Kind: Codable, Equatable, CustomStringConvertible {
         private enum CodingKeys: String, CodingKey {
             case description
             case sdpMLineIndexes
@@ -168,7 +167,7 @@ public final class CallMessage: ControlMessage {
         )
     }
     
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         let type: SNProtoCallMessage.SNProtoCallMessageType
         
         switch kind {
@@ -224,7 +223,7 @@ public final class CallMessage: ControlMessage {
 
 public extension CallMessage {
     struct MessageInfo: Codable {
-        public enum State: Codable {
+        public enum State: Codable, CaseIterable {
             case incoming
             case outgoing
             case missed

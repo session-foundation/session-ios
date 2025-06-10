@@ -694,7 +694,7 @@ extension ConversationVC:
                     }
                     
                     // Process any attachments
-                    try Attachment.process(
+                    try AttachmentUploader.process(
                         db,
                         attachments: optimisticData.attachmentData,
                         for: insertedInteraction.id
@@ -1519,63 +1519,59 @@ extension ConversationVC:
     }
     
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
-        guard cellViewModel.threadVariant == .community else { return }
+        guard
+            cellViewModel.threadVariant == .community,
+            let roomToken: String = viewModel.threadData.openGroupRoomToken,
+            let server: String = viewModel.threadData.openGroupServer,
+            let publicKey: String = viewModel.threadData.openGroupPublicKey,
+            let capabilities: Set<Capability.Variant> = viewModel.threadData.openGroupCapabilities,
+            let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
+        else { return }
         
-        viewModel.dependencies[singleton: .storage]
-            .readPublisher { [dependencies = viewModel.dependencies] db -> (Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
-                guard
-                    let openGroup: OpenGroup = try? OpenGroup
-                        .fetchOne(db, id: cellViewModel.threadId),
-                    let openGroupServerMessageId: Int64 = try? Interaction
-                        .select(.openGroupServerMessageId)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: Int64.self)
-                        .fetchOne(db)
-                else { throw StorageError.objectNotFound }
-                
-                let preparedRequest: Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
-                    .preparedReactionDeleteAll(
-                        db,
-                        emoji: emoji,
-                        id: openGroupServerMessageId,
-                        in: openGroup.roomToken,
-                        on: openGroup.server,
-                        using: dependencies
-                    )
-                let pendingChange: OpenGroupAPI.PendingChange = dependencies[singleton: .openGroupManager]
-                    .addPendingReaction(
-                        emoji: emoji,
-                        id: openGroupServerMessageId,
-                        in: openGroup.roomToken,
-                        on: openGroup.server,
-                        type: .removeAll
-                    )
-                
-                return (preparedRequest, pendingChange)
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-            .flatMap { [dependencies = viewModel.dependencies] preparedRequest, pendingChange in
-                preparedRequest.send(using: dependencies)
-                    .handleEvents(
-                        receiveOutput: { _, response in
-                            dependencies[singleton: .openGroupManager].updatePendingChange(
-                                pendingChange,
-                                seqNo: response.seqNo
-                            )
-                        }
-                    )
-                    .eraseToAnyPublisher()
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { [dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage].writeAsync { db in
-                        _ = try Reaction
-                            .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter(Reaction.Columns.emoji == emoji)
-                            .deleteAll(db)
-                    }
-                }
+        let pendingChange: OpenGroupAPI.PendingChange = viewModel.dependencies[singleton: .openGroupManager]
+            .addPendingReaction(
+                emoji: emoji,
+                id: openGroupServerMessageId,
+                in: roomToken,
+                on: server,
+                type: .removeAll
             )
+        
+        Result {
+            try OpenGroupAPI.preparedReactionDeleteAll(
+                emoji: emoji,
+                id: openGroupServerMessageId,
+                roomToken: roomToken,
+                authMethod: Authentication.community(
+                    info: LibSession.OpenGroupCapabilityInfo(
+                        roomToken: roomToken,
+                        server: server,
+                        publicKey: publicKey,
+                        capabilities: capabilities
+                    )
+                ),
+                using: viewModel.dependencies
+            )
+        }
+        .publisher
+        .flatMap { [dependencies = viewModel.dependencies] in $0.send(using: dependencies) }
+        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
+        .sinkUntilComplete(
+            receiveCompletion: { [dependencies = viewModel.dependencies] _ in
+                dependencies[singleton: .storage].writeAsync { db in
+                    _ = try Reaction
+                        .filter(Reaction.Columns.interactionId == cellViewModel.id)
+                        .filter(Reaction.Columns.emoji == emoji)
+                        .deleteAll(db)
+                }
+            },
+            receiveValue: { [dependencies = viewModel.dependencies] _, response in
+                dependencies[singleton: .openGroupManager].updatePendingChange(
+                    pendingChange,
+                    seqNo: response.seqNo
+                )
+            }
+        )
     }
     
     func react(_ cellViewModel: MessageViewModel, with emoji: String, remove: Bool) {
@@ -1587,6 +1583,7 @@ extension ConversationVC:
         else { return }
         
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
+        let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
@@ -1644,148 +1641,163 @@ extension ConversationVC:
             }
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-        .flatMap { [dependencies = viewModel.dependencies] pendingChange -> AnyPublisher<Network.PreparedRequest<Void>, Error> in
-            dependencies[singleton: .storage].writePublisher { [weak self] db -> Network.PreparedRequest<Void> in
-                // Update the thread to be visible (if it isn't already)
-                if self?.viewModel.threadData.threadShouldBeVisible == false {
-                    _ = try SessionThread
-                        .filter(id: cellViewModel.threadId)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.shouldBeVisible.set(to: true),
-                            using: dependencies
-                        )
-                }
-                
-                let pendingReaction: Reaction? = {
-                    guard !remove else {
-                        return try? Reaction
-                            .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
-                            .filter(Reaction.Columns.emoji == emoji)
-                            .fetchOne(db)
-                    }
-                    
-                    let sortId: Int64 = Reaction.getSortId(
+        .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupAPI.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
+            // Update the thread to be visible (if it isn't already)
+            if self?.viewModel.threadData.threadShouldBeVisible == false {
+                _ = try SessionThread
+                    .filter(id: cellViewModel.threadId)
+                    .updateAllAndConfig(
                         db,
-                        interactionId: cellViewModel.id,
-                        emoji: emoji
+                        SessionThread.Columns.shouldBeVisible.set(to: true),
+                        using: dependencies
                     )
-                    
-                    return Reaction(
-                        interactionId: cellViewModel.id,
-                        serverHash: nil,
-                        timestampMs: sentTimestampMs,
-                        authorId: cellViewModel.currentUserSessionId,
-                        emoji: emoji,
-                        count: 1,
-                        sortId: sortId
-                    )
-                }()
-                
-                // Update the database
-                if remove {
-                    try Reaction
+            }
+            
+            let pendingReaction: Reaction? = {
+                guard !remove else {
+                    return try? Reaction
                         .filter(Reaction.Columns.interactionId == cellViewModel.id)
+                    // TODO: [Database Relocation] Stop `currentUserSessionIds` from being nullable
                         .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
                         .filter(Reaction.Columns.emoji == emoji)
-                        .deleteAll(db)
-                }
-                else {
-                    try pendingReaction?.insert(db)
-                    
-                    // Add it to the recent list
-                    Emoji.addRecent(db, emoji: emoji)
+                        .fetchOne(db)
                 }
                 
-                switch threadVariant {
-                    case .community:
-                        guard
-                            let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
-                            let openGroupServer: String = cellViewModel.threadOpenGroupServer,
-                            let openGroupRoom: String = openGroupRoom,
-                            let pendingChange: OpenGroupAPI.PendingChange = pendingChange,
-                            dependencies[singleton: .openGroupManager].doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
-                        else { throw MessageSenderError.invalidMessage }
-                        
-                        let preparedRequest: Network.PreparedRequest<Int64?> = try {
-                            guard !remove else {
-                                return try OpenGroupAPI
-                                    .preparedReactionDelete(
-                                        db,
-                                        emoji: emoji,
-                                        id: serverMessageId,
-                                        in: openGroupRoom,
-                                        on: openGroupServer,
-                                        using: dependencies
-                                    )
-                                    .map { _, response in response.seqNo }
-                            }
-                            
+                let sortId: Int64 = Reaction.getSortId(
+                    db,
+                    interactionId: cellViewModel.id,
+                    emoji: emoji
+                )
+                
+                return Reaction(
+                    interactionId: cellViewModel.id,
+                    serverHash: nil,
+                    timestampMs: sentTimestampMs,
+                    authorId: cellViewModel.currentUserSessionId,
+                    emoji: emoji,
+                    count: 1,
+                    sortId: sortId
+                )
+            }()
+            
+            // Update the database
+            if remove {
+                try Reaction
+                    .filter(Reaction.Columns.interactionId == cellViewModel.id)
+                // TODO: [Database Relocation] Stop `currentUserSessionIds` from being nullable
+                    .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
+                    .filter(Reaction.Columns.emoji == emoji)
+                    .deleteAll(db)
+            }
+            else {
+                try pendingReaction?.insert(db)
+                
+                // Add it to the recent list
+                Emoji.addRecent(db, emoji: emoji)
+            }
+            
+            switch threadVariant {
+                case .community:
+                    guard
+                        let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                        dependencies[singleton: .openGroupManager].doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
+                    else { throw MessageSenderError.invalidMessage }
+                    
+                default: break
+            }
+            
+            return (
+                pendingChange,
+                pendingReaction,
+                try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
+                try Authentication.with(db, threadId: threadId, threadVariant: threadVariant, using: dependencies)
+            )
+        }
+        .tryFlatMap { [dependencies = viewModel.dependencies] pendingChange, pendingReaction, destination, authMethod in
+            switch threadVariant {
+                case .community:
+                    guard
+                        let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
+                        let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                        let openGroupRoom: String = openGroupRoom,
+                        let pendingChange: OpenGroupAPI.PendingChange = pendingChange
+                    else { throw MessageSenderError.invalidMessage }
+                    
+                    let preparedRequest: Network.PreparedRequest<Int64?> = try {
+                        guard !remove else {
                             return try OpenGroupAPI
-                                .preparedReactionAdd(
-                                    db,
+                                .preparedReactionDelete(
                                     emoji: emoji,
                                     id: serverMessageId,
-                                    in: openGroupRoom,
-                                    on: openGroupServer,
+                                    roomToken: openGroupRoom,
+                                    authMethod: authMethod,
                                     using: dependencies
                                 )
                                 .map { _, response in response.seqNo }
-                        }()
+                        }
                         
-                        return preparedRequest
-                            .handleEvents(
-                                receiveOutput: { _, seqNo in
-                                    dependencies[singleton: .openGroupManager].updatePendingChange(
-                                        pendingChange,
-                                        seqNo: seqNo
-                                    )
-                                },
-                                receiveCompletion: { [weak self] result in
-                                    switch result {
-                                        case .finished: break
-                                        case .failure:
-                                            dependencies[singleton: .openGroupManager].removePendingChange(pendingChange)
-                                            
-                                            self?.handleReactionSentFailure(pendingReaction, remove: remove)
-                                    }
-                                }
+                        return try OpenGroupAPI
+                            .preparedReactionAdd(
+                                emoji: emoji,
+                                id: serverMessageId,
+                                roomToken: openGroupRoom,
+                                authMethod: authMethod,
+                                using: dependencies
                             )
-                            .map { _, _ in () }
-                        
-                    default:
-                        return try MessageSender.preparedSend(
-                            db,
-                            message: VisibleMessage(
-                                sentTimestampMs: UInt64(sentTimestampMs),
-                                text: nil,
-                                reaction: VisibleMessage.VMReaction(
-                                    timestamp: UInt64(cellViewModel.timestampMs),
-                                    publicKey: {
-                                        guard cellViewModel.variant == .standardIncoming else {
-                                            return cellViewModel.currentUserSessionId
-                                        }
-                                        
-                                        return cellViewModel.authorId
-                                    }(),
-                                    emoji: emoji,
-                                    kind: (remove ? .remove : .react)
+                            .map { _, response in response.seqNo }
+                    }()
+                    
+                    return preparedRequest
+                        .handleEvents(
+                            receiveOutput: { _, seqNo in
+                                dependencies[singleton: .openGroupManager].updatePendingChange(
+                                    pendingChange,
+                                    seqNo: seqNo
                                 )
-                            ),
-                            to: try Message.Destination
-                                .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant),
-                            namespace: try Message.Destination
-                                .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
-                                .defaultNamespace,
-                            interactionId: cellViewModel.id,
-                            fileIds: [],
-                            using: dependencies
+                            },
+                            receiveCompletion: { [weak self] result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure:
+                                        dependencies[singleton: .openGroupManager].removePendingChange(pendingChange)
+                                        
+                                        self?.handleReactionSentFailure(pendingReaction, remove: remove)
+                                }
+                            }
                         )
-                }
+                        .map { _, _ in () }
+                        .send(using: dependencies)
+                    
+                default:
+                    return try MessageSender.preparedSend(
+                        message: VisibleMessage(
+                            sentTimestampMs: UInt64(sentTimestampMs),
+                            text: nil,
+                            reaction: VisibleMessage.VMReaction(
+                                timestamp: UInt64(cellViewModel.timestampMs),
+                                publicKey: {
+                                    guard cellViewModel.variant == .standardIncoming else {
+                                        return cellViewModel.currentUserSessionId
+                                    }
+                                    
+                                    return cellViewModel.authorId
+                                }(),
+                                emoji: emoji,
+                                kind: (remove ? .remove : .react)
+                            )
+                        ),
+                        to: destination,
+                        namespace: .default,
+                        interactionId: cellViewModel.id,
+                        attachments: nil,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
+                    .map { _, _ in () }
+                    .send(using: dependencies)
             }
         }
-        .flatMap { [dependencies = viewModel.dependencies] request in request.send(using: dependencies) }
         .sinkUntilComplete()
     }
     
@@ -2270,46 +2282,61 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage]
-                        .readPublisher { db -> Network.PreparedRequest<NoResponse> in
-                            guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                throw StorageError.objectNotFound
-                            }
-                            
-                            return try OpenGroupAPI
-                                .preparedUserBan(
-                                    db,
-                                    sessionId: cellViewModel.authorId,
-                                    from: [openGroup.roomToken],
-                                    on: openGroup.server,
-                                    using: dependencies
+                onConfirm: { [weak self, threadData = viewModel.threadData, dependencies = viewModel.dependencies] _ in
+                    Result {
+                        guard
+                            cellViewModel.threadVariant == .community,
+                            let roomToken: String = threadData.openGroupRoomToken,
+                            let server: String = threadData.openGroupServer,
+                            let publicKey: String = threadData.openGroupPublicKey,
+                            let capabilities: Set<Capability.Variant> = threadData.openGroupCapabilities,
+                            let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
+                        else { throw CryptoError.invalidAuthentication }
+                        
+                        return (
+                            roomToken,
+                            Authentication.community(
+                                info: LibSession.OpenGroupCapabilityInfo(
+                                    roomToken: roomToken,
+                                    server: server,
+                                    publicKey: publicKey,
+                                    capabilities: capabilities
                                 )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async { [weak self] in
-                                    switch result {
-                                        case .finished:
-                                            self?.viewModel.showToast(
-                                                text: "banUserBanned".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "banErrorFailed".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
+                            )
                         )
+                    }
+                    .publisher
+                    .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
+                        try OpenGroupAPI.preparedUserBan(
+                            sessionId: cellViewModel.authorId,
+                            from: [roomToken],
+                            authMethod: authMethod,
+                            using: dependencies
+                        ).send(using: dependencies)
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.main, using: dependencies)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            DispatchQueue.main.async { [weak self] in
+                                switch result {
+                                    case .finished:
+                                        self?.viewModel.showToast(
+                                            text: "banUserBanned".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                    case .failure:
+                                        self?.viewModel.showToast(
+                                            text: "banErrorFailed".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                }
+                                completion?()
+                            }
+                        }
+                    )
                     
                     self?.becomeFirstResponder()
                 },
@@ -2334,46 +2361,61 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage]
-                        .readPublisher { db in
-                            guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                throw StorageError.objectNotFound
-                            }
+                onConfirm: { [weak self, threadData = viewModel.threadData, dependencies = viewModel.dependencies] _ in
+                    Result {
+                        guard
+                            cellViewModel.threadVariant == .community,
+                            let roomToken: String = threadData.openGroupRoomToken,
+                            let server: String = threadData.openGroupServer,
+                            let publicKey: String = threadData.openGroupPublicKey,
+                            let capabilities: Set<Capability.Variant> = threadData.openGroupCapabilities,
+                            let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
+                        else { throw CryptoError.invalidAuthentication }
                         
-                            return try OpenGroupAPI
-                                .preparedUserBanAndDeleteAllMessages(
-                                    db,
-                                    sessionId: cellViewModel.authorId,
-                                    in: openGroup.roomToken,
-                                    on: openGroup.server,
-                                    using: dependencies
+                        return (
+                            roomToken,
+                            Authentication.community(
+                                info: LibSession.OpenGroupCapabilityInfo(
+                                    roomToken: roomToken,
+                                    server: server,
+                                    publicKey: publicKey,
+                                    capabilities: capabilities
                                 )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async { [weak self] in
-                                    switch result {
-                                        case .finished:
-                                            self?.viewModel.showToast(
-                                                text: "banUserBanned".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "banErrorFailed".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
+                            )
                         )
+                    }
+                    .publisher
+                    .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
+                        try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
+                            sessionId: cellViewModel.authorId,
+                            roomToken: roomToken,
+                            authMethod: authMethod,
+                            using: dependencies
+                        ).send(using: dependencies)
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.main, using: dependencies)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            DispatchQueue.main.async { [weak self] in
+                                switch result {
+                                    case .finished:
+                                        self?.viewModel.showToast(
+                                            text: "banUserBanned".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                    case .failure:
+                                        self?.viewModel.showToast(
+                                            text: "banErrorFailed".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                }
+                                completion?()
+                            }
+                        }
+                    )
                     
                     self?.becomeFirstResponder()
                 },

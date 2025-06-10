@@ -20,7 +20,9 @@ extension PushNotificationAPI {
         /// The signature unix timestamp (seconds, not ms)
         internal let timestamp: Int64
         
-        var verificationBytes: [UInt8] { preconditionFailure("abstract class - override in subclass") }
+        var verificationBytes: [UInt8] {
+            get throws { preconditionFailure("abstract class - override in subclass") }
+        }
         
         // MARK: - Initialization
         
@@ -39,7 +41,7 @@ extension PushNotificationAPI {
             
             // Generate the signature for the request for encoding
             let signature: Authentication.Signature = try authMethod.generateSignature(
-                with: verificationBytes,
+                with: try verificationBytes,
                 using: try encoder.dependencies ?? { throw DependenciesError.missingDependencies }()
             )
             try container.encode(timestamp, forKey: .timestamp)
@@ -54,6 +56,8 @@ extension PushNotificationAPI {
                     
                 case .groupMember(let sessionId, _):
                     try container.encode(sessionId.hexString, forKey: .pubkey)
+                
+                case .community: throw CryptoError.signatureGenerationFailed
             }
             
             switch signature {

@@ -43,7 +43,61 @@ public extension LibSession {
         var publicKey: String { urlInfo.publicKey }
         let capabilities: Set<Capability.Variant>
         
+        // MARK: - Initialization
+        
+        init(
+            urlInfo: OpenGroupUrlInfo,
+            capabilities: Set<Capability.Variant>
+        ) {
+            self.urlInfo = urlInfo
+            self.capabilities = capabilities
+        }
+        
+        public init(
+            roomToken: String,
+            server: String,
+            publicKey: String,
+            capabilities: Set<Capability.Variant>
+        ) {
+            self.urlInfo = OpenGroupUrlInfo(
+                threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                server: server,
+                roomToken: roomToken,
+                publicKey: publicKey
+            )
+            self.capabilities = capabilities
+        }
+        
         // MARK: - Queries
+        
+        public static func fetchOne(_ db: Database, server: String, activeOnly: Bool = true) throws -> OpenGroupCapabilityInfo? {
+            var query: QueryInterfaceRequest<OpenGroupUrlInfo> = OpenGroup
+                .select(.threadId, .server, .roomToken, .publicKey)
+                .filter(OpenGroup.Columns.server == server.lowercased())
+                .asRequest(of: OpenGroupUrlInfo.self)
+            
+            /// If we only want to retrieve data for active OpenGroups then add additional filters
+            if activeOnly {
+                query = query
+                    .filter(OpenGroup.Columns.isActive == true)
+                    .filter(OpenGroup.Columns.roomToken != "")
+            }
+            
+            guard let urlInfo: OpenGroupUrlInfo = try query.fetchOne(db) else { return nil }
+            
+            let capabilities: Set<Capability.Variant> = (try? Capability
+                .select(.variant)
+                .filter(Capability.Columns.openGroupServer == urlInfo.server.lowercased())
+                .filter(Capability.Columns.isMissing == false)
+                .asRequest(of: Capability.Variant.self)
+                .fetchSet(db))
+                .defaulting(to: [])
+            
+            return OpenGroupCapabilityInfo(
+                urlInfo: urlInfo,
+                capabilities: capabilities
+            )
+        }
         
         public static func fetchOne(_ db: Database, id: String) throws -> OpenGroupCapabilityInfo? {
             let maybeUrlInfo: OpenGroupUrlInfo? = try OpenGroup
@@ -57,6 +111,7 @@ public extension LibSession {
             let capabilities: Set<Capability.Variant> = (try? Capability
                 .select(.variant)
                 .filter(Capability.Columns.openGroupServer == urlInfo.server.lowercased())
+                .filter(Capability.Columns.isMissing == false)
                 .asRequest(of: Capability.Variant.self)
                 .fetchSet(db))
                 .defaulting(to: [])

@@ -93,7 +93,10 @@ public enum ConfigurationSyncJob: JobExecutor {
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingChanges.pushData.count), old hashes: \(pendingChanges.obsoleteHashes.count)")
         
         dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<Network.BatchResponse> in
+            .readPublisher { db -> AuthenticationMethod in
+                try Authentication.with(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+            }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Network.BatchResponse), Error> in
                 try SnodeAPI.preparedSequence(
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
@@ -105,16 +108,12 @@ public enum ConfigurationSyncJob: JobExecutor {
                                             .preparedSendMessage(
                                                 message: SnodeMessage(
                                                     recipient: swarmPublicKey,
-                                                    data: data.base64EncodedString(),
+                                                    data: data,
                                                     ttl: pushData.variant.ttl,
                                                     timestampMs: UInt64(messageSendTimestamp)
                                                 ),
                                                 in: pushData.variant.namespace,
-                                                authMethod: try Authentication.with(
-                                                    db,
-                                                    swarmPublicKey: swarmPublicKey,
-                                                    using: dependencies
-                                                ),
+                                                authMethod: authMethod,
                                                 using: dependencies
                                             )
                                     }
@@ -126,11 +125,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             return try SnodeAPI.preparedDeleteMessages(
                                 serverHashes: Array(pendingChanges.obsoleteHashes),
                                 requireSuccessfulDeletion: false,
-                                authMethod: try Authentication.with(
-                                    db,
-                                    swarmPublicKey: swarmPublicKey,
-                                    using: dependencies
-                                ),
+                                authMethod: authMethod,
                                 using: dependencies
                             )
                         }())
@@ -140,9 +135,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                     snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
                     requestAndPathBuildTimeout: Network.defaultTimeout,
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .tryMap { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
@@ -242,7 +236,9 @@ public enum ConfigurationSyncJob: JobExecutor {
                         // Save the updated dumps to the database
                         try configDumps.forEach { dump in
                             try dump.upsert(db)
-                            Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                            Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                                extensionHelper.replicate(dump: dump)
+                            }
                         }
                         
                         // When we complete the 'ConfigurationSync' job we want to immediately schedule

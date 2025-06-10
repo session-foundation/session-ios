@@ -34,20 +34,21 @@ public enum SendReadReceiptsJob: JobExecutor {
         }
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .readPublisher { db in try Authentication.with(db, swarmPublicKey: threadId, using: dependencies) }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
                 try MessageSender.preparedSend(
-                    db,
                     message: ReadReceipt(
                         timestamps: details.timestampMsValues.map { UInt64($0) }
                     ),
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: nil,
-                    fileIds: [],
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(

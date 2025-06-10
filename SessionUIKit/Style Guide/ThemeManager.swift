@@ -27,7 +27,7 @@ public enum ThemeManager {
     
     // MARK: - Functions
     
-    public static func updateThemeState(
+    @MainActor public static func updateThemeState(
         theme: Theme? = nil,
         primaryColor: Theme.PrimaryColor? = nil,
         matchSystemNightModeSetting: Bool? = nil
@@ -61,9 +61,7 @@ public enum ThemeManager {
             
             // Note: We need to set this to 'unspecified' to force the UI to properly update as the
             // 'TraitObservingWindow' won't actually trigger the trait change otherwise
-            DispatchQueue.main.async {
-                SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
-            }
+            SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
         }
         
         // If the theme was changed then trigger the callback for the theme settings change (so it gets persisted)
@@ -72,7 +70,7 @@ public enum ThemeManager {
         SNUIKit.themeSettingsChanged(targetTheme, targetPrimaryColor, targetMatchSystemNightModeSetting)
     }
     
-    public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    @MainActor public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         let currentUserInterfaceStyle: UIUserInterfaceStyle = UITraitCollection.current.userInterfaceStyle
         
         // Only trigger updates if the style changed and the device is set to match the system style
@@ -91,7 +89,7 @@ public enum ThemeManager {
         }
     }
     
-    public static func applyNavigationStyling() {
+    @MainActor public static func applyNavigationStyling() {
         guard Thread.isMainThread else {
             return DispatchQueue.main.async { applyNavigationStyling() }
         }
@@ -178,7 +176,7 @@ public enum ThemeManager {
         updateIfNeeded(viewController: SNUIKit.mainWindow?.rootViewController)
     }
     
-    public static func applyNavigationStylingIfNeeded(to viewController: UIViewController) {
+    @MainActor public static func applyNavigationStylingIfNeeded(to viewController: UIViewController) {
         // Will use the 'primary' style for all other cases
         guard
             let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
@@ -214,7 +212,7 @@ public enum ThemeManager {
         }
     }
     
-    public static func applyWindowStyling() {
+    @MainActor public static func applyWindowStyling() {
         guard Thread.isMainThread else {
             return DispatchQueue.main.async { applyWindowStyling() }
         }
@@ -241,7 +239,7 @@ public enum ThemeManager {
         )
     }
     
-    private static func updateAllUI() {
+    @MainActor private static func updateAllUI() {
         guard Thread.isMainThread else {
             return DispatchQueue.main.async { updateAllUI() }
         }

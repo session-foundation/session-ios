@@ -594,7 +594,7 @@ extension MessageSender {
                             maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
-                                    data: supplementData.base64EncodedString(),
+                                    data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
                                     timestampMs: UInt64(changeTimestampMs)
                                 ),
@@ -857,7 +857,7 @@ extension MessageSender {
                             maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
-                                    data: supplementData.base64EncodedString(),
+                                    data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
                                     timestampMs: UInt64(changeTimestampMs)
                                 ),

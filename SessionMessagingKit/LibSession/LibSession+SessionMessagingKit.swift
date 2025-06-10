@@ -546,7 +546,9 @@ public extension LibSession {
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     )
                     try dump?.upsert(db)
-                    Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                    Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                        extensionHelper.replicate(dump: dump)
+                    }
                 }
             }
             catch {
@@ -792,7 +794,9 @@ public extension LibSession {
                     timestampMs: latestServerTimestampMs
                 )
                 try dump?.upsert(db)
-                Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                    extensionHelper.replicate(dump: dump)
+                }
             }
             
             // Now that the local state has been updated, schedule a config sync if needed (this will
@@ -1003,6 +1007,35 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
 public extension LibSessionCacheType {
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: @escaping () throws -> ()) throws {
         try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
+    }
+    
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        change: @escaping () throws -> ()
+    ) throws {
+        try performAndPushChange(db, for: variant, sessionId: sessionId, change: { _ in try change() })
+    }
+    
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        change: @escaping (LibSession.Config?) throws -> ()
+    ) throws {
+        guard ConfigDump.Variant.userVariants.contains(variant) else { throw LibSessionError.invalidConfigAccess }
+        
+        try performAndPushChange(db, for: variant, sessionId: userSessionId, change: change)
+    }
+    
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        change: @escaping () throws -> ()
+    ) throws {
+        guard ConfigDump.Variant.userVariants.contains(variant) else { throw LibSessionError.invalidConfigAccess }
+        
+        try performAndPushChange(db, for: variant, sessionId: userSessionId, change: { _ in try change() })
     }
     
     func loadState(_ db: Database) {

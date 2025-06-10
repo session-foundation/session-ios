@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class MessageRequestResponse: ControlMessage {
@@ -59,7 +58,7 @@ public final class MessageRequestResponse: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         let messageRequestResponseProto: SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder
         
         // Profile

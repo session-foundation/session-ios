@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class ExpirationTimerUpdate: ControlMessage {
@@ -50,7 +49,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         let dataMessageProto = SNProtoDataMessage.builder()
         dataMessageProto.setFlags(UInt32(SNProtoDataMessage.SNProtoDataMessageFlags.expirationTimerUpdate.rawValue))
         if let syncTarget = syncTarget { dataMessageProto.setSyncTarget(syncTarget) }

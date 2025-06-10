@@ -270,6 +270,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
         ).populatingPostQueryData(
+            recentReactionEmoji: nil,
+            openGroupCapabilities: nil,
             currentUserSessionIds: (
                 initialData?.currentUserSessionIds ??
                 [dependencies[cache: .general].sessionId.hexString]
@@ -349,33 +351,42 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userSessionId: userSessionId)
                     .fetchOne(db)
+                let openGroupCapabilities: Set<Capability.Variant>? = (threadViewModel?.threadVariant != .community ?
+                    nil :
+                    try Capability
+                        .select(.variant)
+                        .filter(Capability.Columns.openGroupServer == threadViewModel?.openGroupServer?.lowercased())
+                        .filter(Capability.Columns.isMissing == false)
+                        .asRequest(of: Capability.Variant.self)
+                        .fetchSet(db)
+                )
                 
-                return threadViewModel
-                    .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
-                    .map { viewModel -> SessionThreadViewModel in
-                        let wasKickedFromGroup: Bool = (
-                            viewModel.threadVariant == .group &&
-                            dependencies.mutate(cache: .libSession) { cache in
-                                cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                            }
-                        )
-                        let groupIsDestroyed: Bool = (
-                            viewModel.threadVariant == .group &&
-                            dependencies.mutate(cache: .libSession) { cache in
-                                cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                            }
-                        )
-                        
-                        return viewModel.populatingPostQueryData(
-                            currentUserSessionIds: (
-                                self?.threadData.currentUserSessionIds ??
-                                [userSessionId.hexString]
-                            ),
-                            wasKickedFromGroup: wasKickedFromGroup,
-                            groupIsDestroyed: groupIsDestroyed,
-                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies)
-                        )
-                    }
+                return threadViewModel.map { viewModel -> SessionThreadViewModel in
+                    let wasKickedFromGroup: Bool = (
+                        viewModel.threadVariant == .group &&
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                        }
+                    )
+                    let groupIsDestroyed: Bool = (
+                        viewModel.threadVariant == .group &&
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                        }
+                    )
+                    
+                    return viewModel.populatingPostQueryData(
+                        recentReactionEmoji: recentReactionEmoji,
+                        openGroupCapabilities: openGroupCapabilities,
+                        currentUserSessionIds: (
+                            self?.threadData.currentUserSessionIds ??
+                            [userSessionId.hexString]
+                        ),
+                        wasKickedFromGroup: wasKickedFromGroup,
+                        groupIsDestroyed: groupIsDestroyed,
+                        threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies)
+                    )
+                }
             }
             .removeDuplicates()
             .handleEvents(didFail: { Log.error(.conversation, "Observation failed with error: \($0)") })
@@ -731,7 +742,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             using: dependencies
         )
         let optimisticAttachments: [Attachment]? = attachments
-            .map { Attachment.prepare(attachments: $0, using: dependencies) }
+            .map { AttachmentUploader.prepare(attachments: $0, using: dependencies) }
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(
                 imageData: draft.jpegImageData,

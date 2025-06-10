@@ -130,7 +130,7 @@ final class MainAppContext: AppContext {
     
     // MARK: - AppContext Functions
     
-    func setMainWindow(_ mainWindow: UIWindow) {
+    @MainActor func setMainWindow(_ mainWindow: UIWindow) {
         self.mainWindow = mainWindow
         
         // Store in SessionUIKit to avoid needing the SessionUtilitiesKit dependency

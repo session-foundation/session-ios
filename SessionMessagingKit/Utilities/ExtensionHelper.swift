@@ -542,7 +542,7 @@ public class ExtensionHelper: ExtensionHelperType {
                                 source: .pushNotification,
                                 swarmPublicKey: swarmPublicKey,
                                 shouldStoreMessages: true,
-                                ignoreDedupeRecords: true,
+                                ignoreDedupeFiles: true,
                                 forceSynchronousProcessing: true,
                                 sortedMessages: sortedMessages,
                                 using: dependencies
@@ -608,7 +608,7 @@ public class ExtensionHelper: ExtensionHelperType {
                             source: .pushNotification,
                             swarmPublicKey: message.swarmPublicKey,
                             shouldStoreMessages: true,
-                            ignoreDedupeRecords: true,
+                            ignoreDedupeFiles: true,
                             forceSynchronousProcessing: true,
                             sortedMessages: [(message.namespace, [message], nil)],
                             using: dependencies

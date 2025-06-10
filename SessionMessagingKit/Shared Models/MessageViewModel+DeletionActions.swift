@@ -372,7 +372,6 @@ public extension MessageViewModel.DeletionBehaviours {
                 )
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
                     try MessageSender.preparedSend(
-                        db,
                         message: UnsendRequest(
                             timestamp: UInt64(model.timestampMs),
                             author: threadData.currentUserSessionId
@@ -384,9 +383,17 @@ public extension MessageViewModel.DeletionBehaviours {
                         to: .contact(publicKey: model.threadId),
                         namespace: .default,
                         interactionId: nil,
-                        fileIds: [],
+                        attachments: nil,
+                        authMethod: try Authentication.with(
+                            db,
+                            threadId: threadData.threadId,
+                            threadVariant: threadData.threadVariant,
+                            using: dependencies
+                        ),
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
                         using: dependencies
                     )
+                    .map { _, _ in () }
                 }
                 
                 /// Batch requests have a limited number of subrequests so make sure to chunk
@@ -443,7 +450,6 @@ public extension MessageViewModel.DeletionBehaviours {
                     .filter { isAdmin || (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
                     try MessageSender.preparedSend(
-                        db,
                         message: UnsendRequest(
                             timestamp: UInt64(model.timestampMs),
                             author: (model.variant == .standardOutgoing ?
@@ -458,9 +464,17 @@ public extension MessageViewModel.DeletionBehaviours {
                         to: .closedGroup(groupPublicKey: model.threadId),
                         namespace: .legacyClosedGroup,
                         interactionId: nil,
-                        fileIds: [],
+                        attachments: nil,
+                        authMethod: try Authentication.with(
+                            db,
+                            threadId: threadData.threadId,
+                            threadVariant: threadData.threadVariant,
+                            using: dependencies
+                        ),
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
                         using: dependencies
                     )
+                    .map { _, _ in () }
                 }
                 
                 /// Batch requests have a limited number of subrequests so make sure to chunk
@@ -508,7 +522,6 @@ public extension MessageViewModel.DeletionBehaviours {
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(try MessageSender
                             .preparedSend(
-                                db,
                                 message: GroupUpdateDeleteMemberContentMessage(
                                     memberSessionIds: [],
                                     messageHashes: Array(serverHashes),
@@ -519,9 +532,18 @@ public extension MessageViewModel.DeletionBehaviours {
                                 to: .closedGroup(groupPublicKey: threadData.threadId),
                                 namespace: .groupMessages,
                                 interactionId: nil,
-                                fileIds: [],
+                                attachments: nil,
+                                authMethod: try Authentication.with(
+                                    db,
+                                    threadId: threadData.threadId,
+                                    threadVariant: threadData.threadVariant,
+                                    using: dependencies
+                                ),
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
                                 using: dependencies
-                            ))
+                            )
+                            .map { _, _ in () }
+                        )
                     )
                     .appending(
                         .markAsDeleted(
@@ -558,7 +580,6 @@ public extension MessageViewModel.DeletionBehaviours {
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(try MessageSender
                             .preparedSend(
-                                db,
                                 message: GroupUpdateDeleteMemberContentMessage(
                                     memberSessionIds: [],
                                     messageHashes: Array(serverHashes),
@@ -572,9 +593,18 @@ public extension MessageViewModel.DeletionBehaviours {
                                 to: .closedGroup(groupPublicKey: threadData.threadId),
                                 namespace: .groupMessages,
                                 interactionId: nil,
-                                fileIds: [],
+                                attachments: nil,
+                                authMethod: try Authentication.with(
+                                    db,
+                                    threadId: threadData.threadId,
+                                    threadVariant: threadData.threadVariant,
+                                    using: dependencies
+                                ),
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
                                 using: dependencies
-                            ))
+                            )
+                            .map { _, _ in () }
+                        )
                     )
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(try SnodeAPI
@@ -613,14 +643,19 @@ public extension MessageViewModel.DeletionBehaviours {
                     throw StorageError.objectNotFound
                 }
                 
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    db,
+                    threadId: threadData.threadId,
+                    threadVariant: threadData.threadVariant,
+                    using: dependencies
+                )
                 let deleteRequests: [Network.PreparedRequest] = try cellViewModels
                     .compactMap { $0.openGroupServerMessageId }
                     .map { messageId in
                         try OpenGroupAPI.preparedMessageDelete(
-                            db,
                             id: messageId,
-                            in: roomToken,
-                            on: server,
+                            roomToken: roomToken,
+                            authMethod: authMethod,
                             using: dependencies
                         )
                     }
@@ -634,9 +669,8 @@ public extension MessageViewModel.DeletionBehaviours {
                             .map { deleteRequestsChunk in
                                 .preparedRequest(
                                     try OpenGroupAPI.preparedBatch(
-                                        db,
-                                        server: server,
                                         requests: deleteRequestsChunk,
+                                        authMethod: authMethod,
                                         using: dependencies
                                     )
                                     .map { _, _ in () }
