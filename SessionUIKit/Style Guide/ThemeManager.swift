@@ -35,7 +35,7 @@ public enum ThemeManager {
     ) {
         let targetTheme: Theme = (theme ?? _theme)
         let targetPrimaryColor: Theme.PrimaryColor = {
-            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary))) {
+            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: targetTheme))) {
                 case (.some(let primaryColor), _): return primaryColor
                 case (.none, .some(let defaultPrimaryColor)): return defaultPrimaryColor
                 default: return _primaryColor
@@ -97,15 +97,15 @@ public enum ThemeManager {
             return DispatchQueue.main.async { applyNavigationStyling() }
         }
         
-        let textPrimary: UIColor = (color(for: .textPrimary) ?? .white)
-        let backgroundColor: UIColor? = color(for: .backgroundPrimary)
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme) ?? .white)
+        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme)
         
         // Set the `mainWindow.tintColor` for system screens to use the right color for text
         SNUIKit.mainWindow?.tintColor = textPrimary
         SNUIKit.mainWindow?.rootViewController?.setNeedsStatusBarAppearanceUpdate()
         
         // Update toolbars to use the right colours
-        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary)
+        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentTheme)
         UIToolbar.appearance().isTranslucent = false
         UIToolbar.appearance().tintColor = textPrimary
         
@@ -187,11 +187,11 @@ public enum ThemeManager {
             let navigationBackground: ThemeValue = (navController.viewControllers.first as? ThemedNavigation)?.navigationBackground
         else { return }
         
-        let navigationBackgroundColor: UIColor? = color(for: navigationBackground)
+        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentTheme)
         navController.navigationBar.barTintColor = navigationBackgroundColor
         navController.navigationBar.shadowImage = navigationBackgroundColor?.toImage()
         
-        let textPrimary: UIColor = (color(for: .textPrimary) ?? .white)
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme) ?? .white)
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = navigationBackgroundColor
@@ -221,7 +221,7 @@ public enum ThemeManager {
                 @unknown default: return .dark
             }
         }()
-        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary)
+        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme)
     }
     
     public static func onThemeChange(observer: AnyObject, callback: @escaping (Theme, Theme.PrimaryColor) -> ()) {
@@ -234,30 +234,33 @@ public enum ThemeManager {
         )
     }
     
-    internal static func color<T: ColorType>(for value: ThemeValue) -> T? {
+    internal static func color<T: ColorType>(for value: ThemeValue, in theme: Theme) -> T? {
         switch value {
-            case .value(let value, let alpha): return T.resolve(value, for: currentTheme)?.alpha(alpha)
+            case .value(let value, let alpha): return T.resolve(value, for: theme)?.alpha(alpha)
             case .explicitPrimary(let primaryColor): return T.resolve(primaryColor)
             
             case .highlighted(let value, let alwaysDarken):
                 switch (currentTheme.interfaceStyle, alwaysDarken) {
-                    case (.light, _), (_, true): return T.resolve(value, for: currentTheme)?.brighten(-0.06)
-                    default: return T.resolve(value, for: currentTheme)?.brighten(0.08)
+                    case (.light, _), (_, true): return T.resolve(value, for: theme)?.brighten(-0.06)
+                    default: return T.resolve(value, for: theme)?.brighten(0.08)
                 }
                 
             case .dynamicForInterfaceStyle(let light, let dark):
                 switch currentTheme.interfaceStyle {
-                    case .light: return color(for: light)
-                    default: return color(for: dark)
+                    case .light: return color(for: light, in: theme)
+                    default: return color(for: dark, in: theme)
                 }
                 
             case .dynamicForPrimary(let targetPrimaryColor, let colorIfPrimaryMatches, let fallbackColor):
-                return color(for: primaryColor == targetPrimaryColor ?
-                    colorIfPrimaryMatches :
-                    fallbackColor
+                return color(
+                    for: (primaryColor == targetPrimaryColor ?
+                        colorIfPrimaryMatches :
+                        fallbackColor
+                    ),
+                    in: theme
                 )
             
-            default: return T.resolve(value, for: currentTheme)
+            default: return T.resolve(value, for: theme)
         }
     }
     
@@ -306,7 +309,9 @@ public enum ThemeManager {
                     return
                 }
 
-                view?[keyPath: keyPath] = ThemeManager.resolvedColor(ThemeManager.color(for: value))
+                view?[keyPath: keyPath] = ThemeManager.resolvedColor(
+                    ThemeManager.color(for: value, in: currentTheme)
+                )
             },
             forKey: view
         )
@@ -340,7 +345,9 @@ public enum ThemeManager {
                     return
                 }
                 
-                view?[keyPath: keyPath] = ThemeManager.resolvedColor(ThemeManager.color(for: value))?.cgColor
+                view?[keyPath: keyPath] = ThemeManager.resolvedColor(
+                    ThemeManager.color(for: value, in: currentTheme)
+                )?.cgColor
             },
             forKey: view
         )
@@ -388,7 +395,7 @@ public enum ThemeManager {
                         
                         guard
                             let originalKey = key.originalKey,
-                            let color = ThemeManager.color(for: themeValue) as UIColor?
+                            let color = ThemeManager.color(for: themeValue, in: currentTheme) as UIColor?
                         else { return }
                         
                         newAttributes[originalKey] = ThemeManager.resolvedColor(color)

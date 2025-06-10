@@ -50,3 +50,11 @@ public extension Text {
         return self.foregroundColor(ThemeManager.color(for: themeColor))
     }
 }
+
+// MARK: - Convenience
+
+private extension ThemeManager {
+    static func color<T: ColorType>(for value: ThemeValue) -> T? {
+        return ThemeManager.color(for: value, in: currentTheme)
+    }
+}
