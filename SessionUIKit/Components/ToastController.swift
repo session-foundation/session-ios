@@ -14,10 +14,10 @@ public class ToastController: ToastViewDelegate {
     // MARK: Initializers
     
     public convenience init(text: String, background: ThemeValue) {
-        self.init(text: NSAttributedString(string: text), background: background)
+        self.init(text: ThemedAttributedString(string: text), background: background)
     }
 
-    required public init(text: NSAttributedString, background: ThemeValue) {
+    required public init(text: ThemedAttributedString, background: ThemeValue) {
         id = UUID()
         toastView = ToastView(background: background)
         toastView.attributedText = text
@@ -104,9 +104,9 @@ protocol ToastViewDelegate: AnyObject {
 
 class ToastView: UIView {
 
-    var attributedText: NSAttributedString? {
-        get { return label.attributedText }
-        set { label.attributedText = newValue }
+    var attributedText: ThemedAttributedString? {
+        get { return label.themeAttributedText }
+        set { label.themeAttributedText = newValue }
     }
     weak var delegate: ToastViewDelegate?
 

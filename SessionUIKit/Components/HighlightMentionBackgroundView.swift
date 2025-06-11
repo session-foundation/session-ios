@@ -101,7 +101,7 @@ public class HighlightMentionBackgroundView: UIView {
             for run in runs {
                 let attributes: NSDictionary = CTRunGetAttributes(run)
                 
-                guard let mentionBackgroundColor: UIColor = attributes.value(forKey: NSAttributedString.Key.currentUserMentionBackgroundColor.rawValue) as? UIColor else {
+                guard let mentionBackgroundColor: ThemeValue = attributes.value(forKey: NSAttributedString.Key.currentUserMentionBackgroundColor.rawValue) as? ThemeValue else {
                     if let currentBounds = currentMentionBounds {
                         // Draw a single background rectangle for the mention
                         let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: lastMentionBackgroundCornerRadius)
@@ -113,7 +113,7 @@ public class HighlightMentionBackgroundView: UIView {
                     continue
                 }
                 
-                lastMentionBackgroundColor = mentionBackgroundColor
+                lastMentionBackgroundColor = (ThemeManager.currentTheme.color(for: mentionBackgroundColor) ?? .clear)
                 let maybeCornerRadius: CGFloat? = (attributes
                     .value(forKey: NSAttributedString.Key.currentUserMentionBackgroundCornerRadius.rawValue) as? CGFloat)
                 lastMentionBackgroundCornerRadius = maybeCornerRadius ?? 0
