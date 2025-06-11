@@ -40,7 +40,7 @@ enum _027_MoveSettingsToLibSession: Migration {
             .themeMatchSystemDayNightCycle
         ]
         let settings: [String: Data] = try Row
-            .fetchAll(db, sql: "SELECT key, value FROM setting")
+            .fetchAll(db, sql: "SELECT key, value FROM keyValueStore")
             .reduce(into: [:]) { result, next in
                 guard
                     let key: String = next["key"] as? String,
@@ -55,7 +55,7 @@ enum _027_MoveSettingsToLibSession: Migration {
             for: .local,
             sessionId: userSessionId,
             to: try cache.loadState(
-                for: .userProfile,
+                for: .local,
                 sessionId: userSessionId,
                 userEd25519SecretKey: Array(userEd25519SecretKey),
                 groupEd25519SecretKey: nil,
@@ -139,7 +139,7 @@ enum _027_MoveSettingsToLibSession: Migration {
         
         /// Delete the old settings (since they should no longer be accessed via the database)
         try db.execute(sql: """
-            DELETE FROM setting
+            DELETE FROM keyValueStore
             WHERE key IN (\(keysToDrop.map { "'\($0)'" }.joined(separator: ", ")))
         """)
         

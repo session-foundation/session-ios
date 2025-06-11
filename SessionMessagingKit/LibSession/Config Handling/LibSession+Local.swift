@@ -145,14 +145,14 @@ public extension LibSession.Cache {
         switch key {
             case .checkForCommunityMessageRequests:
                 guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-                    return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
+                    return Log.critical(.libSession, "Failed to set \(key) because there is no Local config")
                 }
                 
                 user_profile_set_blinded_msgreqs(conf, valueAsInt)
                 
             default:
                 guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
-                    return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
+                    return Log.critical(.libSession, "Failed to set \(key) because there is no Local config")
                 }
                 
                 local_set_setting(conf, key.rawValue, valueAsInt)
@@ -164,7 +164,7 @@ public extension LibSession.Cache {
     
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
         guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
-            return Log.critical(.libSession, "Failed to set \(key) because there is no UserProfile config")
+            return Log.critical(.libSession, "Failed to set \(key) because there is no Local config")
         }
         
         let libSessionValue: T.LibSessionType = (value?.libSessionValue ?? T.defaultLibSessionValue)
