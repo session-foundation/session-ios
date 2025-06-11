@@ -7,13 +7,14 @@ class VersionFooterView: UIView {
     private static let footerHeight: CGFloat = 75
     private static let logoHeight: CGFloat = 24
     
-    private let multiTapCallback: (() -> Void)?
+    private let logoTapCallback: () -> Void
+    private let versionTapCallback: () -> Void
     
     // MARK: - UI
     
     private lazy var logoImageView: UIImageView = {
         let result: UIImageView = UIImageView(
-            image: UIImage(named: "oxen_logo")?
+            image: UIImage(named: "token_logo")?
                 .withRenderingMode(.alwaysTemplate)
         )
         result.setContentHuggingPriority(.required, for: .vertical)
@@ -21,9 +22,12 @@ class VersionFooterView: UIView {
         result.themeTintColor = .textSecondary
         result.contentMode = .scaleAspectFit
         result.set(.height, to: VersionFooterView.logoHeight)
+        result.isUserInteractionEnabled = true
         
         return result
     }()
+    
+    private lazy var versionLabelContainer: UIView = UIView()
     
     private lazy var versionLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -56,8 +60,13 @@ class VersionFooterView: UIView {
     
     // MARK: - Initialization
     
-    init(numTaps: Int = 0, multiTapCallback: (() -> Void)? = nil) {
-        self.multiTapCallback = multiTapCallback
+    init(
+        numVersionTapsRequired: Int = 0,
+        logoTapCallback: @escaping () -> Void,
+        versionTapCallback: @escaping () -> Void
+    ) {
+        self.logoTapCallback = logoTapCallback
+        self.versionTapCallback = versionTapCallback
         
         // Note: Need to explicitly set the height for a table footer view
         // or it will have no height
@@ -70,7 +79,7 @@ class VersionFooterView: UIView {
             )
         )
         
-        setupViewHierarchy(numTaps: numTaps)
+        setupViewHierarchy(numVersionTapsRequired: numVersionTapsRequired)
     }
     
     required init?(coder: NSCoder) {
@@ -79,27 +88,44 @@ class VersionFooterView: UIView {
     
     // MARK: - Content
     
-    private func setupViewHierarchy(numTaps: Int) {
+    private func setupViewHierarchy(numVersionTapsRequired: Int) {
         addSubview(logoImageView)
-        addSubview(versionLabel)
+        addSubview(versionLabelContainer)
+        versionLabelContainer.addSubview(versionLabel)
         
         logoImageView.pin(.top, to: .top, of: self, withInset: Values.mediumSpacing)
         logoImageView.center(.horizontal, in: self, withInset: -2)
-        versionLabel.pin(.top, to: .bottom, of: logoImageView, withInset: Values.mediumSpacing)
-        versionLabel.pin(.left, to: .left, of: self)
-        versionLabel.pin(.right, to: .right, of: self)
+        versionLabelContainer.pin(.top, to: .bottom, of: logoImageView)
+        versionLabelContainer.pin(.leading, to: .leading, of: self)
+        versionLabelContainer.pin(.trailing, to: .trailing, of: self)
+        versionLabelContainer.pin(.bottom, to: .bottom, of: self)
         
-        if numTaps > 0 {
+        versionLabel.pin(.top, to: .top, of: versionLabelContainer, withInset: Values.mediumSpacing)
+        versionLabel.pin(.leading, to: .leading, of: versionLabelContainer)
+        versionLabel.pin(.trailing, to: .trailing, of: versionLabelContainer)
+        versionLabel.pin(.bottom, to: .bottom, of: versionLabelContainer)
+        
+        let tapGestureRecognizer: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(onLogoTap)
+        )
+        logoImageView.addGestureRecognizer(tapGestureRecognizer)
+        
+        if numVersionTapsRequired > 0 {
             let tapGestureRecognizer: UITapGestureRecognizer = UITapGestureRecognizer(
                 target: self,
-                action: #selector(onMultiTap)
+                action: #selector(onVersionMultiTap)
             )
-            tapGestureRecognizer.numberOfTapsRequired = numTaps
-            addGestureRecognizer(tapGestureRecognizer)
+            tapGestureRecognizer.numberOfTapsRequired = numVersionTapsRequired
+            versionLabelContainer.addGestureRecognizer(tapGestureRecognizer)
         }
     }
     
-    @objc private func onMultiTap() {
-        self.multiTapCallback?()
+    @objc private func onLogoTap() {
+        self.logoTapCallback()
+    }
+    
+    @objc private func onVersionMultiTap() {
+        self.versionTapCallback()
     }
 }
