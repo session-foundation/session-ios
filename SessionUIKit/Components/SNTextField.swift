@@ -11,6 +11,19 @@ public final class SNTextField: UITextField {
     static let height: CGFloat = isIPhone5OrSmaller ? CGFloat(48) : CGFloat(80)
     public static let cornerRadius: CGFloat = 8
     
+    public override var placeholder: String? {
+        didSet {
+            themeAttributedPlaceholder = placeholder.map {
+                ThemedAttributedString(
+                    string: $0,
+                    attributes: [
+                        .themeForegroundColor: ThemeValue.textSecondary
+                    ]
+                )
+            }
+        }
+    }
+    
     @objc(initWithPlaceholder:usesDefaultHeight:)
     public convenience init(placeholder: String, usesDefaultHeight: Bool) {
         self.init(placeholder: placeholder, usesDefaultHeight: usesDefaultHeight, customHeight: nil, customHorizontalInset: nil, customVerticalInset: nil)
@@ -42,6 +55,14 @@ public final class SNTextField: UITextField {
         themeTextColor = .textPrimary
         themeTintColor = .primary
         themeBorderColor = .borderSeparator
+        themeAttributedPlaceholder = placeholder.map {
+            ThemedAttributedString(
+                string: $0,
+                attributes: [
+                    .themeForegroundColor: ThemeValue.textSecondary
+                ]
+            )
+        }
         layer.borderWidth = 1
         layer.cornerRadius = SNTextField.cornerRadius
         
@@ -50,17 +71,7 @@ public final class SNTextField: UITextField {
         }
         
         ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
-            switch theme.interfaceStyle {
-                case .light: self?.keyboardAppearance = .light
-                default: self?.keyboardAppearance = .dark
-            }
-            
-            if let textSecondary: UIColor = theme.color(for: .textSecondary), let placeholder: String = self?.placeholder {
-                self?.attributedPlaceholder = NSAttributedString(
-                    string: placeholder,
-                    attributes: [ .foregroundColor: textSecondary]
-                )
-            }
+            self?.keyboardAppearance = theme.keyboardAppearance
         }
     }
     

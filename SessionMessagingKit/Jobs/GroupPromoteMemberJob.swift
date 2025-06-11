@@ -150,7 +150,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
             )
     }
     
-    public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> NSAttributedString {
+    public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
         let memberZeroName: String = memberIds.first.map {
             profileInfo[$0]?.displayName(for: .group) ??
             Profile.truncated(id: $0, truncating: .middle)
