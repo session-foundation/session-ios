@@ -6,7 +6,6 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 final class SAEScreenLockViewController: ScreenLockViewController {
-    private let dependencies: Dependencies
     private var hasShownAuthUIOnce: Bool = false
     private var isShowingAuthUI: Bool = false
     

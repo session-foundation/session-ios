@@ -126,13 +126,6 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
         return builder
     }
     
-    internal func when<R>(_ callBlock: @escaping (inout T) async throws -> R) -> MockFunctionBuilder<T, R> {
-        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
-        functionConsumer.functionBuilders.append(builder.build)
-        
-        return builder
-    }
-    
     // MARK: - Convenience
     
     private func summaries(for argument: Any) -> [ParameterCombination] {
@@ -566,7 +559,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - Build
     
-    func build() async throws -> MockFunction {
+    func build() throws -> MockFunction {
         var completionMock = mockInit(self, nil) as! T
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         Task {
