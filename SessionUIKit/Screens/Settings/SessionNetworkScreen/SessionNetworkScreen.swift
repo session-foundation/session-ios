@@ -264,6 +264,7 @@ extension SessionNetworkScreen {
                             .foregroundColor(themeColor: .textPrimary)
                             .lineLimit(1)
                             .fixedSize()
+                            .minimumScaleFactor(0.5)
                             
                             AdaptiveText(
                                 textOptions: [
@@ -276,11 +277,13 @@ extension SessionNetworkScreen {
                             .font(.Headings.H5, uiKit: Fonts.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .loadingStyle(.text("loading".localized()))
+                            .minimumScaleFactor(0.5)
                             
                             Text(Constants.token_name_long)
                                 .font(.Body.custom(Values.smallFontSize))
                                 .foregroundColor(themeColor: .textSecondary)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.5)
                         }
                         .padding(.horizontal, Values.mediumSmallSpacing)
                         .padding(.vertical, Values.mediumSpacing)
@@ -318,6 +321,7 @@ extension SessionNetworkScreen {
                                 width: 116,
                                 alignment: .leading
                             )
+                            .minimumScaleFactor(0.5)
                             
                             ZStack {
                                 if isRefreshing || !lastRefreshWasSuccessful {
@@ -327,6 +331,7 @@ extension SessionNetworkScreen {
                                         .font(.Headings.H3)
                                         .foregroundColor(themeColor: .sessionButton_text)
                                         .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
                                 }
                             }
                             .frame(
@@ -352,6 +357,7 @@ extension SessionNetworkScreen {
                                 width: 116,
                                 alignment: .leading
                             )
+                            .minimumScaleFactor(0.5)
                             
                             AdaptiveText(
                                 textOptions: [
@@ -368,6 +374,7 @@ extension SessionNetworkScreen {
                                 maxWidth: .infinity,
                                 alignment: .trailing
                             )
+                            .minimumScaleFactor(0.5)
                         }
                         .accessibility(
                             Accessibility(identifier: "Nodes securing amount")
@@ -387,12 +394,13 @@ extension SessionNetworkScreen {
                             .foregroundColor(themeColor: .textPrimary)
                             .lineLimit(1)
                             .fixedSize()
+                            .minimumScaleFactor(0.5)
                         
                         Text(isRefreshing ? "loading".localized() : dataModel.networkStakedTokensString)
                             .font(.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .lineLimit(1)
-                            .fixedSize()
+                            .minimumScaleFactor(0.5)
                         
                         AdaptiveText(
                             textOptions: [
@@ -407,6 +415,8 @@ extension SessionNetworkScreen {
                         )
                         .foregroundColor(themeColor: .textSecondary)
                         .loadingStyle(.text(SessionNetworkScreenContent.DataModel.defaultPriceString))
+                        .fixedSize()
+                        .minimumScaleFactor(0.5)
                     }
                     .padding(.horizontal, Values.mediumSmallSpacing)
                     .padding(.vertical, Values.mediumSpacing)
