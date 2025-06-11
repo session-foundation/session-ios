@@ -110,12 +110,13 @@ public extension ConfigDump.Variant {
             case .contacts: return SnodeAPI.Namespace.configContacts
             case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
             case .userGroups: return SnodeAPI.Namespace.configUserGroups
+            case .local: return SnodeAPI.Namespace.configLocal
             
             case .groupInfo: return SnodeAPI.Namespace.configGroupInfo
             case .groupMembers: return SnodeAPI.Namespace.configGroupMembers
             case .groupKeys: return SnodeAPI.Namespace.configGroupKeys
                 
-            case .invalid, .local: return SnodeAPI.Namespace.unknown
+            case .invalid: return SnodeAPI.Namespace.unknown
         }
     }
     

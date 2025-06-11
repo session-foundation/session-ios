@@ -9,6 +9,7 @@ DERIVED_DATA_PATH=$(echo "${BUILD_DIR}" | sed -E 's#^(.*[dD]erived[Dd]ata)(/[sS]
 PRE_BUILT_FRAMEWORK_DIR="${DERIVED_DATA_PATH}/SourcePackages/artifacts/libsession-util-spm/SessionUtil"
 FRAMEWORK_DIR="libsession-util.xcframework"
 COMPILE_DIR="${TARGET_BUILD_DIR}/LibSessionUtil"
+INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NAME}"
 LAST_SUCCESSFUL_HASH_FILE="${COMPILE_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${COMPILE_DIR}/last_built_framework_slice_dir.log"
 BUILT_LIB_FINAL_TIMESTAMP_FILE="${COMPILE_DIR}/libsession_util_built.timestamp"
@@ -34,6 +35,10 @@ else
 fi
 
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
+  echo "Restoring original headers to Xcode Indexer cache from backup..."
+  rm -rf "${INDEX_DIR}/include"
+  rsync -rt --exclude='.DS_Store' "${PRE_BUILT_FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/" "${INDEX_DIR}/include"
+
   echo "Using pre-packaged SessionUtil"
   exit 0
 fi
@@ -173,6 +178,24 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
     submodule_check=OFF
     build_type="Debug"
   fi
+  
+  # Remove old header files
+  rm -rf "${COMPILE_DIR}/Headers"
+  
+  # Copy the headers across first (if the build fails we still want these so we get less issues
+  # with Xcode's autocomplete)
+  mkdir -p "${COMPILE_DIR}/Headers"
+  cp -r "${LIB_SESSION_SOURCE_DIR}/include/session" "${COMPILE_DIR}/Headers"
+
+  echo "- Generating modulemap for SPM artifact slice"
+  modmap_path="${COMPILE_DIR}/Headers/module.modulemap"
+  echo "module SessionUtil {" >"$modmap_path"
+  echo "  module capi {" >>"$modmap_path"
+  for x in $(cd "${COMPILE_DIR}/Headers" && find session -name '*.h'); do
+  echo "    header \"$x\"" >>"$modmap_path"
+  done
+  echo -e "    export *\n  }" >>"$modmap_path"
+  echo "}" >>"$modmap_path"
 
   # Build the individual architectures
   for i in "${!TARGET_ARCHS[@]}"; do
@@ -250,17 +273,18 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
       # Remove the current files (might be "newer")
       rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
       rm -rf "${TARGET_BUILD_DIR}/include"
+      rm -rf "${INDEX_DIR}/include"
 
       # Rsync the compiled ones (maintaining timestamps)
       rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
       rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${TARGET_BUILD_DIR}/include"
+      rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${INDEX_DIR}/include"
       exit 1
     fi
   done
 
   # Remove the old static library file
   rm -rf "${COMPILE_DIR}/libsession-util.a"
-  rm -rf "${COMPILE_DIR}/Headers"
 
   # If needed combine simulator builds into a multi-arch lib
   if [ "${#TARGET_SIM_ARCHS[@]}" -eq "1" ]; then
@@ -281,20 +305,6 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
     lipo -create "${COMPILE_DIR}"/ios-*/libsession-util.a -output "${COMPILE_DIR}/libsession-util.a"
   fi
   
-  # Copy the headers across
-  mkdir -p "${COMPILE_DIR}/Headers"
-  cp -r "${LIB_SESSION_SOURCE_DIR}/include/session" "${COMPILE_DIR}/Headers"
-
-  echo "- Generating modulemap for SPM artifact slice"
-  modmap_path="${COMPILE_DIR}/Headers/module.modulemap"
-  echo "module SessionUtil {" >"$modmap_path"
-  echo "  module capi {" >>"$modmap_path"
-  for x in $(cd "${COMPILE_DIR}/Headers" && find session -name '*.h'); do
-  echo "    header \"$x\"" >>"$modmap_path"
-  done
-  echo -e "    export *\n  }" >>"$modmap_path"
-  echo "}" >>"$modmap_path"
-  
   echo "- Saving successful build cache files"
   echo "${TARGET_ARCH_DIR}" > "${LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE}"
   echo "${CURRENT_SOURCE_TREE_HASH}" > "${LAST_SUCCESSFUL_HASH_FILE}"
@@ -311,10 +321,12 @@ echo "- Replacing build dir files"
 # Remove the current files (might be "newer")
 rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
 rm -rf "${TARGET_BUILD_DIR}/include"
+rm -rf "${INDEX_DIR}/include"
 
 # Rsync the compiled ones (maintaining timestamps)
 rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
 rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${TARGET_BUILD_DIR}/include"
+rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${INDEX_DIR}/include"
 
 # Output to XCode just so the output is good
 echo "LibSession is Ready"

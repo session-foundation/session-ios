@@ -167,7 +167,7 @@ public enum MessageReceiver {
                         throw MessageReceiverError.invalidConfigMessageHandling
                     
                     case .legacyClosedGroup: throw MessageReceiverError.deprecatedMessage
-                    case .all, .unknown:
+                    case .configLocal, .all, .unknown:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
                         throw MessageReceiverError.unknownMessage(nil)
                 }
