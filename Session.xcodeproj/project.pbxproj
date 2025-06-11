@@ -464,7 +464,6 @@
 		FD17D7C327F5204C00122BE0 /* Database+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C227F5204C00122BE0 /* Database+Utilities.swift */; };
 		FD17D7C727F5207C00122BE0 /* DatabaseMigrator+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C627F5207C00122BE0 /* DatabaseMigrator+Utilities.swift */; };
 		FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C927F546D900122BE0 /* _001_InitialSetupMigration.swift */; };
-		FD17D7CD27F546FF00122BE0 /* SettingOld.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7CC27F546FF00122BE0 /* SettingOld.swift */; };
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
 		FD17D7E727F6A16700122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */; };
 		FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */; };
@@ -841,9 +840,9 @@
 		FD8A5B222DC0489C004C689B /* AdaptiveHStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B212DC0489B004C689B /* AdaptiveHStack.swift */; };
 		FD8A5B252DC05B16004C689B /* Number+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B242DC05B16004C689B /* Number+Utilities.swift */; };
 		FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B282DC060DD004C689B /* Double+Utilities.swift */; };
-		FD8A5B342DC1A732004C689B /* _008_ResetUserConfigLastHashes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */; };
 		FD8A5B302DC18D61004C689B /* GeneralCacheSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */; };
 		FD8A5B322DC191B4004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */; };
+		FD8A5B342DC1A732004C689B /* _008_ResetUserConfigLastHashes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */; };
 		FD8ECF7B29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
@@ -886,9 +885,9 @@
 		FDB11A582DD17D0600BEF49F /* MockLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A552DD17C3000BEF49F /* MockLogger.swift */; };
 		FDB11A592DD17D0600BEF49F /* MockLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A552DD17C3000BEF49F /* MockLogger.swift */; };
 		FDB11A5B2DD1901000BEF49F /* CurrentValueAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A5A2DD1900B00BEF49F /* CurrentValueAsyncStream.swift */; };
-		FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A602DD5BDC900BEF49F /* ImageDataManager.swift */; };
 		FDB11A5D2DD300D300BEF49F /* SNProtoContent+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A5C2DD300CF00BEF49F /* SNProtoContent+Utilities.swift */; };
 		FDB11A5F2DD5B77800BEF49F /* Message+Origin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A5E2DD5B77800BEF49F /* Message+Origin.swift */; };
+		FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A602DD5BDC900BEF49F /* ImageDataManager.swift */; };
 		FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB348622BE3774000B716C2 /* BezierPathView.swift */; };
 		FDB3486E2BE8457F00B716C2 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */; };
 		FDB3487E2BE856C800B716C2 /* UIBezierPath+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3487D2BE856C800B716C2 /* UIBezierPath+Utilities.swift */; };
@@ -1794,7 +1793,6 @@
 		FD17D7C227F5204C00122BE0 /* Database+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Database+Utilities.swift"; sourceTree = "<group>"; };
 		FD17D7C627F5207C00122BE0 /* DatabaseMigrator+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseMigrator+Utilities.swift"; sourceTree = "<group>"; };
 		FD17D7C927F546D900122BE0 /* _001_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_InitialSetupMigration.swift; sourceTree = "<group>"; };
-		FD17D7CC27F546FF00122BE0 /* SettingOld.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingOld.swift; sourceTree = "<group>"; };
 		FD17D7E427F6A09900122BE0 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
 		FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResponseInfo+SnodeAPI.swift"; sourceTree = "<group>"; };
@@ -2078,9 +2076,9 @@
 		FD8A5B212DC0489B004C689B /* AdaptiveHStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveHStack.swift; sourceTree = "<group>"; };
 		FD8A5B242DC05B16004C689B /* Number+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Number+Utilities.swift"; sourceTree = "<group>"; };
 		FD8A5B282DC060DD004C689B /* Double+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Double+Utilities.swift"; sourceTree = "<group>"; };
-		FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _008_ResetUserConfigLastHashes.swift; sourceTree = "<group>"; };
 		FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralCacheSpec.swift; sourceTree = "<group>"; };
 		FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _025_DropLegacyClosedGroupKeyPairTable.swift; sourceTree = "<group>"; };
+		FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _008_ResetUserConfigLastHashes.swift; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_SessionUtilChanges.swift; sourceTree = "<group>"; };
 		FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigDump.swift; sourceTree = "<group>"; };
@@ -2114,10 +2112,10 @@
 		FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Task+Utilities.swift"; sourceTree = "<group>"; };
 		FDB11A552DD17C3000BEF49F /* MockLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLogger.swift; sourceTree = "<group>"; };
 		FDB11A5A2DD1900B00BEF49F /* CurrentValueAsyncStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentValueAsyncStream.swift; sourceTree = "<group>"; };
-		FDB11A602DD5BDC900BEF49F /* ImageDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDataManager.swift; sourceTree = "<group>"; };
-		FDB11A622DD5BDDD00BEF49F /* ImageDataManager+Singleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageDataManager+Singleton.swift"; sourceTree = "<group>"; };
 		FDB11A5C2DD300CF00BEF49F /* SNProtoContent+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SNProtoContent+Utilities.swift"; sourceTree = "<group>"; };
 		FDB11A5E2DD5B77800BEF49F /* Message+Origin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+Origin.swift"; sourceTree = "<group>"; };
+		FDB11A602DD5BDC900BEF49F /* ImageDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDataManager.swift; sourceTree = "<group>"; };
+		FDB11A622DD5BDDD00BEF49F /* ImageDataManager+Singleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageDataManager+Singleton.swift"; sourceTree = "<group>"; };
 		FDB348622BE3774000B716C2 /* BezierPathView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		FDB3486C2BE8448500B716C2 /* SessionUtilitiesKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionUtilitiesKit.h; sourceTree = "<group>"; };
 		FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
@@ -3997,7 +3995,6 @@
 				FD17D7E427F6A09900122BE0 /* Identity.swift */,
 				FDF0B73F280402C4004C14C5 /* Job.swift */,
 				FDE754D12C9BAF53002A2623 /* JobDependencies.swift */,
-				FD17D7CC27F546FF00122BE0 /* SettingOld.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -6211,7 +6208,6 @@
 				FD29598D2A43BC0B00888A17 /* Version.swift in Sources */,
 				FD71160028C8253500B47552 /* UIView+Combine.swift in Sources */,
 				B8856D23256F116B001CE70E /* Weak.swift in Sources */,
-				FD17D7CD27F546FF00122BE0 /* SettingOld.swift in Sources */,
 				FDE754D42C9BAF6B002A2623 /* UICollectionView+ReusableView.swift in Sources */,
 				FDE754C02C9BAEF6002A2623 /* Array+Utilities.swift in Sources */,
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,

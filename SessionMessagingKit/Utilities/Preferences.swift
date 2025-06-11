@@ -80,27 +80,27 @@ public extension Setting.BoolKey {
 }
 
 // stringlint:ignore_contents
-public extension SettingOld.StringKey {
+public extension KeyValueStore.StringKey {
     /// This is the most recently recorded Push Notifications token
-    static let lastRecordedPushToken: SettingOld.StringKey = "lastRecordedPushToken"
+    static let lastRecordedPushToken: KeyValueStore.StringKey = "lastRecordedPushToken"
     
     /// This is the most recently recorded Voip token
-    static let lastRecordedVoipToken: SettingOld.StringKey = "lastRecordedVoipToken"
+    static let lastRecordedVoipToken: KeyValueStore.StringKey = "lastRecordedVoipToken"
     
     /// This is the last six emoji used by the user
-    static let recentReactionEmoji: SettingOld.StringKey = "recentReactionEmoji"
+    static let recentReactionEmoji: KeyValueStore.StringKey = "recentReactionEmoji"
     
     /// This is the preferred skin tones preference for the given emoji
-    static func emojiPreferredSkinTones(emoji: String) -> SettingOld.StringKey {
-        return SettingOld.StringKey("preferredSkinTones-\(emoji)")
+    static func emojiPreferredSkinTones(emoji: String) -> KeyValueStore.StringKey {
+        return KeyValueStore.StringKey("preferredSkinTones-\(emoji)")
     }
 }
 
 // stringlint:ignore_contents
-public extension SettingOld.IntKey {
+public extension KeyValueStore.IntKey {
     /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
     /// a database change on launch so the database will output an error if it fails to write
-    static let activeCounter: SettingOld.IntKey = "activeCounter"
+    static let activeCounter: KeyValueStore.IntKey = "activeCounter"
 }
 
 public enum Preferences {

@@ -10,7 +10,7 @@ enum _001_InitialSetupMigration: Migration {
     static let identifier: String = "initialSetup"
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = [
-        Identity.self, Job.self, JobDependencies.self, SettingOld.self
+        Identity.self, Job.self, JobDependencies.self
     ]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {

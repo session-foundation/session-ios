@@ -165,7 +165,7 @@ public extension Storage {
 public extension Database {
     @discardableResult func unsafeSet<T: Numeric>(key: String, value: T?) -> KeyValueStore? {
         guard let value: T = value else {
-            _ = try? Setting.filter(id: key).deleteAll(self)
+            _ = try? KeyValueStore.filter(id: key).deleteAll(self)
             return nil
         }
         

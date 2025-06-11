@@ -52,14 +52,14 @@ enum _027_MoveSettingsToLibSession: Migration {
         let userSessionId: SessionId = MigrationHelper.userSessionId(db)
         let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
         cache.setConfig(
-            for: .userProfile,
+            for: .local,
             sessionId: userSessionId,
             to: try cache.loadState(
                 for: .userProfile,
                 sessionId: userSessionId,
                 userEd25519SecretKey: Array(userEd25519SecretKey),
                 groupEd25519SecretKey: nil,
-                cachedData: MigrationHelper.configDump(db, for: ConfigDump.Variant.userProfile.rawValue)
+                cachedData: MigrationHelper.configDump(db, for: ConfigDump.Variant.local.rawValue)
             )
         )
         
