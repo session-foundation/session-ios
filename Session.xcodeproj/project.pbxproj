@@ -410,6 +410,7 @@
 		FD02CC122C367762009AB976 /* Request+PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */; };
 		FD02CC142C3677E6009AB976 /* Request+OpenGroupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC132C3677E6009AB976 /* Request+OpenGroupAPI.swift */; };
 		FD02CC162C3681EF009AB976 /* RevokeSubaccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC152C3681EF009AB976 /* RevokeSubaccountResponse.swift */; };
+		FD05593D2DFA3A2800DC48CE /* VoipPayloadKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */; };
 		FD0606C32BCE13ED00C3816E /* MessageRequestFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */; };
 		FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2909D27D85751005DAE71 /* OpenGroupManagerSpec.swift */; };
 		FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0969F82A69FFE700C5C365 /* Mocked.swift */; };
@@ -1744,6 +1745,7 @@
 		FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+PushNotificationAPI.swift"; sourceTree = "<group>"; };
 		FD02CC132C3677E6009AB976 /* Request+OpenGroupAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+OpenGroupAPI.swift"; sourceTree = "<group>"; };
 		FD02CC152C3681EF009AB976 /* RevokeSubaccountResponse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RevokeSubaccountResponse.swift; sourceTree = "<group>"; };
+		FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoipPayloadKey.swift; sourceTree = "<group>"; };
 		FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRequestFooterView.swift; sourceTree = "<group>"; };
 		FD0969F82A69FFE700C5C365 /* Mocked.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocked.swift; sourceTree = "<group>"; };
 		FD09796A27F6C67500936362 /* Failable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Failable.swift; sourceTree = "<group>"; };
@@ -4603,6 +4605,7 @@
 		FDC13D4E2A16EE41007267C7 /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */,
 				FD981BD62DC9A61600564172 /* NotificationCategory.swift */,
 				FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */,
 				FD981BD82DC9A69000564172 /* NotificationUserInfoKey.swift */,
@@ -6283,6 +6286,7 @@
 				FD09798927FD1C5A00936362 /* OpenGroup.swift in Sources */,
 				FD2272FC2C352D8E004D8A6C /* LibSession+Contacts.swift in Sources */,
 				FD848B9628422A2A000E298B /* MessageViewModel.swift in Sources */,
+				FD05593D2DFA3A2800DC48CE /* VoipPayloadKey.swift in Sources */,
 				FD2272782C32911C004D8A6C /* AttachmentDownloadJob.swift in Sources */,
 				FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */,
 				FD428B232B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift in Sources */,

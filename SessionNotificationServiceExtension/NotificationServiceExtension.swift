@@ -656,8 +656,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             let sender: String = callMessage.sender,
                             let sentTimestampMs: UInt64 = callMessage.sentTimestampMs,
                             threadVariant == .contact,
-                            !dependencies.mutate(cache: .libSession, { cache in
-                                cache.isMessageRequest(
+                            dependencies.mutate(cache: .libSession, { cache in
+                                !cache.isMessageRequest(
                                     threadId: threadId,
                                     threadVariant: threadVariant
                                 )
@@ -784,8 +784,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         currentUserSessionIds: currentUserSessionIds
                     )?.canBeUnread == true &&
                     /// Ensure the message hasn't been read on another device
-                    !dependencies.mutate(cache: .libSession, { cache in
-                        cache.timestampAlreadyRead(
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.timestampAlreadyRead(
                             threadId: threadId,
                             threadVariant: threadVariant,
                             timestampMs: (messageInfo.message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
@@ -979,15 +979,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             )
         }
         
-        // stringlint:ignore_start
         let payload: [String: Any] = [
-            "uuid": callMessage.uuid,
-            "caller": sender,
-            "timestamp": sentTimestampMs,
-            "contactName": displayNameRetriever(sender)
+            VoipPayloadKey.uuid.rawValue: callMessage.uuid,
+            VoipPayloadKey.caller.rawValue: sender,
+            VoipPayloadKey.timestamp.rawValue: sentTimestampMs,
+            VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender)
                 .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
         ]
-        // stringlint:ignore_stop
         
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self, dependencies] error in
             if let error = error {

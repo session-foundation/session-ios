@@ -272,18 +272,15 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         let payload = payload.dictionaryPayload
         
         guard
-            let uuid: String = payload["uuid"] as? String,
-            let caller: String = payload["caller"] as? String,
-            let timestampMs: UInt64 = payload["timestamp"] as? UInt64,
-            let contactName: String = payload["contactName"] as? String,
+            let uuid: String = payload[VoipPayloadKey.uuid.rawValue] as? String,
+            let caller: String = payload[VoipPayloadKey.caller.rawValue] as? String,
+            let timestampMs: UInt64 = payload[VoipPayloadKey.timestamp.rawValue] as? UInt64,
+            let contactName: String = payload[VoipPayloadKey.contactName.rawValue] as? String,
             TimestampUtils.isWithinOneMinute(timestampMs: timestampMs)
         else {
             dependencies[singleton: .callManager].reportFakeCall(info: "Missing payload data") // stringlint:ignore
             return
         }
-        
-        dependencies[singleton: .storage].resumeDatabaseAccess()
-        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
         let call: SessionCall = SessionCall(
             for: caller,
@@ -295,18 +292,22 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         
         Log.info(.calls, "Calls created with UUID: \(uuid), caller: \(caller), contactName: \(contactName)")
         
-        dependencies[singleton: .jobRunner].appDidBecomeActive()
-        
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-            // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-            dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
-        }
-        
-        call.reportIncomingCallIfNeeded { error in
+        call.reportIncomingCallIfNeeded { [dependencies] error in
             if let error = error {
                 Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
-            } else {
-                Log.info(.calls, "Succeeded to report incoming call to CallKit")
+                return
+            }
+            
+            Log.info(.calls, "Succeeded to report incoming call to CallKit")
+            
+            dependencies[singleton: .storage].resumeDatabaseAccess()
+            dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
+            
+            dependencies[singleton: .jobRunner].appDidBecomeActive()
+            
+            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
+                // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
+                dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
             }
         }
     }
