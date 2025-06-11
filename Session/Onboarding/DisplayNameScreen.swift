@@ -20,7 +20,7 @@ struct DisplayNameScreen: View {
     
     var body: some View {
         ZStack(alignment: .center) {
-            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .leading,

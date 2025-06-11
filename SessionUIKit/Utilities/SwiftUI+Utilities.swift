@@ -177,14 +177,20 @@ extension View {
         }
     }
     
+    @ViewBuilder
     public func accessibility(_ accessibility: Accessibility) -> some View {
         if #available(iOSApplicationExtension 14.0, *) {
-            guard let identifier = accessibility.identifier else {
-                return self
+            switch (accessibility.identifier, accessibility.label) {
+                case (.none, _): self
+                case (.some(let identifier), .none):
+                    accessibilityIdentifier(identifier)
+                    
+                case (.some(let identifier), .some(let label)):
+                    accessibilityIdentifier(identifier).accessibilityLabel(label)
             }
-            return accessibilityIdentifier(identifier).accessibilityLabel(accessibility.label ?? "")
-        } else {
-            return self
+        }
+        else {
+            self
         }
     }
     

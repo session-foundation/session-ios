@@ -135,8 +135,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                             .multilineTextAlignment(.center)
                             .accessibility(
                                 Accessibility(
-                                    identifier: "Error message",
-                                    label: error
+                                    identifier: "Error message"
                                 )
                             )
                     }

@@ -500,10 +500,8 @@ struct MessageBubble: View {
                         }
                     }
                     
-                    if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
+                    if let bodyText: ThemedAttributedString = VisibleMessageCell.getBodyAttributedText(
                         for: messageViewModel,
-                        theme: ThemeManager.currentTheme,
-                        primaryColor: ThemeManager.primaryColor,
                         textColor: bodyLabelTextColor,
                         searchText: nil,
                         using: dependencies

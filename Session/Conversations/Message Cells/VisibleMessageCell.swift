@@ -1162,37 +1162,27 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     // stringlint:ignore_contents
     static func getBodyAttributedText(
         for cellViewModel: MessageViewModel,
-        theme: Theme,
-        primaryColor: Theme.PrimaryColor,
         textColor: ThemeValue,
         searchText: String?,
         using dependencies: Dependencies
-    ) -> NSMutableAttributedString? {
+    ) -> ThemedAttributedString? {
         guard
             let body: String = cellViewModel.body,
-            !body.isEmpty,
-            let actualTextColor: UIColor = theme.color(for: textColor),
-            let backgroundPrimaryColor: UIColor = theme.color(for: .backgroundPrimary),
-            let textPrimaryColor: UIColor = theme.color(for: .textPrimary)
+            !body.isEmpty
         else { return nil }
         
         let isOutgoing: Bool = (cellViewModel.variant == .standardOutgoing)
-        
-        let attributedText: NSMutableAttributedString = NSMutableAttributedString(
-            attributedString: MentionUtilities.highlightMentions(
-                in: body,
-                threadVariant: cellViewModel.threadVariant,
-                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                location: (isOutgoing ? .outgoingMessage : .incomingMessage),
-                textColor: actualTextColor,
-                theme: theme,
-                primaryColor: primaryColor,
-                attributes: [
-                    .foregroundColor: actualTextColor,
-                    .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
-                ],
-                using: dependencies
-            )
+        let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
+            in: body,
+            threadVariant: cellViewModel.threadVariant,
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+            location: (isOutgoing ? .outgoingMessage : .incomingMessage),
+            textColor: textColor,
+            attributes: [
+                .themeForegroundColor: textColor,
+                .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
+            ],
+            using: dependencies
         )
         
         // Custom handle links
@@ -1240,8 +1230,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             attributedText.addAttributes(
                 [
                     .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel)),
-                    .foregroundColor: actualTextColor,
-                    .underlineColor: actualTextColor,
+                    .themeForegroundColor: textColor,
+                    .themeUnderlineColor: textColor,
                     .underlineStyle: NSUnderlineStyle.single.rawValue,
                     .attachment: linkUrl
                 ],
@@ -1287,8 +1277,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             }()
                             
                             let legacyRange: NSRange = NSRange(targetRange, in: normalizedBody)
-                            attributedText.addThemeAttribute(.background(backgroundPrimaryColor), range: legacyRange)
-                            attributedText.addThemeAttribute(.foreground(textPrimaryColor), range: legacyRange)
+                            attributedText.addAttribute(.themeBackgroundColor, value: ThemeValue.backgroundPrimary, range: legacyRange)
+                            attributedText.addAttribute(.themeForegroundColor, value: ThemeValue.textPrimary, range: legacyRange)
                         }
                 }
         }
@@ -1306,29 +1296,20 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     ) -> TappableLabel {
         let result: TappableLabel = TappableLabel()
         result.setContentCompressionResistancePriority(.required, for: .vertical)
+        result.themeAttributedText = VisibleMessageCell.getBodyAttributedText(
+            for: cellViewModel,
+            textColor: textColor,
+            searchText: searchText,
+            using: dependencies
+        )
         result.themeBackgroundColor = .clear
         result.isOpaque = false
         result.isUserInteractionEnabled = true
         result.delegate = delegate
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, primaryColor in
-            let hasPreviousSetText: Bool = ((result?.attributedText?.length ?? 0) > 0)
-            
-            result?.attributedText = VisibleMessageCell.getBodyAttributedText(
-                for: cellViewModel,
-                theme: theme,
-                primaryColor: primaryColor,
-                textColor: textColor,
-                searchText: searchText,
-                using: dependencies
-            )
-            
-            if let result: TappableLabel = result, !hasPreviousSetText {
-                let availableSpace = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
-                let size = result.sizeThatFits(availableSpace)
-                result.set(.height, to: size.height)
-            }
-        }
+        let availableSpace: CGSize = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
+        let size: CGSize = result.sizeThatFits(availableSpace)
+        result.set(.height, to: size.height)
         
         return result
     }

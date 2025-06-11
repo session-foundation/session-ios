@@ -157,7 +157,7 @@ struct QuoteView_SwiftUI: View {
                         .foregroundColor(themeColor: targetThemeColor)
                 }
                 
-                if let quotedText = self.quotedText, let textColor = ThemeManager.currentTheme.color(for: targetThemeColor) {
+                if let quotedText = self.quotedText {
                     AttributedText(
                         MentionUtilities.highlightMentions(
                             in: quotedText,
@@ -170,11 +170,9 @@ struct QuoteView_SwiftUI: View {
                                     case (_, .incoming): return .incomingQuote
                                 }
                             }(),
-                            textColor: textColor,
-                            theme: ThemeManager.currentTheme,
-                            primaryColor: ThemeManager.primaryColor,
+                            textColor: targetThemeColor,
                             attributes: [
-                                .foregroundColor: textColor,
+                                .themeForegroundColor: targetThemeColor,
                                 .font: UIFont.systemFont(ofSize: Values.smallFontSize)
                             ],
                             using: dependencies
@@ -216,7 +214,7 @@ struct QuoteView_SwiftUI: View {
 struct QuoteView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
             VStack(spacing: 20) {
                 QuoteView_SwiftUI(
                     info: QuoteView_SwiftUI.Info(

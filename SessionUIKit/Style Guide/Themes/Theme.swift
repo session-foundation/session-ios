@@ -45,7 +45,14 @@ public enum Theme: Int, CaseIterable, Codable {
         }
     }
     
-    private var colors: [ThemeValue: UIColor] {
+    public var blurStyle: UIBlurEffect.Style {
+        switch self {
+            case .classicDark, .oceanDark: return .dark
+            case .classicLight, .oceanLight: return .light
+        }
+    }
+    
+    fileprivate var colors: [ThemeValue: UIColor] {
         switch self {
             case .classicDark: return Theme_ClassicDark.theme
             case .classicLight: return Theme_ClassicLight.theme
@@ -54,22 +61,7 @@ public enum Theme: Int, CaseIterable, Codable {
         }
     }
     
-    public func color(for value: ThemeValue) -> UIColor? {
-        switch value {
-            case .value(let value, let alpha): return color(for: value)?.withAlphaComponent(alpha)
-            case .explicitPrimary(let primaryColor): return primaryColor.color
-            
-            case .highlighted(let value, let alwaysDarken):
-                switch (self.interfaceStyle, alwaysDarken) {
-                    case (.light, _), (_, true): return color(for: value)?.brighten(by: -0.06)
-                    default: return color(for: value)?.brighten(by: 0.08)
-                }
-            
-            default: return colors[value]
-        }
-    }
-    
-    private var colorsSwiftUI: [ThemeValue: Color] {
+    fileprivate var colorsSwiftUI: [ThemeValue: Color] {
         switch self {
             case .classicDark: return Theme_ClassicDark.themeSwiftUI
             case .classicLight: return Theme_ClassicLight.themeSwiftUI
@@ -78,18 +70,18 @@ public enum Theme: Int, CaseIterable, Codable {
         }
     }
     
-    public func colorSwiftUI(for themeValue: ThemeValue) -> Color? {
-        switch themeValue {
-            case .value(let value, let alpha): return colorSwiftUI(for: value)?.opacity(alpha)
-            case .explicitPrimary(let primaryColor): return primaryColor.colorSwiftUI
-            
-            case .highlighted(let value, let alwaysDarken):
-                switch (self.interfaceStyle, alwaysDarken) {
-                case (.light, _), (_, true): return (colorSwiftUI(for: value)?.grayscale(0.06) as? Color)
-                    default: return (colorSwiftUI(for: value)?.brightness(0.08) as? Color)
-                }
-            
-            default: return colorsSwiftUI[themeValue]
+    public func color(for value: ThemeValue) -> UIColor? { return colors[value] }
+    public func color(for value: ThemeValue) -> Color? { return colorsSwiftUI[value] }
+}
+
+// MARK: - ColorType Convenience
+
+internal extension ColorType {
+    static func resolve(_ value: ThemeValue, for theme: Theme) -> Self? {
+        switch Self.self {
+            case is UIColor.Type: return theme.colors[value] as? Self
+            case is Color.Type: return theme.colorsSwiftUI[value] as? Self
+            default: return nil
         }
     }
 }
@@ -112,6 +104,8 @@ public protocol ThemedNavigation {
 public indirect enum ThemeValue: Hashable, Equatable {
     case value(ThemeValue, alpha: CGFloat)
     case explicitPrimary(Theme.PrimaryColor)
+    case dynamicForInterfaceStyle(light: ThemeValue, dark: ThemeValue)
+    case dynamicForPrimary(Theme.PrimaryColor, use: ThemeValue, otherwise: ThemeValue)
     
     // The 'highlighted' state of a color will automatically lighten/darken a ThemeValue
     // by a fixed amount depending on wither the theme is dark/light mode
@@ -246,35 +240,9 @@ public indirect enum ThemeValue: Hashable, Equatable {
 
 public enum ForcedThemeValue {
     case color(UIColor)
-    case primary(Theme.PrimaryColor, alpha: CGFloat?)
     case theme(Theme, color: ThemeValue, alpha: CGFloat?)
-    
-    public static func primary(_ primary: Theme.PrimaryColor) -> ForcedThemeValue {
-        return .primary(primary, alpha: nil)
-    }
     
     public static func theme(_ theme: Theme, color: ThemeValue) -> ForcedThemeValue {
         return .theme(theme, color: color, alpha: nil)
-    }
-}
-
-// MARK: - ForcedThemeAttribute
-
-public enum ForcedThemeAttribute {
-    case background(UIColor)
-    case foreground(UIColor)
-    
-    public var key: NSAttributedString.Key {
-        switch self {
-            case .background: return NSAttributedString.Key.backgroundColor
-            case .foreground: return NSAttributedString.Key.foregroundColor
-        }
-    }
-    
-    public var value: Any {
-        switch self {
-            case .background(let value): return value
-            case .foreground(let value): return value
-        }
     }
 }
