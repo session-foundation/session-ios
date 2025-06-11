@@ -10,23 +10,31 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+    struct ThreadNotificationSettings: Equatable {
+        let threadOnlyNotifyForMentions: Bool?
+        let threadMutedUntilTimestamp: TimeInterval?
+    }
+    
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
-    private let threadViewModel: SessionThreadViewModel
-    private var threadViewModelSubject: CurrentValueSubject<SessionThreadViewModel, Never>
+    private let threadId: String
+    private let threadNotificationSettings: ThreadNotificationSettings
+    private var threadNotificationSettingsSubject: CurrentValueSubject<ThreadNotificationSettings, Never>
     
     // MARK: - Initialization
     
     init(
-        threadViewModel: SessionThreadViewModel,
+        threadId: String,
+        threadNotificationSettings: ThreadNotificationSettings,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
-        self.threadViewModel = threadViewModel
-        self.threadViewModelSubject = CurrentValueSubject(threadViewModel)
+        self.threadId = threadId
+        self.threadNotificationSettings = threadNotificationSettings
+        self.threadNotificationSettingsSubject = CurrentValueSubject(threadNotificationSettings)
     }
     
     // MARK: - Config
@@ -45,13 +53,10 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     
     let title: String = "sessionNotifications".localized()
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = threadViewModelSubject
-        .map { [threadViewModel] updatedThreadViewModel -> Bool in
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = threadNotificationSettingsSubject
+        .map { [threadNotificationSettings] updatedThreadNotificationSettings -> Bool in
             // Need to explicitly compare values because 'lastChangeTimestampMs' will differ
-            return (
-                updatedThreadViewModel.threadOnlyNotifyForMentions != threadViewModel.threadOnlyNotifyForMentions ||
-                updatedThreadViewModel.threadMutedUntilTimestamp != threadViewModel.threadMutedUntilTimestamp
-            )
+            return threadNotificationSettings != updatedThreadNotificationSettings
         }
         .removeDuplicates()
         .map { [weak self] shouldShowConfirmButton -> SessionButton.Info? in
@@ -75,10 +80,10 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
         .eraseToAnyPublisher()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .subject(threadViewModelSubject)
-        .compactMap { [weak self] threadViewModel -> [SectionModel]? in self?.content(threadViewModel) }
+        .subject(threadNotificationSettingsSubject)
+        .compactMap { [weak self] threadNotificationSettings -> [SectionModel]? in self?.content(threadNotificationSettings) }
             
-    private func content(_ threadViewModel: SessionThreadViewModel) -> [SectionModel] {
+    private func content(_ threadNotificationSettings: ThreadNotificationSettings) -> [SectionModel] {
         let notificationTypeSection = SectionModel(
             model: .type,
             elements: [
@@ -87,7 +92,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                     leadingAccessory: .icon(.volume2),
                     title: "notificationsAllMessages".localized(),
                     trailingAccessory: .radio(
-                        isSelected: (threadViewModel.threadOnlyNotifyForMentions != true && threadViewModel.threadMutedUntilTimestamp == nil),
+                        isSelected: (threadNotificationSettings.threadOnlyNotifyForMentions != true && threadNotificationSettings.threadMutedUntilTimestamp == nil),
                         accessibility: Accessibility(
                             identifier: "All messages - Radio"
                         )
@@ -97,11 +102,10 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         label: "All messages"
                     ),
                     onTap: { [weak self] in
-                        self?.threadViewModelSubject.send(
-                            threadViewModel.with(
+                        self?.threadNotificationSettingsSubject.send(
+                            ThreadNotificationSettings(
+                                threadOnlyNotifyForMentions: false,
                                 threadMutedUntilTimestamp: nil
-                            ).with(
-                                threadOnlyNotifyForMentions: false
                             )
                         )
                     }
@@ -112,7 +116,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                     leadingAccessory: .icon(.atSign),
                     title: "notificationsMentionsOnly".localized(),
                     trailingAccessory: .radio(
-                        isSelected: (threadViewModel.threadOnlyNotifyForMentions == true),
+                        isSelected: (threadNotificationSettings.threadOnlyNotifyForMentions == true),
                         accessibility: Accessibility(
                             identifier: "Mentions only - Radio"
                         )
@@ -122,11 +126,10 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         label: "Mentions only"
                     ),
                     onTap: { [weak self] in
-                        self?.threadViewModelSubject.send(
-                            threadViewModel.with(
+                        self?.threadNotificationSettingsSubject.send(
+                            ThreadNotificationSettings(
+                                threadOnlyNotifyForMentions: true,
                                 threadMutedUntilTimestamp: nil
-                            ).with(
-                                threadOnlyNotifyForMentions: true
                             )
                         )
                     }
@@ -137,7 +140,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                     leadingAccessory: .icon(.volumeOff),
                     title: "notificationsMute".localized(),
                     trailingAccessory: .radio(
-                        isSelected: (threadViewModel.threadMutedUntilTimestamp != nil),
+                        isSelected: (threadNotificationSettings.threadMutedUntilTimestamp != nil),
                         accessibility: Accessibility(
                             identifier: "Mute - Radio"
                         )
@@ -147,11 +150,10 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         label: "Mute notifications"
                     ),
                     onTap: { [weak self] in
-                        self?.threadViewModelSubject.send(
-                            threadViewModel.with(
+                        self?.threadNotificationSettingsSubject.send(
+                            ThreadNotificationSettings(
+                                threadOnlyNotifyForMentions: false,
                                 threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
-                            ).with(
-                                threadOnlyNotifyForMentions: false
                             )
                         )
                     }
@@ -165,19 +167,19 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     // MARK: - Functions
     
     private func saveChanges() {
-        let threadViewModel: SessionThreadViewModel = self.threadViewModelSubject.value
+        let updatedThreadNotificationSettings: ThreadNotificationSettings = self.threadNotificationSettingsSubject.value
         
-        guard self.threadViewModel != threadViewModel else { return }
+        guard self.threadNotificationSettings != updatedThreadNotificationSettings else { return }
         
-        dependencies[singleton: .storage].writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { [threadId] db in
             try SessionThread
-                .filter(id: threadViewModel.threadId)
+                .filter(id: threadId)
                 .updateAll(
                     db,
                     SessionThread.Columns.onlyNotifyForMentions
-                        .set(to: threadViewModel.threadOnlyNotifyForMentions),
+                        .set(to: updatedThreadNotificationSettings.threadOnlyNotifyForMentions),
                     SessionThread.Columns.mutedUntilTimestamp
-                        .set(to: threadViewModel.threadMutedUntilTimestamp)
+                        .set(to: updatedThreadNotificationSettings.threadMutedUntilTimestamp)
                 )
         }
     }

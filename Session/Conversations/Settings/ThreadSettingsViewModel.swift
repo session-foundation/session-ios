@@ -511,7 +511,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             self?.transitionToScreen(
                                 SessionTableViewController(
                                     viewModel: ThreadNotificationSettingsViewModel(
-                                        threadViewModel: threadViewModel,
+                                        threadId: threadViewModel.threadId,
+                                        threadNotificationSettings: .init(
+                                            threadOnlyNotifyForMentions: threadViewModel.threadOnlyNotifyForMentions,
+                                            threadMutedUntilTimestamp: threadViewModel.threadMutedUntilTimestamp
+                                        ),
                                         using: dependencies
                                     )
                                 )
