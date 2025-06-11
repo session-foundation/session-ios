@@ -13,7 +13,12 @@ class DisappearingMessageTimerView: UIView {
     private var progress: Int = 12 // 0 == about to expire, 12 == just started countdown.
     
     // MARK: - UI
-    private var iconImageView = UIImageView()
+    private var iconImageView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.contentMode = .scaleAspectFit
+        
+        return result
+    }()
     
     // MARK: - Lifecycle
     
