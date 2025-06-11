@@ -27,12 +27,12 @@ public class ExpandableLabel: UIView {
         }
     }
     
-    public var attributedText: NSAttributedString? {
-        get { label.attributedText }
+    public var themeAttributedText: ThemedAttributedString? {
+        get { label.themeAttributedText }
         set {
-            guard label.attributedText != newValue else { return }
+            guard label.themeAttributedText != newValue else { return }
             
-            label.attributedText = newValue
+            label.themeAttributedText = newValue
             updateContentSizeIfNeeded()
         }
     }
@@ -118,7 +118,7 @@ public class ExpandableLabel: UIView {
         guard layoutLoopCounter < 5 else { return }
         
         let lineCount = calculateLineCount(
-            text: text ?? attributedText?.string ?? "",
+            text: text ?? themeAttributedText?.string ?? "",
             font: font,
             width: bounds.width
         )

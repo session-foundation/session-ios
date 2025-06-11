@@ -14,10 +14,10 @@ public protocol NavigatableStateHolder {
 
 public extension NavigatableStateHolder {
     func showToast(text: String, backgroundColor: ThemeValue = .backgroundPrimary, inset: CGFloat = Values.largeSpacing) {
-        navigatableState._showToast.send((NSAttributedString(string: text), backgroundColor, inset))
+        navigatableState._showToast.send((ThemedAttributedString(string: text), backgroundColor, inset))
     }
     
-    func showToast(text: NSAttributedString, backgroundColor: ThemeValue = .backgroundPrimary, inset: CGFloat = Values.largeSpacing) {
+    func showToast(text: ThemedAttributedString, backgroundColor: ThemeValue = .backgroundPrimary, inset: CGFloat = Values.largeSpacing) {
         navigatableState._showToast.send((text, backgroundColor, inset))
     }
     
@@ -33,13 +33,13 @@ public extension NavigatableStateHolder {
 // MARK: - NavigatableState
 
 public struct NavigatableState {
-    let showToast: AnyPublisher<(NSAttributedString, ThemeValue, CGFloat), Never>
+    let showToast: AnyPublisher<(ThemedAttributedString, ThemeValue, CGFloat), Never>
     let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
     let dismissScreen: AnyPublisher<(DismissType, (() -> Void)?), Never>
     
     // MARK: - Internal Variables
     
-    fileprivate let _showToast: PassthroughSubject<(NSAttributedString, ThemeValue, CGFloat), Never> = PassthroughSubject()
+    fileprivate let _showToast: PassthroughSubject<(ThemedAttributedString, ThemeValue, CGFloat), Never> = PassthroughSubject()
     fileprivate let _transitionToScreen: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
     fileprivate let _dismissScreen: PassthroughSubject<(DismissType, (() -> Void)?), Never> = PassthroughSubject()
     

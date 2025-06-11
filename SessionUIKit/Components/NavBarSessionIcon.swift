@@ -44,44 +44,32 @@ public class NavBarSessionIcon: UIView {
         labelStackView.center(in: self)
         labelStackView.transform = CGAffineTransform.identity.rotated(by: -(CGFloat.pi / 6))
         
-        let testnetLabel: UILabel = UILabel()
-        testnetLabel.font = Fonts.boldSpaceMono(ofSize: 14)
-        testnetLabel.textAlignment = .center
-        
         if !isMainnet {
+            let testnetLabel: UILabel = UILabel()
+            testnetLabel.font = Fonts.boldSpaceMono(ofSize: 14)
+            testnetLabel.themeAttributedText = ThemedAttributedString(
+                string: serviceNetworkTitle,
+                attributes: [
+                    .themeForegroundColor: ThemeValue.textPrimary,
+                    .themeStrokeColor: ThemeValue.backgroundPrimary,
+                    .strokeWidth: -3
+                ]
+            )
+            testnetLabel.textAlignment = .center
             labelStackView.addArrangedSubview(testnetLabel)
         }
         
         let offlineLabel: UILabel = UILabel()
         offlineLabel.font = Fonts.boldSpaceMono(ofSize: 14)
+        offlineLabel.themeAttributedText = ThemedAttributedString(
+            string: "Offline",  // stringlint:ignore
+            attributes: [
+                .themeForegroundColor: ThemeValue.textPrimary,
+                .themeStrokeColor: ThemeValue.backgroundPrimary,
+                .strokeWidth: -3
+            ]
+        )
         offlineLabel.textAlignment = .center
         labelStackView.addArrangedSubview(offlineLabel)
-        
-        ThemeManager.onThemeChange(observer: testnetLabel) { [weak testnetLabel, weak offlineLabel] theme, primaryColor in
-            guard
-                let textColor: UIColor = theme.color(for: .textPrimary),
-                let strokeColor: UIColor = theme.color(for: .backgroundPrimary)
-            else { return }
-            
-            if !isMainnet {
-                testnetLabel?.attributedText = NSAttributedString(
-                    string: serviceNetworkTitle,
-                    attributes: [
-                        .foregroundColor: textColor,
-                        .strokeColor: strokeColor,
-                        .strokeWidth: -3
-                    ]
-                )
-            }
-            
-            offlineLabel?.attributedText = NSAttributedString(
-                string: "Offline",  // stringlint:ignore
-                attributes: [
-                    .foregroundColor: textColor,
-                    .strokeColor: strokeColor,
-                    .strokeWidth: -3
-                ]
-            )
-        }
     }
 }

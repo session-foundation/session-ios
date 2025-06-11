@@ -50,19 +50,15 @@ public extension UISearchBar {
         let searchTextField: UITextField = self.searchTextField
         searchTextField.themeBackgroundColor = .messageBubble_overlay // The search bar background color
         searchTextField.themeTextColor = .textPrimary
+        searchTextField.themeAttributedPlaceholder = ThemedAttributedString(
+            string: "search".localized(),
+            attributes: [
+                .themeForegroundColor: ThemeValue.textSecondary
+            ]
+        )
         setPositionAdjustment(UIOffset(horizontal: 4, vertical: 0), for: UISearchBar.Icon.search)
         searchTextPositionAdjustment = UIOffset(horizontal: 2, vertical: 0)
         setPositionAdjustment(UIOffset(horizontal: -4, vertical: 0), for: UISearchBar.Icon.clear)
-        
-        ThemeManager.onThemeChange(observer: searchTextField) { [weak searchTextField] theme, _ in
-            guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
-            
-            searchTextField?.attributedPlaceholder = NSAttributedString(
-                string: "search".localized(),
-                attributes: [
-                    .foregroundColor: textColor
-                ])
-        }
     }
     
     func setUpContactSearchStyle(searchBarThemeBackgroundColor: ThemeValue) {
@@ -82,19 +78,14 @@ public extension UISearchBar {
         searchTextField.layer.cornerRadius = 18
         searchTextField.themeBackgroundColor = searchBarThemeBackgroundColor
         searchTextField.themeTextColor = .textPrimary
+        searchTextField.themeAttributedPlaceholder = ThemedAttributedString(
+            string: "searchContacts".localized(),
+            attributes: [
+                .themeForegroundColor: ThemeValue.textSecondary
+            ]
+        )
         setPositionAdjustment(UIOffset(horizontal: 4, vertical: 0), for: UISearchBar.Icon.search)
         searchTextPositionAdjustment = UIOffset(horizontal: 2, vertical: 0)
         setPositionAdjustment(UIOffset(horizontal: -4, vertical: 0), for: UISearchBar.Icon.clear)
-        
-        ThemeManager.onThemeChange(observer: searchTextField) { [weak searchTextField] theme, _ in
-            guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
-            
-            searchTextField?.attributedPlaceholder = NSAttributedString(
-                string: "searchContacts".localized(),
-                attributes: [
-                    .foregroundColor: textColor
-                ]
-            )
-        }
     }
 }

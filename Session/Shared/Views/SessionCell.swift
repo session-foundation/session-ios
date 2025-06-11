@@ -327,7 +327,7 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isUserInteractionEnabled = false
         subtitleLabel.attributedText = nil
         subtitleLabel.themeTextColor = .textPrimary
-        expandableDescriptionLabel.attributedText = nil
+        expandableDescriptionLabel.themeAttributedText = nil
         expandableDescriptionLabel.themeTextColor = .textPrimary
         trailingAccessoryView.prepareForReuse()
         trailingAccessoryView.alpha = 1
@@ -569,8 +569,8 @@ public class SessionCell: UITableViewCell {
         titleTextField.accessibilityLabel = info.title?.accessibility?.label
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
-        subtitleLabel.attributedText = info.subtitle.map { subtitle -> NSAttributedString? in
-            NSAttributedString(stringWithHTMLTags: subtitle.text, font: subtitle.font)
+        subtitleLabel.themeAttributedText = info.subtitle.map { subtitle -> ThemedAttributedString? in
+            ThemedAttributedString(stringWithHTMLTags: subtitle.text, font: subtitle.font)
         }
         subtitleLabel.themeTextColor = info.styling.subtitleTintColor
         subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
@@ -578,8 +578,8 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.accessibilityLabel = info.subtitle?.accessibility?.label
         subtitleLabel.isHidden = (info.subtitle == nil)
         expandableDescriptionLabel.font = info.description?.font ?? .systemFont(ofSize: 12)
-        expandableDescriptionLabel.attributedText = info.description.map { description -> NSAttributedString? in
-            NSAttributedString(stringWithHTMLTags: description.text, font: description.font)
+        expandableDescriptionLabel.themeAttributedText = info.description.map { description -> ThemedAttributedString? in
+            ThemedAttributedString(stringWithHTMLTags: description.text, font: description.font)
         }
         expandableDescriptionLabel.themeTextColor = info.styling.descriptionTintColor
         expandableDescriptionLabel.textAlignment = (info.description?.textAlignment ?? .left)

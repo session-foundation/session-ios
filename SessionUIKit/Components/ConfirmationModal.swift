@@ -358,12 +358,12 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
             case .attributedText(let attributedText, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
-                explanationLabel.attributedText = attributedText
+                explanationLabel.themeAttributedText = attributedText
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let inputInfo, let onTextChanged):
-                explanationLabel.attributedText = explanation
+                explanationLabel.themeAttributedText = explanation
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
@@ -382,7 +382,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 }
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
-                explanationLabel.attributedText = explanation
+                explanationLabel.themeAttributedText = explanation
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
@@ -413,10 +413,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
             case .radio(let explanation, let warning, let options):
                 mainStackView.spacing = 0
-                explanationLabel.attributedText = explanation
+                explanationLabel.themeAttributedText = explanation
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
-                warningLabel.attributedText = warning
+                warningLabel.themeAttributedText = warning
                 warningLabel.isHidden = (warning == nil)
                 contentStackView.subviews.forEach { subview in
                     guard subview is RadioButton else { return }
@@ -474,10 +474,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 imageViewTapGestureRecognizer.isEnabled = true
             
             case .inputConfirmation(let explanation, let textToConfirm):
-                explanationLabel.attributedText = explanation
+                explanationLabel.themeAttributedText = explanation
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
-                textToConfirmLabel.attributedText = textToConfirm
+                textToConfirmLabel.themeAttributedText = textToConfirm
                 textToConfirmContainer.isHidden = false
             }
         
@@ -920,23 +920,23 @@ public extension ConfirmationModal.Info {
             scrollMode: ScrollableLabel.ScrollMode = .automatic
         )
         case attributedText(
-            _ attributedText: NSAttributedString,
+            _ attributedText: ThemedAttributedString,
             scrollMode: ScrollableLabel.ScrollMode = .automatic
         )
         case input(
-            explanation: NSAttributedString?,
+            explanation: ThemedAttributedString?,
             info: InputInfo,
             onChange: (String) -> ()
         )
         case dualInput(
-            explanation: NSAttributedString?,
+            explanation: ThemedAttributedString?,
             firstInfo: InputInfo,
             secondInfo: InputInfo,
             onChange: (String, String) -> ()
         )
         case radio(
-            explanation: NSAttributedString?,
-            warning: NSAttributedString?,
+            explanation: ThemedAttributedString?,
+            warning: ThemedAttributedString?,
             options: [RadioOptionInfo]
         )
         case image(
@@ -951,8 +951,8 @@ public extension ConfirmationModal.Info {
         )
         
         case inputConfirmation(
-            explanation: NSAttributedString?,
-            textToConfirm: NSAttributedString?
+            explanation: ThemedAttributedString?,
+            textToConfirm: ThemedAttributedString?
         )
         
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {

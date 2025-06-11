@@ -1085,7 +1085,7 @@ extension ConversationVC:
         
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
-            let message: NSAttributedString = "attachmentsAutoDownloadModalDescription"
+            let message: ThemedAttributedString = "attachmentsAutoDownloadModalDescription"
                 .put(key: "conversation_name", value: cellViewModel.authorName)
                 .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -2110,8 +2110,8 @@ extension ConversationVC:
             info: ConfirmationModal.Info(
                 title: deletionBehaviours.title,
                 body: .radio(
-                    explanation: NSAttributedString(string: deletionBehaviours.body),
-                    warning: deletionBehaviours.warning.map { NSAttributedString(string: $0) },
+                    explanation: ThemedAttributedString(string: deletionBehaviours.body),
+                    warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
                     options: deletionBehaviours.actions.map { action in
                         ConfirmationModal.Info.Body.RadioOptionInfo(
                             title: action.title,
