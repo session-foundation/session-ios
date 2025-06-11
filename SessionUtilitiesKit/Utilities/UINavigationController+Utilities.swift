@@ -4,23 +4,46 @@ import UIKit
 
 public extension UINavigationController {
     func pushViewController(_ viewController: UIViewController, animated: Bool, completion: (() -> Void)?) {
-        CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
         pushViewController(viewController, animated: animated)
-        CATransaction.commit()
+        if animated, let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: nil) { _ in
+                completion?()
+            }
+        } else {
+            completion?()
+        }
     }
 
     func popViewController(animated: Bool, completion: (() -> Void)?) {
-        CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
         popViewController(animated: animated)
-        CATransaction.commit()
+        if animated, let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: nil) { _ in
+                completion?()
+            }
+        } else {
+            completion?()
+        }
     }
 
     func popToViewController(_ viewController: UIViewController, animated: Bool, completion: (() -> Void)?) {
-        CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
-        self.popToViewController(viewController, animated: animated)
-        CATransaction.commit()
+        popToViewController(viewController, animated: animated)
+        if animated, let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: nil) { _ in
+                completion?()
+            }
+        } else {
+            completion?()
+        }
+    }
+    
+    func popToRootViewController(animated: Bool, completion: (() -> Void)?) {
+        popToRootViewController(animated: animated)
+        if animated, let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: nil) { _ in
+                completion?()
+            }
+        } else {
+            completion?()
+        }
     }
 }

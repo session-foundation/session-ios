@@ -159,7 +159,16 @@ struct EnterRecoveryPasswordScreen: View{
                     $recoveryPassword,
                     placeholder: "recoveryPasswordEnter".localized(),
                     error: $error, 
-                    accessibility: Accessibility(identifier: "Recovery password input")
+                    accessibility: Accessibility(identifier: "Recovery password input"),
+                    inputChecker: { text in
+                        let words: [String] = text
+                            .components(separatedBy: .whitespacesAndNewlines)
+                            .filter { !$0.isEmpty }
+                        guard words.count < 14 else {
+                            return "recoveryPasswordErrorMessageGeneric".localized()
+                        }
+                        return nil
+                    }
                 )
                 
                 Spacer(minLength: 0)

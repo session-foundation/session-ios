@@ -2113,11 +2113,11 @@ extension ConversationVC:
                     explanation: ThemedAttributedString(string: deletionBehaviours.body),
                     warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
                     options: deletionBehaviours.actions.map { action in
-                        (
-                            action.title,
-                            action.state != .disabled,
-                            action.state == .enabledAndDefaultSelected,
-                            action.accessibility
+                        ConfirmationModal.Info.Body.RadioOptionInfo(
+                            title: action.title,
+                            enabled: action.state != .disabled,
+                            selected: action.state == .enabledAndDefaultSelected,
+                            accessibility: action.accessibility
                         )
                     }
                 ),

@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 public extension MessageViewModel {
     struct DeletionBehaviours {
         public enum Behaviour {
-            case markAsDeleted(ids: [Int64], localOnly: Bool, threadId: String, threadVariant: SessionThread.Variant)
+            case markAsDeleted(ids: [Int64], options: Interaction.DeletionOption, threadId: String, threadVariant: SessionThread.Variant)
             case deleteFromDatabase([Int64])
             case cancelPendingSendJobs([Int64])
             case preparedRequest(Network.PreparedRequest<Void>)
@@ -85,14 +85,14 @@ public extension MessageViewModel {
                             _ = try? Job.deleteAll(db, ids: jobs.compactMap { $0.id })
                         }
                     
-                    case .markAsDeleted(let ids, let localOnly, let threadId, let threadVariant):
+                    case .markAsDeleted(let ids, let options, let threadId, let threadVariant):
                         result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
                             try Interaction.markAsDeleted(
                                 db,
                                 threadId: threadId,
                                 threadVariant: threadVariant,
                                 interactionIds: Set(ids),
-                                localOnly: localOnly,
+                                options: options,
                                 using: dependencies
                             )
                         }
@@ -210,7 +210,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                                 !viewModel.variant.isDeletedMessage
                                             }
                                             .map { $0.id },
-                                        localOnly: true,
+                                        options: .local,
                                         threadId: threadData.threadId,
                                         threadVariant: threadData.threadVariant
                                     )
@@ -246,7 +246,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                     .cancelPendingSendJobs(cellViewModels.map { $0.id }),
                                     .markAsDeleted(
                                         ids: cellViewModels.map { $0.id },
-                                        localOnly: true,
+                                        options: .local,
                                         threadId: threadData.threadId,
                                         threadVariant: threadData.threadVariant
                                     )
@@ -291,7 +291,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                     .cancelPendingSendJobs(cellViewModels.map { $0.id }),
                                     .markAsDeleted(
                                         ids: cellViewModels.map { $0.id },
-                                        localOnly: true,
+                                        options: .local,
                                         threadId: threadData.threadId,
                                         threadVariant: threadData.threadVariant
                                     )
@@ -324,7 +324,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                     .cancelPendingSendJobs(cellViewModels.map { $0.id }),
                                     .markAsDeleted(
                                         ids: cellViewModels.map { $0.id },
-                                        localOnly: true,
+                                        options: .local,
                                         threadId: threadData.threadId,
                                         threadVariant: threadData.threadVariant
                                     )
@@ -425,7 +425,7 @@ public extension MessageViewModel.DeletionBehaviours {
                         .deleteFromDatabase(cellViewModels.map { $0.id }) :
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
-                            localOnly: false,
+                            options: [.local, .network],
                             threadId: threadData.threadId,
                             threadVariant: threadData.threadVariant
                         )
@@ -482,7 +482,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     .appending(
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
-                            localOnly: false,
+                            options: [.local, .network],
                             threadId: threadData.threadId,
                             threadVariant: threadData.threadVariant
                         )
@@ -525,7 +525,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     .appending(
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
-                            localOnly: false,
+                            options: [.local, .network],
                             threadId: threadData.threadId,
                             threadVariant: threadData.threadVariant
                         )
@@ -591,7 +591,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     .appending(
                         .markAsDeleted(
                             ids: cellViewModels.map { $0.id },
-                            localOnly: false,
+                            options: [.local, .network],
                             threadId: threadData.threadId,
                             threadVariant: threadData.threadVariant
                         )

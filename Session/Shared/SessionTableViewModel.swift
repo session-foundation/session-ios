@@ -11,6 +11,7 @@ import SessionUtilitiesKit
 protocol SessionTableViewModel: AnyObject, SectionedTableData {
     var dependencies: Dependencies { get }
     
+    var searchable: Bool { get }
     var title: String { get }
     var subtitle: String? { get }
     var initialLoadMessage: String? { get }
@@ -30,6 +31,7 @@ protocol SessionTableViewModel: AnyObject, SectionedTableData {
 }
 
 extension SessionTableViewModel {
+    var searchable: Bool { false }
     var subtitle: String? { nil }
     var initialLoadMessage: String? { nil }
     var cellType: SessionTableViewCellType { .general }

@@ -39,16 +39,14 @@ class MessageRequestsCell: UITableViewCell {
         result.translatesAutoresizingMaskIntoConstraints = false
         
         ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
+            let themedColor: UIColor = theme.color(for: .conversationButton_unreadBubbleText).defaulting(to: .black)
             result?.attributedText = Lucide
                 .attributedString(
                     icon: .messageSquareWarning,
                     size: 26,
                     baselineOffset: -1  // Custom offset to look vertically aligned
                 )
-                .adding(attributes: [
-                    .foregroundColor: theme.color(for: .conversationButton_unreadBubbleText)
-                        .defaulting(to: .black)
-                ])
+                .adding(attributes: [.foregroundColor: themedColor])
         }
         
         return result

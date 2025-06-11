@@ -17,14 +17,19 @@ public final class SearchBar : UISearchBar {
 
 public final class ContactsSearchBar : UISearchBar {
     
+    public init(searchBarThemeBackgroundColor: ThemeValue) {
+        super.init(frame: .zero)
+        setUpContactSearchStyle(searchBarThemeBackgroundColor: searchBarThemeBackgroundColor)
+    }
+    
     public override init(frame: CGRect) {
         super.init(frame: frame)
-        setUpContactSearchStyle()
+        setUpContactSearchStyle(searchBarThemeBackgroundColor: .backgroundPrimary)
     }
     
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setUpContactSearchStyle()
+        setUpContactSearchStyle(searchBarThemeBackgroundColor: .backgroundPrimary)
     }
 }
 
@@ -56,7 +61,7 @@ public extension UISearchBar {
         setPositionAdjustment(UIOffset(horizontal: -4, vertical: 0), for: UISearchBar.Icon.clear)
     }
     
-    func setUpContactSearchStyle() {
+    func setUpContactSearchStyle(searchBarThemeBackgroundColor: ThemeValue) {
         searchBarStyle = .minimal
         barStyle = .default
         themeTintColor = .textPrimary
@@ -71,7 +76,7 @@ public extension UISearchBar {
         let searchTextField: UITextField = self.searchTextField
         searchTextField.borderStyle = .none
         searchTextField.layer.cornerRadius = 18
-        searchTextField.themeBackgroundColor = .backgroundPrimary
+        searchTextField.themeBackgroundColor = searchBarThemeBackgroundColor
         searchTextField.themeTextColor = .textPrimary
         searchTextField.themeAttributedPlaceholder = ThemedAttributedString(
             string: "searchContacts".localized(),

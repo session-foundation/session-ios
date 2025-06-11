@@ -55,7 +55,7 @@ extension MessageReceiver {
             threadId: threadId,
             threadVariant: threadVariant,
             interactionIds: [interactionInfo.id],
-            localOnly: false,
+            options: [.local, .network],
             using: dependencies
         )
         
