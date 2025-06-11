@@ -254,7 +254,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             }(),
                             interItem: Values.smallSpacing
                         ),
-                        backgroundStyle: .noBackground,
+                        backgroundStyle: .noBackground
                     ),
                     accessibility: Accessibility(
                         identifier: "Username",
