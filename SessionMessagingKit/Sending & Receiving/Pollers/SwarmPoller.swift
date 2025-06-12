@@ -133,7 +133,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 request.send(using: dependencies)
                     .map { _, response in (snode, response) }
             }
-            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) in
+            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> ([Job], [Job], PollResult) in
                 let (snode, namespacedResults): (LibSession.Snode, SnodeAPI.PollResponse) = info
                 
                 /// Get all of the messages and sort them by their required `processingOrder`
@@ -235,7 +235,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
         using dependencies: Dependencies
-    ) -> (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) {
+    ) -> ([Job], [Job], PollResult) {
         /// No need to do anything if there are no messages
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
