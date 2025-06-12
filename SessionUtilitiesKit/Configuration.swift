@@ -33,7 +33,8 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                 ],
                 [
                     _006_RenameTableSettingToKeyValueStore.self
-                ]
+                ],  // Renamed `Setting` to `KeyValueStore`
+                []
             ]
         )
     }

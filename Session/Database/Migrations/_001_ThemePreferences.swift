@@ -99,7 +99,11 @@ enum DeprecatedUIKitMigrationTarget: MigratableTarget {
                 [], // Legacy DB removal
                 [
                     _001_ThemePreferences.self
-                ]
+                ],  // Add job priorities
+                [], // Fix thread FTS
+                [],
+                [], // Renamed `Setting` to `KeyValueStore`
+                []
             ]
         )
     }

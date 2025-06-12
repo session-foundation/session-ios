@@ -32,19 +32,15 @@ public extension MentionUtilities {
         threadVariant: SessionThread.Variant,
         currentUserSessionIds: Set<String>,
         location: MentionLocation,
-        textColor: UIColor,
-        theme: Theme,
-        primaryColor: Theme.PrimaryColor,
+        textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
         using dependencies: Dependencies
-    ) -> NSAttributedString {
+    ) -> ThemedAttributedString {
         return MentionUtilities.highlightMentions(
             in: string,
             currentUserSessionIds: currentUserSessionIds,
             location: location,
             textColor: textColor,
-            theme: theme,
-            primaryColor: primaryColor,
             attributes: attributes,
             displayNameRetriever: { sessionId in
                 // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
