@@ -94,7 +94,7 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
         )
     }
     
-    internal func getExpectation(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) -> MockFunction? {
+    internal func getExpectation(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) -> MockFunction {
         return functionConsumer.getExpectation(
             funcName,
             parameterCount: args.count,
@@ -685,22 +685,12 @@ internal class FunctionConsumer: MockFunctionHandler {
         generics: [Any.Type],
         args: [Any?],
         untrackedArgs: [Any?]
-    ) -> MockFunction? {
+    ) -> MockFunction {
         let key: Key = Key(name: functionName, generics: generics, paramCount: parameterCount)
         
         if !functionBuilders.isEmpty {
             functionBuilders
-                .compactMap { builder in
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    var result: MockFunction?
-                    
-                    Task {
-                        result = try? await builder()
-                        semaphore.signal()
-                    }
-                    semaphore.wait()
-                    return result
-                }
+                .compactMap { builder in try? builder() }
                 .forEach { function in
                     let key: Key = Key(
                         name: function.name,
@@ -725,11 +715,17 @@ internal class FunctionConsumer: MockFunctionHandler {
             _functionBuilders.performUpdate { _ in [] }
         }
         
-        return firstFunction(
+        let maybeResult: MockFunction? = firstFunction(
             for: key,
             matchingParameterSummaryIfPossible: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations
         )
+        
+        guard let result: MockFunction = maybeResult else {
+            preconditionFailure("No expectations found for \(key.name)")
+        }
+        
+        return result
     }
     
     private func getAndTrackExpectation(
@@ -742,7 +738,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         untrackedArgs: [Any?]
     ) -> MockFunction {
         let key: Key = Key(name: functionName, generics: generics, paramCount: parameterCount)
-        let maybeExpectation: MockFunction? = getExpectation(
+        let expectation: MockFunction = getExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
@@ -751,10 +747,6 @@ internal class FunctionConsumer: MockFunctionHandler {
             args: args,
             untrackedArgs: untrackedArgs
         )
-        
-        guard let expectation: MockFunction = maybeExpectation else {
-            preconditionFailure("No expectations found for \(key.name)")
-        }
         
         // Record the call so it can be validated later (assuming we are tracking calls)
         if trackCalls {

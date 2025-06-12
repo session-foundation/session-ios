@@ -288,7 +288,7 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: Database, requestId: String?) {
+        @discardableResult public func loadState(_ db: Database, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard configStore.isEmpty else {
@@ -1048,7 +1048,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     )
-    func loadState(
+    @discardableResult func loadState(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
         userEd25519SecretKey: [UInt8],
@@ -1203,7 +1203,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func isAdmin(groupSessionId: SessionId) -> Bool
     func loadAdminKey(
         groupIdentitySeed: Data,
-        groupSessionId: SessionId,
+        groupSessionId: SessionId
     ) throws
     func markAsInvited(groupSessionIds: [String]) throws
     func markAsKicked(groupSessionIds: [String]) throws
@@ -1301,7 +1301,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     ) {}
-    func loadState(
+    @discardableResult func loadState(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
         userEd25519SecretKey: [UInt8],
@@ -1310,7 +1310,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     ) throws -> LibSession.Config { throw LibSessionError.invalidConfigObject }
     func loadAdminKey(
         groupIdentitySeed: Data,
-        groupSessionId: SessionId,
+        groupSessionId: SessionId
     ) throws {}
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool { return false }
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? { return nil }

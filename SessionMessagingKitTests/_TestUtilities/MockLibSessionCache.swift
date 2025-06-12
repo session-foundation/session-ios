@@ -128,8 +128,9 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         
         /// **Note:** Since `afterMerge` is non-escaping (and we don't want to change it to be so for the purposes of mocking
         /// in unit test) we just call it directly instead of storing in `untrackedArgs`
+        let expectation: MockFunction = getExpectation(args: [swarmPublicKey, messages])
+        
         guard
-            let expectation: MockFunction = getExpectation(args: [swarmPublicKey, messages]),
             expectation.closureCallArgs.count == 4,
             let sessionId: SessionId = expectation.closureCallArgs[0] as? SessionId,
             let variant: ConfigDump.Variant = expectation.closureCallArgs[1] as? ConfigDump.Variant,
