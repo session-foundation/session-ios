@@ -168,120 +168,117 @@ final class ConversationTitleView: UIView {
         // No need to add themed subtitle content if we aren't adding the subtitle carousel
         guard shouldHaveSubtitle else { return }
         
-        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
+        
+        if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
+            let notificationSettingsLabelString = ThemedAttributedString(
+                string: FullConversationCell.mutePrefix,
+                attributes: [
+                    .font: UIFont(name: "ElegantIcons", size: 8) as Any,
+                    .themeForegroundColor: ThemeValue.textPrimary
+                ]
+            )
+            .appending(string: "notificationsMuted".localized())
             
-            var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
-            
-            if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
-                let notificationSettingsLabelString = NSAttributedString(
-                    string: FullConversationCell.mutePrefix,
-                    attributes: [
-                        .font: UIFont(name: "ElegantIcons", size: 8) as Any,
-                        .foregroundColor: textPrimary
-                    ]
+            labelInfos.append(
+                SessionLabelCarouselView.LabelInfo(
+                    attributedText: notificationSettingsLabelString,
+                    accessibility: nil, // TODO: Add accessibility
+                    type: .notificationSettings
                 )
-                .appending(string: "notificationsMuted".localized())
-                
-                labelInfos.append(
-                    SessionLabelCarouselView.LabelInfo(
-                        attributedText: notificationSettingsLabelString,
-                        accessibility: nil, // TODO: Add accessibility
-                        type: .notificationSettings
-                    )
-                )
-            }
-            else if onlyNotifyForMentions {
-                let imageAttachment = NSTextAttachment()
-                imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
-                imageAttachment.bounds = CGRect(
-                    x: 0,
-                    y: -2,
-                    width: Values.miniFontSize,
-                    height: Values.miniFontSize
-                )
-                
-                let notificationSettingsLabelString = NSAttributedString(attachment: imageAttachment)
-                    .appending(string: "  ")
-                    .appending(string: "notificationsMentionsOnly".localized())
-                
-                labelInfos.append(
-                    SessionLabelCarouselView.LabelInfo(
-                        attributedText: notificationSettingsLabelString,
-                        accessibility: nil, // TODO: Add accessibility
-                        type: .notificationSettings
-                    )
-                )
-            }
-            
-            if let userCount: Int = userCount {
-                switch threadVariant {
-                    case .contact: break
-                        
-                    case .legacyGroup, .group:
-                        labelInfos.append(
-                            SessionLabelCarouselView.LabelInfo(
-                                attributedText: "members"
-                                    .putNumber(userCount)
-                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
-                                accessibility: nil, // TODO: Add accessibility
-                                type: .userCount
-                            )
-                        )
-                        
-                    case .community:
-                        labelInfos.append(
-                            SessionLabelCarouselView.LabelInfo(
-                                attributedText: "membersActive"
-                                    .putNumber(userCount)
-                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
-                                accessibility: nil, // TODO: Add accessibility
-                                type: .userCount
-                            )
-                        )
-                }
-            }
-            
-            if let config = disappearingMessagesConfig, config.isEnabled == true {
-                let imageAttachment = NSTextAttachment()
-                imageAttachment.image = UIImage(systemName: "timer")?.withTint(textPrimary)
-                imageAttachment.bounds = CGRect(
-                    x: 0,
-                    y: -2,
-                    width: Values.miniFontSize,
-                    height: Values.miniFontSize
-                )
-                
-                labelInfos.append(
-                    SessionLabelCarouselView.LabelInfo(
-                        attributedText: NSAttributedString(attachment: imageAttachment)
-                            .appending(string: " ")
-                            .appending(
-                                string: (config.type ?? .unknown)
-                                    .localizedState(
-                                        durationString: floor(config.durationSeconds).formatted(format: .short)
-                                    )
-                            ),
-                        accessibility: Accessibility(
-                            identifier: "Disappearing messages type and time",
-                            label: "Disappearing messages type and time"
-                        ),
-                        type: .disappearingMessageSetting
-                    )
-                )
-            }
-            
-            self?.labelCarouselView.update(
-                with: labelInfos,
-                labelSize: CGSize(
-                    width: self?.labelCarouselViewWidth.constant ?? 0,
-                    height: 12
-                ),
-                shouldAutoScroll: false
+            )
+        }
+        else if onlyNotifyForMentions {
+            let imageAttachment = NSTextAttachment()
+            imageAttachment.image = UIImage(named: "NotifyMentions.png")?
+                .withRenderingMode(.alwaysTemplate)
+            imageAttachment.bounds = CGRect(
+                x: 0,
+                y: -2,
+                width: Values.miniFontSize,
+                height: Values.miniFontSize
             )
             
-            self?.labelCarouselView.isHidden = (labelInfos.count == 0)
+            let notificationSettingsLabelString = ThemedAttributedString(attachment: imageAttachment)
+                .appending(string: "  ")
+                .appending(string: "notificationsMentionsOnly".localized())
+            
+            labelInfos.append(
+                SessionLabelCarouselView.LabelInfo(
+                    attributedText: notificationSettingsLabelString,
+                    accessibility: nil, // TODO: Add accessibility
+                    type: .notificationSettings
+                )
+            )
         }
+        
+        if let userCount: Int = userCount {
+            switch threadVariant {
+                case .contact: break
+                    
+                case .legacyGroup, .group:
+                    labelInfos.append(
+                        SessionLabelCarouselView.LabelInfo(
+                            attributedText: "members"
+                                .putNumber(userCount)
+                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
+                            accessibility: nil, // TODO: Add accessibility
+                            type: .userCount
+                        )
+                    )
+                    
+                case .community:
+                    labelInfos.append(
+                        SessionLabelCarouselView.LabelInfo(
+                            attributedText: "membersActive"
+                                .putNumber(userCount)
+                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
+                            accessibility: nil, // TODO: Add accessibility
+                            type: .userCount
+                        )
+                    )
+            }
+        }
+        
+        if let config = disappearingMessagesConfig, config.isEnabled == true {
+            let imageAttachment = NSTextAttachment()
+            imageAttachment.image = UIImage(systemName: "timer")?
+                .withRenderingMode(.alwaysTemplate)
+            imageAttachment.bounds = CGRect(
+                x: 0,
+                y: -2,
+                width: Values.miniFontSize,
+                height: Values.miniFontSize
+            )
+            
+            labelInfos.append(
+                SessionLabelCarouselView.LabelInfo(
+                    attributedText: ThemedAttributedString(attachment: imageAttachment)
+                        .appending(string: " ")
+                        .appending(
+                            string: (config.type ?? .unknown)
+                                .localizedState(
+                                    durationString: floor(config.durationSeconds).formatted(format: .short)
+                                )
+                        ),
+                    accessibility: Accessibility(
+                        identifier: "Disappearing messages type and time",
+                        label: "Disappearing messages type and time"
+                    ),
+                    type: .disappearingMessageSetting
+                )
+            )
+        }
+        
+        labelCarouselView.update(
+            with: labelInfos,
+            labelSize: CGSize(
+                width: labelCarouselViewWidth.constant,
+                height: 12
+            ),
+            shouldAutoScroll: false
+        )
+        labelCarouselView.isHidden = (labelInfos.count == 0)
     }
     
     // MARK: - Interaction

@@ -17,83 +17,95 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
     }
     
     public var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(
-                alignment: .leading,
-                spacing: Values.mediumSmallSpacing
-            ) {
-                SessionNetworkSection(
-                    linkOutAction: {
-                        openUrl(Constants.session_network_url)
-                    }
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                
-                StatsSection(
-                    dataModel: $viewModel.dataModel,
-                    isRefreshing: $viewModel.isRefreshing,
-                    lastRefreshWasSuccessful: $viewModel.lastRefreshWasSuccessful,
-                    isShowingTooltip: $isShowingTooltip
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                
-                SessionTokenSection(
-                    dataModel: $viewModel.dataModel,
-                    isRefreshing: $viewModel.isRefreshing,
-                    linkOutAction: {
-                        openUrl(Constants.session_staking_url)
-                    }
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                
-                if let lastUpdatedTimeString = viewModel.lastUpdatedTimeString {
-                    Spacer(minLength: Values.largeSpacing)
-                    
-                    Text(
-                        "updated"
-                            .put(key: "relative_time", value: lastUpdatedTimeString)
-                            .localized()
+        GeometryReader { geometry in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(
+                    alignment: .leading,
+                    spacing: Values.mediumSmallSpacing
+                ) {
+                    SessionNetworkSection(
+                        linkOutAction: {
+                            openUrl(Constants.session_network_url)
+                        }
                     )
-                    .font(.Body.custom(Values.smallFontSize))
-                    .foregroundColor(themeColor: .textSecondary)
                     .frame(
                         maxWidth: .infinity,
-                        alignment: .center
+                        alignment: .leading
                     )
-                    .accessibility(
-                        Accessibility(identifier: "Last updated timestamp")
+                    
+                    StatsSection(
+                        dataModel: $viewModel.dataModel,
+                        isRefreshing: $viewModel.isRefreshing,
+                        lastRefreshWasSuccessful: $viewModel.lastRefreshWasSuccessful,
+                        isShowingTooltip: $isShowingTooltip
                     )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                    
+                    SessionTokenSection(
+                        dataModel: $viewModel.dataModel,
+                        isRefreshing: $viewModel.isRefreshing,
+                        linkOutAction: {
+                            openUrl(Constants.session_staking_url)
+                        }
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                    
+                    if let lastUpdatedTimeString = viewModel.lastUpdatedTimeString {
+                        ZStack {
+                            Text(
+                                "updated"
+                                    .put(key: "relative_time", value: lastUpdatedTimeString)
+                                    .localized()
+                            )
+                            .font(.Body.custom(Values.smallFontSize))
+                            .foregroundColor(themeColor: .textSecondary)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: .center
+                            )
+                            .padding(.top, Values.largeSpacing)
+                            .accessibility(
+                                Accessibility(identifier: "Last updated timestamp")
+                            )
+                        }
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity,
+                            alignment: .bottom
+                        )
+                    }
+                }
+                .padding(Values.largeSpacing)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: geometry.size.height
+                )
+                .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
+                    guard self.isShowingTooltip else {
+                        return
+                    }
+                    
+                    withAnimation(.spring()) {
+                        self.isShowingTooltip = false
+                    }
                 }
             }
-            .padding(Values.largeSpacing)
-            .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
-                guard self.isShowingTooltip else {
-                    return
-                }
-                
-                withAnimation(.spring()) {
-                    self.isShowingTooltip = false
-                }
+            .onAppear {
+                viewModel.fetchDataFromNetwork()
             }
+            .refreshable {
+                viewModel.fetchDataFromNetwork()
+            }
+            .backgroundColor(themeColor: .backgroundPrimary)
+            .toastView(message: $copied)
+            .coordinateSpace(name: coordinateSpaceName)
         }
-        .onAppear {
-            viewModel.fetchDataFromNetwork()
-        }
-        .refreshable {
-            viewModel.fetchDataFromNetwork()
-        }
-        .backgroundColor(themeColor: .backgroundPrimary)
-        .toastView(message: $copied)
-        .coordinateSpace(name: coordinateSpaceName)
     }
     
     private func openUrl(_ urlString: String) {
@@ -150,6 +162,7 @@ extension SessionNetworkScreen {
                 )
                 .font(Font.Body.largeRegular)
                 .foregroundColor(themeColor: .textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibility(
                     Accessibility(identifier: "Learn more link")
                 )
@@ -251,6 +264,7 @@ extension SessionNetworkScreen {
                             .foregroundColor(themeColor: .textPrimary)
                             .lineLimit(1)
                             .fixedSize()
+                            .minimumScaleFactor(0.5)
                             
                             AdaptiveText(
                                 textOptions: [
@@ -263,11 +277,13 @@ extension SessionNetworkScreen {
                             .font(.Headings.H5, uiKit: Fonts.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .loadingStyle(.text("loading".localized()))
+                            .minimumScaleFactor(0.5)
                             
                             Text(Constants.token_name_long)
                                 .font(.Body.custom(Values.smallFontSize))
                                 .foregroundColor(themeColor: .textSecondary)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.5)
                         }
                         .padding(.horizontal, Values.mediumSmallSpacing)
                         .padding(.vertical, Values.mediumSpacing)
@@ -305,6 +321,7 @@ extension SessionNetworkScreen {
                                 width: 116,
                                 alignment: .leading
                             )
+                            .minimumScaleFactor(0.5)
                             
                             ZStack {
                                 if isRefreshing || !lastRefreshWasSuccessful {
@@ -314,6 +331,7 @@ extension SessionNetworkScreen {
                                         .font(.Headings.H3)
                                         .foregroundColor(themeColor: .sessionButton_text)
                                         .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
                                 }
                             }
                             .frame(
@@ -339,6 +357,7 @@ extension SessionNetworkScreen {
                                 width: 116,
                                 alignment: .leading
                             )
+                            .minimumScaleFactor(0.5)
                             
                             AdaptiveText(
                                 textOptions: [
@@ -355,6 +374,7 @@ extension SessionNetworkScreen {
                                 maxWidth: .infinity,
                                 alignment: .trailing
                             )
+                            .minimumScaleFactor(0.5)
                         }
                         .accessibility(
                             Accessibility(identifier: "Nodes securing amount")
@@ -374,15 +394,13 @@ extension SessionNetworkScreen {
                             .foregroundColor(themeColor: .textPrimary)
                             .lineLimit(1)
                             .fixedSize()
+                            .minimumScaleFactor(0.5)
                         
                         Text(isRefreshing ? "loading".localized() : dataModel.networkStakedTokensString)
                             .font(.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .lineLimit(1)
-                            .frame(
-                                maxHeight: .infinity,
-                                alignment: .leading
-                            )
+                            .minimumScaleFactor(0.5)
                         
                         AdaptiveText(
                             textOptions: [
@@ -397,6 +415,8 @@ extension SessionNetworkScreen {
                         )
                         .foregroundColor(themeColor: .textSecondary)
                         .loadingStyle(.text(SessionNetworkScreenContent.DataModel.defaultPriceString))
+                        .fixedSize()
+                        .minimumScaleFactor(0.5)
                     }
                     .padding(.horizontal, Values.mediumSmallSpacing)
                     .padding(.vertical, Values.mediumSpacing)
@@ -405,7 +425,6 @@ extension SessionNetworkScreen {
                     )
                     .frame(
                         maxWidth: .infinity,
-                        maxHeight: .infinity,
                         alignment: .leading
                     )
                     .background(
@@ -481,6 +500,7 @@ extension SessionNetworkScreen {
                 )
                 .font(.Body.largeRegular)
                 .foregroundColor(themeColor: .textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
                 
                 ZStack{
                     Line(color: .borderSeparator)

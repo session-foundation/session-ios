@@ -5,7 +5,7 @@
 import UIKit
 import Lucide
 
-public extension NSAttributedString {
+public extension ThemedAttributedString {
     /// These are the tags we current support formatting for
     enum HTMLTag: String {
         /// The regex to recognize an open or close tag
@@ -73,7 +73,7 @@ public extension NSAttributedString {
         ///
         /// **Note:** We use an `NSAttributedString` for retrieving string ranges because if we don't then emoji characters
         /// can cause odd behaviours with accessing ranges so this simplifies the logic
-        let attrString: NSAttributedString = NSAttributedString(string: targetString)
+        let attrString: ThemedAttributedString = ThemedAttributedString(string: targetString)
         let stringLength: Int = targetString.utf16.count
         var partsAndTags: [(part: String, tags: [HTMLTag])] = []
         var openTags: [HTMLTag: Int] = [:]
@@ -137,8 +137,8 @@ public extension NSAttributedString {
 
         /// Lastly we should construct the attributed string, applying the desired formatting
         self.init(
-            attributedString: partsAndTags.reduce(into: NSMutableAttributedString()) { result, next in
-                result.append(NSAttributedString(string: next.part, attributes: next.tags.format(with: font)))
+            attributedString: partsAndTags.reduce(into: ThemedAttributedString()) { result, next in
+                result.append(ThemedAttributedString(string: next.part, attributes: next.tags.format(with: font)))
             }
         )
     }
@@ -157,7 +157,7 @@ public extension NSAttributedString {
     }
 }
 
-private extension Collection where Element == NSAttributedString.HTMLTag {
+private extension Collection where Element == ThemedAttributedString.HTMLTag {
     func format(with font: UIFont) -> [NSAttributedString.Key: Any] {
         func fontWith(_ font: UIFont, traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
             /// **Note:** Constructing a `UIFont` with a `size`of `0` will preserve the textSize
@@ -189,6 +189,8 @@ private extension Collection where Element == NSAttributedString.HTMLTag {
     }
 }
 
+// MARK: - FontAccessible
+
 public protocol FontAccessible {
     var fontValue: UIFont? { get }
 }
@@ -201,7 +203,7 @@ extension DirectFontAccessible {
     public var fontValue: UIFont? { font }
 }
 
-// UILabel has a `font!` value so we need to conform to a different protocol
+/// UILabel has a `font: UIFont!` value so we need to conform to a different protocol
 extension UILabel: FontAccessible {
     public var fontValue: UIFont? {
         get { self.font }
@@ -211,20 +213,20 @@ extension UITextField: DirectFontAccessible {}
 extension UITextView: DirectFontAccessible {}
 
 public extension String {
-    func formatted(in view: FontAccessible) -> NSAttributedString {
-        return NSAttributedString(stringWithHTMLTags: self, font: (view.fontValue ?? .systemFont(ofSize: 14)))
+    func formatted(in view: FontAccessible) -> ThemedAttributedString {
+        return ThemedAttributedString(stringWithHTMLTags: self, font: (view.fontValue ?? .systemFont(ofSize: 14)))
     }
     
-    func formatted(baseFont: UIFont) -> NSAttributedString {
-        return NSAttributedString(stringWithHTMLTags: self, font: baseFont)
+    func formatted(baseFont: UIFont) -> ThemedAttributedString {
+        return ThemedAttributedString(stringWithHTMLTags: self, font: baseFont)
     }
     
-    func formatted() -> NSAttributedString {
+    func formatted() -> ThemedAttributedString {
         return formatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
     }
     
     func deformatted() -> String {
-        return NSAttributedString(stringWithHTMLTags: self, font: .systemFont(ofSize: 14)).string
+        return ThemedAttributedString(stringWithHTMLTags: self, font: .systemFont(ofSize: 14)).string
     }
 }
 

@@ -26,7 +26,7 @@ final class InfoBanner: UIView {
     
     public struct Info: Equatable, Hashable {
         let font: UIFont
-        let message: NSAttributedString
+        let message: ThemedAttributedString
         let icon: Icon
         let tintColor: ThemeValue
         let backgroundColor: ThemeValue
@@ -37,12 +37,12 @@ final class InfoBanner: UIView {
         
         static var empty: Info = Info(
             font: .systemFont(ofSize: Values.smallFontSize),
-            message: NSAttributedString()
+            message: ThemedAttributedString()
         )
         
         public init(
             font: UIFont,
-            message: NSAttributedString,
+            message: ThemedAttributedString,
             icon: Icon = .none,
             tintColor: ThemeValue = .black,
             backgroundColor: ThemeValue = .primary,
@@ -64,7 +64,7 @@ final class InfoBanner: UIView {
         
         func with(
             font: UIFont? = nil,
-            message: NSAttributedString? = nil,
+            message: ThemedAttributedString? = nil,
             icon: Icon? = nil,
             tintColor: ThemeValue? = nil,
             backgroundColor: ThemeValue? = nil,
@@ -196,7 +196,7 @@ final class InfoBanner: UIView {
     
     public func update(
         font: UIFont? = nil,
-        message: NSAttributedString? = nil,
+        message: ThemedAttributedString? = nil,
         icon: Icon = .none,
         tintColor: ThemeValue? = nil,
         backgroundColor: ThemeValue? = nil,
@@ -237,7 +237,7 @@ final class InfoBanner: UIView {
         accessibilityLabel = info.accessibility?.label
         
         label.font = info.font
-        label.attributedText = info.message
+        label.themeAttributedText = info.message
         label.themeTextColor = info.tintColor
         label.accessibilityIdentifier = info.labelAccessibility?.identifier
         label.accessibilityLabel = info.labelAccessibility?.label

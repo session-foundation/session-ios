@@ -3,7 +3,7 @@
 import SwiftUI
 import Lucide
 
-public struct TextWitCopyButton: View {
+public struct TextWithCopyButton: View {
     @Binding private var copied: String?
     
     let content: String

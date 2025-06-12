@@ -277,7 +277,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     }
     
     public func clearAllNotifications() {
-        notificationCenter.removeAllPendingNotificationRequests()
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: notifications.keys.map{$0})
         notificationCenter.removeAllDeliveredNotifications()
     }
 }

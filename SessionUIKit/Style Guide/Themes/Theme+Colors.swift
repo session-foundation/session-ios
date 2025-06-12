@@ -24,15 +24,6 @@ public extension Theme {
             self = primaryColor
         }
         
-        internal init?(color: Color?) {
-            guard
-                let color: Color = color,
-                let primaryColor: PrimaryColor = PrimaryColor.allCases.first(where: { $0.colorSwiftUI == color })
-            else { return nil }
-            
-            self = primaryColor
-        }
-        
         public var color: UIColor {
             switch self {
                 case .green:  return #colorLiteral(red: 0.1921568627, green: 0.9450980392, blue: 0.5882352941, alpha: 1)         // #31F196
@@ -180,5 +171,17 @@ internal extension Color {
 public extension Color {
     static var primary: Color {
         return Color(UIColor.primary)
+    }
+}
+
+// MARK: - ColorType
+
+internal extension ColorType {
+    static func resolve(_ primaryColor: Theme.PrimaryColor) -> Self? {
+        switch Self.self {
+            case is UIColor.Type: return primaryColor.color as? Self
+            case is Color.Type: return primaryColor.colorSwiftUI as? Self
+            default: return nil
+        }
     }
 }

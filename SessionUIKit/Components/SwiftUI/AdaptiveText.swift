@@ -59,7 +59,7 @@ struct AdaptiveText: View {
             if isLoading {
                 switch loadingStyle {
                     case .progressView: ProgressView()
-                    case .text(let text): styledText(text).fixedSize(horizontal: true, vertical: true)
+                    case .text(let text): styledText(text).minimumScaleFactor(0.5)
                 }
             }
             else if textRepresentations.count <= 1 {
@@ -121,6 +121,7 @@ struct AdaptiveText: View {
             .font(font)
             .foregroundColor(themeColor: foregroundColor)
             .lineLimit(1)
+            .minimumScaleFactor(0.5)
     }
 }
 
