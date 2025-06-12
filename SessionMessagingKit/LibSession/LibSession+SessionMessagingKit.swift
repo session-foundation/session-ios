@@ -288,7 +288,7 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        @discardableResult public func loadState(_ db: Database, requestId: String?) {
+        public func loadState(_ db: Database, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard configStore.isEmpty else {
@@ -382,7 +382,7 @@ public extension LibSession {
             )
         }
         
-        public func loadState(
+        @discardableResult public func loadState(
             for variant: ConfigDump.Variant,
             sessionId: SessionId,
             userEd25519SecretKey: [UInt8],

@@ -162,7 +162,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     using: dependencies
                 )
             })
-            .flatMap { [dependencies] (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) -> AnyPublisher<PollResult, Error> in
+            .flatMap { [dependencies] (configMessageJobs, standardMessageJobs, pollResult) -> AnyPublisher<PollResult, Error> in
                 // If we don't want to forcible process the response synchronously then just finish immediately
                 guard forceSynchronousProcessing else {
                     return Just(pollResult)
