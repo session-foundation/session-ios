@@ -137,7 +137,7 @@ final class MainAppContext: AppContext {
         SNUIKit.setMainWindow(mainWindow)
     }
     
-    func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier {
+    func beginBackgroundTask(expirationHandler: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
         return UIApplication.shared.beginBackgroundTask(expirationHandler: expirationHandler)
     }
     

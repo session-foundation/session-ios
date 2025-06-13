@@ -48,6 +48,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
     
     @ThreadSafe private var dataCache: DataCache<T> = DataCache()
     @ThreadSafe private var isLoadingMoreData: Bool = false
+    @ThreadSafe private var isSuspended: Bool = false
     @ThreadSafeObject private var changesInCommit: Set<PagedData.TrackedChange> = []
     private let onChangeUnsorted: (([T], PagedData.PageInfo) -> ())
     
@@ -174,6 +175,14 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
     /// commit, in order to avoid blocking the DBWrite thread we dispatch to a serial `commitProcessingQueue` to process the
     /// incoming changes (in the past not doing so was resulting in hanging when there was a lot of activity happening)
     public func databaseDidCommit(_ db: Database) {
+        // If we are suspended then ignore any new database changes that come through (the
+        // assumption is that `reload` will be called when resuming)
+        guard !self.isSuspended else {
+            // Clear any pending changes that might have accumulated just before suspension.
+            _changesInCommit.performUpdate { _ in [] }
+            return
+        }
+
         // If there were no pending changes in the commit then do nothing
         guard !self.changesInCommit.isEmpty else { return }
         
@@ -790,7 +799,12 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         self.isLoadingMoreData = false
     }
     
-    public func reload() {
+    public func suspend() {
+        self.isSuspended = true
+    }
+
+    public func resume() {
+        self.isSuspended = false
         self.load(.reloadCurrent)
     }
 }

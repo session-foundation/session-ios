@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 final class CallMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16
-    private static let timerViewSize: CGFloat = 12
+    private static let timerViewSize: CGFloat = 16
     private static let inset = Values.mediumSpacing
     private static let margin = UIScreen.main.bounds.width * 0.1
     
@@ -39,8 +39,9 @@ final class CallMessageCell: MessageCell {
     private lazy var timerViewContainer: UIView = {
         let result: UIView = UIView()
         result.addSubview(timerView)
-        result.set(.height, to: Self.timerViewSize)
+        result.set(.height, to: CallMessageCell.timerViewSize)
         timerView.center(in: result)
+        timerView.set(.height, to: CallMessageCell.timerViewSize)
         
         return result
     }()
