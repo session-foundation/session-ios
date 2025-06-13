@@ -27,9 +27,10 @@ public extension NSAttributedString {
         return appending(NSAttributedString(string: string, attributes: attributes))
     }
     
-    func adding(attributes: [Key: Any], range: NSRange) -> NSAttributedString {
+    func adding(attributes: [Key: Any], range: NSRange? = nil) -> NSAttributedString {
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
         let mutableString: NSMutableAttributedString = NSMutableAttributedString(attributedString: self)
-        mutableString.addAttributes(attributes, range: range)
+        mutableString.addAttributes(attributes, range: targetRange)
 
         return mutableString
     }

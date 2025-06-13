@@ -9,6 +9,10 @@ public extension NSAttributedString.Key {
         .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor
     ]
     
+    internal static let keysToIgnoreValidation: Set<NSAttributedString.Key> = [
+        .currentUserMentionBackgroundColor, .currentUserMentionBackgroundCornerRadius, .currentUserMentionBackgroundPadding
+    ]
+    
     static let themeForegroundColor = NSAttributedString.Key("org.getsession.themeForegroundColor")
     static let themeBackgroundColor = NSAttributedString.Key("org.getsession.themeBackgroundColor")
     static let themeStrokeColor = NSAttributedString.Key("org.getsession.themeStrokeColor")
@@ -111,18 +115,38 @@ public class ThemedAttributedString: Equatable, Hashable {
         return self
     }
     
-    public func addAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange) {
+    public func addAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) {
         #if DEBUG
         ThemedAttributedString.validateAttributes([name: value])
         #endif
-        value.addAttribute(name, value: attrValue, range: range)
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttribute(name, value: attrValue, range: targetRange)
     }
     
-    public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange) {
+    public func addingAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) -> ThemedAttributedString {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes([name: value])
+        #endif
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttribute(name, value: attrValue, range: targetRange)
+        return self
+    }
+    
+    public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attrs)
         #endif
-        value.addAttributes(attrs, range: range)
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttributes(attrs, range: targetRange)
+    }
+    
+    public func addingAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) -> ThemedAttributedString {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attrs)
+        #endif
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttributes(attrs, range: targetRange)
+        return self
     }
     
     public func boundingRect(with size: CGSize, options: NSStringDrawingOptions = [], context: NSStringDrawingContext?) -> CGRect {
@@ -134,24 +158,28 @@ public class ThemedAttributedString: Equatable, Hashable {
     #if DEBUG
     private static func validateAttributes(_ attributes: [NSAttributedString.Key: Any]) {
         for (key, value) in attributes {
-            if key.originalKey == nil && NSAttributedString.Key.themedKeys.contains(key) == false {
-                if value is ThemeValue {
-                    let errorMessage = """
-                    FATAL ERROR in ThemedAttributedString:
-                    You are assigning a custom ThemeValue to a standard system attribute key.
-                    
-                    - Problem Key: '\(key.rawValue)'
-                    - Problem Value: \(value)
-                    
-                    You should use the custom theme key '.theme\(key.rawValue.prefix(1))\(key.rawValue.dropFirst())' instead of '.\(key.rawValue)'.
-                    
-                    Example:
-                    - INCORRECT: [.foregroundColor: ThemeValue.textPrimary]
-                    - CORRECT:   [.themeForegroundColor: ThemeValue.textPrimary]
-                    """
-                    
-                    fatalError(errorMessage)
-                }
+            guard
+                key.originalKey == nil &&
+                NSAttributedString.Key.themedKeys.contains(key) == false &&
+                NSAttributedString.Key.keysToIgnoreValidation.contains(key) == false
+            else { continue }
+            
+            if value is ThemeValue {
+                let errorMessage = """
+                FATAL ERROR in ThemedAttributedString:
+                You are assigning a custom ThemeValue to a standard system attribute key.
+                
+                - Problem Key: '\(key.rawValue)'
+                - Problem Value: \(value)
+                
+                You should use the custom theme key '.theme\(key.rawValue.prefix(1))\(key.rawValue.dropFirst())' instead of '.\(key.rawValue)'.
+                
+                Example:
+                - INCORRECT: [.foregroundColor: ThemeValue.textPrimary]
+                - CORRECT:   [.themeForegroundColor: ThemeValue.textPrimary]
+                """
+                
+                fatalError(errorMessage)
             }
         }
     }

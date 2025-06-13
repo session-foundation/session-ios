@@ -37,19 +37,14 @@ class MessageRequestsCell: UITableViewCell {
     private let iconLabel: UILabel = {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
-        
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            result?.attributedText = Lucide
-                .attributedString(
-                    icon: .messageSquareWarning,
-                    size: 26,
-                    baselineOffset: -1  // Custom offset to look vertically aligned
-                )
-                .adding(attributes: [
-                    .foregroundColor: theme.color(for: .conversationButton_unreadBubbleText)
-                        .defaulting(to: .black)
-                ])
-        }
+        result.themeAttributedText = ThemedAttributedString(
+            attributedString: Lucide.attributedString(
+                icon: .messageSquareWarning,
+                size: 26,
+                baselineOffset: -1  // Custom offset to look vertically aligned
+            )
+        )
+        .addingAttribute(.themeForegroundColor, value: ThemeValue.conversationButton_unreadBubbleText)
         
         return result
     }()
