@@ -32,6 +32,7 @@ public extension LibSession {
         case contacts(UnsafeMutablePointer<config_object>)
         case convoInfoVolatile(UnsafeMutablePointer<config_object>)
         case userGroups(UnsafeMutablePointer<config_object>)
+        case local(UnsafeMutablePointer<config_object>)
         
         case groupInfo(UnsafeMutablePointer<config_object>)
         case groupMembers(UnsafeMutablePointer<config_object>)
@@ -49,6 +50,7 @@ public extension LibSession {
                 case .contacts: return .contacts
                 case .convoInfoVolatile: return .convoInfoVolatile
                 case .userGroups: return .userGroups
+                case .local: return .local
                     
                 case .groupInfo: return .groupInfo
                 case .groupMembers: return .groupMembers
@@ -62,6 +64,7 @@ public extension LibSession {
                 case .contacts(let conf): return contacts_size(conf)
                 case .convoInfoVolatile(let conf): return convo_info_volatile_size(conf)
                 case .userGroups(let conf): return user_groups_size(conf)
+                case .local(let conf): return local_size_settings(conf)
                 
                 case .groupInfo: return 1
                 case .groupMembers(let conf): return groups_members_size(conf)
@@ -75,6 +78,7 @@ public extension LibSession {
                 case .contacts: return "\(count) contacts"
                 case .userGroups: return "\(count) group conversations"
                 case .convoInfoVolatile: return "\(count) volatile conversations"
+                case .local: return "\(count) settings"
                     
                 case .groupInfo: return "\(count) group info"
                 case .groupMembers: return "\(count) group members"
@@ -84,9 +88,8 @@ public extension LibSession {
         
         var needsPush: Bool {
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     return config_needs_push(conf)
                 
                 case .groupKeys(let conf, _, _):
@@ -99,9 +102,8 @@ public extension LibSession {
         
         private var lastErrorString: String? {
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     guard conf.pointee.last_error != nil else { return nil }
                     
                     return String(cString: conf.pointee.last_error)
@@ -124,11 +126,10 @@ public extension LibSession {
         
         // MARK: - Functions
         
-        func push(variant: ConfigDump.Variant) throws -> PendingChanges.PushData? {
+        func push(variant: ConfigDump.Variant) throws -> PendingPushes.PushData? {
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     /// The `config_push` function implicitly unwraps it's value but can throw internally so call it in a guard
                     /// statement to prevent the implicit unwrap from causing a crash (ideally it would return a standard optional
                     /// so the compiler would warn us but it's not that straight forward when dealing with C)
@@ -154,7 +155,7 @@ public extension LibSession {
                     let seqNo: Int64 = cPushData.pointee.seqno
                     free(UnsafeMutableRawPointer(mutating: cPushData))
                     
-                    return PendingChanges.PushData(
+                    return PendingPushes.PushData(
                         data: allPushData,
                         seqNo: seqNo,
                         variant: variant
@@ -166,7 +167,7 @@ public extension LibSession {
                     
                     guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else { return nil }
                     
-                    return PendingChanges.PushData(
+                    return PendingPushes.PushData(
                         data: [Data(bytes: pushResult, count: pushResultLen)],
                         seqNo: 0,
                         variant: variant
@@ -179,9 +180,8 @@ public extension LibSession {
             hashes: [String]
         ) throws {
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     try hashes.withUnsafeCStrArray { cHashes in
                         config_confirm_pushed(
                             conf,
@@ -200,9 +200,8 @@ public extension LibSession {
             var dumpResultLen: Int = 0
             
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     config_dump(conf, &dumpResult, &dumpResultLen)
                 case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
             }
@@ -220,9 +219,8 @@ public extension LibSession {
         
         func activeHashes() -> [String] {
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     guard let hashList: UnsafeMutablePointer<config_string_list> = config_active_hashes(conf) else {
                         return []
                     }
@@ -253,9 +251,8 @@ public extension LibSession {
         func obsoleteHashes() -> [String] {
             switch self {
                 case .groupKeys: return []
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     guard let hashList: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
                         return []
                     }
@@ -272,9 +269,8 @@ public extension LibSession {
         
         func merge(_ messages: [ConfigMessageReceiveJob.Details.MessageInfo]) throws -> Int64? {
             switch self {
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                     return try messages.map { $0.serverHash }.withUnsafeCStrArray { cMergeHashes in
                         try messages.map { Array($0.data) }.withUnsafeUInt8CArray { cMergeData in
                             let mergeSize: [size_t] = messages.map { size_t($0.data.count) }
@@ -347,10 +343,10 @@ public extension LibSession {
     }
 }
 
-// MARK: - PendingChanges
+// MARK: - PendingPushes
 
 public extension LibSession {
-    struct PendingChanges {
+    struct PendingPushes {
         public struct PushData {
             let data: [Data]
             let seqNo: Int64
@@ -398,9 +394,8 @@ public extension LibSessionError {
                     Log.error("\(logMessage): \(self)")
                 }
                 
-            case .userProfile(let conf), .contacts(let conf),
-                .convoInfoVolatile(let conf), .userGroups(let conf),
-                .groupInfo(let conf), .groupMembers(let conf):
+            case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                 self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
             case .groupKeys(let conf, _, _): self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
         }
@@ -409,9 +404,8 @@ public extension LibSessionError {
     static func throwIfNeeded(_ config: LibSession.Config?) throws {
         switch config {
             case .none: return
-            case .userProfile(let conf), .contacts(let conf),
-                .convoInfoVolatile(let conf), .userGroups(let conf),
-                .groupInfo(let conf), .groupMembers(let conf):
+            case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
                 try LibSessionError.throwIfNeeded(conf)
             case .groupKeys(let conf, _, _): try LibSessionError.throwIfNeeded(conf)
         }

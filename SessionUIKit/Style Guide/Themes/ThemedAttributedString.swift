@@ -111,18 +111,38 @@ public class ThemedAttributedString: Equatable, Hashable {
         return self
     }
     
-    public func addAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange) {
+    public func addAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) {
         #if DEBUG
         ThemedAttributedString.validateAttributes([name: value])
         #endif
-        value.addAttribute(name, value: attrValue, range: range)
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttribute(name, value: attrValue, range: targetRange)
     }
     
-    public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange) {
+    public func addingAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) -> ThemedAttributedString {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes([name: value])
+        #endif
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttribute(name, value: attrValue, range: targetRange)
+        return self
+    }
+
+    public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attrs)
         #endif
-        value.addAttributes(attrs, range: range)
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttributes(attrs, range: targetRange)
+    }
+
+    public func addingAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) -> ThemedAttributedString {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attrs)
+        #endif
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        value.addAttributes(attrs, range: targetRange)
+        return self
     }
     
     public func boundingRect(with size: CGSize, options: NSStringDrawingOptions = [], context: NSStringDrawingContext?) -> CGRect {

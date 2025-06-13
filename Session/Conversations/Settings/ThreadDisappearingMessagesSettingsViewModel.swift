@@ -372,7 +372,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     serverHash: nil,
                     serverExpirationTimestamp: nil,
                     using: dependencies
-                )
+                )?
+                .interactionId
             
             // Update libSession
             switch threadVariant {

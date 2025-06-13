@@ -5,8 +5,9 @@ import GRDB
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage {
-    private let dependencies: Dependencies
+class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
+    public var dependencies: Dependencies
+    private let initialData: ((Database) throws -> ())?
     
     public init(
         customWriter: DatabaseWriter? = nil,
@@ -16,6 +17,7 @@ class SynchronousStorage: Storage {
         initialData: ((Database) throws -> ())? = nil
     ) {
         self.dependencies = dependencies
+        self.initialData = initialData
         
         super.init(customWriter: customWriter, using: dependencies)
         
@@ -38,9 +40,25 @@ class SynchronousStorage: Storage {
                 onComplete: { _ in }
             )
         }
-        
-        write { db in try initialData?(db) }
     }
+    
+    // MARK: - DependenciesSettable
+    
+    func setDependencies(_ dependencies: Dependencies?) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        self.dependencies = dependencies
+    }
+    
+    // MARK: - InitialSetupable
+    
+    func performInitialSetup() {
+        guard let closure: ((Database) throws -> ()) = initialData else { return }
+        
+        write { db in try closure(db) }
+    }
+    
+    // MARK: - Overwritten Functions
     
     @discardableResult override func write<T>(
         fileName: String = #fileID,

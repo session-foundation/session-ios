@@ -26,7 +26,9 @@ public enum SNSnodeKit: MigratableTarget { // Just to make the external API nice
                     _006_DropSnodeCache.self,
                     _007_SplitSnodeReceivedMessageInfo.self,
                     _008_ResetUserConfigLastHashes.self
-                ]
+                ],
+                [],  // Renamed `Setting` to `KeyValueStore`
+                []
             ]
         )
     }

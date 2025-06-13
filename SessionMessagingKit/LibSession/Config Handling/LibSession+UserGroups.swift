@@ -448,26 +448,9 @@ internal extension LibSessionCacheType {
     }
 }
 
-internal extension LibSession {
-    fileprivate static func memberInfo(in legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info>) -> [String: Bool] {
-        let membersIt: OpaquePointer = ugroups_legacy_members_begin(legacyGroup)
-        var members: [String: Bool] = [:]
-        var maybeMemberSessionId: UnsafePointer<CChar>? = nil
-        var memberAdmin: Bool = false
+// MARK: - Outgoing Changes
 
-        while ugroups_legacy_members_next(membersIt, &maybeMemberSessionId, &memberAdmin) {
-            guard let memberSessionId: UnsafePointer<CChar> = maybeMemberSessionId else {
-                continue
-            }
-
-            members[String(cString: memberSessionId)] = memberAdmin
-        }
-        
-        return members
-    }
-    
-    // MARK: - Outgoing Changes
-    
+public extension LibSession {
     static func upsert(
         legacyGroups: [LegacyGroupInfo],
         in config: Config?
@@ -561,7 +544,7 @@ internal extension LibSession {
             }
     }
     
-    public static func upsert(
+    static func upsert(
         groups: [GroupUpdateInfo],
         in config: Config?,
         using dependencies: Dependencies
@@ -645,6 +628,25 @@ internal extension LibSession {
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
                 user_groups_set_community(conf, &userCommunity)
             }
+    }
+}
+
+internal extension LibSession {
+    fileprivate static func memberInfo(in legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info>) -> [String: Bool] {
+        let membersIt: OpaquePointer = ugroups_legacy_members_begin(legacyGroup)
+        var members: [String: Bool] = [:]
+        var maybeMemberSessionId: UnsafePointer<CChar>? = nil
+        var memberAdmin: Bool = false
+
+        while ugroups_legacy_members_next(membersIt, &maybeMemberSessionId, &memberAdmin) {
+            guard let memberSessionId: UnsafePointer<CChar> = maybeMemberSessionId else {
+                continue
+            }
+
+            members[String(cString: memberSessionId)] = memberAdmin
+        }
+        
+        return members
     }
     
     @discardableResult static func updatingGroups<T>(
@@ -1166,7 +1168,7 @@ public extension LibSession {
 
 // MARK: - CommunityInfo
 
-extension LibSession {
+public extension LibSession {
     struct CommunityInfo {
         let urlInfo: OpenGroupUrlInfo
         let priority: Int32?

@@ -87,6 +87,18 @@ class GeneralCacheSpec: QuickSpec {
                 expect(cache.sessionId).to(equal(.invalid))
                 expect(cache.ed25519SecretKey).to(beEmpty())
             }
+            
+            // MARK: -- changes back to an invalid state if updated with an invalid value
+            it("changes back to an invalid state if updated with an invalid value") {
+                let cache: General.Cache = General.Cache(using: dependencies)
+                cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
+                expect(cache.userExists).to(beTrue())
+                
+                cache.setSecretKey(ed25519SecretKey: [])
+                expect(cache.userExists).to(beFalse())
+                expect(cache.sessionId).to(equal(.invalid))
+                expect(cache.ed25519SecretKey).to(beEmpty())
+            }
         }
     }
 }

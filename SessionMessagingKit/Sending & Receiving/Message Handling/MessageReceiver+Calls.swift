@@ -23,13 +23,13 @@ extension MessageReceiver {
         message: CallMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         // Only support calls from contact threads
-        guard threadVariant == .contact else { return }
+        guard threadVariant == .contact else { throw MessageReceiverError.invalidMessage }
         
         switch (message.kind, message.state) {
             case (.preOffer, _):
-                try MessageReceiver.handleNewCallMessage(
+                return try MessageReceiver.handleNewCallMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -50,7 +50,7 @@ extension MessageReceiver {
                 )
             
             case (.endCall, .missed):
-                try MessageReceiver.handleIncomingCallOfferInBusyState(
+                return try MessageReceiver.handleIncomingCallOfferInBusyState(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -61,6 +61,8 @@ extension MessageReceiver {
                 
             case (.endCall, _): MessageReceiver.handleEndCallMessage(db, message: message, using: dependencies)
         }
+        
+        return nil
     }
     
     // MARK: - Specific Handling
@@ -72,7 +74,7 @@ extension MessageReceiver {
         message: CallMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         Log.info(.calls, "Received pre-offer message with uuid: \(message.uuid).")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
@@ -87,7 +89,7 @@ extension MessageReceiver {
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
             })
-        else { return }
+        else { throw MessageReceiverError.invalidMessage }
         guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
             Log.info(.calls, "Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestampMs ?? 0), now is \(Date().timeIntervalSince1970 * 1000)")
@@ -123,15 +125,38 @@ extension MessageReceiver {
                                 using: dependencies
                             )
                         },
+                        groupNameRetriever: { threadId, threadVariant in
+                            switch threadVariant {
+                                case .group:
+                                    let groupId: SessionId = SessionId(.group, hex: threadId)
+                                    return dependencies.mutate(cache: .libSession) { cache in
+                                        cache.groupName(groupSessionId: groupId)
+                                    }
+                                    
+                                case .community:
+                                    return try? OpenGroup
+                                        .select(.name)
+                                        .filter(id: threadId)
+                                        .asRequest(of: String.self)
+                                        .fetchOne(db)
+                                    
+                                default: return nil
+                            }
+                        },
                         shouldShowForMessageRequest: { false }
                     )
                 }
+                
+                return (threadId, threadVariant, interactionId, interaction.variant, interaction.wasRead, 0)
             }
-            return
+            
+            return nil
         }
         
-        guard db[.areCallsEnabled] && Permissions.microphone == .granted else {
-            let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && Permissions.microphone == .granted else {
+            let state: CallMessage.MessageInfo.State = (dependencies.mutate(cache: .libSession) { cache in
+                (cache.get(.areCallsEnabled) ? .permissionDeniedMicrophone : .permissionDenied)
+            })
             
             Log.info(.calls, "Microphone permission is \(AVAudioSession.sharedInstance().recordPermission)")
             
@@ -167,6 +192,24 @@ extension MessageReceiver {
                                 using: dependencies
                             )
                         },
+                        groupNameRetriever: { threadId, threadVariant in
+                            switch threadVariant {
+                                case .group:
+                                    let groupId: SessionId = SessionId(.group, hex: threadId)
+                                    return dependencies.mutate(cache: .libSession) { cache in
+                                        cache.groupName(groupSessionId: groupId)
+                                    }
+                                    
+                                case .community:
+                                    return try? OpenGroup
+                                        .select(.name)
+                                        .filter(id: threadId)
+                                        .asRequest(of: String.self)
+                                        .fetchOne(db)
+                                    
+                                default: return nil
+                            }
+                        },
                         shouldShowForMessageRequest: { false }
                     )
                 }
@@ -177,8 +220,10 @@ extension MessageReceiver {
                     object: nil,
                     userInfo: [ Notification.Key.senderId.rawValue: sender ]
                 )
+                return (threadId, threadVariant, interactionId, interaction.variant, interaction.wasRead, 0)
             }
-            return
+            
+            return nil
         }
         
         /// If we are already on a call that is different from the current one then we are in a busy state
@@ -209,7 +254,9 @@ extension MessageReceiver {
         /// Ignore pre offer message after the same call instance has been generated
         guard dependencies[singleton: .callManager].currentCall == nil else {
             Log.info(.calls, "Ignoring pre-offer message for call[\(message.uuid)] instance because it is already active.")
-            return
+            return interaction.map { interaction in
+                interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }
+            }
         }
         
         /// Handle UI for the new call
@@ -219,6 +266,9 @@ extension MessageReceiver {
             mode: .answer,
             interactionId: interaction?.id
         )
+        return interaction.map { interaction in
+            interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }
+        }
     }
     
     private static func handleOfferCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) {
@@ -297,7 +347,7 @@ extension MessageReceiver {
         message: CallMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
         
         guard
@@ -306,13 +356,13 @@ extension MessageReceiver {
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isMessageRequest(threadId: caller, threadVariant: threadVariant)
             })
-        else { return }
+        else { throw MessageReceiverError.invalidMessage }
         
         let messageSentTimestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
-        _ = try Interaction(
+        let interaction: Interaction = try Interaction(
             serverHash: message.serverHash,
             messageUuid: message.uuid,
             threadId: threadId,
@@ -354,6 +404,8 @@ extension MessageReceiver {
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete()
         }
+        
+        return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }
     }
     
     public static func sendIncomingCallOfferInBusyStateResponse(

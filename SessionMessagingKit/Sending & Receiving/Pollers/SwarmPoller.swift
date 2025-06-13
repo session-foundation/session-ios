@@ -133,7 +133,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 request.send(using: dependencies)
                     .map { _, response in (snode, response) }
             }
-            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) in
+            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> ([Job], [Job], PollResult) in
                 let (snode, namespacedResults): (LibSession.Snode, SnodeAPI.PollResponse) = info
                 
                 /// Get all of the messages and sort them by their required `processingOrder`
@@ -162,7 +162,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     using: dependencies
                 )
             })
-            .flatMap { [dependencies] (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) -> AnyPublisher<PollResult, Error> in
+            .flatMap { [dependencies] (configMessageJobs, standardMessageJobs, pollResult) -> AnyPublisher<PollResult, Error> in
                 // If we don't want to forcible process the response synchronously then just finish immediately
                 guard forceSynchronousProcessing else {
                     return Just(pollResult)
@@ -235,7 +235,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
         using dependencies: Dependencies
-    ) -> (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) {
+    ) -> ([Job], [Job], PollResult) {
         /// No need to do anything if there are no messages
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
@@ -353,24 +353,36 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 }
                 else {
                     /// Individually process non-config messages
+                    var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
+                    
                     processedMessages.forEach { processedMessage in
                         guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
                             return
                         }
                         
                         do {
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                message: messageInfo.message,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: proto,
-                                suppressNotifications: (source == .pushNotification),   /// Have already shown
-                                using: dependencies
+                            insertedInteractionInfo.append(
+                                try MessageReceiver.handle(
+                                    db,
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    message: messageInfo.message,
+                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                    associatedWithProto: proto,
+                                    suppressNotifications: (source == .pushNotification),   /// Have already shown
+                                    using: dependencies
+                                )
                             )
                         }
                         catch { Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).") }
+                    }
+                    
+                    /// Notify about the received messages
+                    Task { [dependencies] in
+                        await MessageReceiver.notifyForInsertedInteractions(
+                            insertedInteractionInfo,
+                            using: dependencies
+                        )
                     }
                 }
                 

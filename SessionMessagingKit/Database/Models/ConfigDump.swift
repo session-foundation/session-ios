@@ -26,6 +26,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case contacts
         case convoInfoVolatile
         case userGroups
+        case local
         
         case groupInfo
         case groupMembers
@@ -45,7 +46,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
     /// **Note:** For user config items this will be an empty string
     public var sessionId: SessionId {
         switch variant {
-            case .userProfile, .contacts, .convoInfoVolatile, .userGroups:
+            case .userProfile, .contacts, .convoInfoVolatile, .userGroups, .local:
                 return SessionId(.standard, hex: publicKey)
                 
             case .groupInfo, .groupMembers, .groupKeys:
@@ -79,7 +80,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
 
 public extension ConfigDump.Variant {
     static let userVariants: Set<ConfigDump.Variant> = [
-        .userProfile, .contacts, .convoInfoVolatile, .userGroups
+        .userProfile, .contacts, .convoInfoVolatile, .userGroups, .local
     ]
     static let groupVariants: Set<ConfigDump.Variant> = [
         .groupInfo, .groupMembers, .groupKeys
@@ -109,6 +110,7 @@ public extension ConfigDump.Variant {
             case .contacts: return SnodeAPI.Namespace.configContacts
             case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
             case .userGroups: return SnodeAPI.Namespace.configUserGroups
+            case .local: return SnodeAPI.Namespace.configLocal
             
             case .groupInfo: return SnodeAPI.Namespace.configGroupInfo
             case .groupMembers: return SnodeAPI.Namespace.configGroupMembers
@@ -125,7 +127,7 @@ public extension ConfigDump.Variant {
     /// the user configs are loaded first
     var loadOrder: Int {
         switch self {
-            case .invalid: return 3
+            case .invalid, .local: return 3
             case .groupKeys: return 2
             case .groupInfo, .groupMembers: return 1
             case .userProfile, .contacts, .convoInfoVolatile, .userGroups: return 0
@@ -153,6 +155,7 @@ extension ConfigDump.Variant: CustomStringConvertible {
             case .contacts: return "contacts"
             case .convoInfoVolatile: return "convoInfoVolatile"
             case .userGroups: return "userGroups"
+            case .local: return "local"
             
             case .groupInfo: return "groupInfo"
             case .groupMembers: return "groupMembers"

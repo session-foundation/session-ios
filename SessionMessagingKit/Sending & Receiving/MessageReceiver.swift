@@ -167,7 +167,7 @@ public enum MessageReceiver {
                         throw MessageReceiverError.invalidConfigMessageHandling
                     
                     case .legacyClosedGroup: throw MessageReceiverError.deprecatedMessage
-                    case .all, .unknown:
+                    case .configLocal, .all, .unknown:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
                         throw MessageReceiverError.unknownMessage(nil)
                 }
@@ -243,7 +243,7 @@ public enum MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
         /// has been updated since the message was sent - this should be reworked to be less edge-case prone in the future)
         try throwIfMessageOutdated(
@@ -267,15 +267,19 @@ public enum MessageReceiver {
             using: dependencies
         )
         
+        let interactionInfo: InsertedInteractionInfo?
         switch message {
             case let message as ReadReceipt:
+                interactionInfo = nil
                 try MessageReceiver.handleReadReceipt(
                     db,
                     message: message,
-                    serverExpirationTimestamp: serverExpirationTimestamp
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    using: dependencies
                 )
                 
             case let message as TypingIndicator:
+                interactionInfo = nil
                 try MessageReceiver.handleTypingIndicator(
                     db,
                     threadId: threadId,
@@ -288,7 +292,7 @@ public enum MessageReceiver {
                 is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage, is GroupUpdateMemberLeftMessage,
                 is GroupUpdateMemberLeftNotificationMessage, is GroupUpdateInviteResponseMessage,
                 is GroupUpdateDeleteMemberContentMessage:
-                try MessageReceiver.handleGroupUpdateMessage(
+                interactionInfo = try MessageReceiver.handleGroupUpdateMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -299,7 +303,7 @@ public enum MessageReceiver {
                 )
                 
             case let message as DataExtractionNotification:
-                try MessageReceiver.handleDataExtractionNotification(
+                interactionInfo = try MessageReceiver.handleDataExtractionNotification(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -309,7 +313,7 @@ public enum MessageReceiver {
                 )
                 
             case let message as ExpirationTimerUpdate:
-                try MessageReceiver.handleExpirationTimerUpdate(
+                interactionInfo = try MessageReceiver.handleExpirationTimerUpdate(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -320,6 +324,7 @@ public enum MessageReceiver {
                 )
                 
             case let message as UnsendRequest:
+                interactionInfo = nil
                 try MessageReceiver.handleUnsendRequest(
                     db,
                     threadId: threadId,
@@ -329,7 +334,7 @@ public enum MessageReceiver {
                 )
                 
             case let message as CallMessage:
-                try MessageReceiver.handleCallMessage(
+                interactionInfo = try MessageReceiver.handleCallMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -339,14 +344,14 @@ public enum MessageReceiver {
                 )
                 
             case let message as MessageRequestResponse:
-                try MessageReceiver.handleMessageRequestResponse(
+                interactionInfo = try MessageReceiver.handleMessageRequestResponse(
                     db,
                     message: message,
                     using: dependencies
                 )
                 
             case let message as VisibleMessage:
-                try MessageReceiver.handleVisibleMessage(
+                interactionInfo = try MessageReceiver.handleVisibleMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -358,6 +363,7 @@ public enum MessageReceiver {
                 )
             
             case let message as LibSessionMessage:
+                interactionInfo = nil
                 try MessageReceiver.handleLibSessionMessage(
                     db,
                     threadId: threadId,
@@ -375,8 +381,11 @@ public enum MessageReceiver {
             threadId: threadId,
             threadVariant: threadVariant,
             message: message,
+            insertedInteractionInfo: interactionInfo,
             using: dependencies
         )
+        
+        return interactionInfo
     }
     
     public static func postHandleMessage(
@@ -384,6 +393,7 @@ public enum MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        insertedInteractionInfo: InsertedInteractionInfo?,
         using dependencies: Dependencies
     ) throws {
         // When handling any message type which has related UI we want to make sure the thread becomes
@@ -567,5 +577,48 @@ public enum MessageReceiver {
         }
         
         /// If we made it here then the message is not outdated
+    }
+    
+    /// Notify any observers of newly received messages
+    public static func notifyForInsertedInteractions(
+        _ insertedInteractionInfo: [InsertedInteractionInfo?],
+        using dependencies: Dependencies
+    ) async {
+        let insertedInfo: [InsertedInteractionInfo] = insertedInteractionInfo.compactMap { $0 }
+        
+        guard !insertedInfo.isEmpty else { return }
+        
+        await dependencies.mutate(cache: .libSession) { cache in
+            for info in insertedInfo {
+                switch info {
+                    case (let threadId, let threadVariant, let interactionId, _, false, let numPreviousInteractionsForMessageRequest):
+                        await cache.addPendingChange(
+                            key: .unreadMessageReceived(threadId: threadId),
+                            value: interactionId
+                        )
+                        
+                        if cache.isMessageRequest(threadId: threadId, threadVariant: threadVariant) {
+                            await cache.addPendingChange(
+                                key: .unreadMessageRequestMessageReceived,
+                                value: interactionId
+                            )
+                            
+                            // Need to re-show the message requests section if we received a new message
+                            // request
+                            if numPreviousInteractionsForMessageRequest == 0 {
+                                await cache.set(.hasHiddenMessageRequests, false)
+                            }
+                        }
+                    
+                    case (let threadId, _, let interactionId, _, _, _):
+                        await cache.addPendingChange(
+                            key: .messageReceived(threadId: threadId),
+                            value: interactionId
+                        )
+                }
+            }
+            
+            await cache.yieldAllPendingChanges()
+        }
     }
 }

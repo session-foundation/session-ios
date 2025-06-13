@@ -12,8 +12,8 @@ public final class ExpirationTimerUpdate: ControlMessage {
     
     public override var isSelfSendValid: Bool { true }
     
-    public init(syncTarget: String? = nil) {
-        super.init()
+    public init(syncTarget: String? = nil, sender: String? = nil) {
+        super.init(sender: sender)
         
         self.syncTarget = syncTarget
     }

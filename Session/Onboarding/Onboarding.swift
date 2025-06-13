@@ -329,9 +329,6 @@ extension Onboarding {
                         /// Store the user identity information
                         try Identity.store(db, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
                         
-                        /// No need to show the seed again if the user is restoring
-                        db[.hasViewedSeed] = (initialFlow == .restore)
-                        
                         /// Create a contact for the current user and set their approval/trusted statuses so they don't get weird behaviours
                         try Contact
                             .fetchOrCreate(db, id: userSessionId.hexString, using: dependencies)
@@ -392,10 +389,6 @@ extension Onboarding {
                         )
                     }
                     
-                    /// Now that the onboarding process is completed we can enable the Share and Notification extensions (prior to
-                    /// this point the account is in an invalid state so there is no point enabling them)
-                    db[.isReadyForAppExtensions] = true
-                    
                     /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
                     /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
                     /// dependant on this `state` being updated)
@@ -415,6 +408,9 @@ extension Onboarding {
                             )
                     }
                 }
+                
+                /// No need to show the seed again if the user is restoring
+                dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
                 
                 /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
                 /// extensions (prior to this point the account is in an invalid state so they can't be used)

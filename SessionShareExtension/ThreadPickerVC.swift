@@ -23,8 +23,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     // MARK: - Intialization
     
-    init(using dependencies: Dependencies) {
-        viewModel = ThreadPickerViewModel(using: dependencies)
+    init(userMetadata: ExtensionHelper.UserMetadata?, using dependencies: Dependencies) {
+        viewModel = ThreadPickerViewModel(userMetadata: userMetadata, using: dependencies)
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -71,21 +71,22 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         result.textAlignment = .center
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
-        result.isHidden = true
+        result.isHidden = (viewModel.userMetadata != nil)
         
         return result
     }()
 
     private lazy var tableView: UITableView = {
-        let tableView: UITableView = UITableView()
-        tableView.themeBackgroundColor = .backgroundPrimary
-        tableView.separatorStyle = .none
-        tableView.register(view: SimplifiedConversationCell.self)
-        tableView.showsVerticalScrollIndicator = false
-        tableView.dataSource = self
-        tableView.delegate = self
+        let result: UITableView = UITableView()
+        result.themeBackgroundColor = .backgroundPrimary
+        result.separatorStyle = .none
+        result.register(view: SimplifiedConversationCell.self)
+        result.showsVerticalScrollIndicator = false
+        result.dataSource = self
+        result.delegate = self
+        result.isHidden = (viewModel.userMetadata == nil)
         
-        return tableView
+        return result
     }()
     
     // MARK: - Lifecycle
@@ -165,10 +166,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private func startObservingChanges() {
         guard dataChangeObservable == nil else { return }
         
-        noAccountErrorLabel.isHidden = viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
-        tableView.isHidden = !viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
+        tableView.isHidden = !noAccountErrorLabel.isHidden
         
-        guard viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions] else { return }
+        guard viewModel.userMetadata != nil else { return }
         
         // Start observing for data changes
         dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(

@@ -755,7 +755,7 @@ public enum OpenGroupAPI {
             request: Request<NoBody, Endpoint>(
                 method: .post,
                 endpoint: .roomUnpinMessage(roomToken, id: id),
-                authMethod: authMethod,
+                authMethod: authMethod
             ),
             responseType: NoResponse.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
@@ -972,7 +972,7 @@ public enum OpenGroupAPI {
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .outboxSince(id: id),
-                authMethod: authMethod,
+                authMethod: authMethod
             ),
             responseType: [DirectMessage]?.self,
             additionalSignatureData: AdditionalSigningData(authMethod),

@@ -50,13 +50,14 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     internal init(
         memberSessionIds: [String],
         messageHashes: [String],
-        adminSignature: Authentication.Signature?
+        adminSignature: Authentication.Signature?,
+        sender: String? = nil
     ) {
         self.memberSessionIds = memberSessionIds
         self.messageHashes = messageHashes
         self.adminSignature = adminSignature
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Signature Generation

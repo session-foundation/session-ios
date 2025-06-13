@@ -67,8 +67,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let swarmPublicKey: String = job.threadId,
-            let pendingChanges: LibSession.PendingChanges = try? dependencies.mutate(cache: .libSession, {
-                try $0.pendingChanges(swarmPublicKey: swarmPublicKey)
+            let pendingPushes: LibSession.PendingPushes = try? dependencies.mutate(cache: .libSession, {
+                try $0.pendingPushes(swarmPublicKey: swarmPublicKey)
             })
         else {
             Log.info(.cat, "For \(job.threadId ?? "UnknownId") failed due to invalid data")
@@ -78,8 +78,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         /// If there is no `pushData`, `obsoleteHashes` or additional sequence requests then the job can just complete (next time
         /// something is updated we want to try and run immediately so don't scuedule another run in this case)
         guard
-            !pendingChanges.pushData.isEmpty ||
-            !pendingChanges.obsoleteHashes.isEmpty ||
+            !pendingPushes.pushData.isEmpty ||
+            !pendingPushes.obsoleteHashes.isEmpty ||
             job.transientData != nil
         else {
             Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")
@@ -90,7 +90,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
-        Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingChanges.pushData.count), old hashes: \(pendingChanges.obsoleteHashes.count)")
+        Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
         dependencies[singleton: .storage]
             .readPublisher { db -> AuthenticationMethod in
@@ -101,7 +101,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
-                            contentsOf: try pendingChanges.pushData
+                            contentsOf: try pendingPushes.pushData
                                 .flatMap { pushData -> [ErasedPreparedRequest] in
                                     try pushData.data.map { data -> ErasedPreparedRequest in
                                         try SnodeAPI
@@ -120,10 +120,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                             }
                         )
                         .appending(try {
-                            guard !pendingChanges.obsoleteHashes.isEmpty else { return nil }
+                            guard !pendingPushes.obsoleteHashes.isEmpty else { return nil }
                             
                             return try SnodeAPI.preparedDeleteMessages(
-                                serverHashes: Array(pendingChanges.obsoleteHashes),
+                                serverHashes: Array(pendingPushes.obsoleteHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: authMethod,
                                 using: dependencies
@@ -161,8 +161,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                         })
                 else { throw NetworkError.invalidResponse }
                 
-                let results: [(pushData: LibSession.PendingChanges.PushData, hash: String?)] = zip(responseWithoutBeforeRequests, pendingChanges.pushData)
-                    .map { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
+                let results: [(pushData: LibSession.PendingPushes.PushData, hash: String?)] = zip(responseWithoutBeforeRequests, pendingPushes.pushData)
+                    .map { (subResponse: Any, pushData: LibSession.PendingPushes.PushData) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard

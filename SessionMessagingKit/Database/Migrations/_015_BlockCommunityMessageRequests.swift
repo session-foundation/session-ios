@@ -42,6 +42,13 @@ enum _015_BlockCommunityMessageRequests: Migration {
                 """,
                 arguments: [userSessionId.hexString]
             )
+            try cache.loadState(
+                for: .userProfile,
+                sessionId: userSessionId,
+                userEd25519SecretKey: Array(userEd25519SecretKey),
+                groupEd25519SecretKey: nil,
+                cachedData: configDump
+            )
             
             // Use the value in the config if we happen to have one, otherwise use the default
             try db.execute(sql: """

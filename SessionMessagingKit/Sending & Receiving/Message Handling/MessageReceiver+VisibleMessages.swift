@@ -6,7 +6,16 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    @discardableResult public static func handleVisibleMessage(
+    public typealias InsertedInteractionInfo = (
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        interactionId: Int64,
+        interactionVariant: Interaction.Variant?,
+        wasRead: Bool,
+        numPreviousInteractionsForMessageRequest: Int
+    )
+    
+    internal static func handleVisibleMessage(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -15,7 +24,7 @@ extension MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws -> Int64 {
+    ) throws -> InsertedInteractionInfo {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
         }
@@ -158,7 +167,7 @@ extension MessageReceiver {
             suppressNotifications: suppressNotifications,
             using: dependencies
         ) {
-            return interactionId
+            return (threadId, threadVariant, interactionId, nil, true, 0)
         }
         // Try to insert the interaction
         //
@@ -413,7 +422,33 @@ extension MessageReceiver {
             !suppressNotifications &&
             variant == .standardIncoming &&
             !interaction.wasRead
-        else { return interactionId }
+        else { return (threadId, threadVariant, interactionId, variant, interaction.wasRead, 0) }
+        
+        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.isMessageRequest(
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
+        }
+        let numPreviousInteractionsForMessageRequest: Int = {
+            guard isMessageRequest else { return 0 }
+            
+            switch interaction.serverHash {
+                case .some(let serverHash):
+                    return (try? Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.serverHash != serverHash)
+                        .fetchCount(db))
+                        .defaulting(to: 0)
+
+                case .none:
+                    return (try? Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
+                        .fetchCount(db))
+                        .defaulting(to: 0)
+            }
+        }()
         
         try? dependencies[singleton: .notificationsManager].notifyUser(
             message: message,
@@ -434,38 +469,38 @@ extension MessageReceiver {
                     using: dependencies
                 )
             },
-            shouldShowForMessageRequest: {
-                let numInteractions: Int = {
-                    switch interaction.serverHash {
-                        case .some(let serverHash):
-                            return (try? Interaction
-                                .filter(Interaction.Columns.threadId == threadId)
-                                .filter(Interaction.Columns.serverHash != serverHash)
-                                .fetchCount(db))
-                                .defaulting(to: 0)
-
-                        case .none:
-                            return (try? Interaction
-                                .filter(Interaction.Columns.threadId == threadId)
-                                .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
-                                .fetchCount(db))
-                                .defaulting(to: 0)
-                    }
-                }()
-
-                // We only want to show a notification for the first interaction in the thread
-                guard numInteractions == 0 else { return false }
-
-                // Need to re-show the message requests section if it had been hidden
-                if db[.hasHiddenMessageRequests] {
-                    db[.hasHiddenMessageRequests] = false
+            groupNameRetriever: { threadId, threadVariant in
+                switch threadVariant {
+                    case .group:
+                        let groupId: SessionId = SessionId(.group, hex: threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupName(groupSessionId: groupId)
+                        }
+                        
+                    case .community:
+                        return try? OpenGroup
+                            .select(.name)
+                            .filter(id: threadId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                    default: return nil
                 }
-                
-                return true
+            },
+            shouldShowForMessageRequest: {
+                // We only want to show a notification for the first interaction in the thread
+                return (numPreviousInteractionsForMessageRequest == 0)
             }
         )
         
-        return interactionId
+        return (
+            threadId,
+            threadVariant,
+            interactionId,
+            variant,
+            interaction.wasRead,
+            numPreviousInteractionsForMessageRequest
+        )
     }
     
     private static func handleEmojiReactIfNeeded(
@@ -514,7 +549,7 @@ extension MessageReceiver {
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
                 let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let reaction: Reaction = try Reaction(
+                _ = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
                     timestampMs: timestampMs,
@@ -557,6 +592,24 @@ extension MessageReceiver {
                                 threadVariant: thread.variant,
                                 using: dependencies
                             )
+                        },
+                        groupNameRetriever: { threadId, threadVariant in
+                            switch threadVariant {
+                                case .group:
+                                    let groupId: SessionId = SessionId(.group, hex: threadId)
+                                    return dependencies.mutate(cache: .libSession) { cache in
+                                        cache.groupName(groupSessionId: groupId)
+                                    }
+                                    
+                                case .community:
+                                    return try? OpenGroup
+                                        .select(.name)
+                                        .filter(id: threadId)
+                                        .asRequest(of: String.self)
+                                        .fetchOne(db)
+                                    
+                                default: return nil
+                            }
                         },
                         shouldShowForMessageRequest: { false }
                     )
@@ -619,7 +672,8 @@ extension MessageReceiver {
                 db,
                 threadId: thread.id,
                 timestampMsValues: [pendingReadReceipt.interactionTimestampMs],
-                readTimestampMs: pendingReadReceipt.readTimestampMs
+                readTimestampMs: pendingReadReceipt.readTimestampMs,
+                using: dependencies
             )
             
             _ = try pendingReadReceipt.delete(db)

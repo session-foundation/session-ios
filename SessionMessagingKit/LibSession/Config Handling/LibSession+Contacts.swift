@@ -36,9 +36,10 @@ internal extension LibSessionCacheType {
     func handleContactsUpdate(
         _ db: Database,
         in config: LibSession.Config?,
+        oldState: [LibSession.ObservableKey: Any],
         serverTimestampMs: Int64
-    ) throws {
-        guard configNeedsDump(config) else { return }
+    ) throws -> [(key: LibSession.ObservableKey, value: Any?)] {
+        guard configNeedsDump(config) else { return [] }
         guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
@@ -48,6 +49,7 @@ internal extension LibSessionCacheType {
             serverTimestampMs: serverTimestampMs,
             using: dependencies
         ).filter { $0.key != userSessionId.hexString }
+        var changes: [(key: LibSession.ObservableKey, value: Any?)] = []
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -77,6 +79,7 @@ internal extension LibSessionCacheType {
                     profile.nickname != data.profile.nickname ||
                     profilePictureShouldBeUpdated
                 {
+                    changes.append((.profile(profile.id), profile))
                     try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
@@ -114,6 +117,7 @@ internal extension LibSessionCacheType {
                     (contact.isBlocked != data.contact.isBlocked) ||
                     (contact.didApproveMe != data.contact.didApproveMe)
                 {
+                    changes.append((.contact(contact.id), contact))
                     try contact.upsert(db)
                     try Contact
                         .filter(id: sessionId)
@@ -262,6 +266,8 @@ internal extension LibSessionCacheType {
                 using: dependencies
             )
         }
+        
+        return changes
     }
 }
 
@@ -794,17 +800,17 @@ extension LibSession {
 
 // MARK: - ContactData
 
-private struct ContactData {
-    let contact: Contact
-    let profile: Profile
-    let config: DisappearingMessagesConfiguration
-    let priority: Int32
-    let created: TimeInterval
+internal struct ContactData {
+    internal let contact: Contact
+    internal let profile: Profile
+    internal let config: DisappearingMessagesConfiguration
+    internal let priority: Int32
+    internal let created: TimeInterval
 }
 
 // MARK: - Convenience
 
-private extension LibSession {
+internal extension LibSession {
     static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
         serverTimestampMs: Int64,

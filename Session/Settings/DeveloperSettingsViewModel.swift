@@ -72,6 +72,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case animationsEnabled
         case showStringKeys
+        case copyDocumentsPath
+        case copyAppGroupPath
         
         case defaultLogLevel
         case advancedLogging
@@ -95,7 +97,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteAttachmentsBeforeNow
         
         case createMockContacts
-        case copyDatabasePath
         case forceSlowDatabaseQueries
         case exportDatabase
         case importDatabase
@@ -109,6 +110,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .developerMode: return "developerMode"
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
+                case .copyDocumentsPath: return "copyDocumentsPath"
+                case .copyAppGroupPath: return "copyAppGroupPath"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -135,7 +138,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .scheduleLocalNotification: return "scheduleLocalNotification"
 
                 case .createMockContacts: return "createMockContacts"
-                case .copyDatabasePath: return "copyDatabasePath"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
@@ -152,6 +154,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .developerMode: result.append(.developerMode); fallthrough
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
+                case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
+                case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -179,7 +183,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
                 
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
-                case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
@@ -239,7 +242,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             
 
             return State(
-                developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
+                developerMode: dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.developerModeEnabled)
+                },
                 versionBlindedID: versionBlindedID,
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
@@ -336,6 +341,28 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             for: .showStringKeys,
                             to: !current.showStringKeys
                         )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .copyDocumentsPath,
+                    title: "Copy Documents Path",
+                    subtitle: """
+                    Copies the path to the Documents directory (quick way to access it for the simulator for debugging)
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    onTap: { [weak self] in
+                        self?.copyDocumentsPath()
+                    }
+                ),
+                SessionCell.Info(
+                    id: .copyAppGroupPath,
+                    title: "Copy AppGroup Path",
+                    subtitle: """
+                    Copies the path to the AppGroup directory (quick way to access it for the simulator for debugging)
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    onTap: { [weak self] in
+                        self?.copyAppGroupPath()
                     }
                 )
             ]
@@ -706,17 +733,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 ),
                 SessionCell.Info(
-                    id: .copyDatabasePath,
-                    title: "Copy database path",
-                    subtitle: """
-                    Copies the path to the database file (quick way to access it for the simulator for debugging).
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
-                    onTap: { [weak self] in
-                        self?.copyDatabasePath()
-                    }
-                ),
-                SessionCell.Info(
                     id: .forceSlowDatabaseQueries,
                     title: "Force slow database queries",
                     subtitle: """
@@ -831,10 +847,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .showStringKeys) else { return }
                     
                     updateFlag(for: .showStringKeys, to: nil)
-                
+                    
+                case .copyDocumentsPath: break   // Not a feature
+                case .copyAppGroupPath: break   // Not a feature
                 case .resetSnodeCache: break    // Not a feature
                 case .createMockContacts: break // Not a feature
-                case .copyDatabasePath: break   // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .importDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
@@ -919,10 +936,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         /// Disable developer mode
-        dependencies[singleton: .storage].write { db in
-            db[.developerModeEnabled] = false
-        }
-        
+        dependencies.setAsync(.developerModeEnabled, false)
         self.dismissScreen(type: .pop)
     }
 
@@ -1034,7 +1048,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
         /// layer and we don't want these to be cancelled)
-        if let existingToken: String = dependencies[singleton: .storage, key: .lastRecordedPushToken] {
+        if let existingToken: String = dependencies[singleton: .storage].read({ db in db[.lastRecordedPushToken] }) {
             PushNotificationAPI
                 .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                 .sinkUntilComplete()
@@ -1242,8 +1256,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         )
     }
     
-    private func copyDatabasePath() {
-        UIPasteboard.general.string = Storage.sharedDatabaseDirectoryPath
+    private func copyDocumentsPath() {
+        UIPasteboard.general.string = dependencies[singleton: .fileManager].documentsDirectoryPath
+        
+        showToast(
+            text: "copied".localized(),
+            backgroundColor: .backgroundSecondary
+        )
+    }
+    
+    private func copyAppGroupPath() {
+        UIPasteboard.general.string = dependencies[singleton: .fileManager].appSharedDataDirectoryPath
         
         showToast(
             text: "copied".localized(),

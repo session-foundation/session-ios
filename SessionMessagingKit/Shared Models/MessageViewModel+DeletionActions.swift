@@ -635,10 +635,7 @@ public extension MessageViewModel.DeletionBehaviours {
             /// **Note:** To simplify the logic (since the sender is a blinded id) we don't bother doing admin/sender checks here
             /// and just rely on the UI state or the SOGS server (if the UI allows an invalid case) to prevent invalid behaviours
             case (.community, _):
-                guard
-                    let server: String = threadData.openGroupServer,
-                    let roomToken: String = threadData.openGroupRoomToken
-                else {
+                guard let roomToken: String = threadData.openGroupRoomToken else {
                     Log.error("[ConversationViewModel] Failed to retrieve community info when trying to delete messages.")
                     throw StorageError.objectNotFound
                 }

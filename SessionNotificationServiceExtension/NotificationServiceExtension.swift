@@ -1,15 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import AVFAudio
-import Combine
 import CallKit
 import UserNotifications
-import BackgroundTasks
 import SessionUIKit
 import SessionMessagingKit
 import SessionSnodeKit
-import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -173,7 +169,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             data: info.data,
             origin: .swarm(
                 publicKey: info.metadata.accountId,
-                namespace: info.metadata.namespace,
+                namespace: {
+                    switch (info.metadata.namespace, (try? SessionId(from: info.metadata.accountId))?.prefix) {
+                        /// There was a bug at one point where the metadata would include a `null` value for the namespace
+                        /// because the storage server didn't have an explicit `namespace_id` for the
+                        /// `revokedRetrievableGroupMessages` namespace
+                        ///
+                        /// This code tries to work around that issue
+                        ///
+                        /// **Note:** This issue was present in storage server version `2.10.0` but this work-around should
+                        /// be removed once the network has been fully updated with a fix
+                        case (.unknown, .group):
+                            return .revokedRetrievableGroupMessages
+                        
+                        default: return info.metadata.namespace
+                    }
+                }(),
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
@@ -267,7 +278,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         data: data
                     )
                 ],
-                afterMerge: { sessionId, variant, config, timestampMs in
+                afterMerge: { sessionId, variant, config, timestampMs, _ in
                     try updateConfigIfNeeded(
                         cache: cache,
                         config: config,
@@ -275,6 +286,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         sessionId: sessionId,
                         timestampMs: timestampMs
                     )
+                    return ([], nil)
                 }
             )
         }
@@ -571,8 +583,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 
-                // TODO: [Database Relocation] Need to store 'db[.areCallsEnabled]' in libSession
-                let areCallsEnabled: Bool = true // db[.areCallsEnabled]
+                let areCallsEnabled: Bool = dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.areCallsEnabled)
+                }
                 let hasMicrophonePermission: Bool = {
                     switch Permissions.microphone {
                         case .undetermined: return dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission]
@@ -643,8 +656,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             let sender: String = callMessage.sender,
                             let sentTimestampMs: UInt64 = callMessage.sentTimestampMs,
                             threadVariant == .contact,
-                            !dependencies.mutate(cache: .libSession, { cache in
-                                cache.isMessageRequest(
+                            dependencies.mutate(cache: .libSession, { cache in
+                                !cache.isMessageRequest(
                                     threadId: threadId,
                                     threadVariant: threadVariant
                                 )
@@ -716,6 +729,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever,
+            groupNameRetriever: { threadId, threadVariant in
+                switch threadVariant {
+                    case .group:
+                        let groupId: SessionId = SessionId(.group, hex: threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupName(groupSessionId: groupId)
+                        }
+                        
+                    case .community: return nil  /// Communities currently don't support PNs
+                    default: return nil
+                }
+            },
             shouldShowForMessageRequest: {
                 !dependencies[singleton: .extensionHelper]
                     .hasAtLeastOneDedupeRecord(threadId: threadId)
@@ -759,8 +784,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         currentUserSessionIds: currentUserSessionIds
                     )?.canBeUnread == true &&
                     /// Ensure the message hasn't been read on another device
-                    !dependencies.mutate(cache: .libSession, { cache in
-                        cache.timestampAlreadyRead(
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.timestampAlreadyRead(
                             threadId: threadId,
                             threadVariant: threadVariant,
                             timestampMs: (messageInfo.message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
@@ -954,15 +979,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             )
         }
         
-        // stringlint:ignore_start
         let payload: [String: Any] = [
-            "uuid": callMessage.uuid,
-            "caller": sender,
-            "timestamp": sentTimestampMs,
-            "contactName": displayNameRetriever(sender)
+            VoipPayloadKey.uuid.rawValue: callMessage.uuid,
+            VoipPayloadKey.caller.rawValue: sender,
+            VoipPayloadKey.timestamp.rawValue: sentTimestampMs,
+            VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender)
                 .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
         ]
-        // stringlint:ignore_stop
         
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self, dependencies] error in
             if let error = error {

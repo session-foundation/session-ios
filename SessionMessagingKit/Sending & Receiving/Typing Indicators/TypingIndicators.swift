@@ -65,7 +65,7 @@ public class TypingIndicators {
                 threadVariant == .contact &&
                 !threadIsBlocked &&
                 !threadIsMessageRequest &&
-                dependencies[singleton: .storage, key: .typingIndicatorsEnabled],
+                dependencies.mutate(cache: .libSession, { $0.get(.typingIndicatorsEnabled) }),
                 let timerQueue: DispatchQueue = self?.timerQueue
             else { return }
             

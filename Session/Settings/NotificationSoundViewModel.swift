@@ -25,7 +25,8 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         
-        let originalSelection: Preferences.Sound = dependencies[singleton: .storage, key: .defaultNotificationSound]
+        let originalSelection: Preferences.Sound = dependencies
+            .mutate(cache: .libSession, { $0.get(.defaultNotificationSound) })
             .defaulting(to: .defaultNotificationSound)
         self.originalSelection = originalSelection
         self.currentSelection = CurrentValueSubject(originalSelection)
@@ -123,8 +124,6 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     // MARK: - Functions
     
     private func saveChanges() {
-        dependencies[singleton: .storage].writeAsync { [currentSelection] db in
-            db[.defaultNotificationSound] = currentSelection.value
-        }
+        dependencies.setAsync(.defaultNotificationSound, currentSelection.value)
     }
 }

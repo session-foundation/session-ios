@@ -75,7 +75,7 @@ internal extension LibSessionCacheType {
 public extension LibSession.Cache {
     func loadAdminKey(
         groupIdentitySeed: Data,
-        groupSessionId: SessionId,
+        groupSessionId: SessionId
     ) throws {
         guard case .groupKeys(let conf, let infoConf, let membersConf) = config(for: .groupKeys, sessionId: groupSessionId) else {
             throw LibSessionError.invalidConfigObject

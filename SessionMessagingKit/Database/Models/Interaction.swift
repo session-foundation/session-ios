@@ -1,10 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit
+import Foundation
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
-import SessionUIKit
 
 public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "interaction" }
@@ -655,9 +654,10 @@ public extension Interaction {
         _ db: Database,
         threadId: String,
         timestampMsValues: [Int64],
-        readTimestampMs: Int64
+        readTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws -> Set<Int64> {
-        guard db[.areReadReceiptsEnabled] == true else { return [] }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return [] }
         
         struct InterationRowState: Codable, FetchableRecord {
             public typealias Columns = CodingKeys
@@ -1234,75 +1234,6 @@ public extension Interaction.Variant {
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted:
                 return false
-        }
-    }
-}
-
-// MARK: - Interaction.State Convenience
-
-public extension Interaction.State {
-    func statusIconInfo(
-        variant: Interaction.Variant,
-        hasBeenReadByRecipient: Bool,
-        hasAttachments: Bool
-    ) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
-        guard variant == .standardOutgoing else {
-            return (nil, nil, .messageBubble_deliveryStatus)
-        }
-
-        switch (self, hasBeenReadByRecipient, hasAttachments) {
-            case (.deleted, _, _), (.localOnly, _, _):
-                return (nil, nil, .messageBubble_deliveryStatus)
-            
-            case (.sending, _, true):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "uploading".localized(),
-                    .messageBubble_deliveryStatus
-                )
-                
-            case (.sending, _, _):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "sending".localized(),
-                    .messageBubble_deliveryStatus
-                )
-
-            case (.sent, false, _):
-                return (
-                    UIImage(systemName: "checkmark.circle"),
-                    "disappearingMessagesSent".localized(),
-                    .messageBubble_deliveryStatus
-                )
-
-            case (.sent, true, _):
-                return (
-                    UIImage(systemName: "eye.fill"),
-                    "read".localized(),
-                    .messageBubble_deliveryStatus
-                )
-                
-            case (.failed, _, _):
-                return (
-                    UIImage(systemName: "exclamationmark.triangle"),
-                    "messageStatusFailedToSend".localized(),
-                    .danger
-                )
-                
-            case (.failedToSync, _, _):
-                return (
-                    UIImage(systemName: "exclamationmark.triangle"),
-                    "messageStatusFailedToSync".localized(),
-                    .warning
-                )
-                
-            case (.syncing, _, _):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "messageStatusSyncing".localized(),
-                    .warning
-                )
-
         }
     }
 }

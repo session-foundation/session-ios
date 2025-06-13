@@ -5,7 +5,7 @@ import DifferenceKit
 import SessionUtilitiesKit
 
 public extension Preferences {
-    enum NotificationMode: Int, CaseIterable, EnumIntSetting, Differentiable {
+    enum NotificationMode: Int, CaseIterable, Differentiable {
         /// Notifications should be shown for all messages
         case all
         

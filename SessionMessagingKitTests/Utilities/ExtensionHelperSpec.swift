@@ -681,12 +681,18 @@ class ExtensionHelperSpec: QuickSpec {
                 ]
                 
                 beforeEach {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
                     mockValues.forEach { key, value in
                         mockCrypto
                             .when { $0.generate(.hash(message: Array(key.data(using: .utf8)!))) }
                             .thenReturn(value)
                     }
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
                         .thenReturn(Data([2, 3, 4]))
@@ -735,6 +741,37 @@ class ExtensionHelperSpec: QuickSpec {
                     })
                 }
                 
+                // MARK: ---- replicates if the existing user profile dump cannot be decrypted
+                it("replicates if the existing user profile dump cannot be decrypted") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(nil)
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "AgME"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/dumps/020304"
+                        )
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BQYH"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/040506/dumps/050607"
+                        )
+                    })
+                }
+                
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
                     mockValues.forEach { key, value in
@@ -751,9 +788,12 @@ class ExtensionHelperSpec: QuickSpec {
                     expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
                 }
                 
-                // MARK: ---- does nothing if the user profile dump already exists
-                it("does nothing if the user profile dump already exists") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                // MARK: ---- does nothing if a valid user profile dump already exists
+                it("does nothing if a valid user profile dump already exists") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
@@ -766,6 +806,21 @@ class ExtensionHelperSpec: QuickSpec {
                 // MARK: ---- does nothing if there are no dumps in the database
                 it("does nothing if there are no dumps in the database") {
                     mockStorage.write { db in try ConfigDump.deleteAll(db) }
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing if the existing replicated dump was newer than the fetched one
+                it("does nothing if the existing replicated dump was newer than the fetched one") {
+                    dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567891)])
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
@@ -1525,6 +1580,7 @@ class ExtensionHelperSpec: QuickSpec {
                     
                     let key: FunctionConsumer.Key = FunctionConsumer.Key(
                         name: "contentsOfDirectory(atPath:)",
+                        generics: [],
                         paramCount: 1
                     )
                     expect(mockFileManager.functionConsumer.calls[key]).to(equal([

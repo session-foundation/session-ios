@@ -35,6 +35,10 @@ extension LibSession.OpenGroupUrlInfo: Mocked {
     )
 }
 
+extension LibSession.ObservableKey: Mocked {
+    static var mock: LibSession.ObservableKey = "mockObservableKey"
+}
+
 extension SessionThread: Mocked {
     static var mock: SessionThread = SessionThread(
         id: .mock,
@@ -115,4 +119,35 @@ extension Preferences.NotificationSettings: Mocked {
 
 extension ImageDataManager.DataSource: Mocked {
     static var mock: ImageDataManager.DataSource = ImageDataManager.DataSource.data(Data([1, 2, 3]))
+}
+
+enum MockLibSessionConvertible: Int, Codable, LibSessionConvertibleEnum, Mocked {
+    typealias LibSessionType = Int
+    
+    static var mock: MockLibSessionConvertible = .mockValue
+    
+    case mockValue = 0
+    
+    public static var defaultLibSessionValue: LibSessionType { 0 }
+    public var libSessionValue: LibSessionType { 0 }
+    
+    public init(_ libSessionValue: LibSessionType) {
+        self = .mockValue
+    }
+}
+
+extension Preferences.Sound: Mocked {
+    static var mock: Preferences.Sound = .defaultNotificationSound
+}
+
+extension Preferences.NotificationPreviewType: Mocked {
+    static var mock: Preferences.NotificationPreviewType = .defaultPreviewType
+}
+
+extension Theme: Mocked {
+    static var mock: Theme = .defaultTheme
+}
+
+extension Theme.PrimaryColor: Mocked {
+    static var mock: Theme.PrimaryColor = .defaultPrimaryColor
 }

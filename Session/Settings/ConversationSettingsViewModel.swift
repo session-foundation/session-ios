@@ -54,10 +54,10 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     let title: String = "sessionConversations".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [weak self] db -> State in
+        .libSessionObservation(self) { cache -> State in
             State(
-                trimOpenGroupMessagesOlderThanSixMonths: db[.trimOpenGroupMessagesOlderThanSixMonths],
-                shouldAutoPlayConsecutiveAudioMessages: db[.shouldAutoPlayConsecutiveAudioMessages]
+                trimOpenGroupMessagesOlderThanSixMonths: cache.get(.trimOpenGroupMessagesOlderThanSixMonths),
+                shouldAutoPlayConsecutiveAudioMessages: cache.get(.shouldAutoPlayConsecutiveAudioMessages)
             )
         }
         .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
@@ -77,9 +77,10 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 )
                             ),
                             onTap: {
-                                dependencies[singleton: .storage].write { db in
-                                    db[.trimOpenGroupMessagesOlderThanSixMonths] = !db[.trimOpenGroupMessagesOlderThanSixMonths]
-                                }
+                                dependencies.setAsync(
+                                    .trimOpenGroupMessagesOlderThanSixMonths,
+                                    !current.trimOpenGroupMessagesOlderThanSixMonths
+                                )
                             }
                         )
                     ]
@@ -99,9 +100,10 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 )
                             ),
                             onTap: {
-                                dependencies[singleton: .storage].write { db in
-                                    db[.shouldAutoPlayConsecutiveAudioMessages] = !db[.shouldAutoPlayConsecutiveAudioMessages]
-                                }
+                                dependencies.setAsync(
+                                    .shouldAutoPlayConsecutiveAudioMessages,
+                                    !current.shouldAutoPlayConsecutiveAudioMessages
+                                )
                             }
                         )
                     ]

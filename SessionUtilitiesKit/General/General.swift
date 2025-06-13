@@ -48,7 +48,11 @@ public enum General {
                 let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
                     .x25519(ed25519Pubkey: ed25519KeyPair.publicKey)
                 )
-            else { return }
+            else {
+                self.sessionId = .invalid
+                self.ed25519SecretKey = []
+                return
+            }
             
             self.sessionId = SessionId(.standard, publicKey: x25519PublicKey)
             self.ed25519SecretKey = ed25519SecretKey

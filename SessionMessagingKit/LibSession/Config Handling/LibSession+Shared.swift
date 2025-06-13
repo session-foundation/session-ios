@@ -197,32 +197,6 @@ internal extension LibSession {
         return updated
     }
     
-    static func updatingSetting(
-        _ db: Database,
-        _ updated: Setting?,
-        using dependencies: Dependencies
-    ) throws {
-        // Don't current support any nullable settings
-        guard let updatedSetting: Setting = updated else { return }
-        
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        // Currently the only synced setting is 'checkForCommunityMessageRequests'
-        switch updatedSetting.id {
-            case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
-                        try LibSession.updateSettings(
-                            checkForCommunityMessageRequests: updatedSetting.unsafeValue(as: Bool.self),
-                            in: config
-                        )
-                    }
-                }
-                
-            default: break
-        }
-    }
-    
     static func kickFromConversationUIIfNeeded(removedThreadIds: [String], using dependencies: Dependencies) {
         guard !removedThreadIds.isEmpty else { return }
         
@@ -324,29 +298,6 @@ internal extension LibSession {
 // MARK: - State Access
 
 public extension LibSession.Cache {
-    func has(_ key: Setting.BoolKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
-        /// If a `bool` value doesn't exist then we return a negative value
-        switch key {
-            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) >= 0)
-            default: return false
-        }
-    }
-    
-    func get(_ key: Setting.BoolKey) -> Bool {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            return false
-        }
-        
-        switch key {
-            case .checkForCommunityMessageRequests: return (user_profile_get_blinded_msgreqs(conf) > 0)
-            default: return false
-        }
-    }
-    
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -666,13 +617,10 @@ public extension LibSession.Cache {
             return .defaultFor(threadVariant)
         }
         
-        // TODO: [Database Relocation] Need to add this to local libSession
-//        sound = (db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
-        let sound: Preferences.Sound = .defaultNotificationSound
-        
-        // TODO: [Database Relocation] Need to add this to local libSession
-//        let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
-//            .defaulting(to: .defaultPreviewType)
+        let sound: Preferences.Sound = get(.defaultNotificationSound)
+            .defaulting(to: .defaultNotificationSound)
+        let previewType: Preferences.NotificationPreviewType = get(.preferencesNotificationPreviewType)
+            .defaulting(to: .defaultPreviewType)
         
         switch threadVariant {
             case .legacyGroup: return .defaultFor(threadVariant)
@@ -693,7 +641,7 @@ public extension LibSession.Cache {
                         libSessionValue: contact.notifications,
                         threadVariant: threadVariant
                     ),
-                    previewType: .defaultPreviewType,    // TODO: [Database Relocation] Add this
+                    previewType: previewType,
                     sound: sound,
                     mutedUntil: (contact.mute_until > 0 ? TimeInterval(contact.mute_until) : nil)
                 )
@@ -715,7 +663,7 @@ public extension LibSession.Cache {
                         libSessionValue: community.notifications,
                         threadVariant: threadVariant
                     ),
-                    previewType: .defaultPreviewType,    // TODO: [Database Relocation] Add this
+                    previewType: previewType,
                     sound: sound,
                     mutedUntil: (community.mute_until > 0 ? TimeInterval(community.mute_until) : nil)
                 )
@@ -734,7 +682,7 @@ public extension LibSession.Cache {
                         libSessionValue: group.notifications,
                         threadVariant: threadVariant
                     ),
-                    previewType: .defaultPreviewType,    // TODO: [Database Relocation] Add this
+                    previewType: previewType,
                     sound: sound,
                     mutedUntil: (group.mute_until > 0 ? TimeInterval(group.mute_until) : nil)
                 )
@@ -940,6 +888,58 @@ public extension LibSession.Cache {
         }
         
         return group.get(\.name)
+    }
+}
+
+// MARK: - Convenience
+
+public extension Dependencies {
+    func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (() -> Void)? = nil) {
+        Task { [dependencies = self] in
+            let targetVariant: ConfigDump.Variant
+            
+            switch key {
+                case .checkForCommunityMessageRequests: targetVariant = .userProfile
+                default: targetVariant = .local
+            }
+            
+            let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
+                try await cache.perform(for: targetVariant) {
+                    await cache.set(key, value)
+                }
+            }
+
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try mutation?.upsert(db)
+            }
+            
+            onComplete?()
+        }
+    }
+    
+    func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
+        Task { [dependencies = self] in
+            let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
+                try await cache.perform(for: .local) {
+                    await cache.set(key, value)
+                }
+            }
+
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try mutation?.upsert(db)
+            }
+            
+            onComplete?()
+        }
+    }
+    
+    func notifyAsync(_ key: LibSession.ObservableKey) {
+        Task { [dependencies = self] in
+            await dependencies.mutate(cache: .libSession) { cache in
+                await cache.addPendingChange(key: key, value: nil)
+                await cache.yieldAllPendingChanges()
+            }
+        }
     }
 }
 

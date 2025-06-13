@@ -11,9 +11,11 @@ public class ThreadPickerViewModel {
     // MARK: - Initialization
     
     public let dependencies: Dependencies
+    public let userMetadata: ExtensionHelper.UserMetadata?
     
-    init(using dependencies: Dependencies) {
+    init(userMetadata: ExtensionHelper.UserMetadata?, using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.userMetadata = userMetadata
     }
     
     // MARK: - Content
