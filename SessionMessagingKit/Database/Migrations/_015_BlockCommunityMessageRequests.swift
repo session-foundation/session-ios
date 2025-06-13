@@ -42,7 +42,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
                 """,
                 arguments: [userSessionId.hexString]
             )
-            let userProfileConfig: LibSession.Config = try cache.loadState(
+            try cache.loadState(
                 for: .userProfile,
                 sessionId: userSessionId,
                 userEd25519SecretKey: Array(userEd25519SecretKey),
@@ -50,17 +50,15 @@ enum _015_BlockCommunityMessageRequests: Migration {
                 cachedData: configDump
             )
             
-            let rawBlindedMessageRequestValue: Int32 = try LibSession.rawBlindedMessageRequestValue(in: userProfileConfig)
-            
             // Use the value in the config if we happen to have one, otherwise use the default
             try db.execute(sql: """
                 DELETE FROM setting
                 WHERE key = 'checkForCommunityMessageRequests'
             """)
             
-            var targetValue: Bool = (rawBlindedMessageRequestValue < 0 ?
+            var targetValue: Bool = (!cache.has(.checkForCommunityMessageRequests) ?
                 true :
-                (rawBlindedMessageRequestValue > 0)
+                cache.get(.checkForCommunityMessageRequests)
             )
             let boolAsData: Data = withUnsafeBytes(of: &targetValue) { Data($0) }
             try db.execute(

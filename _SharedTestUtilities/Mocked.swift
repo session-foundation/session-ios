@@ -67,6 +67,10 @@ extension Database: Mocked {
     }
 }
 
+extension URL: Mocked {
+    static var mock: URL = URL(fileURLWithPath: "mock")
+}
+
 extension URLRequest: Mocked {
     static var mock: URLRequest = URLRequest(url: URL(fileURLWithPath: "mock"))
 }
@@ -102,6 +106,18 @@ extension JobRunner.JobResult: Mocked {
 
 extension FileProtectionType: Mocked {
     static var mock: FileProtectionType = .complete
+}
+
+extension Log.Category: Mocked {
+    static var mock: Log.Category = .create("mock", defaultLevel: .debug)
+}
+
+extension Setting.BoolKey: Mocked {
+    static var mock: Setting.BoolKey = "mockBool"
+}
+
+extension Setting.EnumKey: Mocked {
+    static var mock: Setting.EnumKey = "mockEnum"
 }
 
 // MARK: - Encodable Convenience

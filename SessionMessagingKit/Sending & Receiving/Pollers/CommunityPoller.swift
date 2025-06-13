@@ -123,8 +123,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         let fallbackPollDelay: TimeInterval = self.nextPollDelay()
         
         cancellable = dependencies[singleton: .storage]
-            .readPublisher { [pollerDestination, dependencies] db in
-                try OpenGroupAPI.preparedCapabilities(
+            .readPublisher { [pollerDestination, dependencies] db -> AuthenticationMethod in
+                try Authentication.with(
                     db,
                     server: pollerDestination.target,
                     forceBlinded: true,
@@ -133,7 +133,14 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             }
             .subscribe(on: pollerQueue, using: dependencies)
             .receive(on: pollerQueue, using: dependencies)
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
+            .tryFlatMap { [dependencies] authMethod in
+                try OpenGroupAPI
+                    .preparedCapabilities(
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+            }
             .flatMapStorageWritePublisher(using: dependencies) { [pollerDestination] (db: Database, response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)) in
                 OpenGroupManager.handleCapabilities(
                     db,
@@ -247,6 +254,12 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool = false) -> AnyPublisher<PollResult, Error> {
+        typealias PollInfo = (
+            roomInfo: [OpenGroupAPI.RoomInfo],
+            lastInboxMessageId: Int64,
+            lastOutboxMessageId: Int64,
+            authMethod: AuthenticationMethod
+        )
         let lastSuccessfulPollTimestamp: TimeInterval = (self.lastPollStart > 0 ?
             lastPollStart :
             dependencies.mutate(cache: .openGroupManager) { cache in
@@ -255,16 +268,49 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         )
         
         return dependencies[singleton: .storage]
-            .readPublisher { [pollerDestination, pollCount, dependencies] db -> Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>> in
-                try OpenGroupAPI.preparedPoll(
-                    db,
-                    server: pollerDestination.target,
-                    hasPerformedInitialPoll: (pollCount > 0),
-                    timeSinceLastPoll: (dependencies.dateNow.timeIntervalSince1970 - lastSuccessfulPollTimestamp),
-                    using: dependencies
+            .readPublisher { [pollerDestination, dependencies] db -> PollInfo in
+                /// **Note:** The `OpenGroup` type converts to lowercase in init
+                let server: String = pollerDestination.target.lowercased()
+                let roomInfo: [OpenGroupAPI.RoomInfo] = try OpenGroup
+                    .select(.roomToken, .infoUpdates, .sequenceNumber)
+                    .filter(OpenGroup.Columns.server == server)
+                    .filter(OpenGroup.Columns.isActive == true)
+                    .filter(OpenGroup.Columns.roomToken != "")
+                    .asRequest(of: OpenGroupAPI.RoomInfo.self)
+                    .fetchAll(db)
+                
+                guard !roomInfo.isEmpty else { throw OpenGroupAPIError.invalidPoll }
+                
+                return (
+                    roomInfo,
+                    (try? OpenGroup
+                        .select(.inboxLatestMessageId)
+                        .filter(OpenGroup.Columns.server == server)
+                        .asRequest(of: Int64.self)
+                        .fetchOne(db))
+                        .defaulting(to: 0),
+                    (try? OpenGroup
+                        .select(.outboxLatestMessageId)
+                        .filter(OpenGroup.Columns.server == server)
+                        .asRequest(of: Int64.self)
+                        .fetchOne(db))
+                        .defaulting(to: 0),
+                    try Authentication.with(db, server: server, using: dependencies)
                 )
             }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
+            .tryFlatMap { [pollCount, dependencies] pollInfo -> AnyPublisher<(ResponseInfoType, Network.BatchResponseMap<OpenGroupAPI.Endpoint>), Error> in
+                try OpenGroupAPI
+                    .preparedPoll(
+                        roomInfo: pollInfo.roomInfo,
+                        lastInboxMessageId: pollInfo.lastInboxMessageId,
+                        lastOutboxMessageId: pollInfo.lastOutboxMessageId,
+                        hasPerformedInitialPoll: (pollCount > 0),
+                        timeSinceLastPoll: (dependencies.dateNow.timeIntervalSince1970 - lastSuccessfulPollTimestamp),
+                        authMethod: pollInfo.authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+            }
             .flatMapOptional { [weak self, failureCount, dependencies] info, response in
                 self?.handlePollResponse(
                     info: info,
@@ -274,7 +320,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 )
             }
             .handleEvents(
-                receiveOutput: { [weak self, dependencies] _ in
+                receiveOutput: { [weak self, dependencies] _, insertedInteractionInfo in
                     self?.pollCount += 1
                     
                     dependencies.mutate(cache: .openGroupManager) { cache in
@@ -282,8 +328,17 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             dependencies.dateNow.timeIntervalSince1970
                         )
                     }
+                    
+                    /// Notify about the received messages
+                    Task { [dependencies] in
+                        await MessageReceiver.notifyForInsertedInteractions(
+                            insertedInteractionInfo,
+                            using: dependencies
+                        )
+                    }
                 }
             )
+            .map { result, _ in result }
             .eraseToAnyPublisher()
     }
     
@@ -292,7 +347,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         response: Network.BatchResponseMap<OpenGroupAPI.Endpoint>,
         failureCount: Int,
         using dependencies: Dependencies
-    ) -> AnyPublisher<PollResult, Error> {
+    ) -> AnyPublisher<(PollResult, [MessageReceiver.InsertedInteractionInfo?]), Error> {
         var rawMessageCount: Int = 0
         let validResponses: [OpenGroupAPI.Endpoint: Any] = response.data
             .filter { endpoint, data in
@@ -361,7 +416,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         // If there are no remaining 'validResponses' and there hasn't been a failure then there is
         // no need to do anything else
         guard !validResponses.isEmpty || failureCount != 0 else {
-            return Just(((info, response), rawMessageCount, 0, true))
+            return Just((((info, response), rawMessageCount, 0, true), []))
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
@@ -401,7 +456,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 
                 return (capabilities, groups)
             }
-            .flatMap { [pollerDestination, dependencies] (capabilities: OpenGroupAPI.Capabilities, groups: [OpenGroup]) -> AnyPublisher<PollResult, Error> in
+            .flatMap { [pollerDestination, dependencies] (capabilities: OpenGroupAPI.Capabilities, groups: [OpenGroup]) -> AnyPublisher<(PollResult, [MessageReceiver.InsertedInteractionInfo?]), Error> in
                 let changedResponses: [OpenGroupAPI.Endpoint: Any] = validResponses
                     .filter { endpoint, data in
                         switch endpoint {
@@ -437,20 +492,21 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 // If there are no 'changedResponses' and there hasn't been a failure then there is
                 // no need to do anything else
                 guard !changedResponses.isEmpty || failureCount != 0 else {
-                    return Just(((info, response), rawMessageCount, 0, true))
+                    return Just((((info, response), rawMessageCount, 0, true), []))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
                 
                 return dependencies[singleton: .storage]
-                    .writePublisher { db in
+                    .writePublisher { db -> [MessageReceiver.InsertedInteractionInfo?] in
                         // Reset the failure count
                         if failureCount > 0 {
                             try OpenGroup
                                 .filter(OpenGroup.Columns.server == pollerDestination.target)
                                 .updateAll(db, OpenGroup.Columns.pollFailureCount.set(to: 0))
                         }
-
+                        
+                        var interactionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
                         try changedResponses.forEach { endpoint, data in
                             switch endpoint {
                                 case .capabilities:
@@ -486,12 +542,14 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                         let responseBody: [Failable<OpenGroupAPI.Message>] = responseData.body
                                     else { return }
                                     
-                                    OpenGroupManager.handleMessages(
-                                        db,
-                                        messages: responseBody.compactMap { $0.value },
-                                        for: roomToken,
-                                        on: pollerDestination.target,
-                                        using: dependencies
+                                    interactionInfo.append(
+                                        contentsOf: OpenGroupManager.handleMessages(
+                                            db,
+                                            messages: responseBody.compactMap { $0.value },
+                                            for: roomToken,
+                                            on: pollerDestination.target,
+                                            using: dependencies
+                                        )
                                     )
                                     
                                 case .inbox, .inboxSince, .outbox, .outboxSince:
@@ -509,19 +567,26 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                         }
                                     }()
                                     
-                                    OpenGroupManager.handleDirectMessages(
-                                        db,
-                                        messages: messages,
-                                        fromOutbox: fromOutbox,
-                                        on: pollerDestination.target,
-                                        using: dependencies
+                                    interactionInfo.append(
+                                        contentsOf: OpenGroupManager.handleDirectMessages(
+                                            db,
+                                            messages: messages,
+                                            fromOutbox: fromOutbox,
+                                            on: pollerDestination.target,
+                                            using: dependencies
+                                        )
                                     )
                                     
                                 default: break // No custom handling needed
                             }
                         }
+                        
+                        return interactionInfo
                     }
-                    .map { _ in ((info, response), rawMessageCount, rawMessageCount, true) }  // Assume all messages were handled
+                    .map { interactionInfo -> (PollResult, [MessageReceiver.InsertedInteractionInfo?]) in
+                        /// Assume all messages were handled
+                        (((info, response), rawMessageCount, rawMessageCount, true), interactionInfo)
+                    }
                     .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
@@ -652,3 +717,7 @@ public extension CommunityPollerCacheType {
         return getOrCreatePoller(for: CommunityPoller.Info(server: server, pollFailureCount: 0))
     }
 }
+
+// MARK: - Conformance
+
+extension OpenGroupAPI.RoomInfo: FetchableRecord {}

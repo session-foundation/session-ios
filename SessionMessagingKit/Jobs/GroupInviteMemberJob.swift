@@ -31,25 +31,22 @@ public enum GroupInviteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let currentInfo: (groupName: String, adminProfile: Profile) = dependencies[singleton: .storage].read({ db in
-                let maybeGroupName: String? = try ClosedGroup
+            let groupName: String = dependencies[singleton: .storage].read({ db in
+                try ClosedGroup
                     .filter(id: threadId)
                     .select(.name)
                     .asRequest(of: String.self)
                     .fetchOne(db)
-                
-                guard let groupName: String = maybeGroupName else { throw StorageError.objectNotFound }
-                
-                return (groupName, Profile.fetchOrCreateCurrentUser(db, using: dependencies))
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .writePublisher { db -> AuthenticationMethod in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -60,33 +57,33 @@ public enum GroupInviteMemberJob: JobExecutor {
                         using: dependencies
                     )
                 
-                return try MessageSender.preparedSend(
-                    db,
+                return try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+            }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                try MessageSender.preparedSend(
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,
                         groupSessionId: SessionId(.group, hex: threadId),
-                        groupName: currentInfo.groupName,
+                        groupName: groupName,
                         memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile.init(
-                            profile: currentInfo.adminProfile,
-                            blocksCommunityMessageRequests: nil
+                        profile: VisibleMessage.VMProfile(
+                            displayName: adminProfile.name,
+                            profileKey: adminProfile.profileEncryptionKey,
+                            profilePictureUrl: adminProfile.profilePictureUrl
                         ),
                         sentTimestampMs: UInt64(sentTimestampMs),
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: threadId,
-                            using: dependencies
-                        ),
+                        authMethod: authMethod,
                         using: dependencies
                     ),
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,
                     interactionId: nil,
-                    fileIds: [],
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(

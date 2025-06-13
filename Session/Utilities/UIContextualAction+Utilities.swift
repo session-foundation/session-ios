@@ -174,9 +174,7 @@ public extension UIContextualAction {
                         ) { _, _, completionHandler  in
                             switch threadViewModel.threadId {
                                 case SessionThreadViewModel.messageRequestsSectionId:
-                                    dependencies[singleton: .storage].write { db in
-                                        db[.hasHiddenMessageRequests] = true
-                                    }
+                                    dependencies.setAsync(.hasHiddenMessageRequests, true)
                                     completionHandler(true)
                                     
                                 default:

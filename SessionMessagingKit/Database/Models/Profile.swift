@@ -285,31 +285,6 @@ public extension Profile {
         )
     }
     
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(using dependencies: Dependencies) -> Profile {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        return dependencies[singleton: .storage]
-            .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
-            .defaulting(to: defaultFor(userSessionId.hexString))
-    }
-    
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(_ db: Database, using dependencies: Dependencies) -> Profile {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        return (
-            (try? Profile.fetchOne(db, id: userSessionId.hexString)) ??
-            defaultFor(userSessionId.hexString)
-        )
-    }
-    
     /// Fetches or creates a Profile for the specified user
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
@@ -369,12 +344,13 @@ public extension Profile {
     /// The name to display in the UI for a given thread variant
     func displayName(
         for threadVariant: SessionThread.Variant = .contact,
+        messageProfile: VisibleMessage.VMProfile? = nil,
         ignoringNickname: Bool = false
     ) -> String {
         return Profile.displayName(
             for: threadVariant,
             id: id,
-            name: name,
+            name: (messageProfile?.displayName?.nullIfEmpty ?? name),
             nickname: (ignoringNickname ? nil : nickname),
             suppressId: false
         )

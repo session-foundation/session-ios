@@ -248,6 +248,37 @@ extension Attachment: CustomStringConvertible {
             self.contentType = contentType
             self.sourceFilename = sourceFilename
         }
+        
+        public init(id: String, proto: SNProtoAttachmentPointer, sourceFilename: String? = nil) {
+            self.init(
+                id: id,
+                variant: {
+                    let voiceMessageFlag: Int32 = SNProtoAttachmentPointer.SNProtoAttachmentPointerFlags
+                        .voiceMessage
+                        .rawValue
+                    
+                    guard proto.hasFlags && ((proto.flags & UInt32(voiceMessageFlag)) > 0) else {
+                        return .standard
+                    }
+                    
+                    return .voiceMessage
+                }(),
+                contentType: (
+                    proto.contentType ??
+                    Attachment.inferContentType(from: proto.fileName)
+                ),
+                sourceFilename: sourceFilename
+            )
+        }
+    }
+    
+    public var descriptionInfo: DescriptionInfo {
+        Attachment.DescriptionInfo(
+            id: id,
+            variant: variant,
+            contentType: contentType,
+            sourceFilename: sourceFilename
+        )
     }
     
     public static func description(for descriptionInfo: DescriptionInfo?, count: Int?) -> String? {
@@ -391,16 +422,16 @@ extension Attachment {
 // MARK: - Protobuf
 
 extension Attachment {
-    public init(proto: SNProtoAttachmentPointer) {
-        func inferContentType(from filename: String?) -> String {
-            guard
-                let fileName: String = filename,
-                let fileExtension: String = URL(string: fileName)?.pathExtension
-            else { return UTType.mimeTypeDefault }
-            
-            return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
-        }
+    public static func inferContentType(from filename: String?) -> String {
+        guard
+            let fileName: String = filename,
+            let fileExtension: String = URL(string: fileName)?.pathExtension
+        else { return UTType.mimeTypeDefault }
         
+        return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
+    }
+    
+    public init(proto: SNProtoAttachmentPointer) {
         self.id = UUID().uuidString
         self.serverId = "\(proto.id)"
         self.variant = {
@@ -415,7 +446,7 @@ extension Attachment {
             return .voiceMessage
         }()
         self.state = .pendingDownload
-        self.contentType = (proto.contentType ?? inferContentType(from: proto.fileName))
+        self.contentType = (proto.contentType ?? Attachment.inferContentType(from: proto.fileName))
         self.byteCount = UInt(proto.size)
         self.creationTimestamp = nil
         self.sourceFilename = proto.fileName
@@ -1082,264 +1113,5 @@ extension Attachment {
                     .last
                     .map { String($0) }
             }
-    }
-}
-
-// MARK: - Upload
-
-extension Attachment {
-    private enum Destination {
-        case fileServer
-        case community(OpenGroup)
-        
-        var shouldEncrypt: Bool {
-            switch self {
-                case .fileServer: return true
-                case .community: return false
-            }
-        }
-    }
-    
-    public static func prepare(attachments: [SignalAttachment], using dependencies: Dependencies) -> [Attachment] {
-        return attachments.compactMap { signalAttachment in
-            Attachment(
-                variant: (signalAttachment.isVoiceMessage ?
-                    .voiceMessage :
-                    .standard
-                ),
-                contentType: signalAttachment.mimeType,
-                dataSource: signalAttachment.dataSource,
-                sourceFilename: signalAttachment.sourceFilename,
-                caption: signalAttachment.captionText,
-                using: dependencies
-            )
-        }
-    }
-    
-    public static func process(
-        _ db: Database,
-        attachments: [Attachment]?,
-        for interactionId: Int64?
-    ) throws {
-        guard
-            let attachments: [Attachment] = attachments,
-            let interactionId: Int64 = interactionId
-        else { return }
-                
-        try attachments
-            .enumerated()
-            .forEach { index, attachment in
-                let interactionAttachment: InteractionAttachment = InteractionAttachment(
-                    albumIndex: index,
-                    interactionId: interactionId,
-                    attachmentId: attachment.id
-                )
-                
-                try attachment.insert(db)
-                try interactionAttachment.insert(db)
-            }
-    }
-    
-    public func preparedUpload(
-        _ db: Database,
-        threadId: String,
-        logCategory cat: Log.Category?,
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<String> {
-        typealias UploadInfo = (
-            attachment: Attachment,
-            preparedRequest: Network.PreparedRequest<FileUploadResponse>,
-            encryptionKey: Data?,
-            digest: Data?
-        )
-        
-        // Retrieve the correct destination for the given thread
-        let destination: Destination = (try? OpenGroup.fetchOne(db, id: threadId))
-            .map { .community($0) }
-            .defaulting(to: .fileServer)
-        let uploadInfo: UploadInfo = try {
-            let endpoint: (any EndpointType) = {
-                switch destination {
-                    case .fileServer: return Network.FileServer.Endpoint.file
-                    case .community(let openGroup): return OpenGroupAPI.Endpoint.roomFile(openGroup.roomToken)
-                }
-            }()
-            
-            // This can occur if an AttachmentUploadJob was explicitly created for a message
-            // dependant on the attachment being uploaded (in this case the attachment has
-            // already been uploaded so just succeed)
-            if state == .uploaded, let fileId: String = Attachment.fileId(for: downloadUrl) {
-                return (
-                    self,
-                    try Network.PreparedRequest<FileUploadResponse>.cached(
-                        FileUploadResponse(id: fileId),
-                        endpoint: endpoint,
-                        using: dependencies
-                    ),
-                    self.encryptionKey,
-                    self.digest
-                )
-            }
-            
-            // If the attachment is a downloaded attachment, check if it came from
-            // the server and if so just succeed immediately (no use re-uploading
-            // an attachment that is already present on the server) - or if we want
-            // it to be encrypted and it's not then encrypt it
-            //
-            // Note: The most common cases for this will be for LinkPreviews or Quotes
-            if
-                state == .downloaded,
-                serverId != nil,
-                let fileId: String = Attachment.fileId(for: downloadUrl),
-                (
-                    !destination.shouldEncrypt || (
-                        encryptionKey != nil &&
-                        digest != nil
-                    )
-                )
-            {
-                return (
-                    self,
-                    try Network.PreparedRequest.cached(
-                        FileUploadResponse(id: fileId),
-                        endpoint: endpoint,
-                        using: dependencies
-                    ),
-                    self.encryptionKey,
-                    self.digest
-                )
-            }
-            
-            // Get the raw attachment data
-            guard let rawData: Data = try? readDataFromFile(using: dependencies) else {
-                Log.error([cat].compactMap { $0 }, "Couldn't read attachment from disk.")
-                throw AttachmentError.noAttachment
-            }
-            
-            // Encrypt the attachment if needed
-            var finalData: Data = rawData
-            var encryptionKey: Data?
-            var digest: Data?
-            
-            typealias EncryptionData = (ciphertext: Data, encryptionKey: Data, digest: Data)
-            if destination.shouldEncrypt {
-                guard
-                    let result: EncryptionData = dependencies[singleton: .crypto].generate(
-                        .encryptAttachment(plaintext: rawData, using: dependencies)
-                    )
-                else {
-                    Log.error([cat].compactMap { $0 }, "Couldn't encrypt attachment.")
-                    throw AttachmentError.encryptionFailed
-                }
-                
-                finalData = result.ciphertext
-                encryptionKey = result.encryptionKey
-                digest = result.digest
-            }
-                
-            // Ensure the file size is smaller than our upload limit
-            Log.info([cat].compactMap { $0 }, "File size: \(finalData.count) bytes.")
-            guard finalData.count <= Network.maxFileSize else { throw NetworkError.maxFileSizeExceeded }
-            
-            // Generate the request
-            switch destination {
-                case .fileServer:
-                    return (
-                        self,
-                        try Network.preparedUpload(data: finalData, using: dependencies),
-                        encryptionKey,
-                        digest
-                    )
-                
-                case .community(let openGroup):
-                    return (
-                        self,
-                        try OpenGroupAPI.preparedUpload(
-                            db,
-                            data: finalData,
-                            to: openGroup.roomToken,
-                            on: openGroup.server,
-                            using: dependencies
-                        ),
-                        encryptionKey,
-                        digest
-                    )
-            }
-        }()
-        
-        return uploadInfo.preparedRequest
-            .handleEvents(
-                receiveSubscription: {
-                    // If we have a `cachedResponse` (ie. already uploaded) then don't change
-                    // the attachment state to uploading as it's already been done
-                    guard uploadInfo.preparedRequest.cachedResponse == nil else { return }
-                    
-                    // Update the attachment to the 'uploading' state
-                    dependencies[singleton: .storage].write { db in
-                        _ = try? Attachment
-                            .filter(id: uploadInfo.attachment.id)
-                            .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploading))
-                    }
-                },
-                receiveOutput: { _, response in
-                    /// Save the final upload info
-                    ///
-                    /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
-                    /// updated correctly
-                    let updatedAttachment: Attachment = uploadInfo.attachment
-                        .with(
-                            serverId: response.id,
-                            state: .uploaded,
-                            creationTimestamp: (
-                                uploadInfo.attachment.creationTimestamp ??
-                                (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                            ),
-                            downloadUrl: {
-                                switch (uploadInfo.attachment.downloadUrl, destination) {
-                                    case (.some(let downloadUrl), _): return downloadUrl
-                                    case (.none, .fileServer):
-                                        return Network.FileServer.downloadUrlString(for: response.id)
-                                        
-                                    case (.none, .community(let openGroup)):
-                                        return OpenGroupAPI.downloadUrlString(
-                                            for: response.id,
-                                            server: openGroup.server,
-                                            roomToken: openGroup.roomToken
-                                        )
-                                }
-                            }(),
-                            encryptionKey: uploadInfo.encryptionKey,
-                            digest: uploadInfo.digest,
-                            using: dependencies
-                        )
-                    
-                    // Ensure there were changes before triggering a db write to avoid unneeded
-                    // write queue use and UI updates
-                    guard updatedAttachment != uploadInfo.attachment else { return }
-                    
-                    dependencies[singleton: .storage].write { db in
-                        try updatedAttachment.upserted(db)
-                    }
-                },
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            dependencies[singleton: .storage].write { db in
-                                try Attachment
-                                    .filter(id: uploadInfo.attachment.id)
-                                    .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
-                            }
-                    }
-                },
-                receiveCancel: {
-                    dependencies[singleton: .storage].write { db in
-                        try Attachment
-                            .filter(id: uploadInfo.attachment.id)
-                            .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
-                    }
-                }
-            )
-            .map { _, response in response.id }
     }
 }

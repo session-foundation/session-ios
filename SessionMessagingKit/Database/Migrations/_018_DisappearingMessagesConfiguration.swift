@@ -170,4 +170,3 @@ enum _018_DisappearingMessagesConfiguration: Migration {
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }
-

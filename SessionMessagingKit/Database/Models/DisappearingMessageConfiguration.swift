@@ -295,7 +295,7 @@ public extension DisappearingMessagesConfiguration {
         serverHash: String?,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws -> Int64? {
+    ) throws -> MessageReceiver.InsertedInteractionInfo? {
         switch threadVariant {
             case .contact:
                 _ = try Interaction
@@ -319,8 +319,7 @@ public extension DisappearingMessagesConfiguration {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     timestampMs: timestampMs,
-                    userSessionId: userSessionId,
-                    openGroup: nil
+                    openGroupUrlInfo: nil
                 )
             }
         )
@@ -372,7 +371,9 @@ public extension DisappearingMessagesConfiguration {
             )
         }
         
-        return interaction.id
+        return interaction.id.map {
+            (threadId, threadVariant, $0, .infoDisappearingMessagesUpdate, wasRead, 0)
+        }
     }
 }
 

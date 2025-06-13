@@ -132,11 +132,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     let title: String = "sessionSettings".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [weak self, dependencies] db -> State in
+        .libSessionObservation(self) { cache -> State in
             State(
-                profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
-                developerModeEnabled: db[.developerModeEnabled],
-                hideRecoveryPasswordPermanently: db[.hideRecoveryPasswordPermanently]
+                profile: cache.profile,
+                developerModeEnabled: cache.get(.developerModeEnabled),
+                hideRecoveryPasswordPermanently: cache.get(.hideRecoveryPasswordPermanently)
             )
         }
         .compactMap { [weak self] state -> [SectionModel]? in self?.content(state) }
@@ -477,11 +477,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         logoTapCallback: { [weak self] in self?.openTokenUrl() },
         versionTapCallback: { [dependencies] in
             /// Do nothing if developer mode is already enabled
-            guard !dependencies[singleton: .storage, key: .developerModeEnabled] else { return }
+            guard !dependencies.mutate(cache: .libSession, { $0.get(.developerModeEnabled) }) else { return }
             
-            dependencies[singleton: .storage].write { db in
-                db[.developerModeEnabled] = true
-            }
+            dependencies.setAsync(.developerModeEnabled, true)
         }
     )).eraseToAnyPublisher()
     

@@ -34,20 +34,21 @@ public enum SendReadReceiptsJob: JobExecutor {
         }
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .readPublisher { db in try Authentication.with(db, swarmPublicKey: threadId, using: dependencies) }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
                 try MessageSender.preparedSend(
-                    db,
                     message: ReadReceipt(
                         timestamps: details.timestampMsValues.map { UInt64($0) }
                     ),
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: nil,
-                    fileIds: [],
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
@@ -116,7 +117,7 @@ public extension SendReadReceiptsJob {
         interactionIds: [Int64],
         using dependencies: Dependencies
     ) -> Job? {
-        guard db[.areReadReceiptsEnabled] == true else { return nil }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return nil }
         guard !interactionIds.isEmpty else { return nil }
         
         // Retrieve the timestampMs values for the specified interactions

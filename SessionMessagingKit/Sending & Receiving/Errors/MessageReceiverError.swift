@@ -6,8 +6,6 @@ import Foundation
 
 public enum MessageReceiverError: Error, CustomStringConvertible {
     case duplicateMessage
-    case duplicateMessageNewSnode
-    case duplicateControlMessage
     case invalidMessage
     case invalidSender
     case unknownMessage(SNProtoContent?)
@@ -22,20 +20,19 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
     case decryptionFailed
     case noGroupKeyPair
     case invalidConfigMessageHandling
-    case requiredThreadNotInConfig
     case outdatedMessage
     case ignorableMessage
+    case ignorableMessageRequestMessage
     case duplicatedCall
     case missingRequiredAdminPrivileges
     case deprecatedMessage
 
     public var isRetryable: Bool {
         switch self {
-            case .duplicateMessage, .duplicateMessageNewSnode, .duplicateControlMessage,
-                .invalidMessage, .unknownMessage, .unknownEnvelopeType, .invalidSignature,
-                .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
-                .invalidConfigMessageHandling, .requiredThreadNotInConfig,
-                .outdatedMessage, .ignorableMessage, .missingRequiredAdminPrivileges:
+            case .duplicateMessage, .invalidMessage, .unknownMessage, .unknownEnvelopeType,
+                .invalidSignature, .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
+                .invalidConfigMessageHandling, .outdatedMessage, .ignorableMessage, .ignorableMessageRequestMessage,
+                .missingRequiredAdminPrivileges:
                 return false
                 
             default: return true
@@ -48,7 +45,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
             // retrieving and attempting to process the same messages again (as well as ensure the
             // next poll doesn't retrieve the same message - these errors are essentially considered
             // "already successfully processed")
-            case .selfSend, .duplicateControlMessage, .outdatedMessage, .missingRequiredAdminPrivileges:
+            case .selfSend, .duplicateMessage, .outdatedMessage, .missingRequiredAdminPrivileges:
                 return true
                 
             default: return false
@@ -58,8 +55,6 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
             case .duplicateMessage: return "Duplicate message."
-            case .duplicateMessageNewSnode: return "Duplicate message from different service node."
-            case .duplicateControlMessage: return "Duplicate control message."
             case .invalidMessage: return "Invalid message."
             case .invalidSender: return "Invalid sender."
             case .unknownMessage(let content):
@@ -111,9 +106,9 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
             case .noGroupKeyPair: return "Missing group key pair."
                 
             case .invalidConfigMessageHandling: return "Invalid handling of a config message."
-            case .requiredThreadNotInConfig: return "Required thread not in config."
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
             case .ignorableMessage: return "Message should be ignored."
+            case .ignorableMessageRequestMessage: return "Message request message should be ignored."
             case .duplicatedCall: return "Duplicate call."
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
             case .deprecatedMessage: return "This message type has been deprecated."

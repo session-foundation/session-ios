@@ -86,6 +86,15 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
             }
         )
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                cache
+                    .when { $0.ed25519Seed }
+                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
+            }
+        )
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
         @TestState var permanentFailure: Bool! = false
@@ -245,8 +254,15 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 }
                 let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
                     try OpenGroupAPI.preparedCapabilitiesAndRooms(
-                        db,
-                        on: OpenGroupAPI.defaultServer,
+                        authMethod: Authentication.community(
+                            info: LibSession.OpenGroupCapabilityInfo(
+                                roomToken: "",
+                                server: OpenGroupAPI.defaultServer,
+                                publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                capabilities: []
+                            ),
+                            forceBlinded: false
+                        ),
                         using: dependencies
                     )
                 }

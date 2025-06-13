@@ -1,10 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit
+import Foundation
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
-import SessionUIKit
 
 public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "interaction" }
@@ -501,6 +500,7 @@ public extension Interaction {
 public extension Interaction {
     struct ReadInfo: Decodable, FetchableRecord {
         let id: Int64
+        let serverHash: String?
         let variant: Interaction.Variant
         let timestampMs: Int64
         let wasRead: Bool
@@ -561,7 +561,7 @@ public extension Interaction {
         // Since there is no guarantee on the order messages are inserted into the database
         // fetch the timestamp for the interaction and set everything before that as read
         let maybeInteractionInfo: Interaction.ReadInfo? = try Interaction
-            .select(.id, .variant, .timestampMs, .wasRead)
+            .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
             .filter(id: interactionId)
             .asRequest(of: Interaction.ReadInfo.self)
             .fetchOne(db)
@@ -591,6 +591,7 @@ public extension Interaction {
                 interactionInfo: [
                     Interaction.ReadInfo(
                         id: interactionId,
+                        serverHash: nil,
                         variant: variant,
                         timestampMs: 0,
                         wasRead: false
@@ -609,7 +610,7 @@ public extension Interaction {
             .filter(Interaction.Columns.timestampMs <= interactionInfo.timestampMs)
             .filter(Interaction.Columns.wasRead == false)
         let interactionInfoToMarkAsRead: [Interaction.ReadInfo] = try interactionQuery
-            .select(.id, .variant, .timestampMs, .wasRead)
+            .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
             .asRequest(of: Interaction.ReadInfo.self)
             .fetchAll(db)
         
@@ -653,9 +654,10 @@ public extension Interaction {
         _ db: Database,
         threadId: String,
         timestampMsValues: [Int64],
-        readTimestampMs: Int64
+        readTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws -> Set<Int64> {
-        guard db[.areReadReceiptsEnabled] == true else { return [] }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return [] }
         
         struct InterationRowState: Codable, FetchableRecord {
             public typealias Columns = CodingKeys
@@ -776,15 +778,15 @@ public extension Interaction {
         // Clear out any notifications for the interactions we mark as read
         dependencies[singleton: .notificationsManager].cancelNotifications(
             identifiers: interactionInfo
-                .map { interactionInfo in
+                .map { info in
                     Interaction.notificationIdentifier(
-                        for: interactionInfo.id,
+                        for: (info.serverHash ?? "\(info.id)"),
                         threadId: threadId,
                         shouldGroupMessagesForThread: false
                     )
                 }
                 .appending(Interaction.notificationIdentifier(
-                    for: 0,
+                    for: "0",
                     threadId: threadId,
                     shouldGroupMessagesForThread: true
                 ))
@@ -894,17 +896,21 @@ public extension Interaction {
     func notificationIdentifier(shouldGroupMessagesForThread: Bool) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         return Interaction.notificationIdentifier(
-            for: (id ?? 0),
+            for: (serverHash ?? "\(id ?? 0)"),
             threadId: threadId,
             shouldGroupMessagesForThread: shouldGroupMessagesForThread
         )
     }
     
-    static func notificationIdentifier(for id: Int64, threadId: String, shouldGroupMessagesForThread: Bool) -> String {
+    static func notificationIdentifier(
+        for interactionIdentifier: String,
+        threadId: String,
+        shouldGroupMessagesForThread: Bool
+    ) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         guard !shouldGroupMessagesForThread else { return threadId }
         
-        return "\(threadId)-\(id)"
+        return "\(threadId)-\(interactionIdentifier)"
     }
     
     static func isUserMentioned(
@@ -914,23 +920,28 @@ public extension Interaction {
         quoteAuthorId: String? = nil,
         using dependencies: Dependencies
     ) -> Bool {
-        var publicKeysToCheck: [String] = [
+        var publicKeysToCheck: Set<String> = [
             dependencies[cache: .general].sessionId.hexString
         ]
         
         // If the thread is an open group then add the blinded id as a key to check
         if let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId) {
             if
-                let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
                 let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEd25519KeyPair.secretKey)
+                    .blinded15KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 ),
                 let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded25KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEd25519KeyPair.secretKey)
+                    .blinded25KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 )
             {
-                publicKeysToCheck.append(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)
-                publicKeysToCheck.append(SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString)
+                publicKeysToCheck.insert(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)
+                publicKeysToCheck.insert(SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString)
             }
         }
         
@@ -943,7 +954,7 @@ public extension Interaction {
     
     // stringlint:ignore_contents
     static func isUserMentioned(
-        publicKeysToCheck: [String],
+        publicKeysToCheck: Set<String>,
         body: String?,
         quoteAuthorId: String? = nil
     ) -> Bool {
@@ -1203,7 +1214,7 @@ public extension Interaction.Variant {
     
     /// This flag controls whether the `wasRead` flag is automatically set to true based on the message variant (as a result they will
     /// or won't affect the unread count)
-    fileprivate var canBeUnread: Bool {
+    var canBeUnread: Bool {
         switch self {
             case .standardIncoming: return true
             case .infoCall: return true
@@ -1223,75 +1234,6 @@ public extension Interaction.Variant {
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted:
                 return false
-        }
-    }
-}
-
-// MARK: - Interaction.State Convenience
-
-public extension Interaction.State {
-    func statusIconInfo(
-        variant: Interaction.Variant,
-        hasBeenReadByRecipient: Bool,
-        hasAttachments: Bool
-    ) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
-        guard variant == .standardOutgoing else {
-            return (nil, nil, .messageBubble_deliveryStatus)
-        }
-
-        switch (self, hasBeenReadByRecipient, hasAttachments) {
-            case (.deleted, _, _), (.localOnly, _, _):
-                return (nil, nil, .messageBubble_deliveryStatus)
-            
-            case (.sending, _, true):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "uploading".localized(),
-                    .messageBubble_deliveryStatus
-                )
-                
-            case (.sending, _, _):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "sending".localized(),
-                    .messageBubble_deliveryStatus
-                )
-
-            case (.sent, false, _):
-                return (
-                    UIImage(systemName: "checkmark.circle"),
-                    "disappearingMessagesSent".localized(),
-                    .messageBubble_deliveryStatus
-                )
-
-            case (.sent, true, _):
-                return (
-                    UIImage(systemName: "eye.fill"),
-                    "read".localized(),
-                    .messageBubble_deliveryStatus
-                )
-                
-            case (.failed, _, _):
-                return (
-                    UIImage(systemName: "exclamationmark.triangle"),
-                    "messageStatusFailedToSend".localized(),
-                    .danger
-                )
-                
-            case (.failedToSync, _, _):
-                return (
-                    UIImage(systemName: "exclamationmark.triangle"),
-                    "messageStatusFailedToSync".localized(),
-                    .warning
-                )
-                
-            case (.syncing, _, _):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "messageStatusSyncing".localized(),
-                    .warning
-                )
-
         }
     }
 }
@@ -1364,9 +1306,17 @@ public extension Interaction {
         
         /// Remove any notifications for the messages
         dependencies[singleton: .notificationsManager].cancelNotifications(
-            identifiers: interactionIds.reduce(into: []) { result, id in
-                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: true))
-                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: false))
+            identifiers: interactionInfo.reduce(into: []) { result, info in
+                result.append(Interaction.notificationIdentifier(
+                    for: (info.serverHash ?? "\(info.id)"),
+                    threadId: threadId,
+                    shouldGroupMessagesForThread: true)
+                )
+                result.append(Interaction.notificationIdentifier(
+                    for: (info.serverHash ?? "\(info.id)"),
+                    threadId: threadId,
+                    shouldGroupMessagesForThread: false)
+                )
             }
         )
         
@@ -1383,25 +1333,33 @@ public extension Interaction {
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
-            var blinded15SessionIdHexString: String = ""
-            var blinded25SessionIdHexString: String = ""
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            var userSessionIds: Set<String> = [userSessionId.hexString]
             
             /// If it's a `community` conversation then we need to get the blinded ids
-            if threadVariant == .community {
-                blinded15SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: .blinded15,
-                    using: dependencies
-                )?.hexString).defaulting(to: "")
-                blinded25SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: .blinded25,
-                    using: dependencies
-                )?.hexString).defaulting(to: "")
+            if
+                threadVariant == .community,
+                let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                    .fetchOne(db, id: threadId)
+            {
+                userSessionIds = userSessionIds.inserting(
+                    SessionThread.getCurrentUserBlindedSessionId(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        blindingPrefix: .blinded15,
+                        openGroupCapabilityInfo: openGroupCapabilityInfo,
+                        using: dependencies
+                    )?.hexString
+                )
+                userSessionIds = userSessionIds.inserting(
+                    SessionThread.getCurrentUserBlindedSessionId(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        blindingPrefix: .blinded25,
+                        openGroupCapabilityInfo: openGroupCapabilityInfo,
+                        using: dependencies
+                    )?.hexString
+                )
             }
             
             /// Construct a request which gets the `quote.attachmentId` for any `Quote` entries related
@@ -1414,11 +1372,8 @@ public extension Interaction {
                         \(interaction[.authorId]) = \(quote[.authorId]) OR (
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
-                            \(interaction[.authorId]) = \(dependencies[cache: .general].sessionId.hexString) AND
-                            (
-                                \(quote[.authorId]) = \(blinded15SessionIdHexString) OR
-                                \(quote[.authorId]) = \(blinded25SessionIdHexString)
-                            )
+                            \(interaction[.authorId]) = \(userSessionId.hexString) AND
+                            \(quote[.authorId]) IN \(userSessionIds)
                         )
                     )
                 )

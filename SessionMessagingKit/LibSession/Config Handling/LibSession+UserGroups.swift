@@ -427,52 +427,12 @@ internal extension LibSessionCacheType {
         return ugroups_group_is_kicked(&userGroup)
     }
     
-    func markAsInvited(
-        _ db: Database,
-        groupSessionIds: [String],
-        using dependencies: Dependencies
-    ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try groupSessionIds.forEach { groupId in
-                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var userGroup: ugroups_group_info = ugroups_group_info()
-                
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
-                
-                ugroups_group_set_invited(&userGroup)
-                user_groups_set_group(conf, &userGroup)
-            }
-        }
-    }
-    
-    func markAsKicked(
-        _ db: Database,
-        groupSessionIds: [String],
-        using dependencies: Dependencies
-    ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try groupSessionIds.forEach { groupId in
-                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var userGroup: ugroups_group_info = ugroups_group_info()
-                
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
-                
-                ugroups_group_set_kicked(&userGroup)
-                user_groups_set_group(conf, &userGroup)
-            }
-        }
-    }
-    
     func markAsDestroyed(
         _ db: Database,
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+        try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
             guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
@@ -488,26 +448,9 @@ internal extension LibSessionCacheType {
     }
 }
 
-internal extension LibSession {
-    fileprivate static func memberInfo(in legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info>) -> [String: Bool] {
-        let membersIt: OpaquePointer = ugroups_legacy_members_begin(legacyGroup)
-        var members: [String: Bool] = [:]
-        var maybeMemberSessionId: UnsafePointer<CChar>? = nil
-        var memberAdmin: Bool = false
+// MARK: - Outgoing Changes
 
-        while ugroups_legacy_members_next(membersIt, &maybeMemberSessionId, &memberAdmin) {
-            guard let memberSessionId: UnsafePointer<CChar> = maybeMemberSessionId else {
-                continue
-            }
-
-            members[String(cString: memberSessionId)] = memberAdmin
-        }
-        
-        return members
-    }
-    
-    // MARK: - Outgoing Changes
-    
+public extension LibSession {
     static func upsert(
         legacyGroups: [LegacyGroupInfo],
         in config: Config?
@@ -685,6 +628,25 @@ internal extension LibSession {
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
                 user_groups_set_community(conf, &userCommunity)
             }
+    }
+}
+
+internal extension LibSession {
+    fileprivate static func memberInfo(in legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info>) -> [String: Bool] {
+        let membersIt: OpaquePointer = ugroups_legacy_members_begin(legacyGroup)
+        var members: [String: Bool] = [:]
+        var maybeMemberSessionId: UnsafePointer<CChar>? = nil
+        var memberAdmin: Bool = false
+
+        while ugroups_legacy_members_next(membersIt, &maybeMemberSessionId, &memberAdmin) {
+            guard let memberSessionId: UnsafePointer<CChar> = maybeMemberSessionId else {
+                continue
+            }
+
+            members[String(cString: memberSessionId)] = memberAdmin
+        }
+        
+        return members
     }
     
     @discardableResult static func updatingGroups<T>(
@@ -875,6 +837,20 @@ public extension LibSession {
         }
     }
     
+    func markAsInvited(
+        _ db: Database,
+        groupSessionIds: [String],
+        using dependencies: Dependencies
+    ) throws {
+        guard !groupSessionIds.isEmpty else { return }
+        
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { _ in
+                try cache.markAsInvited(groupSessionIds: groupSessionIds)
+            }
+        }
+    }
+    
     static func markAsKicked(
         _ db: Database,
         groupSessionIds: [String],
@@ -883,45 +859,9 @@ public extension LibSession {
         guard !groupSessionIds.isEmpty else { return }
         
         try dependencies.mutate(cache: .libSession) { cache in
-            try cache.markAsKicked(db, groupSessionIds: groupSessionIds, using: dependencies)
-        }
-    }
-    
-    static func wasKickedFromGroup(
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) -> Bool {
-        return dependencies.mutate(cache: .libSession) { cache in
-            guard
-                case .userGroups(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
-                var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
-            else { return false }
-            
-            var userGroup: ugroups_group_info = ugroups_group_info()
-            
-            // If the group doesn't exist then assume the user hasn't been kicked
-            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
-            
-            return ugroups_group_is_kicked(&userGroup)
-        }
-    }
-    
-    static func groupIsDestroyed(
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) -> Bool {
-        return dependencies.mutate(cache: .libSession) { cache in
-            guard
-                case .userGroups(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
-                var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
-            else { return false }
-            
-            var userGroup: ugroups_group_info = ugroups_group_info()
-            
-            // If the group doesn't exist then assume the user hasn't been kicked
-            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
-            
-            return ugroups_group_is_destroyed(&userGroup)
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { _ in
+                try cache.markAsKicked(groupSessionIds: groupSessionIds)
+            }
         }
     }
     
@@ -949,6 +889,99 @@ public extension LibSession {
         
         // Remove the volatile info as well
         try LibSession.remove(db, volatileGroupSessionIds: groupSessionIds, using: dependencies)
+    }
+}
+
+// MARK: - State Changes
+
+public extension LibSession.Cache {
+    func markAsInvited(groupSessionIds: [String]) throws {
+        guard case .userGroups(let conf) =  config(for: .userGroups, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject
+        }
+        
+        try groupSessionIds.forEach { groupId in
+            var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var userGroup: ugroups_group_info = ugroups_group_info()
+            
+            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+            
+            ugroups_group_set_invited(&userGroup)
+            user_groups_set_group(conf, &userGroup)
+        }
+    }
+    
+    func markAsKicked(groupSessionIds: [String]) throws {
+        guard case .userGroups(let conf) =  config(for: .userGroups, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject
+        }
+        
+        try groupSessionIds.forEach { groupId in
+            var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var userGroup: ugroups_group_info = ugroups_group_info()
+            
+            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+            
+            ugroups_group_set_kicked(&userGroup)
+            user_groups_set_group(conf, &userGroup)
+        }
+    }
+}
+
+// MARK: - State Access
+
+public extension LibSession.Cache {
+    func hasCredentials(groupSessionId: SessionId) -> Bool {
+        var userGroup: ugroups_group_info = ugroups_group_info()
+        
+        /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &userGroup, &cGroupId)
+        else { return false }
+        
+        return (userGroup.have_auth_data || userGroup.have_secretkey)
+    }
+    
+    func secretKey(groupSessionId: SessionId) -> [UInt8]? {
+        var userGroup: ugroups_group_info = ugroups_group_info()
+        
+        /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &userGroup, &cGroupId),
+            userGroup.have_secretkey
+        else { return nil }
+        
+        return userGroup.get(\.secretkey, nullIfEmpty: true)
+    }
+    
+    func wasKickedFromGroup(groupSessionId: SessionId) -> Bool {
+        var userGroup: ugroups_group_info = ugroups_group_info()
+        
+        /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &userGroup, &cGroupId)
+        else { return false }
+        
+        return ugroups_group_is_kicked(&userGroup)
+    }
+    
+    func groupIsDestroyed(groupSessionId: SessionId) -> Bool {
+        var userGroup: ugroups_group_info = ugroups_group_info()
+        
+        /// If the group doesn't exist or a conversion fails then assume the group hasn't been destroyed
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &userGroup, &cGroupId)
+        else { return false }
+        
+        return ugroups_group_is_destroyed(&userGroup)
     }
 }
 
@@ -1109,7 +1142,7 @@ public extension LibSession {
         let wasKickedFromGroup: Bool?
         let wasGroupDestroyed: Bool?
         
-        init(
+        public init(
             groupSessionId: String,
             groupIdentityPrivateKey: Data? = nil,
             name: String? = nil,
@@ -1135,7 +1168,7 @@ public extension LibSession {
 
 // MARK: - CommunityInfo
 
-extension LibSession {
+public extension LibSession {
     struct CommunityInfo {
         let urlInfo: OpenGroupUrlInfo
         let priority: Int32?

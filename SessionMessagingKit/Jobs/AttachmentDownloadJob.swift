@@ -90,13 +90,23 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 return dependencies[singleton: .storage]
                     .readPublisher { db -> Network.PreparedRequest<Data> in
-                        switch try OpenGroup.fetchOne(db, id: threadId) {
-                            case .some(let openGroup):
+                        let maybeRoomToken: String? = try OpenGroup
+                            .select(.roomToken)
+                            .filter(id: threadId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                        switch maybeRoomToken {
+                            case .some(let roomToken):
                                 return try OpenGroupAPI.preparedDownload(
-                                    db,
                                     url: downloadUrl,
-                                    from: openGroup.roomToken,
-                                    on: openGroup.server,
+                                    roomToken: roomToken,
+                                    authMethod: try Authentication.with(
+                                        db,
+                                        threadId: threadId,
+                                        threadVariant: .community,
+                                        using: dependencies
+                                    ),
                                     using: dependencies
                                 )
                                 

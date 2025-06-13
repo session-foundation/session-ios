@@ -9,21 +9,16 @@ import SessionUtilitiesKit
 
 public extension Request where Endpoint == OpenGroupAPI.Endpoint {
     init(
-        _ db: Database,
         method: HTTPMethod = .get,
-        server: String,
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        authMethod: AuthenticationMethod
     ) throws {
-        let maybePublicKey: String? = try? OpenGroup
-            .select(.publicKey)
-            .filter(OpenGroup.Columns.server == server.lowercased())
-            .asRequest(of: String.self)
-            .fetchOne(db)
-
-        guard let publicKey: String = maybePublicKey else { throw OpenGroupAPIError.noPublicKey }
+        guard case .community(let server, let publicKey, _, _, _) = authMethod.info else {
+            throw CryptoError.signatureGenerationFailed
+        }
         
         self = try Request(
             endpoint: endpoint,

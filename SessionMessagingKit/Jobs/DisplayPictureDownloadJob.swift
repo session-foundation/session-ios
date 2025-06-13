@@ -46,15 +46,20 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         )
                         
                     case .community(let fileId, let roomToken, let server):
-                        return dependencies[singleton: .storage].read { db in
-                            try OpenGroupAPI.preparedDownload(
-                                db,
-                                fileId: fileId,
-                                from: roomToken,
-                                on: server,
-                                using: dependencies
-                            )
-                        }
+                        guard
+                            let info: LibSession.OpenGroupCapabilityInfo = dependencies[singleton: .storage]
+                                .read({ db in
+                                    try LibSession.OpenGroupCapabilityInfo
+                                        .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
+                                })
+                        else { throw JobRunnerError.missingRequiredDetails }
+                        
+                        return try OpenGroupAPI.preparedDownload(
+                            fileId: fileId,
+                            roomToken: roomToken,
+                            authMethod: Authentication.community(info: info),
+                            using: dependencies
+                        )
                 }
             }()
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
@@ -93,7 +98,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                 case .community: return data    // Community data is unencrypted
                                 case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
                                     return dependencies[singleton: .crypto].generate(
-                                        .decryptedDataDisplayPicture(data: data, key: encryptionKey, using: dependencies)
+                                        .decryptedDataDisplayPicture(data: data, key: encryptionKey)
                                     )
                             }
                         }()

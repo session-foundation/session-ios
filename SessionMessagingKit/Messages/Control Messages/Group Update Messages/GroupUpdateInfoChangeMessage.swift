@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateInfoChangeMessage: ControlMessage {
@@ -59,14 +58,15 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         changeType: ChangeType,
         updatedName: String? = nil,
         updatedExpiration: UInt32? = nil,
-        adminSignature: Authentication.Signature
+        adminSignature: Authentication.Signature,
+        sender: String? = nil
     ) {
         self.changeType = changeType
         self.updatedName = updatedName
         self.updatedExpiration = updatedExpiration
         self.adminSignature = adminSignature
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Signature Generation
@@ -130,7 +130,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let infoChangeMessageBuilder: SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessageBuilder = SNProtoGroupUpdateInfoChangeMessage.builder(
                 type: {

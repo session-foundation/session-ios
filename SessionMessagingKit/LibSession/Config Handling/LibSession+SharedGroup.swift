@@ -18,12 +18,12 @@ public extension LibSession.Crypto.Domain {
 internal extension LibSessionCacheType {
     @discardableResult func createAndLoadGroupState(
         groupSessionId: SessionId,
-        userED25519KeyPair: KeyPair,
+        userED25519SecretKey: [UInt8],
         groupIdentityPrivateKey: Data?
     ) throws -> [ConfigDump.Variant: LibSession.Config] {
         let groupState: [ConfigDump.Variant: LibSession.Config] = try LibSession.createGroupState(
             groupSessionId: groupSessionId,
-            userED25519KeyPair: userED25519KeyPair,
+            userED25519SecretKey: userED25519SecretKey,
             groupIdentityPrivateKey: groupIdentityPrivateKey
         )
         
@@ -61,19 +61,19 @@ internal extension LibSession {
     ) throws -> CreatedGroupInfo {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
-            let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
+            !dependencies[cache: .general].ed25519SecretKey.isEmpty
         else { throw MessageSenderError.noKeyPair }
         
         // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         let creationTimestamp: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+        let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         // Create the new config objects
         let groupState: [ConfigDump.Variant: Config] = try createGroupState(
             groupSessionId: groupSessionId,
-            userED25519KeyPair: userED25519KeyPair,
+            userED25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey)
         )
         
@@ -194,10 +194,12 @@ internal extension LibSession {
     
     static func createGroupState(
         groupSessionId: SessionId,
-        userED25519KeyPair: KeyPair,
+        userED25519SecretKey: [UInt8],
         groupIdentityPrivateKey: Data?
     ) throws -> [ConfigDump.Variant: LibSession.Config] {
-        var secretKey: [UInt8] = userED25519KeyPair.secretKey
+        guard userED25519SecretKey.count >= 32 else { throw CryptoError.missingUserSecretKey }
+        
+        var secretKey: [UInt8] = userED25519SecretKey
         var groupIdentityPublicKey: [UInt8] = groupSessionId.publicKey
         
         // Create the new config objects
@@ -314,12 +316,17 @@ internal extension LibSession {
         // Create and save dumps for the configs
         try dependencies.mutate(cache: .libSession) { cache in
             try groupState.forEach { variant, config in
-                try cache.createDump(
+                let dump: ConfigDump? = try cache.createDump(
                     config: config,
                     for: variant,
                     sessionId: SessionId(.group, hex: group.id),
                     timestampMs: Int64(floor(group.formationTimestamp * 1000))
-                )?.upsert(db)
+                )
+                
+                try dump?.upsert(db)
+                Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                    extensionHelper.replicate(dump: dump)
+                }
             }
         }
         
@@ -334,15 +341,6 @@ internal extension LibSession {
             invited: (group.invited == true),
             using: dependencies
         )
-    }
-    
-    static func isAdmin(
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) -> Bool {
-        return dependencies.mutate(cache: .libSession) { cache in
-            return cache.isAdmin(groupSessionId: groupSessionId)
-        }
     }
 }
 

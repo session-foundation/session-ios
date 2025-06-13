@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -13,7 +14,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     public static let newConversationButtonSize: CGFloat = 60
     
     private let viewModel: HomeViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
+    private var dataChangeTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
     private var hasLoadedInitialStateData: Bool = false
@@ -354,7 +355,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if
-            Identity.userExists(using: viewModel.dependencies),
+            viewModel.dependencies[cache: .general].userExists,
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
             viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {
@@ -402,8 +403,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     // MARK: - Updating
     
-    public func startObservingChanges(onReceivedInitialChange: (() -> Void)? = nil) {
-        guard dataChangeObservable == nil else { return }
+    public func startObservingChanges(onReceivedInitialChange: (() -> ())? = nil) {
+        guard dataChangeTask == nil else { return }
         
         var runAndClearInitialChangeCallback: (() -> Void)?
         
@@ -414,15 +415,17 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             runAndClearInitialChangeCallback = nil
         }
         
-        dataChangeObservable = viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableState,
-            onError: { _ in },
-            onChange: { [weak self] state in
-                // The default scheduler emits changes on the main thread
-                self?.handleUpdates(state)
-                runAndClearInitialChangeCallback?()
-            }
-        )
+        dataChangeTask = Task { [weak self, stream = viewModel.createStateStream()] in
+            do {
+                for try await state in stream {
+                    await MainActor.run { [weak self] in
+                        self?.handleUpdates(state)
+                        runAndClearInitialChangeCallback?()
+                    }
+                }
+            } catch is CancellationError {  /// Ignore (cancel when leaving the screen)
+            } catch { Log.error(.homeViewModel, "Observation failed with error: \(error)") }
+        }
         
         self.viewModel.onThreadChange = { [weak self] updatedThreadData, changeset in
             self?.handleThreadUpdates(updatedThreadData, changeset: changeset)
@@ -432,8 +435,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     private func stopObservingChanges() {
         // Stop observing database changes
-        self.dataChangeObservable?.cancel()
-        self.dataChangeObservable = nil
+        self.dataChangeTask?.cancel()
+        self.dataChangeTask = nil
         self.viewModel.onThreadChange = nil
     }
     
