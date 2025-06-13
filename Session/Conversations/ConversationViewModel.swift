@@ -73,7 +73,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public let dependencies: Dependencies
     
     public let legacyGroupsBannerFont: UIFont = .systemFont(ofSize: Values.miniFontSize)
-    public lazy var legacyGroupsBannerMessage: NSAttributedString = {
+    public lazy var legacyGroupsBannerMessage: ThemedAttributedString = {
         let localizationKey: String
         
         switch threadData.currentUserIsClosedGroupAdmin == true {
@@ -498,7 +498,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         
                         return SQL("LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(interaction[.threadId])")
                     }()
-                ),
+                )
             ],
             filterSQL: MessageViewModel.filterSQL(threadId: threadId),
             groupSQL: MessageViewModel.groupSQL,

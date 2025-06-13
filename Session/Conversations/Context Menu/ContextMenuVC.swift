@@ -292,11 +292,8 @@ final class ContextMenuVC: UIViewController {
         )
         
         // Change the blur effect on theme change
-        ThemeManager.onThemeChange(observer: blurView) { [weak self] theme, _ in
-            switch theme.interfaceStyle {
-                case .light: self?.blurView.effect = UIBlurEffect(style: .light)
-                default: self?.blurView.effect = UIBlurEffect(style: .dark)
-            }
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+            blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
     }
     

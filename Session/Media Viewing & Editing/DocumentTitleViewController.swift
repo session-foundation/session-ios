@@ -47,10 +47,6 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         fatalError("init(coder:) has not been implemented")
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
     // MARK: - UI
     
     override public var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -95,19 +91,6 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
 
         view.addSubview(self.tableView)
         tableView.pin(to: view)
-        
-        // Notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidBecomeActive(_:)),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidResignActive(_:)),
-            name: UIApplication.didEnterBackgroundNotification, object: nil
-        )
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -125,17 +108,6 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        stopObservingChanges()
-    }
-    
-    @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
-        DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges()
-        }
-    }
-    
-    @objc func applicationDidResignActive(_ notification: Notification) {
         stopObservingChanges()
     }
     

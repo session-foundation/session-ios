@@ -59,7 +59,13 @@ struct AdaptiveText: View {
             if isLoading {
                 switch loadingStyle {
                     case .progressView: ProgressView()
-                    case .text(let text): styledText(text).fixedSize(horizontal: true, vertical: true)
+                    case .text(let text):
+                        styledText(text)
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
+                            .minimumScaleFactor(0.5)
                 }
             }
             else if textRepresentations.count <= 1 {
@@ -69,8 +75,18 @@ struct AdaptiveText: View {
                 Group {
                     if #available(iOS 16.0, *) {
                         ViewThatFits(in: .horizontal) {
-                            ForEach(textRepresentations, id: \.id) { text, _ in
-                                styledText(text)
+                            ForEach(textRepresentations, id: \.id) { text, id in
+                                if id != textRepresentations.last?.id {
+                                    styledText(text)
+                                }
+                                else {
+                                    styledText(text)
+                                        .fixedSize(
+                                            horizontal: false,
+                                            vertical: true
+                                        )
+                                        .minimumScaleFactor(0.5)
+                                }
                             }
                         }
                     }
@@ -79,6 +95,10 @@ struct AdaptiveText: View {
                         let shortestText: String = (textRepresentations.last?.value ?? "")
                         
                         styledText(useAbbreviatedForIOS15 ? longestText : shortestText)
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
                             .background(
                                 GeometryReader { geometry in
                                     Color.clear
@@ -107,6 +127,7 @@ struct AdaptiveText: View {
                                     self.idealLongestTextWidth = newIdealWidth
                                 }
                             }
+                            .minimumScaleFactor(useAbbreviatedForIOS15 ? 1.0 : 0.5)
                     }
                 }
             }

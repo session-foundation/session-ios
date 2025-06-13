@@ -651,10 +651,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
                     SessionCell.Info(
                         id: .blockUser,
-                        leadingAccessory: .icon(
-                            UIImage(named: "table_ic_block")?
-                                .withRenderingMode(.alwaysTemplate)
-                        ),
+                        leadingAccessory: .icon(.ban),
                         title: "deleteAfterGroupPR1BlockThisUser".localized(),
                             trailingAccessory: .toggle(
                             threadViewModel.threadIsBlocked == true,
@@ -1175,7 +1172,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     body: { [weak self, dependencies] in
                         guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
                             return .input(
-                                explanation: NSAttributedString(string: "groupNameVisible".localized()),
+                                explanation: ThemedAttributedString(string: "groupNameVisible".localized()),
                                 info: ConfirmationModal.Info.Body.InputInfo(
                                     placeholder: "groupNameEnter".localized(),
                                     initialValue: currentName,
@@ -1189,7 +1186,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         
                         return .dualInput(
                             // FIXME: Localise this
-                            explanation: NSAttributedString(string: "Group name and description are visible to all group members."),
+                            explanation: ThemedAttributedString(string: "Group name and description are visible to all group members."),
                             firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupNameEnter".localized(),
                                 initialValue: currentName,

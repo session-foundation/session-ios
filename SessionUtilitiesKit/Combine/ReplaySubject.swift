@@ -65,6 +65,12 @@ public final class ReplaySubject<Output, Failure: Error>: Subject {
             self?._subscriptions.performUpdate { $0.appending(subscription) }
             subscription.replay(buffer, completion: completion)
         }
+        subscription.onCancel = { [weak self] in
+            self?._subscriptions.performUpdate { subscriptions in
+                /// Intentionally use `===` here to compare the object identifier since it could be deallocated at this point
+                subscriptions.filter { $0 === subscription }
+            }
+        }
         subscriber.receive(subscription: subscription)
     }
 }
@@ -76,6 +82,8 @@ public final class ReplaySubjectSubscription<Output, Failure: Error>: Subscripti
     private var isCompleted: Bool = false
     private var demand: Subscribers.Demand = .none
     private var onInitialDemand: ((ReplaySubjectSubscription) -> ())?
+    
+    fileprivate var onCancel: (() -> Void)?
     
     // MARK: - Initialization
 
@@ -93,7 +101,10 @@ public final class ReplaySubjectSubscription<Output, Failure: Error>: Subscripti
     }
 
     public func cancel() {
+        guard !isCompleted else { return }
         isCompleted = true
+        onCancel?()
+        onCancel = nil
     }
     
     // MARK: - Functions

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SignalUtilitiesKit
 
@@ -33,10 +34,17 @@ class MessageRequestsCell: UITableViewCell {
         return result
     }()
     
-    private let iconImageView: UIImageView = {
-        let result: UIImageView = UIImageView(image: #imageLiteral(resourceName: "message_requests").withRenderingMode(.alwaysTemplate))
+    private let iconLabel: UILabel = {
+        let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.themeTintColor = .conversationButton_unreadBubbleText
+        result.themeAttributedText = ThemedAttributedString(
+            attributedString: Lucide.attributedString(
+                icon: .messageSquareWarning,
+                size: 26,
+                baselineOffset: -1  // Custom offset to look vertically aligned
+            )
+        )
+        .addingAttribute(.themeForegroundColor, value: ThemeValue.conversationButton_unreadBubbleText)
         
         return result
     }()
@@ -83,7 +91,7 @@ class MessageRequestsCell: UITableViewCell {
         contentView.addSubview(titleLabel)
         contentView.addSubview(unreadCountView)
         
-        iconContainerView.addSubview(iconImageView)
+        iconContainerView.addSubview(iconLabel)
         unreadCountView.addSubview(unreadCountLabel)
     }
     
@@ -102,10 +110,8 @@ class MessageRequestsCell: UITableViewCell {
             iconContainerView.widthAnchor.constraint(equalToConstant: ProfilePictureView.Size.list.viewSize),
             iconContainerView.heightAnchor.constraint(equalToConstant: ProfilePictureView.Size.list.viewSize),
             
-            iconImageView.centerXAnchor.constraint(equalTo: iconContainerView.centerXAnchor),
-            iconImageView.centerYAnchor.constraint(equalTo: iconContainerView.centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 25),
-            iconImageView.heightAnchor.constraint(equalToConstant: 22),
+            iconLabel.centerXAnchor.constraint(equalTo: iconContainerView.centerXAnchor),
+            iconLabel.centerYAnchor.constraint(equalTo: iconContainerView.centerYAnchor),
             
             titleLabel.leadingAnchor.constraint(equalTo: iconContainerView.trailingAnchor, constant: Values.mediumSpacing),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -Values.mediumSpacing),

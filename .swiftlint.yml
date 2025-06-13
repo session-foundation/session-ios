@@ -1,0 +1,19 @@
+# .swiftlint.yml
+
+disabled_rules:
+  - type_body_length
+  - function_body_length
+  - function_parameter_count
+  - large_tuple
+  - trailing_whitespace
+  - opening_brace
+  - identifier_name
+  - statement_position
+  - control_statement
+  - type_name # Would be good to add back once our `{name}_SwiftUI` convention can be removed
+  - cyclomatic_complexity # Would be good to add this back (will need to fix issues)
+
+# This section adds custom configurations for rules
+switch_case_alignment:
+  severity: warning
+  indented_cases: true

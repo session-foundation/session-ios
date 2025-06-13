@@ -33,8 +33,6 @@ public enum MentionUtilities {
             currentUserBlinded25SessionId: currentUserBlinded25SessionId,
             location: .styleFree,
             textColor: .black,
-            theme: .classicDark,
-            primaryColor: Theme.PrimaryColor.green,
             attributes: [:],
             using: dependencies
         )
@@ -49,16 +47,14 @@ public enum MentionUtilities {
         currentUserBlinded15SessionId: String?,
         currentUserBlinded25SessionId: String?,
         location: MentionLocation,
-        textColor: UIColor,
-        theme: Theme,
-        primaryColor: Theme.PrimaryColor,
+        textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
         using dependencies: Dependencies
-    ) -> NSAttributedString {
+    ) -> ThemedAttributedString {
         guard
             let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
         else {
-            return NSAttributedString(string: string)
+            return ThemedAttributedString(string: string)
         }
         
         var string = string
@@ -105,7 +101,7 @@ public enum MentionUtilities {
         }
         
         let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
-        let result: NSMutableAttributedString = NSMutableAttributedString(string: string, attributes: attributes)
+        let result: ThemedAttributedString = ThemedAttributedString(string: string, attributes: attributes)
         mentions.forEach { mention in
             result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.smallFontSize), range: mention.range)
             
@@ -114,7 +110,7 @@ public enum MentionUtilities {
                 // to maintain a "rounded rect" effect rather than a "pill" effect
                 result.addAttribute(.currentUserMentionBackgroundCornerRadius, value: (8 * sizeDiff), range: mention.range)
                 result.addAttribute(.currentUserMentionBackgroundPadding, value: (3 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundColor, value: primaryColor.color, range: mention.range)
+                result.addAttribute(.currentUserMentionBackgroundColor, value: ThemeValue.primary, range: mention.range)
                 
                 // Only add the additional kern if the mention isn't at the end of the string (otherwise this
                 // would crash due to an index out of bounds exception)
@@ -123,29 +119,33 @@ public enum MentionUtilities {
                 }
             }
             
-            switch (location, mention.isCurrentUser, theme.interfaceStyle) {
+            var targetColor: ThemeValue = textColor
+            
+            switch (location, mention.isCurrentUser) {
                 // 1 - Incoming messages where the mention is for the current user
-                case (.incomingMessage, true, .dark): result.addAttribute(.foregroundColor, value: UIColor.black, range: mention.range)
-                case (.incomingMessage, true, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                case (.incomingMessage, true):
+                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
                 
                 // 2 - Incoming messages where the mention is for another user
-                case (.incomingMessage, false, .dark): result.addAttribute(.foregroundColor, value: primaryColor.color, range: mention.range)
-                case (.incomingMessage, false, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                case (.incomingMessage, false):
+                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
                     
                 // 3 - Outgoing messages
-                case (.outgoingMessage, _, .dark): result.addAttribute(.foregroundColor, value: UIColor.black, range: mention.range)
-                case (.outgoingMessage, _, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                case (.outgoingMessage, _):
+                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
                 
                 // 4 - Mentions in quotes
-                case (.outgoingQuote, _, .dark): result.addAttribute(.foregroundColor, value: UIColor.black, range: mention.range)
-                case (.outgoingQuote, _, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
-                case (.incomingQuote, _, .dark): result.addAttribute(.foregroundColor, value: primaryColor.color, range: mention.range)
-                case (.incomingQuote, _, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                case (.outgoingQuote, _):
+                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
+                case (.incomingQuote, _):
+                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
                     
                 // 5 - Mentions in quote drafts
-                case (.quoteDraft, _, _), (.styleFree, _, _):
-                    result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                case (.quoteDraft, _), (.styleFree, _):
+                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: textColor)
             }
+            
+            result.addAttribute(.themeForegroundColor, value: targetColor, range: mention.range)
         }
         
         return result

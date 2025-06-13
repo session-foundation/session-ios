@@ -22,12 +22,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     private var initialPage: MediaDetailViewController
     private var cachedPages: [Int64: [MediaGalleryViewModel.Item: MediaDetailViewController]] = [:]
     
-    public var currentViewController: MediaDetailViewController {
-        return viewControllers!.first as! MediaDetailViewController
+    public var currentViewController: MediaDetailViewController? {
+        return viewControllers?.first as? MediaDetailViewController
     }
 
-    public var currentItem: MediaGalleryViewModel.Item {
-        return currentViewController.galleryItem
+    public var currentItem: MediaGalleryViewModel.Item? {
+        return currentViewController?.galleryItem
     }
 
     public func setCurrentItem(_ item: MediaGalleryViewModel.Item, direction: UIPageViewController.NavigationDirection, animated isAnimated: Bool) {
@@ -209,19 +209,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let verticalSwipe = UISwipeGestureRecognizer(target: self, action: #selector(didSwipeView))
         verticalSwipe.direction = [.up, .down]
         view.addGestureRecognizer(verticalSwipe)
-        
-        // Notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidBecomeActive(_:)),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidResignActive(_:)),
-            name: UIApplication.didEnterBackgroundNotification, object: nil
-        )
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -252,17 +239,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         stopObservingChanges()
         
         resignFirstResponder()
-    }
-    
-    @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
-        DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges()
-        }
-    }
-    
-    @objc func applicationDidResignActive(_ notification: Notification) {
-        stopObservingChanges()
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -303,8 +279,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     public func wasPresented() {
         let currentViewController = self.currentViewController
 
-        if currentViewController.galleryItem.isVideo {
-            currentViewController.playVideo()
+        if currentViewController?.galleryItem.isVideo == true {
+            currentViewController?.playVideo()
         }
     }
 
@@ -364,15 +340,17 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             [
                 shareBarButton,
                 buildFlexibleSpace(),
-                (self.currentItem.isVideo ? self.videoPlayBarButton : nil),
-                (self.currentItem.isVideo ? buildFlexibleSpace() : nil),
+                (self.currentItem?.isVideo == true ? self.videoPlayBarButton : nil),
+                (self.currentItem?.isVideo == true ? buildFlexibleSpace() : nil),
                 (self.viewModel.threadVariant != .legacyGroup ? deleteBarButton : nil)
             ].compactMap { $0 },
             animated: false
         )
     }
 
-    func updateMediaRail(item: MediaGalleryViewModel.Item) {
+    func updateMediaRail(item: MediaGalleryViewModel.Item?) {
+        guard let item: MediaGalleryViewModel.Item = item else { return }
+        
         galleryRailView.configureCellViews(
             album: (self.viewModel.albumData[item.interactionId] ?? []),
             focusedItem: currentItem,
@@ -398,12 +376,16 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     }
     
     private func stopObservingChanges() {
+        dataChangeObservable?.cancel()
         dataChangeObservable = nil
     }
     
     private func handleUpdates(_ updatedViewData: [MediaGalleryViewModel.Item]) {
         // Determine if we swapped albums (if so we don't need to do anything else)
-        guard updatedViewData.contains(where: { $0.interactionId == currentItem.interactionId }) else {
+        guard
+            let interactionId: Int64 = currentItem?.interactionId,
+            updatedViewData.contains(where: { $0.interactionId == interactionId })
+        else {
             if let updatedInteractionId: Int64 = updatedViewData.first?.interactionId {
                 self.viewModel.updateAlbumData(updatedViewData, for: updatedInteractionId)
             }
@@ -411,7 +393,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Clear the cached pages that no longer match
-        let interactionId: Int64 = currentItem.interactionId
         let updatedCachedPages: [MediaGalleryViewModel.Item: MediaDetailViewController] = cachedPages[interactionId]
             .defaulting(to: [:])
             .filter { key, _ -> Bool in updatedViewData.contains(key) }
@@ -419,6 +400,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         // If there are no more items in the album then dismiss the screen
         guard
             !updatedViewData.isEmpty,
+            let currentItem: MediaGalleryViewModel.Item = currentItem,
             let oldIndex: Int = self.viewModel.albumData[interactionId]?.firstIndex(of: currentItem)
         else {
             self.dismissSelf(animated: true)
@@ -488,7 +470,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let allMediaViewController: AllMediaViewController = MediaGalleryViewModel.createAllMediaViewController(
             threadId: self.viewModel.threadId,
             threadVariant: self.viewModel.threadVariant,
-            focusedAttachmentId: currentItem.attachment.id,
+            focusedAttachmentId: currentItem?.attachment.id,
             performInitialQuerySync: true,
             using: viewModel.dependencies
         )
@@ -571,7 +553,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     }
 
     @objc public func didPressDelete(_ sender: Any) {
-        let itemToDelete: MediaGalleryViewModel.Item = self.currentItem
+        guard let itemToDelete: MediaGalleryViewModel.Item = self.currentItem else { return }
+        
         let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         let deleteAction = UIAlertAction(
             title: "clearMessagesForMe".localized(),
@@ -660,7 +643,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                     captionContainerView.completePagerTransition()
                 }
 
-                currentViewController.parentDidAppear() // Trigger any custom appearance animations
+                currentViewController?.parentDidAppear() // Trigger any custom appearance animations
                 updateTitle(item: currentItem)
                 updateMediaRail(item: currentItem)
                 previousPage.zoomOut(animated: false)
@@ -784,7 +767,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         
         // Swapping mediaView for presentationView will be perceptible if we're not zoomed out all the way.
         // currentVC
-        currentViewController.zoomOut(animated: true)
+        currentViewController?.zoomOut(animated: true)
 
         self.navigationController?.view.isUserInteractionEnabled = false
         self.navigationController?.dismiss(animated: true, completion: { [weak self] in
@@ -859,12 +842,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         return containerView
     }()
 
-    private func updateCaption(item: MediaGalleryViewModel.Item) {
-        captionContainerView.currentText = item.captionForDisplay
+    private func updateCaption(item: MediaGalleryViewModel.Item?) {
+        captionContainerView.currentText = item?.captionForDisplay
     }
 
-    private func updateTitle(item: MediaGalleryViewModel.Item) {
-        let targetItem: MediaGalleryViewModel.Item = item
+    private func updateTitle(item: MediaGalleryViewModel.Item?) {
+        guard let targetItem: MediaGalleryViewModel.Item = item else { return }
         let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
         
         let name: String = {
@@ -882,7 +865,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         .defaulting(to: Profile.truncated(id: targetItem.interactionAuthorId, truncating: .middle))
                     
                 case .standardOutgoing:
-                    return "you".localized() //"Short sender label for media sent by you"
+                    return "you".localized() // "Short sender label for media sent by you"
                         
                 default:
                     Log.error("[MediaPageViewController] Unsupported message variant: \(targetItem.interactionVariant)")
@@ -944,7 +927,7 @@ extension MediaPageViewController: GalleryRailViewDelegate {
 
         self.setCurrentItem(
             targetItem,
-            direction: (currentItem.attachmentAlbumIndex < targetItem.attachmentAlbumIndex ?
+            direction: ((currentItem?.attachmentAlbumIndex ?? -1) < targetItem.attachmentAlbumIndex ?
                 .forward :
                 .reverse
             ),
@@ -980,12 +963,14 @@ extension MediaPageViewController: CaptionContainerViewDelegate {
 
 extension MediaPageViewController: UIViewControllerTransitioningDelegate {
     public func animationController(forPresented presented: UIViewController, presenting: UIViewController, source: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        guard let currentItem: MediaGalleryViewModel.Item = currentItem else { return nil }
         guard self == presented || self.navigationController == presented else { return nil }
 
         return MediaZoomAnimationController(galleryItem: currentItem, using: viewModel.dependencies)
     }
 
     public func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        guard let currentItem: MediaGalleryViewModel.Item = currentItem else { return nil }
         guard self == dismissed || self.navigationController == dismissed else { return nil }
         guard !self.viewModel.albumData.isEmpty else { return nil }
 
@@ -1011,9 +996,8 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
 
 extension MediaPageViewController: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        let mediaView: SessionImageView = currentViewController.mediaView
-        
         guard
+            let mediaView: SessionImageView = currentViewController?.mediaView,
             let mediaSuperview: UIView = mediaView.superview,
             let mediaSize: CGSize = {
                 /// Because we load images in the background now it can take a small amount of time for the image to actually be

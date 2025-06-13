@@ -2,16 +2,6 @@
 
 import UIKit
 
-public extension UIImage {
-    func withTint(_ color: UIColor) -> UIImage? {
-        let template = self.withRenderingMode(.alwaysTemplate)
-        let imageView = UIImageView(image: template)
-        imageView.themeTintColorForced = .color(color)
-        
-        return imageView.toImage(isOpaque: imageView.isOpaque, scale: UIScreen.main.scale)
-    }
-}
-
 public extension UIImage.Orientation {
     init(_ cgOrientation: CGImagePropertyOrientation) {
         switch cgOrientation {

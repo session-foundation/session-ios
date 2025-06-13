@@ -10,18 +10,21 @@ struct AttributedTextBlock {
 }
 
 public struct AttributedText: View {
-    var attributedText: NSAttributedString?
+    var attributedText: ThemedAttributedString?
     
     private var descriptions: [AttributedTextBlock] = []
     
-    public init(_ attributedText: NSAttributedString?) {
+    public init(_ attributedText: ThemedAttributedString?) {
         self.attributedText = attributedText
         
         self.extractDescriptions()
     }
+    public init(_ attributedText: NSAttributedString) {
+        self.init(ThemedAttributedString(attributedString: attributedText))
+    }
     
     private mutating func extractDescriptions()  {
-        if let text = attributedText {
+        if let text = attributedText?.value {
             text.enumerateAttributes(in: NSMakeRange(0, text.length), options: [], using: { (attribute, range, stop) in
                 let substring = (text.string as NSString).substring(with: range)
                 let font =  (attribute[.font] as? UIFont).map { Font($0) }
