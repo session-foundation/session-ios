@@ -1083,7 +1083,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             body: .attributedText(
                                 "deleteContactDescription"
                                     .put(key: "name", value: threadViewModel.displayName)
-                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                                scrollMode: .never
                             ),
                             confirmTitle: "delete".localized(),
                             confirmStyle: .danger,
