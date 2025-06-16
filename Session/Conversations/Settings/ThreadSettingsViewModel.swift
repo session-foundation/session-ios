@@ -445,37 +445,39 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                 ),
                 
-                SessionCell.Info(
-                    id: .pinConversation,
-                    leadingAccessory: .icon(
-                        (threadViewModel.threadPinnedPriority > 0 ?
-                            .pinOff :
-                            .pin
-                        )
-                    ),
-                    title: (threadViewModel.threadPinnedPriority > 0 ?
-                            "pinUnpinConversation".localized() :
-                            "pinConversation".localized()
+                (threadViewModel.threadIsBlocked == true ? nil :
+                    SessionCell.Info(
+                        id: .pinConversation,
+                        leadingAccessory: .icon(
+                            (threadViewModel.threadPinnedPriority > 0 ?
+                                .pinOff :
+                                .pin
+                            )
                         ),
-                    accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
-                        label: "Pin Conversation"
-                    ),
-                    onTap: { [dependencies] in
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try SessionThread
-                                .filter(id: threadViewModel.threadId)
-                                .updateAllAndConfig(
-                                    db,
-                                    SessionThread.Columns.pinnedPriority
-                                        .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
-                                    using: dependencies
-                                )
+                        title: (threadViewModel.threadPinnedPriority > 0 ?
+                                "pinUnpinConversation".localized() :
+                                "pinConversation".localized()
+                            ),
+                        accessibility: Accessibility(
+                            identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
+                            label: "Pin Conversation"
+                        ),
+                        onTap: { [dependencies] in
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread
+                                    .filter(id: threadViewModel.threadId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        SessionThread.Columns.pinnedPriority
+                                            .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                        using: dependencies
+                                    )
+                            }
                         }
-                    }
-                ),
+                    )
+                 ),
                 
-                (threadViewModel.threadIsNoteToSelf == true ? nil :
+                ((threadViewModel.threadIsNoteToSelf == true || threadViewModel.threadIsBlocked == true) ? nil :
                     SessionCell.Info(
                         id: .notifications,
                         leadingAccessory: .icon(
