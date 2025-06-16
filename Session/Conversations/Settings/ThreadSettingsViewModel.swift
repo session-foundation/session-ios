@@ -619,6 +619,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             MediaGalleryViewModel.createAllMediaViewController(
                                 threadId: threadViewModel.threadId,
                                 threadVariant: threadViewModel.threadVariant,
+                                threadTitle: threadViewModel.displayName,
                                 focusedAttachmentId: nil,
                                 using: dependencies
                             )
