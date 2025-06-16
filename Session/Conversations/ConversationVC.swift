@@ -623,12 +623,20 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     .deleteAll(db)
             }
         }
+        
+        /// Should only be `true` when the view controller is being removed from the stack
+        if isMovingFromParent {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
+            }
+        }
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
-        DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges(didReturnFromBackground: true)
+        /// **Note:** When returning from the background we could have received notifications but the `PagedDatabaseObserver`
+        /// won't have them so we need to force a re-fetch of the current data to ensure everything is up to date
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            self?.viewModel.pagedDataObserver?.resume()
         }
         
         recoverInputView()
@@ -644,17 +652,19 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        stopObservingChanges()
+        /// When going into the background we should stop listening to database changes (we will resume/reload after returning from
+        /// the background)
+        viewModel.pagedDataObserver?.suspend()
     }
     
     // MARK: - Updating
     
-    private func startObservingChanges(didReturnFromBackground: Bool = false) {
+    private func startObservingChanges() {
         guard dataChangeObservable == nil else { return }
         
         dataChangeObservable = viewModel.dependencies[singleton: .storage].start(
             viewModel.observableThreadData,
-            onError:  { _ in },
+            onError: { _ in },
             onChange: { [weak self, dependencies = viewModel.dependencies] maybeThreadData in
                 guard let threadData: SessionThreadViewModel = maybeThreadData else {
                     // If the thread data is null and the id was blinded then we just unblinded the thread
@@ -689,7 +699,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     
                     // Stop observing changes
                     self?.stopObservingChanges()
-                    DispatchQueue.global(qos: .userInitiated).async {
+                    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                         dependencies[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
                     }
                     
@@ -698,7 +708,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     self?.viewModel.swapToThread(updatedThreadId: unblindedId, focussedMessageId: newestVisibleMessageId)
                     
                     /// Start observing changes again (on a background thread)
-                    DispatchQueue.global(qos: .userInitiated).async {
+                    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                         dependencies[singleton: .storage].addObserver(self?.viewModel.pagedDataObserver)
                     }
                     self?.startObservingChanges()
@@ -714,21 +724,13 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     self?.viewModel.onInteractionChange = { [weak self] updatedInteractionData, changeset in
                         self?.handleInteractionUpdates(updatedInteractionData, changeset: changeset)
                     }
-                    
-                    // Note: When returning from the background we could have received notifications but the
-                    // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
-                    // data to ensure everything is up to date
-                    if didReturnFromBackground {
-                        DispatchQueue.global(qos: .background).async {
-                            self?.viewModel.pagedDataObserver?.reload()
-                        }
-                    }
                 }
             }
         )
     }
     
     func stopObservingChanges() {
+        self.dataChangeObservable?.cancel()
         self.dataChangeObservable = nil
         self.viewModel.onInteractionChange = nil
     }

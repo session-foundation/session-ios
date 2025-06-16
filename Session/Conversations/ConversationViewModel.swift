@@ -498,7 +498,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         
                         return SQL("LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(interaction[.threadId])")
                     }()
-                ),
+                )
             ],
             filterSQL: MessageViewModel.filterSQL(threadId: threadId),
             groupSQL: MessageViewModel.groupSQL,

@@ -263,7 +263,10 @@ extension SessionNetworkScreen {
                             .font(.Body.custom(Values.smallFontSize))
                             .foregroundColor(themeColor: .textPrimary)
                             .lineLimit(1)
-                            .fixedSize()
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
                             .minimumScaleFactor(0.5)
                             
                             AdaptiveText(
@@ -277,13 +280,11 @@ extension SessionNetworkScreen {
                             .font(.Headings.H5, uiKit: Fonts.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .loadingStyle(.text("loading".localized()))
-                            .minimumScaleFactor(0.5)
                             
                             Text(Constants.token_name_long)
                                 .font(.Body.custom(Values.smallFontSize))
                                 .foregroundColor(themeColor: .textSecondary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.5)
                         }
                         .padding(.horizontal, Values.mediumSmallSpacing)
                         .padding(.vertical, Values.mediumSpacing)
@@ -321,6 +322,10 @@ extension SessionNetworkScreen {
                                 width: 116,
                                 alignment: .leading
                             )
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
                             .minimumScaleFactor(0.5)
                             
                             ZStack {
@@ -331,6 +336,10 @@ extension SessionNetworkScreen {
                                         .font(.Headings.H3)
                                         .foregroundColor(themeColor: .sessionButton_text)
                                         .lineLimit(1)
+                                        .fixedSize(
+                                            horizontal: false,
+                                            vertical: true
+                                        )
                                         .minimumScaleFactor(0.5)
                                 }
                             }
@@ -357,6 +366,10 @@ extension SessionNetworkScreen {
                                 width: 116,
                                 alignment: .leading
                             )
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
                             .minimumScaleFactor(0.5)
                             
                             AdaptiveText(
@@ -374,7 +387,6 @@ extension SessionNetworkScreen {
                                 maxWidth: .infinity,
                                 alignment: .trailing
                             )
-                            .minimumScaleFactor(0.5)
                         }
                         .accessibility(
                             Accessibility(identifier: "Nodes securing amount")
@@ -384,7 +396,7 @@ extension SessionNetworkScreen {
                         maxWidth: .infinity,
                         height: 132
                     )
-                    
+                
                     VStack(
                         alignment: .leading,
                         spacing: Values.verySmallSpacing
@@ -393,13 +405,20 @@ extension SessionNetworkScreen {
                             .font(.Body.custom(Values.smallFontSize))
                             .foregroundColor(themeColor: .textPrimary)
                             .lineLimit(1)
-                            .fixedSize()
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
                             .minimumScaleFactor(0.5)
                         
                         Text(isRefreshing ? "loading".localized() : dataModel.networkStakedTokensString)
                             .font(.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .lineLimit(1)
+                            .fixedSize(
+                                horizontal: false,
+                                vertical: true
+                            )
                             .minimumScaleFactor(0.5)
                         
                         AdaptiveText(
@@ -416,7 +435,6 @@ extension SessionNetworkScreen {
                         .foregroundColor(themeColor: .textSecondary)
                         .loadingStyle(.text(SessionNetworkScreenContent.DataModel.defaultPriceString))
                         .fixedSize()
-                        .minimumScaleFactor(0.5)
                     }
                     .padding(.horizontal, Values.mediumSmallSpacing)
                     .padding(.vertical, Values.mediumSpacing)
@@ -630,7 +648,7 @@ extension SessionNetworkScreenContent {
                 snodesInCurrentSwarm: 6,
                 snodesInTotal: 2254,
                 contractAddress: "0x7D7fD4E91834A96cD9Fb2369E7f4EB72383bbdEd",
-                tokenUSD: 1790.9260023480001,
+                tokenUSD: 0.10,//1790.9260023480001,
                 priceTimestampMs: 1745817684000,
                 stakingRequirement: 20000,
                 networkSize: 957,

@@ -503,7 +503,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         calledFrom lifecycleMethod: LifecycleMethod,
         error: StartupError,
         animated: Bool = true,
-        presentationCompletion: (() -> ())? = nil
+        presentationCompletion: (() -> Void)? = nil
     ) {
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
@@ -682,7 +682,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func ensureRootViewController(
         calledFrom lifecycleMethod: LifecycleMethod,
-        onComplete: @escaping ((Bool) -> ()) = { _ in }
+        onComplete: @escaping ((Bool) -> Void) = { _ in }
     ) {
         let hasInitialRootViewController: Bool = self.hasInitialRootViewController
         
@@ -709,7 +709,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             )
         
         // All logic which needs to run after the 'rootViewController' is created
-        let rootViewControllerSetupComplete: (UIViewController) -> () = { [weak self, dependencies] rootViewController in
+        let rootViewControllerSetupComplete: (UIViewController) -> Void = { [weak self, dependencies] rootViewController in
             /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread to prevent
             /// lag/crashes on background threads
             Dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
@@ -802,7 +802,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
                     /// continue as we don't want to show a blank home screen
                     DispatchQueue.global(qos: .userInitiated).async {
-                        viewController.startObservingChanges() {
+                        viewController.startObservingChanges {
                             longRunningStartupTimoutCancellable.cancel()
                             
                             DispatchQueue.main.async {
@@ -961,7 +961,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - App Link
 
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         guard let components: URLComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
             return false
         }

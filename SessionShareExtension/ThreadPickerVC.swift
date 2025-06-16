@@ -33,10 +33,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         fatalError("init(coder:) has not been implemented")
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
     // MARK: - UI
     
     private lazy var titleLabel: UILabel = {
@@ -102,19 +98,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         view.addSubview(noAccountErrorLabel)
         
         setupLayout()
-        
-        // Notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidBecomeActive(_:)),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidResignActive(_:)),
-            name: UIApplication.didEnterBackgroundNotification, object: nil
-        )
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -133,17 +116,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         viewModel.dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
         viewModel.dependencies[singleton: .storage].suspendDatabaseAccess()
         Log.flush()
-    }
-    
-    @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
-        DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges()
-        }
-    }
-    
-    @objc func applicationDidResignActive(_ notification: Notification) {
-        stopObservingChanges()
     }
     
     // MARK: Layout
@@ -184,6 +156,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     }
     
     private func stopObservingChanges() {
+        dataChangeObservable?.cancel()
         dataChangeObservable = nil
     }
     

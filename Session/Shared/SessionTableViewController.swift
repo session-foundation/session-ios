@@ -196,11 +196,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidResignActive(_:)),
-            name: UIApplication.didEnterBackgroundNotification, object: nil
-        )
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -224,14 +219,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        /// Some viewModel's may need to run custom logic after returning from the background so trigger that here
+        ///
+        /// **Note:** Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
         DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges(didReturnFromBackground: true)
+            self?.viewModel.didReturnFromBackground()
         }
-    }
-    
-    @objc func applicationDidResignActive(_ notification: Notification) {
-        stopObservingChanges()
     }
     
     private func setupLayout() {
@@ -255,7 +248,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     
     // MARK: - Updating
     
-    private func startObservingChanges(didReturnFromBackground: Bool = false) {
+    private func startObservingChanges() {
         // Start observing for data changes
         dataChangeCancellable = viewModel.tableDataPublisher
             .receive(on: DispatchQueue.main)
@@ -273,7 +266,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                             
                             Log.info(.cat, "Atempting recovery for database stream in '\(title)' settings with error: \(error)")
                             self?.dataStreamJustFailed = true
-                            self?.startObservingChanges(didReturnFromBackground: didReturnFromBackground)
+                            self?.startObservingChanges()
                             
                         case .finished: break
                     }
@@ -283,14 +276,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     self?.handleDataUpdates(updatedData)
                 }
             )
-        
-        // Some viewModel's may need to run custom logic after returning from the background so trigger that here
-        if didReturnFromBackground { viewModel.didReturnFromBackground() }
     }
     
     private func stopObservingChanges() {
         // Stop observing database changes
         dataChangeCancellable?.cancel()
+        dataChangeCancellable = nil
     }
     
     private func handleDataUpdates(_ updatedData: [SectionModel]) {
