@@ -148,6 +148,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             return []
         }
         
+        let currentUserKickedFromGroup: Bool = (
+            (
+                threadViewModel.threadVariant == .legacyGroup ||
+                threadViewModel.threadVariant == .group
+            ) &&
+            threadViewModel.currentUserIsClosedGroupMember != true
+        )
+        
         let currentUserIsClosedGroupMember: Bool = (
             (
                 threadViewModel.threadVariant == .legacyGroup ||
@@ -354,6 +362,53 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 )
             ].compactMap { $0 }
         )
+        
+        // MARK: - Users kicked from groups
+        guard !currentUserKickedFromGroup else {
+            return [
+                conversationInfoSection,
+                SectionModel(
+                    model: .destructiveActions,
+                    elements: [
+                        SessionCell.Info(
+                            id: .leaveGroup,
+                            leadingAccessory: .icon(.trash2),
+                            title: "groupDelete".localized(),
+                            styling: SessionCell.StyleInfo(tintColor: .danger),
+                            accessibility: Accessibility(
+                                identifier: "Leave group",
+                                label: "Leave group"
+                            ),
+                            confirmationInfo: ConfirmationModal.Info(
+                                title: "groupDelete".localized(),
+                                body: .attributedText(
+                                    "groupDeleteDescriptionMember"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                ),
+                                confirmTitle: "delete".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text
+                            ),
+                            onTap: { [weak self, dependencies] in
+                                self?.dismissScreen(type: .popToRoot) {
+                                    dependencies[singleton: .storage].writeAsync { db in
+                                        try SessionThread.deleteOrLeave(
+                                            db,
+                                            type: .leaveGroupAsync,
+                                            threadId: threadViewModel.threadId,
+                                            threadVariant: threadViewModel.threadVariant,
+                                            using: dependencies
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    ]
+                )
+            ]
+        }
+        
         // MARK: - Standard Actions
         let standardActionsSection: SectionModel = SectionModel(
             model: .content,
