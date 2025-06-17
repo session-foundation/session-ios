@@ -10,9 +10,9 @@ PRE_BUILT_FRAMEWORK_DIR="${DERIVED_DATA_PATH}/SourcePackages/artifacts/libsessio
 FRAMEWORK_DIR="libsession-util.xcframework"
 COMPILE_DIR="${TARGET_BUILD_DIR}/LibSessionUtil"
 INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NAME}"
-LAST_SUCCESSFUL_HASH_FILE="${COMPILE_DIR}/last_successful_source_tree.hash.log"
-LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${COMPILE_DIR}/last_built_framework_slice_dir.log"
-BUILT_LIB_FINAL_TIMESTAMP_FILE="${COMPILE_DIR}/libsession_util_built.timestamp"
+LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
+LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
+BUILT_LIB_FINAL_TIMESTAMP_FILE="${TARGET_BUILD_DIR}/libsession_util_built.timestamp"
 
 # Save original stdout and set trap for cleanup
 exec 3>&1
