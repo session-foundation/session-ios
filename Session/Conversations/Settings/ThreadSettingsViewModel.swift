@@ -268,31 +268,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         identifier: "Username",
                         label: threadViewModel.displayName
                     ),
-                    onTap: { [weak self] in
-                        guard !threadViewModel.threadIsNoteToSelf else { return }
-                        
-                        switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin) {
-                            case (.contact, _):
-                                self?.updateNickname(
-                                    current: threadViewModel.profile?.nickname,
-                                    displayName: (
-                                        /// **Note:** We want to use the `profile` directly rather than `threadViewModel.displayName`
-                                        /// as the latter would use the `nickname` here which is incorrect
-                                        threadViewModel.profile?.displayName(ignoringNickname: true) ??
-                                        Profile.truncated(id: threadViewModel.threadId, truncating: .middle)
-                                    )
-                                )
-                            
-                            case (.group, true), (.legacyGroup, true):
-                                self?.updateGroupNameAndDescription(
-                                    currentName: threadViewModel.displayName,
-                                    currentDescription: threadViewModel.threadDescription,
-                                    isUpdatedGroup: (threadViewModel.threadVariant == .group)
-                                )
-                            
-                            case (.community, _), (.legacyGroup, false), (.group, false): break
-                        }
-                    }
+                    confirmationInfo: self.updateDisplayNameModal(
+                        threadViewModel: threadViewModel,
+                        currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                    )
                 ),
                 
                 (threadViewModel.displayName == threadViewModel.contactDisplayName ? nil :
@@ -1440,87 +1419,85 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         )
     }
     
-    private func updateNickname(current: String?, displayName: String) {
+    private func updateNickname(
+        current: String?,
+        displayName: String
+    ) -> ConfirmationModal.Info {
         /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
         /// about retrieving them in the confirmation closure
         self.updatedName = current
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "nicknameSet".localized(),
-                    body: .input(
-                        explanation: "nicknameDescription"
-                            .put(key: "name", value: displayName)
-                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
-                        info: ConfirmationModal.Info.Body.InputInfo(
-                            placeholder: "nicknameEnter".localized(),
-                            initialValue: current,
-                            accessibility: Accessibility(
-                                identifier: "Username input"
-                            ),
-                            inputChecker: { text in
-                                let nickname: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                
-                                guard !Profile.isTooLong(profileName: nickname) else {
-                                    return "nicknameErrorShorter".localized()
-                                }
-                                
-                                return nil
-                            }
-                        ),
-                        onChange: { [weak self] updatedName in self?.updatedName = updatedName }
+        return ConfirmationModal.Info(
+            title: "nicknameSet".localized(),
+            body: .input(
+                explanation: "nicknameDescription"
+                    .put(key: "name", value: displayName)
+                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                info: ConfirmationModal.Info.Body.InputInfo(
+                    placeholder: "nicknameEnter".localized(),
+                    initialValue: current,
+                    accessibility: Accessibility(
+                        identifier: "Username input"
                     ),
-                    confirmTitle: "save".localized(),
-                    confirmEnabled: .afterChange { [weak self] _ in
-                        self?.updatedName != current &&
-                        self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                    },
-                    cancelTitle: "remove".localized(),
-                    cancelStyle: .danger,
-                    cancelEnabled: .bool(current?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
-                    hasCloseButton: true,
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self, dependencies, threadId] modal in
-                        guard
-                            let finalNickname: String = (self?.updatedName ?? "")
-                                .trimmingCharacters(in: .whitespacesAndNewlines)
-                                .nullIfEmpty
-                        else { return }
+                    inputChecker: { text in
+                        let nickname: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
                         
-                        /// Check if the data violates the size constraints
-                        guard !Profile.isTooLong(profileName: finalNickname) else {
-                            modal.updateContent(withError: "nicknameErrorShorter".localized())
-                            return
+                        guard !Profile.isTooLong(profileName: nickname) else {
+                            return "nicknameErrorShorter".localized()
                         }
                         
-                        /// Update the nickname
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try Profile
-                                .filter(id: threadId)
-                                .updateAllAndConfig(
-                                    db,
-                                    Profile.Columns.nickname.set(to: finalNickname),
-                                    using: dependencies
-                                )
-                        }
-                        modal.dismiss(animated: true)
-                    },
-                    onCancel: { [dependencies, threadId] modal in
-                        /// Remove the nickname
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try Profile
-                                .filter(id: threadId)
-                                .updateAllAndConfig(
-                                    db,
-                                    Profile.Columns.nickname.set(to: nil),
-                                    using: dependencies
-                                )
-                        }
-                        modal.dismiss(animated: true)
+                        return nil
                     }
-                )
+                ),
+                onChange: { [weak self] updatedName in self?.updatedName = updatedName }
             ),
-            transitionType: .present
+            confirmTitle: "save".localized(),
+            confirmEnabled: .afterChange { [weak self] _ in
+                self?.updatedName != current &&
+                self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            },
+            cancelTitle: "remove".localized(),
+            cancelStyle: .danger,
+            cancelEnabled: .bool(current?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
+            hasCloseButton: true,
+            dismissOnConfirm: false,
+            onConfirm: { [weak self, dependencies, threadId] modal in
+                guard
+                    let finalNickname: String = (self?.updatedName ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .nullIfEmpty
+                else { return }
+                
+                /// Check if the data violates the size constraints
+                guard !Profile.isTooLong(profileName: finalNickname) else {
+                    modal.updateContent(withError: "nicknameErrorShorter".localized())
+                    return
+                }
+                
+                /// Update the nickname
+                dependencies[singleton: .storage].write { db in
+                    try Profile
+                        .filter(id: threadId)
+                        .updateAllAndConfig(
+                            db,
+                            Profile.Columns.nickname.set(to: finalNickname),
+                            using: dependencies
+                        )
+                }
+                modal.dismiss(animated: true)
+            },
+            onCancel: { [dependencies, threadId] modal in
+                /// Remove the nickname
+                dependencies[singleton: .storage].write { db in
+                    try Profile
+                        .filter(id: threadId)
+                        .updateAllAndConfig(
+                            db,
+                            Profile.Columns.nickname.set(to: nil),
+                            using: dependencies
+                        )
+                }
+                modal.dismiss(animated: true)
+            }
         )
     }
     
@@ -1528,100 +1505,95 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         currentName: String,
         currentDescription: String?,
         isUpdatedGroup: Bool
-    ) {
+    ) -> ConfirmationModal.Info {
         /// Set the `updatedName` and `updatedDescription` values to the current values so we can disable the "save" button when there are
         /// no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = currentName
         self.updatedDescription = currentDescription
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "updateGroupInformation".localized(),
-                    body: { [weak self] in
-                        return .dualInput(
-                            explanation: "updateGroupInformationDescription"
-                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
-                            firstInfo: ConfirmationModal.Info.Body.InputInfo(
-                                placeholder: "groupNameEnter".localized(),
-                                initialValue: currentName,
-                                accessibility: Accessibility(
-                                    identifier: "Group name text field"
-                                ),
-                                inputChecker: { text in
-                                    let groupName: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    guard !LibSession.isTooLong(groupName: groupName) else {
-                                        return "groupNameEnterShorter".localized()
-                                    }
-                                    return nil
-                                }
-                            ),
-                            secondInfo: ConfirmationModal.Info.Body.InputInfo(
-                                placeholder: "groupDescriptionEnter".localized(),
-                                initialValue: currentDescription,
-                                accessibility: Accessibility(
-                                    identifier: "Group description text field"
-                                ),
-                                inputChecker: { text in
-                                    let groupDescription: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    guard !LibSession.isTooLong(groupDescription: groupDescription) else {
-                                        return "updateGroupInformationEnterShorterDescription".localized()
-                                    }
-                                    return nil
-                                }
-                            ),
-                            onChange: { updatedName, updatedDescription in
-                                self?.updatedName = updatedName
-                                self?.updatedDescription = updatedDescription
+        return ConfirmationModal.Info(
+            title: "updateGroupInformation".localized(),
+            body: { [weak self] in
+                return .dualInput(
+                    explanation: "updateGroupInformationDescription"
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                    firstInfo: ConfirmationModal.Info.Body.InputInfo(
+                        placeholder: "groupNameEnter".localized(),
+                        initialValue: currentName,
+                        accessibility: Accessibility(
+                            identifier: "Group name text field"
+                        ),
+                        inputChecker: { text in
+                            let groupName: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !LibSession.isTooLong(groupName: groupName) else {
+                                return "groupNameEnterShorter".localized()
                             }
-                        )
-                    }(),
-                    confirmTitle: "save".localized(),
-                    confirmEnabled: .afterChange { [weak self] _ in
-                        self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && (
-                            self?.updatedName != currentName ||
-                            self?.updatedDescription != currentDescription
-                        )
-                    },
-                    cancelStyle: .danger,
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self, dependencies, threadId] modal in
-                        guard
-                            let finalName: String = (self?.updatedName ?? "")
-                                .trimmingCharacters(in: .whitespacesAndNewlines)
-                                .nullIfEmpty
-                        else { return }
-                        
-                        let finalDescription: String? = self?.updatedDescription
-                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                        
-                        /// Check if the data violates any of the size constraints
-                        let maybeNameError: String? = LibSession.isTooLong(groupName: finalName) ?
-                            "groupNameEnterShorter".localized() : nil
-                        let maybeDescriptionError: String? = LibSession.isTooLong(groupDescription: (finalDescription ?? "")) ?
-                            "updateGroupInformationEnterShorterDescription".localized() : nil
-                        
-                        guard maybeNameError == nil && maybeDescriptionError == nil else {
-                            modal.updateContent(withError: maybeNameError, additionalError: maybeDescriptionError)
-                            return
+                            return nil
                         }
-                        
-                        /// Update the group appropriately
-                        MessageSender
-                            .updateGroup(
-                                groupSessionId: threadId,
-                                name: finalName,
-                                groupDescription: finalDescription,
-                                using: dependencies
-                            )
-                            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                            .receive(on: DispatchQueue.main, using: dependencies)
-                            .sinkUntilComplete()
-                        
-                        modal.dismiss(animated: true)
+                    ),
+                    secondInfo: ConfirmationModal.Info.Body.InputInfo(
+                        placeholder: "groupDescriptionEnter".localized(),
+                        initialValue: currentDescription,
+                        accessibility: Accessibility(
+                            identifier: "Group description text field"
+                        ),
+                        inputChecker: { text in
+                            let groupDescription: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !LibSession.isTooLong(groupDescription: groupDescription) else {
+                                return "updateGroupInformationEnterShorterDescription".localized()
+                            }
+                            return nil
+                        }
+                    ),
+                    onChange: { updatedName, updatedDescription in
+                        self?.updatedName = updatedName
+                        self?.updatedDescription = updatedDescription
                     }
                 )
-            ),
-            transitionType: .present
+            }(),
+            confirmTitle: "save".localized(),
+            confirmEnabled: .afterChange { [weak self] _ in
+                self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && (
+                    self?.updatedName != currentName ||
+                    self?.updatedDescription != currentDescription
+                )
+            },
+            cancelStyle: .danger,
+            dismissOnConfirm: false,
+            onConfirm: { [weak self, dependencies, threadId] modal in
+                guard
+                    let finalName: String = (self?.updatedName ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .nullIfEmpty
+                else { return }
+                
+                let finalDescription: String? = self?.updatedDescription
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                
+                /// Check if the data violates any of the size constraints
+                let maybeNameError: String? = LibSession.isTooLong(groupName: finalName) ?
+                    "groupNameEnterShorter".localized() : nil
+                let maybeDescriptionError: String? = LibSession.isTooLong(groupDescription: (finalDescription ?? "")) ?
+                    "updateGroupInformationEnterShorterDescription".localized() : nil
+                
+                guard maybeNameError == nil && maybeDescriptionError == nil else {
+                    modal.updateContent(withError: maybeNameError, additionalError: maybeDescriptionError)
+                    return
+                }
+                
+                /// Update the group appropriately
+                MessageSender
+                    .updateGroup(
+                        groupSessionId: threadId,
+                        name: finalName,
+                        groupDescription: finalDescription,
+                        using: dependencies
+                    )
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.main, using: dependencies)
+                    .sinkUntilComplete()
+                
+                modal.dismiss(animated: true)
+            }
         )
     }
     
@@ -1847,6 +1819,36 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
+        }
+    }
+    
+    // MARK: - Confirmation Modals
+    private func updateDisplayNameModal(
+        threadViewModel: SessionThreadViewModel,
+        currentUserIsClosedGroupAdmin: Bool
+    ) -> ConfirmationModal.Info? {
+        guard !threadViewModel.threadIsNoteToSelf else { return nil }
+        
+        switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin) {
+            case (.contact, _):
+                return self.updateNickname(
+                    current: threadViewModel.profile?.nickname,
+                    displayName: (
+                        /// **Note:** We want to use the `profile` directly rather than `threadViewModel.displayName`
+                        /// as the latter would use the `nickname` here which is incorrect
+                        threadViewModel.profile?.displayName(ignoringNickname: true) ??
+                        Profile.truncated(id: threadViewModel.threadId, truncating: .middle)
+                    )
+                )
+            
+            case (.group, true), (.legacyGroup, true):
+                return self.updateGroupNameAndDescription(
+                    currentName: threadViewModel.displayName,
+                    currentDescription: threadViewModel.threadDescription,
+                    isUpdatedGroup: (threadViewModel.threadVariant == .group)
+                )
+            
+            case (.community, _), (.legacyGroup, false), (.group, false): return nil
         }
     }
 }

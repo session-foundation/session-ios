@@ -691,6 +691,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     onConfirm: { modal in
                         confirmationInfo.onConfirm?(modal)
                         performAction()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) {
+                            UIView.performWithoutAnimation {
+                                tableView.beginUpdates()
+                                tableView.endUpdates()
+                            }
+                        }
                     }
                 )
         )
