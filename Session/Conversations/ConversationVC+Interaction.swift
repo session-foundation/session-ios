@@ -1589,6 +1589,11 @@ extension ConversationVC:
             )
         else { return }
         
+        guard self.viewModel.threadData.threadIsBlocked != true else {
+            self.showBlockedModalIfNeeded()
+            return
+        }
+        
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
@@ -2099,6 +2104,11 @@ extension ConversationVC:
     }
 
     func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+        guard self.viewModel.threadData.threadIsBlocked != true else {
+            self.showBlockedModalIfNeeded()
+            return
+        }
+        
         /// Retrieve the deletion actions for the selected message(s) of there are any
         let messagesToDelete: [MessageViewModel] = [cellViewModel]
         
