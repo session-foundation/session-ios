@@ -59,13 +59,11 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
             return threadNotificationSettings != updatedThreadNotificationSettings
         }
         .removeDuplicates()
-        .map { [weak self] shouldShowConfirmButton -> SessionButton.Info? in
-            guard shouldShowConfirmButton else { return nil }
-            
+        .map { [weak self] shouldEnableConfirmButton -> SessionButton.Info? in
             return SessionButton.Info(
                 style: .bordered,
                 title: "set".localized(),
-                isEnabled: true,
+                isEnabled: shouldEnableConfirmButton,
                 accessibility: Accessibility(
                     identifier: "Set button",
                     label: "Set button"
