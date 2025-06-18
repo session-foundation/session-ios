@@ -918,12 +918,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                                 }
                                             }
                                             
-                                        case .success(let deletedMessagesNumber):
+                                        case .success:
                                             DispatchQueue.main.async {
                                                 modal.dismiss(animated: true) {
                                                     self?.showToast(
                                                         text: "deleteMessageDeleted"
-                                                            .putNumber(deletedMessagesNumber)
+                                                            .putNumber(0)
                                                             .localized(),
                                                         backgroundColor: .backgroundSecondary
                                                     )
