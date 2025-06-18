@@ -1151,6 +1151,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     }
     
     private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
+        let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         guard
             let name: String = threadViewModel.openGroupName,
             let communityUrl: String = LibSession.communityUrlFor(
@@ -1166,10 +1168,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     title: "membersInvite".localized(),
                     emptyState: "contactNone".localized(),
                     showProfileIcons: false,
-                    request: Contact
-                        .filter(Contact.Columns.isApproved == true)
-                        .filter(Contact.Columns.didApproveMe == true)
-                        .filter(Contact.Columns.id != threadViewModel.currentUserSessionId),
+                    request: SQLRequest("""
+                        SELECT \(contact.allColumns)
+                        FROM \(contact)
+                        LEFT JOIN \(groupMember) ON (
+                            \(groupMember[.groupId]) = \(threadId) AND
+                            \(groupMember[.profileId]) = \(contact[.id])
+                        )
+                        WHERE (
+                            \(groupMember[.profileId]) IS NULL AND
+                            \(contact[.isApproved]) = TRUE AND
+                            \(contact[.didApproveMe]) = TRUE AND
+                            \(contact[.isBlocked]) = FALSE AND
+                            \(contact[.id]) != \(threadViewModel.currentUserSessionId)
+                        )
+                    """),
                     footerTitle: "membersInvite".localized(),
                     footerAccessibility: Accessibility(
                         identifier: "Invite contacts button"
