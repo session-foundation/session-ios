@@ -502,8 +502,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     .filter(id: threadViewModel.threadId)
                                     .updateAllAndConfig(
                                         db,
-                                        SessionThread.Columns.pinnedPriority
-                                            .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                        SessionThread.Columns.shouldBeVisible.set(to: true),
+                                        SessionThread.Columns.pinnedPriority.set(to: (threadViewModel.threadPinnedPriority <= 0 ? 1 : 0)),
                                         using: dependencies
                                     )
                             }
