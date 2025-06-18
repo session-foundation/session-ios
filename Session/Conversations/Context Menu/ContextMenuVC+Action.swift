@@ -127,7 +127,9 @@ extension ContextMenuVC {
 
         static func ban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .ban, size: 24),
+                icon: UIImage(named: "ic_user_round_ban")?
+                    .scaled(to: CGSize(width: 24, height: 24))
+                    .withRenderingMode(.alwaysTemplate),
                 title: "banUser".localized(),
                 themeColor: .danger,
                 accessibilityLabel: "Ban user"
@@ -136,7 +138,9 @@ extension ContextMenuVC {
         
         static func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .ban, size: 24),
+                icon: UIImage(named: "ic_user_round_ban")?
+                    .scaled(to: CGSize(width: 24, height: 24))
+                    .withRenderingMode(.alwaysTemplate),
                 title: "banDeleteAll".localized(),
                 themeColor: .danger,
                 shouldDismissInfoScreen: true,

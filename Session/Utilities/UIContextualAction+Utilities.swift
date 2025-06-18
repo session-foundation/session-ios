@@ -343,7 +343,9 @@ public extension UIContextualAction {
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
-                            icon: Lucide.image(icon: .ban, size: 24),
+                            icon: UIImage(named: "ic_user_round_ban")?
+                                .scaled(to: CGSize(width: 24, height: 24))
+                                .withRenderingMode(.alwaysTemplate),
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,

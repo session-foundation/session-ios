@@ -694,10 +694,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
                     SessionCell.Info(
                         id: .blockUser,
-                        leadingAccessory: .icon(
+                        leadingAccessory: (
                             threadViewModel.threadIsBlocked == true ?
-                                .userRoundCheck :
-                                .userRoundX
+                                .icon(.userRoundCheck) :
+                                .icon(UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate))
                         ),
                         title: (
                             threadViewModel.threadIsBlocked == true ?
