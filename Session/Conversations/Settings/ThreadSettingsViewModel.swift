@@ -873,58 +873,68 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         confirmTitle: "clear".localized(),
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
-                        onConfirm: { [weak self, threadVariant] modal in
-                            guard threadVariant == .group && currentUserIsClosedGroupAdmin else { return }
-                            /// Determine the selected action index
-                            let selectedIndex: Int = {
-                                switch modal.info.body {
-                                    case .radio(_, _, let options):
-                                        return options
-                                            .enumerated()
-                                            .first(where: { _, value in value.selected })
-                                            .map { index, _ in index }
-                                            .defaulting(to: 0)
-                                    
-                                    default: return 0
-                                }
-                            }()
-                            
-                            // Return if the selected option is `Clear on this device`
-                            guard selectedIndex != 0 else { return }
-                            self?.deleteAllMessagesBeforeNow()
-                        }
-                    ),
-                    onTap: { [dependencies] in
-                        dependencies[singleton: .storage].writeAsync(
-                            updates: { db in
-                                try Interaction.markAllAsDeleted(
-                                    db,
-                                    threadId: threadViewModel.id,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    options: [.local, .noArtifacts],
-                                    using: dependencies
-                                )
-                            }, completion: { [weak self] result in
-                                switch result {
-                                    case .failure(let error):
-                                        Log.error("Failed to clear messages due to error: \(error)")
-                                        self?.showToast(
-                                            text: "deleteMessageFailed"
-                                                .putNumber(0)
-                                                .localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
-                                    case .success(let deletedMessagesNumber):
-                                        self?.showToast(
-                                            text: "deleteMessageDeleted"
-                                                .putNumber(deletedMessagesNumber)
-                                                .localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
-                                }
+                        dismissOnConfirm: false,
+                        onConfirm: { [weak self, threadVariant, dependencies] modal in
+                            if threadVariant == .group && currentUserIsClosedGroupAdmin {
+                                /// Determine the selected action index
+                                let selectedIndex: Int = {
+                                    switch modal.info.body {
+                                        case .radio(_, _, let options):
+                                            return options
+                                                .enumerated()
+                                                .first(where: { _, value in value.selected })
+                                                .map { index, _ in index }
+                                                .defaulting(to: 0)
+                                        
+                                        default: return 0
+                                    }
+                                }()
+                                
+                                // Return if the selected option is `Clear on this device`
+                                guard selectedIndex != 0 else { return }
+                                self?.deleteAllMessagesBeforeNow()
                             }
-                        )
-                    }
+                            dependencies[singleton: .storage].writeAsync(
+                                updates: { db in
+                                    try Interaction.markAllAsDeleted(
+                                        db,
+                                        threadId: threadViewModel.id,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        options: [.local, .noArtifacts],
+                                        using: dependencies
+                                    )
+                                }, completion: { [weak self] result in
+                                    switch result {
+                                        case .failure(let error):
+                                            Log.error("Failed to clear messages due to error: \(error)")
+                                            DispatchQueue.main.async {
+                                                modal.dismiss(animated: true) {
+                                                    self?.showToast(
+                                                        text: "deleteMessageFailed"
+                                                            .putNumber(0)
+                                                            .localized(),
+                                                        backgroundColor: .backgroundSecondary
+                                                    )
+                                                }
+                                            }
+                                            
+                                        case .success(let deletedMessagesNumber):
+                                            DispatchQueue.main.async {
+                                                modal.dismiss(animated: true) {
+                                                    self?.showToast(
+                                                        text: "deleteMessageDeleted"
+                                                            .putNumber(deletedMessagesNumber)
+                                                            .localized(),
+                                                        backgroundColor: .backgroundSecondary
+                                                    )
+                                                }
+                                            }
+                                            
+                                    }
+                                }
+                            )
+                        }
+                    )
                 ),
                 
                 (threadViewModel.threadVariant != .community ? nil :

@@ -443,7 +443,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         WHERE (
                             \(groupMember[.profileId]) IS NULL AND
                             \(contact[.isApproved]) = TRUE AND
-                            \(contact[.didApproveMe]) = TRUE
+                            \(contact[.didApproveMe]) = TRUE AND
+                            \(contact[.isBlocked]) = FALSE
                         )
                     """),
                     footerTitle: "membersInviteTitle".localized(),
