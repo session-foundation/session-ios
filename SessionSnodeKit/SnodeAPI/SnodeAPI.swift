@@ -231,8 +231,9 @@ public final class SnodeAPI {
         
         // Hash the ONS name using BLAKE2b
         guard
-            let nameAsData: [UInt8] = onsName.data(using: .utf8).map({ Array($0) }),
-            let nameHash = dependencies[singleton: .crypto].generate(.hash(message: nameAsData))
+            let nameHash = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(onsName.utf8))
+            )
         else {
             return Fail(error: SnodeAPIError.onsHashingFailed)
                 .eraseToAnyPublisher()

@@ -214,14 +214,17 @@ public enum AttachmentDownloadJob: JobExecutor {
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies[singleton: .storage].write { db in
-                                _ = try Attachment
-                                    .filter(id: attachment.id)
-                                    .updateAll(db, Attachment.Columns.state.set(to: targetState))
-                            }
-                            
-                            /// Trigger the failure and provide the `permanentFailure` value defined above
-                            failure(job, error, permanentFailure)
+                            dependencies[singleton: .storage].writeAsync(
+                                updates: { db in
+                                    _ = try Attachment
+                                        .filter(id: attachment.id)
+                                        .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                                },
+                                completion: { _ in
+                                    /// Trigger the failure and provide the `permanentFailure` value defined above
+                                    failure(job, error, permanentFailure)
+                                }
+                            )
                     }
                 }
             )

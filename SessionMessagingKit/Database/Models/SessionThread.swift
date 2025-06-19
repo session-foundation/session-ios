@@ -689,7 +689,7 @@ public extension SessionThread {
         ).sqlExpression
     }
     
-    func isNoteToSelf(_ db: Database? = nil, using dependencies: Dependencies) -> Bool {
+    func isNoteToSelf(using dependencies: Dependencies) -> Bool {
         return (
             variant == .contact &&
             id == dependencies[cache: .general].sessionId.hexString

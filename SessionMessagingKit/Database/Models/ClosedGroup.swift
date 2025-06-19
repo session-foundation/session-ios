@@ -283,7 +283,7 @@ public extension ClosedGroup {
                 if dataToRemove.contains(.libSessionState) {
                     /// Wait until after the transaction completes before removing the group state (this is needed as it's possible that
                     /// we are already mutating the `libSessionCache` when this function gets called)
-                    db.afterNextTransaction { db in
+                    db.afterNextTransactionNested(using: dependencies) { db in
                         threadVariants
                             .filter { $0.variant == .group }
                             .forEach { threadIdVariant in

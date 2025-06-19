@@ -48,6 +48,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
 
     private lazy var unreadCountLabel: UILabel = {
         let result: UILabel = UILabel()
+        result.setContentHuggingPriority(.required, for: .horizontal)
+        result.setContentCompressionResistancePriority(.required, for: .horizontal)
         result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .conversationButton_unreadBubbleText
         result.textAlignment = .center

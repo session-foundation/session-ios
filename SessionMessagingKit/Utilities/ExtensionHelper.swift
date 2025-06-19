@@ -54,9 +54,8 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_contents
     private func conversationPath(_ threadId: String) -> String? {
         guard
-            let data: Data = "ConvoIdSalt-\(threadId)".data(using: .utf8),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(data))
+                .hash(message: Array("ConvoIdSalt-\(threadId)".utf8))
             )
         else { return nil }
         
@@ -172,9 +171,8 @@ public class ExtensionHelper: ExtensionHelperType {
     private func dedupeRecordPath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
         guard
             let conversationPath: String = conversationPath(threadId),
-            let data: Data = "DedupeRecordSalt-\(uniqueIdentifier)".data(using: .utf8),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(data))
+                .hash(message: Array("DedupeRecordSalt-\(uniqueIdentifier)".utf8))
             )
         else { return nil }
         
@@ -231,9 +229,8 @@ public class ExtensionHelper: ExtensionHelperType {
     private func dumpFilePath(for sessionId: SessionId, variant: ConfigDump.Variant) -> String? {
         guard
             let conversationPath: String = conversationPath(sessionId.hexString),
-            let data: Data = "DumpSalt-\(variant)".data(using: .utf8),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(data))
+                .hash(message: Array("DumpSalt-\(variant)".utf8))
             )
         else { return nil }
         
@@ -386,9 +383,8 @@ public class ExtensionHelper: ExtensionHelperType {
     private func configMessagePath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
         guard
             let conversationPath: String = conversationPath(threadId),
-            let data: Data = "ConfigMessageSalt-\(uniqueIdentifier)".data(using: .utf8),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(data))
+                .hash(message: Array("ConfigMessageSalt-\(uniqueIdentifier)".utf8))
             )
         else { return nil }
         
@@ -402,9 +398,8 @@ public class ExtensionHelper: ExtensionHelperType {
     private func readMessagePath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
         guard
             let conversationPath: String = conversationPath(threadId),
-            let data: Data = "ReadMessageSalt-\(uniqueIdentifier)".data(using: .utf8),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(data))
+                .hash(message: Array("ReadMessageSalt-\(uniqueIdentifier)".utf8))
             )
         else { return nil }
         
@@ -418,9 +413,8 @@ public class ExtensionHelper: ExtensionHelperType {
     private func unreadMessagePath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
         guard
             let conversationPath: String = conversationPath(threadId),
-            let data: Data = "UnreadMessageSalt-\(uniqueIdentifier)".data(using: .utf8),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
-                .hash(message: Array(data))
+                .hash(message: Array("UnreadMessageSalt-\(uniqueIdentifier)".utf8))
             )
         else { return nil }
         
