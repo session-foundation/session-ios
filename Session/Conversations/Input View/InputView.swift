@@ -142,6 +142,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
         label.alpha = 0
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
 
         return label
     }()
@@ -220,9 +222,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
         addSubview(disabledInputLabel)
 
-        disabledInputLabel.pin(.top, to: .top, of: mainStackView)
-        disabledInputLabel.pin(.leading, to: .leading, of: mainStackView)
-        disabledInputLabel.pin(.trailing, to: .trailing, of: mainStackView)
+        disabledInputLabel.pin(.top, to: .top, of: attachmentsButton)
+        disabledInputLabel.pin(.leading, to: .leading, of: inputTextView)
+        disabledInputLabel.pin(.trailing, to: .trailing, of: inputTextView)
         disabledInputLabel.set(.height, to: InputViewButton.expandedSize)
 
         // Mentions
@@ -389,15 +391,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         voiceMessageButton.isSoftDisabled = (updatedInputState.allowedInputTypes != .all)
 
         UIView.animate(withDuration: 0.3) { [weak self] in
-            self?.bottomStackView?.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0)
-            self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ?
-                1 :
-                (updatedInputState.allowedInputTypes == .textOnly ? 0.4 : 0)
-            )
-            self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ?
-                1 :
-                (updatedInputState.allowedInputTypes == .textOnly ? 0.4 : 0)
-            )
+            self?.bottomStackView?.arrangedSubviews.forEach { $0.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0) }
+            self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
             self?.disabledInputLabel.alpha = (updatedInputState.allowedInputTypes != .none ? 0 : Values.mediumOpacity)
         }
     }
