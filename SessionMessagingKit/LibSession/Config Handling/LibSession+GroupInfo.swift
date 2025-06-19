@@ -10,9 +10,13 @@ import SessionUtilitiesKit
 
 public extension LibSession {
     static var sizeMaxGroupDescriptionBytes: Int { GROUP_INFO_DESCRIPTION_MAX_LENGTH }
+    static var sizeMaxGroupDescriptionCharacters: Int { 200 }
     
     static func isTooLong(groupDescription: String) -> Bool {
-        return (groupDescription.bytes.count > LibSession.sizeMaxGroupDescriptionBytes)
+        return (
+            groupDescription.bytes.count > LibSession.sizeMaxGroupDescriptionBytes ||
+            groupDescription.count > LibSession.sizeMaxGroupDescriptionCharacters
+        )
     }
 }
 
