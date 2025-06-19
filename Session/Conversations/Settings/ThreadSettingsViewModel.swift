@@ -1183,76 +1183,79 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             \(contact[.id]) != \(threadViewModel.currentUserSessionId)
                         )
                     """),
-                    footerTitle: "membersInvite".localized(),
+                    footerTitle: "membersInviteTitle".localized(),
                     footerAccessibility: Accessibility(
                         identifier: "Invite contacts button"
                     ),
-                    onSubmit: .publisher { [dependencies] _, selectedUserInfo in
-                        dependencies[singleton: .storage]
-                            .writePublisher { db in
-                                try selectedUserInfo.forEach { userInfo in
-                                    let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                                    let thread: SessionThread = try SessionThread.upsert(
-                                        db,
-                                        id: userInfo.profileId,
-                                        variant: .contact,
-                                        values: SessionThread.TargetValues(
-                                            creationDateTimestamp: .useExistingOrSetTo(TimeInterval(sentTimestampMs) / 1000),
-                                            shouldBeVisible: .useExisting
-                                        ),
-                                        using: dependencies
-                                    )
-                                    
-                                    try LinkPreview(
-                                        url: communityUrl,
-                                        variant: .openGroupInvitation,
-                                        title: name,
-                                        using: dependencies
-                                    )
-                                    .upsert(db)
-                                    
-                                    let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
-                                        .filter(id: userInfo.profileId)
-                                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                                        .fetchOne(db)
-                                    let interaction: Interaction = try Interaction(
-                                        threadId: thread.id,
-                                        threadVariant: thread.variant,
-                                        authorId: threadViewModel.currentUserSessionId,
-                                        variant: .standardOutgoing,
-                                        timestampMs: sentTimestampMs,
-                                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
-                                        expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
-                                            sentTimestampMs: Double(sentTimestampMs)
-                                        ),
-                                        linkPreviewUrl: communityUrl,
-                                        using: dependencies
-                                    )
+                    onSubmit: .callback { [dependencies] viewModel, selectedUserInfo in
+                        viewModel?.showToast(
+                            text: "groupInviteSending"
+                                .putNumber(selectedUserInfo.count)
+                                .localized(),
+                            backgroundColor: .backgroundSecondary
+                        )
+                        dependencies[singleton: .storage].writeAsync { db in
+                            try selectedUserInfo.forEach { userInfo in
+                                let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                let thread: SessionThread = try SessionThread.upsert(
+                                    db,
+                                    id: userInfo.profileId,
+                                    variant: .contact,
+                                    values: SessionThread.TargetValues(
+                                        creationDateTimestamp: .useExistingOrSetTo(TimeInterval(sentTimestampMs) / 1000),
+                                        shouldBeVisible: .useExisting
+                                    ),
+                                    using: dependencies
+                                )
+                                
+                                try LinkPreview(
+                                    url: communityUrl,
+                                    variant: .openGroupInvitation,
+                                    title: name,
+                                    using: dependencies
+                                )
+                                .upsert(db)
+                                
+                                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                                    .filter(id: userInfo.profileId)
+                                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                                    .fetchOne(db)
+                                let interaction: Interaction = try Interaction(
+                                    threadId: thread.id,
+                                    threadVariant: thread.variant,
+                                    authorId: threadViewModel.currentUserSessionId,
+                                    variant: .standardOutgoing,
+                                    timestampMs: sentTimestampMs,
+                                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
+                                    expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                                        sentTimestampMs: Double(sentTimestampMs)
+                                    ),
+                                    linkPreviewUrl: communityUrl,
+                                    using: dependencies
+                                )
                                     .inserted(db)
-                                    
-                                    try MessageSender.send(
+                                
+                                try MessageSender.send(
+                                    db,
+                                    interaction: interaction,
+                                    threadId: thread.id,
+                                    threadVariant: thread.variant,
+                                    using: dependencies
+                                )
+                                
+                                // Trigger disappear after read
+                                dependencies[singleton: .jobRunner].upsert(
+                                    db,
+                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                         db,
                                         interaction: interaction,
-                                        threadId: thread.id,
-                                        threadVariant: thread.variant,
+                                        startedAtMs: Double(sentTimestampMs),
                                         using: dependencies
-                                    )
-                                    
-                                    // Trigger disappear after read
-                                    dependencies[singleton: .jobRunner].upsert(
-                                        db,
-                                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                            db,
-                                            interaction: interaction,
-                                            startedAtMs: Double(sentTimestampMs),
-                                            using: dependencies
-                                        ),
-                                        canStartJob: true
-                                    )
-                                }
+                                    ),
+                                    canStartJob: true
+                                )
                             }
-                            .mapError { UserListError.error($0.localizedDescription) }
-                            .eraseToAnyPublisher()
+                        }
                     },
                     using: dependencies
                 )
