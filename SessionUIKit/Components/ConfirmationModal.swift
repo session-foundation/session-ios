@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
@@ -90,6 +91,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var textFieldClearButton: UIButton = {
+        let result: UIButton = UIButton(type: .custom)
+        result.setImage(Lucide.image(icon: .x, size: 18)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.addTarget(self, action: #selector(textFieldClearButtonTapped), for: .touchUpInside)
+        result.themeTintColor = .textPrimary
+        result.isHidden = true
+        return result
+    }()
+    
     private lazy var textFieldErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.smallFontSize)
@@ -108,7 +118,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.layer.cornerRadius = 11
         result.layer.borderWidth = 1
         result.isHidden = true
-        result.set(.height, to: 75)
+        result.set(.height, greaterThanOrEqualTo: 75)
+        result.set(.height, lessThanOrEqualTo: 150)
         
         return result
     }()
@@ -131,6 +142,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.themeTextColor = .textSecondary
         result.alpha = 0.5
         
+        return result
+    }()
+    
+    private lazy var textViewClearButton: UIButton = {
+        let result: UIButton = UIButton(type: .custom)
+        result.setImage(Lucide.image(icon: .x, size: 18)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.addTarget(self, action: #selector(textViewClearButtonTapped), for: .touchUpInside)
+        result.themeTintColor = .textPrimary
+        result.isHidden = true
         return result
     }()
     
@@ -282,17 +302,33 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         contentView.addSubview(closeButton)
         
         textFieldContainer.addSubview(textField)
-        textField.pin(to: textFieldContainer, withInset: 12)
+        textFieldContainer.addSubview(textFieldClearButton)
+        textField.pin(.leading, to: .leading, of: textFieldContainer, withInset: 12)
+        textField.pin(.top, to: .top, of: textFieldContainer, withInset: 12)
+        textField.pin(.bottom, to: .bottom, of: textFieldContainer, withInset: -12)
+        textField.pin(.trailing, to: .trailing, of: textFieldContainer, withInset: (textFieldClearButton.isHidden ? -12 : -34))
+
+        textFieldClearButton.pin(.trailing, to: .trailing, of: textFieldContainer, withInset: -12)
+        textFieldClearButton.center(.vertical, in: textFieldContainer)
         
         textToConfirmContainer.addSubview(textToConfirmLabel)
         textToConfirmLabel.pin(to: textToConfirmContainer, withInset: 12)
         
         textViewContainer.addSubview(textView)
         textViewContainer.addSubview(textViewPlaceholder)
+        textViewContainer.addSubview(textViewClearButton)
         textView.pin(to: textViewContainer, withInset: 12)
-        textViewPlaceholder.pin(.top, to: .top, of: textViewContainer, withInset: 12)
-        textViewPlaceholder.pin(.leading, to: .leading, of: textViewContainer, withInset: 12)
-        textViewPlaceholder.pin(.trailing, to: .trailing, of: textViewContainer, withInset: -12)
+        textView.pin(.leading, to: .leading, of: textViewContainer, withInset: 12)
+        textView.pin(.top, to: .top, of: textViewContainer, withInset: 12)
+        textViewContainer.pin(.bottom, to: .bottom, of: textView, withInset: 12)
+        textView.pin(.trailing, to: .trailing, of: textViewContainer, withInset: (textViewClearButton.isHidden ? -12 : -34))
+        
+        textViewPlaceholder.pin(.top, to: .top, of: textView)
+        textViewPlaceholder.pin(.leading, to: .leading, of: textView)
+        textViewPlaceholder.pin(.trailing, to: .trailing, of: textView)
+        
+        textViewClearButton.pin(.trailing, to: .trailing, of: textViewContainer, withInset: -12)
+        textViewClearButton.pin(.top, to: .top, of: textViewContainer, withInset: 12)
         
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
@@ -368,7 +404,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
-                textField.clearButtonMode = (inputInfo.clearButton ? .always : .never)
+                textFieldClearButton.isHidden = !inputInfo.clearButton
                 textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
@@ -380,6 +416,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
                     self.updateContent(withError: inputInfo.inputChecker?(text))
                 }
+                textFieldContainer.layoutIfNeeded()
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
@@ -387,12 +424,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
                 textField.text = (firstInputInfo.initialValue ?? "")
-                textField.clearButtonMode = (firstInputInfo.clearButton ? .always : .never)
+                textFieldClearButton.isHidden = !firstInputInfo.clearButton
                 textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = firstInputInfo.accessibility?.identifier
                 textField.accessibilityLabel = firstInputInfo.accessibility?.label
                 textFieldContainer.isHidden = false
                 textView.text = (secondInputInfo.initialValue ?? "")
+                textViewClearButton.isHidden = !secondInputInfo.clearButton
                 textView.isAccessibilityElement = true
                 textView.accessibilityIdentifier = secondInputInfo.accessibility?.identifier
                 textView.accessibilityLabel = secondInputInfo.accessibility?.label
@@ -605,6 +643,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     override public func cancel() {
         internalOnCancel?(self)
+    }
+    
+    @objc internal func textFieldClearButtonTapped() {
+        self.textField.text = ""
+    }
+    
+    @objc internal func textViewClearButtonTapped() {
+        self.textView.text = ""
     }
     
     // MARK: - Keyboard Avoidance

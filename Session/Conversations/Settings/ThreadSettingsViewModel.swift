@@ -1542,6 +1542,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     firstInfo: ConfirmationModal.Info.Body.InputInfo(
                         placeholder: "groupNameEnter".localized(),
                         initialValue: currentName,
+                        clearButton: true,
                         accessibility: Accessibility(
                             identifier: "Group name text field"
                         ),
@@ -1556,6 +1557,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     secondInfo: ConfirmationModal.Info.Body.InputInfo(
                         placeholder: "groupDescriptionEnter".localized(),
                         initialValue: currentDescription,
+                        clearButton: true,
                         accessibility: Accessibility(
                             identifier: "Group description text field"
                         ),
