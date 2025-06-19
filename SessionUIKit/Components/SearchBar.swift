@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 
 public final class SearchBar : UISearchBar {
     
@@ -40,12 +41,10 @@ public extension UISearchBar {
         barStyle = .black // Use Apple's black design as a base
         themeTintColor = .textPrimary // The cursor color
         
-        let searchImage: UIImage = #imageLiteral(resourceName: "searchbar_search").withRenderingMode(.alwaysTemplate)
-        setImage(searchImage, for: .search, state: .normal)
+        setImage(Lucide.image(icon: .search, size: 18)?.withRenderingMode(.alwaysTemplate), for: .search, state: .normal)
         searchTextField.leftView?.themeTintColor = .textSecondary
         
-        let clearImage: UIImage = #imageLiteral(resourceName: "searchbar_clear").withRenderingMode(.alwaysTemplate)
-        setImage(clearImage, for: .clear, state: .normal)
+        setImage(Lucide.image(icon: .x, size: 18)?.withRenderingMode(.alwaysTemplate), for: .clear, state: .normal)
         
         let searchTextField: UITextField = self.searchTextField
         searchTextField.themeBackgroundColor = .messageBubble_overlay // The search bar background color
@@ -66,12 +65,10 @@ public extension UISearchBar {
         barStyle = .default
         themeTintColor = .textPrimary
         
-        let searchImage = #imageLiteral(resourceName: "searchbar_search").withRenderingMode(.alwaysTemplate)
-        setImage(searchImage, for: .search, state: .normal)
+        setImage(Lucide.image(icon: .search, size: 18)?.withRenderingMode(.alwaysTemplate), for: .search, state: .normal)
         searchTextField.leftView?.themeTintColor = .textSecondary
         
-        let clearImage = #imageLiteral(resourceName: "searchbar_clear").withRenderingMode(.alwaysTemplate)
-        setImage(clearImage, for: .clear, state: .normal)
+        setImage(Lucide.image(icon: .x, size: 18)?.withRenderingMode(.alwaysTemplate), for: .clear, state: .normal)
         
         let searchTextField: UITextField = self.searchTextField
         searchTextField.borderStyle = .none
