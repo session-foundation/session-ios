@@ -488,10 +488,17 @@ open class Storage {
             ].joined()
         )
         
+        /// Instruct GRDB to release as much memory as it can (non-blocking)
+        (dbWriter as? DatabasePool)?.releaseMemoryEventually()
+        
         /// Before triggering an `interrupt` (which will forcibly kill in-progress database queries) we want to try to cancel all
         /// database tasks to give them a small chance to resolve cleanly before we take a brute-force approach
         currentCalls.forEach { $0.cancel() }
         _currentCalls.performUpdate { _ in [] }
+        
+        /// We want to force a checkpoint (ie. write any data in the WAL to disk, to ensure the main database is in a valid state)
+        do { try checkpoint(.truncate) }
+        catch { Log.info(.storage, "Failed to checkpoint database due to error: \(error)") }
         
         /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
         /// and don't actually want any more transactions to occur)
@@ -869,12 +876,12 @@ open class Storage {
         _currentObservers.performUpdate { $0.removing(observer) }
     }
     
-    private func stopAndRemoveObserver(forId id: String) {
+    private func stopAndRemoveObserver(forId id: String, explicitRemoval: Bool) {
         _currentObservers.performUpdate {
             $0.filter { info -> Bool in
                 guard info.id == id else { return true }
                 
-                info.stop()
+                info.stop(explicitRemoval: explicitRemoval)
                 return false
             }
         }
@@ -980,7 +987,7 @@ open class Storage {
         
         let cancellable: AnyDatabaseCancellable = observation
             .handleEvents(didCancel: { [weak self] in
-                info.stop()
+                info.stop(explicitRemoval: false)
                 self?.removeObserver(info)
             })
             .start(
@@ -1028,7 +1035,7 @@ open class Storage {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
         guard let observer: IdentifiableTransactionObserver = observer else { return }
         
-        stopAndRemoveObserver(forId: observer.id)
+        stopAndRemoveObserver(forId: observer.id, explicitRemoval: true)
         
         /// This actually triggers a write to the database so can be blocked by other writes so shouldn't be called on the main thread,
         /// we don't dispatch to an async thread in here because `TransactionObserver` isn't `Sendable` so instead just require
@@ -1306,13 +1313,13 @@ private extension Storage {
             Log.verbose(.storage, "Started observer \(id) - [ \(callInfo) ]")
         }
         
-        func stop() {
+        func stop(explicitRemoval: Bool) {
             guard cancellable != nil || observer != nil else { return }
             
             cancellable?.cancel()
             cancellable = nil
             
-            if let observer: IdentifiableTransactionObserver = observer {
+            if let observer: IdentifiableTransactionObserver = observer, !explicitRemoval {
                 /// Need to set to `nil` first to prevent infinite loop
                 self.observer = nil
                 storage?.removeObserver(observer)
