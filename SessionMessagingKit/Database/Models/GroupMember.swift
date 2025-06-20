@@ -188,6 +188,7 @@ extension GroupMember: ProfileAssociated {
         switch (lhs.value.role, lhs.value.roleStatus, rhs.value.role, rhs.value.roleStatus) {
             /// admin before standard
             case (.admin, _, .standard, _): return true
+            case (.standard, _ , .admin, _): return false
                 
             /// Otherwise we should order based on the status position in `desiredStatusOrder`
             default:
