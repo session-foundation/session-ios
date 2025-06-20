@@ -118,11 +118,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.layer.cornerRadius = 11
         result.layer.borderWidth = 1
         result.isHidden = true
-        result.set(.height, greaterThanOrEqualTo: 75)
-        result.set(.height, lessThanOrEqualTo: 150)
+        result.translatesAutoresizingMaskIntoConstraints = false
         
         return result
     }()
+    
+    private var textViewHeightConstraint: NSLayoutConstraint?
+    private var textViewMinHeight: CGFloat {
+        return 3 * (textView.font ?? .systemFont(ofSize: Values.smallFontSize)).lineHeight
+    }
+    private var textViewMaxHeight: CGFloat {
+        return 12 * (textView.font ?? .systemFont(ofSize: Values.smallFontSize)).lineHeight
+    }
     
     private lazy var textView: UITextView = {
         let result: UITextView = UITextView()
@@ -132,6 +139,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.textContainerInset = .zero
         result.textContainer.lineFragmentPadding = 0
         result.delegate = self
+        result.translatesAutoresizingMaskIntoConstraints = false
         
         return result
     }()
@@ -322,6 +330,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         textView.pin(.top, to: .top, of: textViewContainer, withInset: 12)
         textViewContainer.pin(.bottom, to: .bottom, of: textView, withInset: 12)
         textView.pin(.trailing, to: .trailing, of: textViewContainer, withInset: (textViewClearButton.isHidden ? -12 : -34))
+        textViewHeightConstraint = textView.set(.height, to: textViewMinHeight)
         
         textViewPlaceholder.pin(.top, to: .top, of: textView)
         textViewPlaceholder.pin(.leading, to: .leading, of: textView)
@@ -598,6 +607,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     public func textViewDidChange(_ textView: UITextView) {
         textViewPlaceholder.isHidden = !textView.text.isEmpty
         internalOnTextChanged?((textField.text ?? ""), textView.text)
+        
+        let fixedWidth = textView.frame.width
+        let newSize = textView.sizeThatFits(CGSize(width: fixedWidth, height: CGFloat.greatestFiniteMagnitude))
+        
+        textViewHeightConstraint?.constant = min(textViewMaxHeight, max(newSize.height, textViewMinHeight))
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
     }
     
     // MARK: - Interaction
@@ -651,6 +668,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     @objc internal func textViewClearButtonTapped() {
         self.textView.text = ""
+        textViewHeightConstraint?.constant = textViewMinHeight
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
     }
     
     // MARK: - Keyboard Avoidance
