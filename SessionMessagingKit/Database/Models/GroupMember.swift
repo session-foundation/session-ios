@@ -161,56 +161,33 @@ extension GroupMember: ProfileAssociated {
         }
         
         /// We want to sort the member list so the most important info is at the top of the list, this means that we want to prioritise
-        /// • Invite failed, sorted as NameSortingOrder
-        /// • Invite not sent, sorted as NameSortingOrder
-        /// • Sending invite, sorted as NameSortingOrder
-        /// • Invite sent, sorted as NameSortingOrder
-        /// • Invite status unknown, sorted as NameSortingOrder
-        /// • Pending removal, sorted as NameSortingOrder
-        /// • Admin promotion failed, sorted as NameSortingOrder
-        /// • Admin promotion not sent, sorted as NameSortingOrder
-        /// • Sending admin promotion, sorted as NameSortingOrder
-        /// • Admin promotion sent, sorted as NameSortingOrder
-        /// • Admin promotion status unknown, sorted as NameSortingOrder
+        /// • Current user
         /// • Admin, sorted as NameSortingOrder
         /// • Member, sorted as NameSortingOrder
-        ///
-        /// And the current user should appear at the top of their respective group
+        
         let userSessionId: SessionId = lhs.currentUserSessionId
+        /// Current user at the top
+        if let currentUserIndex: Int = [lhs.profileId, rhs.profileId].firstIndex(of: userSessionId.hexString)  {
+            return (currentUserIndex == 0)
+        }
+
         let desiredStatusOrder: [RoleStatus] = [
             .failed, .notSentYet, .sending, .pending, .unknown, .pendingRemoval
         ]
         
-        /// If the role and status match then we want to sort by current user, no-name members by id, then by name
+        /// If the role and status match then we want to sort by no-name members by id, then by name
         guard lhs.value.role != rhs.value.role || lhs.value.roleStatus != rhs.value.roleStatus else {
-            switch (lhs.profileId, rhs.profileId, lhs.profile?.name, rhs.profile?.name) {
-                case (userSessionId.hexString, userSessionId.hexString, _, _):
-                    /// This case shouldn't be possible and is more to make the unit tests a bit nicer to read
-                    return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
-                case (userSessionId.hexString, _, _, _): return true
-                case (_, userSessionId.hexString, _, _): return false
-                case (_, _, .none, .some): return true
-                case (_, _, .some, .none): return false
-                case (_, _, .none, .none): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
-                case (_, _, .some, .some): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
+            switch (lhs.profile?.name, rhs.profile?.name) {
+                case (.none, .some): return true
+                case (.some, .none): return false
+                case (.none, .none): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
+                case (.some, .some): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
             }
         }
         
         switch (lhs.value.role, lhs.value.roleStatus, rhs.value.role, rhs.value.roleStatus) {
-            /// Non-accepted standard before admin
-            case (.standard, .failed, .admin, _), (.standard, .notSentYet, .admin, _),
-                (.standard, .sending, .admin, _), (.standard, .pending, .admin, _),
-                (.standard, .unknown, .admin, _), (.standard, .pendingRemoval, .admin, _):
-                return true
-
-            /// Non-accepted admin before accepted standard
-            case (.admin, .failed, .standard, .accepted), (.admin, .notSentYet, .standard, .accepted),
-                (.admin, .sending, .standard, .accepted), (.admin, .pending, .standard, .accepted),
-                (.admin, .unknown, .standard, .accepted), (.admin, .pendingRemoval, .standard, .accepted):
-                return true
-            
-            /// Accepted admin before accepted standard
-            case (.admin, .accepted, .standard, .accepted): return true
+            /// admin before standard
+            case (.admin, _, .standard, _): return true
                 
             /// Otherwise we should order based on the status position in `desiredStatusOrder`
             default:
