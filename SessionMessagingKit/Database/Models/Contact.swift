@@ -82,7 +82,7 @@ public extension Contact {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Contact,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreate(_ db: Database, id: ID, using dependencies: Dependencies) -> Contact {
+    static func fetchOrCreate(_ db: ObservingDatabase, id: ID, using dependencies: Dependencies) -> Contact {
         return ((try? fetchOne(db, id: id)) ?? Contact(id: id, using: dependencies))
     }
 }

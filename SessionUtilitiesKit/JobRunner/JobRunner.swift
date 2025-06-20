@@ -46,9 +46,9 @@ public protocol JobRunnerType: AnyObject {
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job?
-    @discardableResult func upsert(_ db: Database, job: Job?, canStartJob: Bool) -> Job?
-    @discardableResult func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)?
+    @discardableResult func add(_ db: ObservingDatabase, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job?
+    @discardableResult func upsert(_ db: ObservingDatabase, job: Job?, canStartJob: Bool) -> Job?
+    @discardableResult func insert(_ db: ObservingDatabase, job: Job?, before otherJob: Job) -> (Int64, Job)?
     func enqueueDependenciesIfNeeded(_ jobs: [Job])
     func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult)
     func afterJob(_ job: Job?, state: JobRunner.JobState) -> AnyPublisher<JobRunner.JobResult, Never>
@@ -111,7 +111,7 @@ public extension JobRunnerType {
     
     // MARK: -- Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool) -> Job? {
+    @discardableResult func add(_ db: ObservingDatabase, job: Job?, canStartJob: Bool) -> Job? {
         return add(db, job: job, dependantJob: nil, canStartJob: canStartJob)
     }
     
@@ -723,7 +723,7 @@ public final class JobRunner: JobRunnerType {
     // MARK: - Execution
     
     @discardableResult public func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job?,
         dependantJob: Job?,
         canStartJob: Bool
@@ -767,7 +767,7 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func upsert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job?,
         canStartJob: Bool
     ) -> Job? {
@@ -806,7 +806,7 @@ public final class JobRunner: JobRunnerType {
     }
     
     @discardableResult public func insert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job?,
         before otherJob: Job
     ) -> (Int64, Job)? {
@@ -961,7 +961,7 @@ public final class JobRunner: JobRunnerType {
         )
     }
     
-    private func validatedJob(_ db: Database, job: Job?, validation: Validation) -> Job? {
+    private func validatedJob(_ db: ObservingDatabase, job: Job?, validation: Validation) -> Job? {
         guard let job: Job = job else { return nil }
         
         switch (validation, job.uniqueHashValue) {
@@ -1194,7 +1194,7 @@ public final class JobQueue: Hashable {
     }
 
     fileprivate func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job,
         canStartJob: Bool
     ) {
@@ -1227,7 +1227,7 @@ public final class JobQueue: Hashable {
     /// **Note:** If the job has a `behaviour` of `runOnceNextLaunch` or the `nextRunTimestamp`
     /// is in the future then the job won't be started
     fileprivate func upsert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job,
         canStartJob: Bool
     ) -> Bool {

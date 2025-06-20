@@ -99,7 +99,7 @@ public final class OpenGroupManager {
     }
     
     public func hasExistingOpenGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         roomToken: String,
         server: String,
         publicKey: String
@@ -153,7 +153,7 @@ public final class OpenGroupManager {
     }
     
     public func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         roomToken: String,
         server: String,
         publicKey: String,
@@ -253,7 +253,7 @@ public final class OpenGroupManager {
             }
             .publisher
             .flatMap { [dependencies] in $0.send(using: dependencies) }
-            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: Database, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
+            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: ObservingDatabase, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
                 // Add the new open group to libSession
                 try LibSession.add(
                     db,
@@ -300,7 +300,7 @@ public final class OpenGroupManager {
     }
 
     public func delete(
-        _ db: Database,
+        _ db: ObservingDatabase,
         openGroupId: String,
         skipLibSessionUpdate: Bool
     ) throws {
@@ -365,7 +365,7 @@ public final class OpenGroupManager {
     // MARK: - Response Processing
     
     internal static func handleCapabilities(
-        _ db: Database,
+        _ db: ObservingDatabase,
         capabilities: OpenGroupAPI.Capabilities,
         on server: String
     ) {
@@ -394,7 +394,7 @@ public final class OpenGroupManager {
     }
     
     internal static func handlePollInfo(
-        _ db: Database,
+        _ db: ObservingDatabase,
         pollInfo: OpenGroupAPI.RoomPollInfo,
         publicKey maybePublicKey: String?,
         for roomToken: String,
@@ -516,7 +516,7 @@ public final class OpenGroupManager {
     }
     
     internal static func handleMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         messages: [OpenGroupAPI.Message],
         for roomToken: String,
         on server: String,
@@ -668,7 +668,7 @@ public final class OpenGroupManager {
     }
     
     internal static func handleDirectMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         messages: [OpenGroupAPI.DirectMessage],
         fromOutbox: Bool,
         on server: String,
@@ -852,12 +852,12 @@ public final class OpenGroupManager {
     
     /// This method specifies if the given capability is supported on a specified Open Group
     public func doesOpenGroupSupport(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase? = nil,
         capability: Capability.Variant,
         on server: String?
     ) -> Bool {
         guard let server: String = server else { return false }
-        guard let db: Database = db else {
+        guard let db: ObservingDatabase = db else {
             return dependencies[singleton: .storage]
                 .read { [weak self] db in self?.doesOpenGroupSupport(db, capability: capability, on: server) }
                 .defaulting(to: false)
@@ -876,14 +876,14 @@ public final class OpenGroupManager {
     
     /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
     public func isUserModeratorOrAdmin(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase? = nil,
         publicKey: String,
         for roomToken: String?,
         on server: String?,
         currentUserSessionIds: Set<String>
     ) -> Bool {
         guard let roomToken: String = roomToken, let server: String = server else { return false }
-        guard let db: Database = db else {
+        guard let db: ObservingDatabase = db else {
             return dependencies[singleton: .storage]
                 .read { [weak self] db in
                     self?.isUserModeratorOrAdmin(

@@ -112,7 +112,7 @@ public extension SendReadReceiptsJob {
     /// **Note:** This method assumes that the provided `interactionIds` are valid and won't filter out any invalid ids so
     /// ensure that is done correctly beforehand
     @discardableResult static func createOrUpdateIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         interactionIds: [Int64],
         using dependencies: Dependencies

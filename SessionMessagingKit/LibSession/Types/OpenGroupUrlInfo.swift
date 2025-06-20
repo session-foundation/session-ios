@@ -15,7 +15,7 @@ public extension LibSession {
         
         // MARK: - Queries
         
-        public static func fetchOne(_ db: Database, id: String) throws -> OpenGroupUrlInfo? {
+        public static func fetchOne(_ db: ObservingDatabase, id: String) throws -> OpenGroupUrlInfo? {
             return try OpenGroup
                 .filter(id: id)
                 .select(.threadId, .server, .roomToken, .publicKey)
@@ -23,7 +23,7 @@ public extension LibSession {
                 .fetchOne(db)
         }
         
-        public static func fetchAll(_ db: Database, ids: [String]) throws -> [OpenGroupUrlInfo] {
+        public static func fetchAll(_ db: ObservingDatabase, ids: [String]) throws -> [OpenGroupUrlInfo] {
             return try OpenGroup
                 .filter(ids: ids)
                 .select(.threadId, .server, .roomToken, .publicKey)
@@ -70,7 +70,7 @@ public extension LibSession {
         
         // MARK: - Queries
         
-        public static func fetchOne(_ db: Database, server: String, activeOnly: Bool = true) throws -> OpenGroupCapabilityInfo? {
+        public static func fetchOne(_ db: ObservingDatabase, server: String, activeOnly: Bool = true) throws -> OpenGroupCapabilityInfo? {
             var query: QueryInterfaceRequest<OpenGroupUrlInfo> = OpenGroup
                 .select(.threadId, .server, .roomToken, .publicKey)
                 .filter(OpenGroup.Columns.server == server.lowercased())
@@ -99,7 +99,7 @@ public extension LibSession {
             )
         }
         
-        public static func fetchOne(_ db: Database, id: String) throws -> OpenGroupCapabilityInfo? {
+        public static func fetchOne(_ db: ObservingDatabase, id: String) throws -> OpenGroupCapabilityInfo? {
             let maybeUrlInfo: OpenGroupUrlInfo? = try OpenGroup
                 .filter(id: id)
                 .select(.threadId, .server, .roomToken, .publicKey)

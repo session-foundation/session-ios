@@ -173,14 +173,7 @@ private class BehaviourStore {
     }
 }
 
-// MARK: - Observervable Keys
-
-public extension LibSession {
-    struct ObservableKey: Setting.Key {
-        public let rawValue: String
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-    }
-}
+// MARK: - Observable Keys
 
 // stringlint:ignore_contents
 public extension LibSession.ObservableKey {
@@ -251,11 +244,6 @@ public extension LibSession {
     typealias MergeResult = (
         sessionId: SessionId,
         variant: ConfigDump.Variant,
-        pendingChanges: [(key: ObservableKey, value: Any?)],
-        dump: ConfigDump?
-    )
-    typealias PostMergeResult = (
-        pendingChanges: [(key: ObservableKey, value: Any?)],
         dump: ConfigDump?
     )
     
@@ -288,7 +276,7 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: Database, requestId: String?) {
+        public func loadState(_ db: ObservingDatabase, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard configStore.isEmpty else {
@@ -573,7 +561,7 @@ public extension LibSession {
         
         // MARK: - Pushes
         
-        public func syncAllPendingPushes(_ db: Database) {
+        public func syncAllPendingPushes(_ db: ObservingDatabase) {
             configStore.swarmPublicKeys.forEach { swarmPublicKey in
                 ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
             }
@@ -591,7 +579,7 @@ public extension LibSession {
         }
         
         public func performAndPushChange(
-            _ db: Database,
+            _ db: ObservingDatabase,
             for variant: ConfigDump.Variant,
             sessionId: SessionId,
             change: (Config?) throws -> ()
@@ -797,7 +785,7 @@ public extension LibSession {
         public func mergeConfigMessages(
             swarmPublicKey: String,
             messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-            afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> PostMergeResult
+            afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
         ) throws -> [MergeResult] {
             guard !messages.isEmpty else { return [] }
             guard !swarmPublicKey.isEmpty else { throw MessageReceiverError.noThread }
@@ -840,7 +828,7 @@ public extension LibSession {
                         }
                         
                         // Now that the config message has been merged, run any after-merge logic
-                        let postMergeResult: PostMergeResult = try afterMerge(
+                        let dump: ConfigDump? = try afterMerge(
                             sessionId,
                             variant,
                             config,
@@ -848,7 +836,7 @@ public extension LibSession {
                             oldState
                         )
                         
-                        return (sessionId, variant, postMergeResult.pendingChanges, postMergeResult.dump)
+                        return (sessionId, variant, dump)
                     }
                     catch {
                         Log.error(.libSession, "Failed to process merge of \(variant) config data")
@@ -858,7 +846,7 @@ public extension LibSession {
         }
         
         public func handleConfigMessages(
-            _ db: Database,
+            _ db: ObservingDatabase,
             swarmPublicKey: String,
             messages: [ConfigMessageReceiveJob.Details.MessageInfo]
         ) throws {
@@ -866,12 +854,10 @@ public extension LibSession {
                 swarmPublicKey: swarmPublicKey,
                 messages: messages
             ) { sessionId, variant, config, latestServerTimestampMs, oldState in
-                let pendingChanges: [(key: ObservableKey, value: Any?)]
-                
                 // Apply the updated states to the database
                 switch variant {
                     case .userProfile:
-                        pendingChanges = try handleUserProfileUpdate(
+                        try handleUserProfileUpdate(
                             db,
                             in: config,
                             oldState: oldState,
@@ -879,7 +865,7 @@ public extension LibSession {
                         )
                         
                     case .contacts:
-                        pendingChanges = try handleContactsUpdate(
+                        try handleContactsUpdate(
                             db,
                             in: config,
                             oldState: oldState,
@@ -887,14 +873,12 @@ public extension LibSession {
                         )
                         
                     case .convoInfoVolatile:
-                        pendingChanges = []
                         try handleConvoInfoVolatileUpdate(
                             db,
                             in: config
                         )
                         
                     case .userGroups:
-                        pendingChanges = []
                         try handleUserGroupsUpdate(
                             db,
                             in: config,
@@ -902,7 +886,6 @@ public extension LibSession {
                         )
                         
                     case .groupInfo:
-                        pendingChanges = []
                         try handleGroupInfoUpdate(
                             db,
                             in: config,
@@ -911,7 +894,6 @@ public extension LibSession {
                         )
                         
                     case .groupMembers:
-                        pendingChanges = []
                         try handleGroupMembersUpdate(
                             db,
                             in: config,
@@ -920,20 +902,14 @@ public extension LibSession {
                         )
                         
                     case .groupKeys:
-                        pendingChanges = []
                         try handleGroupKeysUpdate(
                             db,
                             in: config,
                             groupSessionId: sessionId
                         )
                         
-                    case .local:
-                        pendingChanges = []
-                        Log.error(.libSession, "Tried to process merge of local config")
-                    
-                    case .invalid:
-                        pendingChanges = []
-                        Log.error(.libSession, "Failed to process merge of invalid config namespace")
+                    case .local: Log.error(.libSession, "Tried to process merge of local config")
+                    case .invalid: Log.error(.libSession, "Failed to process merge of invalid config namespace")
                 }
                 
                 // Need to check if the config needs to be dumped (this might have changed
@@ -948,7 +924,7 @@ public extension LibSession {
                             db,
                             ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
                         )
-                    return (pendingChanges, nil)
+                    return nil
                 }
                 
                 let dump: ConfigDump? = try createDump(
@@ -959,17 +935,16 @@ public extension LibSession {
                 )
                 try dump?.upsert(db)
                 
-                return (pendingChanges, dump)
+                return dump
             }
             
             let needsPush: Bool = (try? SessionId(from: swarmPublicKey)).map {
                 configStore[$0].contains(where: { $0.needsPush }) &&
                 !behaviourStore.hasBehaviour(.skipAutomaticConfigSync, for: $0)
             }.defaulting(to: false)
-            let allPendingChanges: [(key: ObservableKey, value: Any?)] = results.flatMap({ $0.pendingChanges })
             
             /// If we don't need to push and there were no merge results then no need to do anything else
-            guard needsPush || !allPendingChanges.isEmpty else { return }
+            guard needsPush else { return }
             
             db.afterNextTransactionNested(using: dependencies) { [dependencies] db in
                 if needsPush {
@@ -987,17 +962,6 @@ public extension LibSession {
                                     variant: result.variant
                                 )
                         }
-                    }
-                    
-                    /// Notify of any observed changes
-                    guard !allPendingChanges.isEmpty else { return }
-                    
-                    await dependencies.mutate(cache: .libSession) { cache in
-                        for (key, value) in allPendingChanges {
-                            await cache.addPendingChange(key: key, value: value)
-                        }
-                        
-                        await cache.yieldAllPendingChanges()
                     }
                 }
             }
@@ -1022,6 +986,24 @@ public extension LibSession {
     }
 }
 
+// MARK: - Convenience
+
+public extension LibSession {
+    static func handlePendingChanges(using dependencies: Dependencies) -> (([ObservingDatabase.Change]) async -> Void) {
+        return { changes in
+            guard !changes.isEmpty else { return }
+            
+            await dependencies.mutate(cache: .libSession) { cache in
+                for (key, value) in changes {
+                    await cache.addPendingChange(key: key, value: value)
+                }
+                
+                await cache.yieldAllPendingChanges()
+            }
+        }
+    }
+}
+
 // MARK: - SessionUtilCacheType
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
@@ -1041,7 +1023,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: Database, requestId: String?)
+    func loadState(_ db: ObservingDatabase, requestId: String?)
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -1068,7 +1050,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: Database)
+    func syncAllPendingPushes(_ db: ObservingDatabase)
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
@@ -1076,7 +1058,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         change: @escaping () throws -> ()
     ) throws
     func performAndPushChange(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
         change: @escaping (LibSession.Config?) throws -> ()
@@ -1103,10 +1085,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> LibSession.PostMergeResult
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
     ) throws -> [LibSession.MergeResult]
     func handleConfigMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws
@@ -1220,7 +1202,7 @@ public extension LibSessionCacheType {
     }
     
     func performAndPushChange(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
         change: @escaping () throws -> ()
@@ -1229,7 +1211,7 @@ public extension LibSessionCacheType {
     }
     
     func performAndPushChange(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for variant: ConfigDump.Variant,
         change: @escaping (LibSession.Config?) throws -> ()
     ) throws {
@@ -1239,7 +1221,7 @@ public extension LibSessionCacheType {
     }
     
     func performAndPushChange(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for variant: ConfigDump.Variant,
         change: @escaping () throws -> ()
     ) throws {
@@ -1266,7 +1248,7 @@ public extension LibSessionCacheType {
         return try await perform(for: variant, sessionId: userSessionId, change: { _ in try await change() })
     }
     
-    func loadState(_ db: Database) {
+    func loadState(_ db: ObservingDatabase) {
         loadState(db, requestId: nil)
     }
     
@@ -1294,7 +1276,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: Database, requestId: String?) {}
+    func loadState(_ db: ObservingDatabase, requestId: String?) {}
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -1327,7 +1309,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: Database) {}
+    func syncAllPendingPushes(_ db: ObservingDatabase) {}
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
@@ -1335,7 +1317,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         change: @escaping () throws -> ()
     ) throws {}
     func performAndPushChange(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
         change: (LibSession.Config?) throws -> ()
@@ -1375,10 +1357,10 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> LibSession.PostMergeResult
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
     ) throws -> [LibSession.MergeResult] { return [] }
     func handleConfigMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {}

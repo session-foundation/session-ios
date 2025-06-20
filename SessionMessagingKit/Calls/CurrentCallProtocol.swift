@@ -17,7 +17,7 @@ public protocol CurrentCallProtocol {
     
     func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies)
     func didReceiveRemoteSDP(sdp: RTCSessionDescription)
-    func startSessionCall(_ db: Database)
+    func startSessionCall(_ db: ObservingDatabase)
 }
 
 // MARK: - CallMode

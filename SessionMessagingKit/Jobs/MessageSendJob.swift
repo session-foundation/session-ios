@@ -295,7 +295,7 @@ public extension MessageSendJob {
     }
     
     static func fetchAttachmentState(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionId: Int64
     ) throws -> AttachmentState {
         // If the original interaction no longer exists then don't bother sending the message (ie. the

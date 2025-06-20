@@ -350,7 +350,7 @@ public extension MessageViewModel.DeletionBehaviours {
     }
     
     private static func deleteForEveryoneBehaviours(
-        _ db: Database,
+        _ db: ObservingDatabase,
         isAdmin: Bool,
         threadData: SessionThreadViewModel,
         cellViewModels: [MessageViewModel],

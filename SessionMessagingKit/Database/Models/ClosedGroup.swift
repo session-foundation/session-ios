@@ -170,7 +170,7 @@ public extension ClosedGroup {
     }
     
     static func approveGroupIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         group: ClosedGroup,
         using dependencies: Dependencies
     ) throws {
@@ -246,7 +246,7 @@ public extension ClosedGroup {
     }
     
     static func removeData(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
         using dependencies: Dependencies

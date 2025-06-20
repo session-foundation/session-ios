@@ -34,7 +34,7 @@ public struct MessageDeduplication: Codable, FetchableRecord, PersistableRecord,
 
 public extension MessageDeduplication {
     static func insert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant?,
         uniqueIdentifier: String?,
@@ -130,7 +130,7 @@ public extension MessageDeduplication {
     }
     
     static func deleteIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -222,7 +222,7 @@ public extension MessageDeduplication {
 
 public extension MessageDeduplication {
     static func insertCallDedupeRecordsIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         callMessage: CallMessage?,
         expirationTimestampSeconds: Int64?,
@@ -321,7 +321,7 @@ public extension MessageDeduplication {
 
 public extension MessageDeduplication {
     static func insert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         processedMessage: ProcessedMessage,
         ignoreDedupeFiles: Bool,
         using dependencies: Dependencies
@@ -375,7 +375,7 @@ public extension MessageDeduplication {
 private extension MessageDeduplication {
     @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
     private static func createLegacyDeduplicationRecord(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         legacyIdentifier: String?,
         legacyVariant: _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant?,

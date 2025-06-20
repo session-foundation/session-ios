@@ -121,7 +121,7 @@ fileprivate struct GroupAuthData: Codable, FetchableRecord {
 
 public extension Authentication {
     static func with(
-        _ db: Database,
+        _ db: ObservingDatabase,
         server: String,
         activeOnly: Bool = true,
         forceBlinded: Bool = false,
@@ -137,7 +137,7 @@ public extension Authentication {
     }
     
     static func with(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         forceBlinded: Bool = false,
@@ -167,7 +167,7 @@ public extension Authentication {
     }
     
     static func with(
-        _ db: Database,
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {

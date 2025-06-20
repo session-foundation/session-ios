@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleReadReceipt(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: ReadReceipt,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies

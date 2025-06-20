@@ -80,7 +80,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
 // MARK: - Protobuf
 
 public extension LinkPreview {
-    init?(_ db: Database, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
+    init?(_ db: ObservingDatabase, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
         guard let previewProto = proto.preview.first else { throw LinkPreviewError.noPreview }
         guard URL(string: previewProto.url) != nil else { throw LinkPreviewError.invalidInput }
         guard LinkPreview.isValidLinkUrl(previewProto.url) else { throw LinkPreviewError.invalidInput }

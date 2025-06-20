@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     public static func handleGroupUpdateMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
@@ -125,7 +125,7 @@ extension MessageReceiver {
     // MARK: - Specific Handling
     
     private static func handleGroupInvite(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: GroupUpdateInviteMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
@@ -178,7 +178,7 @@ extension MessageReceiver {
     
     /// This returns the `resultPublisher` for the group poller so can be ignored if we don't need to wait for the first poll to succeed
     internal static func handleNewGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: String,
         groupIdentityPrivateKey: Data?,
         name: String,
@@ -238,7 +238,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupPromotion(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: GroupUpdatePromoteMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
@@ -340,7 +340,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupInfoChanged(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateInfoChangeMessage,
         serverExpirationTimestamp: TimeInterval?,
@@ -432,7 +432,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupMemberChanged(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateMemberChangeMessage,
         serverExpirationTimestamp: TimeInterval?,
@@ -533,7 +533,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupMemberLeft(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateMemberLeftMessage,
         using dependencies: Dependencies
@@ -565,7 +565,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupMemberLeftNotification(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateMemberLeftNotificationMessage,
         serverExpirationTimestamp: TimeInterval?,
@@ -613,7 +613,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupInviteResponse(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateInviteResponseMessage,
         using dependencies: Dependencies
@@ -668,7 +668,7 @@ extension MessageReceiver {
     }
     
     private static func handleGroupDeleteMemberContent(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateDeleteMemberContentMessage,
         using dependencies: Dependencies
@@ -820,7 +820,7 @@ extension MessageReceiver {
     ///
     /// **Note:** Admins can't be removed from a group so this only clears the `authData`
     internal static func handleGroupDelete(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         plaintext: Data,
         using dependencies: Dependencies
@@ -894,7 +894,7 @@ extension MessageReceiver {
     // MARK: - Shared
     
     internal static func processGroupInvite(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         sender: String,
         sentTimestampMs: Int64,
@@ -949,7 +949,7 @@ extension MessageReceiver {
         switch message.serverHash {
             case .none: break
             case .some(let serverHash):
-                db.afterNextTransaction { db in
+                db.afterNextTransactionNested(using: dependencies) { db in
                     try? SnodeAPI
                         .preparedDeleteMessages(
                             serverHashes: [serverHash],
@@ -1107,7 +1107,7 @@ extension MessageReceiver {
     }
     
     internal static func updateMemberApprovalStatusIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         senderSessionId: String,
         groupSessionIdHexString: String?,
         profile: Profile?,

@@ -19,7 +19,7 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleConvoInfoVolatileUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?
     ) throws {
         guard configNeedsDump(config) else { return }
@@ -255,7 +255,7 @@ internal extension LibSession {
     }
     
     static func updateMarkedAsUnreadState(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threads: [SessionThread],
         using dependencies: Dependencies
     ) throws {
@@ -294,7 +294,7 @@ internal extension LibSession {
     }
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         volatileContactIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -313,7 +313,7 @@ internal extension LibSession {
     }
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         volatileLegacyGroupIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -334,7 +334,7 @@ internal extension LibSession {
     }
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         volatileGroupSessionIds: [SessionId],
         using dependencies: Dependencies
     ) throws {
@@ -355,7 +355,7 @@ internal extension LibSession {
     }
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         volatileCommunityInfo: [OpenGroupUrlInfo],
         using dependencies: Dependencies
     ) throws {
@@ -379,7 +379,7 @@ internal extension LibSession {
 
 public extension LibSession {
     static func syncThreadLastReadIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         lastReadTimestampMs: Int64,
@@ -527,7 +527,7 @@ public extension LibSession {
             )
         }
         
-        static func fetchAll(_ db: Database, ids: [String]? = nil) -> [VolatileThreadInfo] {
+        static func fetchAll(_ db: ObservingDatabase, ids: [String]? = nil) -> [VolatileThreadInfo] {
             struct FetchedInfo: FetchableRecord, Codable, Hashable {
                 let id: String
                 let variant: SessionThread.Variant

@@ -125,7 +125,7 @@ public enum PushNotificationAPI {
     // MARK: - Prepared Requests
     
     public static func preparedSubscribe(
-        _ db: Database,
+        _ db: ObservingDatabase,
         token: Data,
         sessionIds: [SessionId],
         using dependencies: Dependencies
@@ -210,7 +210,7 @@ public enum PushNotificationAPI {
     }
     
     public static func preparedUnsubscribe(
-        _ db: Database,
+        _ db: ObservingDatabase,
         token: Data,
         sessionIds: [SessionId],
         using dependencies: Dependencies

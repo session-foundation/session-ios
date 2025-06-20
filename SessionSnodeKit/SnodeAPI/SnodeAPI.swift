@@ -18,7 +18,7 @@ public final class SnodeAPI {
     public typealias PollResponse = [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)]
 
     public static func preparedPoll(
-        _ db: Database,
+        _ db: ObservingDatabase,
         namespaces: [SnodeAPI.Namespace],
         refreshingConfigHashes: [String] = [],
         from snode: LibSession.Snode,
@@ -151,7 +151,7 @@ public final class SnodeAPI {
     public typealias PreparedGetMessagesResponse = (messages: [SnodeReceivedMessage], lastHash: String?)
     
     public static func preparedGetMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         namespace: SnodeAPI.Namespace,
         snode: LibSession.Snode,
         maxSize: Int64? = nil,

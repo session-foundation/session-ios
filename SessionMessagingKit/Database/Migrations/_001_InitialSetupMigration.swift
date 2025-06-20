@@ -23,7 +23,7 @@ enum _001_InitialSetupMigration: Migration {
         return .porter(wrapping: .unicode61())
     }()
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.create(table: "contact") { t in
             t.column("id", .text)
                 .notNull()

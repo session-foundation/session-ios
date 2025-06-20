@@ -10,7 +10,7 @@ enum _019_ScheduleAppUpdateCheckJob: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         /// Only insert jobs if the `jobs` table exists or we aren't running tests (when running tests this allows us to skip running the
         /// SNUtilitiesKit migrations)
         guard

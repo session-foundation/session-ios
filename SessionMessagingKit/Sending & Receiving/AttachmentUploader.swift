@@ -38,7 +38,7 @@ public final class AttachmentUploader {
     }
     
     public static func process(
-        _ db: Database,
+        _ db: ObservingDatabase,
         attachments: [Attachment]?,
         for interactionId: Int64?
     ) throws {

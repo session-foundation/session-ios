@@ -50,7 +50,7 @@ internal extension LibSession {
     )
     
     static func createGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         name: String,
         description: String?,
         displayPictureUrl: String?,
@@ -294,7 +294,7 @@ internal extension LibSession {
     }
     
     static func removeGroupStateIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) {
@@ -308,7 +308,7 @@ internal extension LibSession {
     }
     
     static func saveCreatedGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         group: ClosedGroup,
         groupState: [ConfigDump.Variant: Config],
         using dependencies: Dependencies
@@ -346,7 +346,7 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func removeGroupStateIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId
     ) {
         removeConfigs(for: groupSessionId)

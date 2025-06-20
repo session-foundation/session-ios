@@ -8,7 +8,7 @@ import SessionSnodeKit
 
 extension MessageReceiver {
     internal static func handleNewLegacyClosedGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         legacyGroupSessionId: String,
         name: String,
         members: [String],

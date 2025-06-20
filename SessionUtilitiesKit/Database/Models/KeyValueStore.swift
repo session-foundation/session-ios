@@ -163,7 +163,7 @@ public extension Storage {
     }
 }
 
-public extension Database {
+public extension ObservingDatabase {
     @discardableResult func unsafeSet<T: Numeric>(key: String, value: T?) -> KeyValueStore? {
         guard let value: T = value else {
             _ = try? KeyValueStore.filter(id: key).deleteAll(self)
@@ -299,4 +299,3 @@ public extension Database {
         return result
     }
 }
-

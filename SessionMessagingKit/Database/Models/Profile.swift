@@ -226,13 +226,13 @@ public extension Profile {
     }
     
     static func displayName(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase? = nil,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
         customFallback: String? = nil,
         using dependencies: Dependencies
     ) -> String {
-        guard let db: Database = db else {
+        guard let db: ObservingDatabase = db else {
             return dependencies[singleton: .storage]
                 .read { db in
                     displayName(
@@ -253,12 +253,12 @@ public extension Profile {
     }
     
     static func displayNameNoFallback(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase? = nil,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
         using dependencies: Dependencies
     ) -> String? {
-        guard let db: Database = db else {
+        guard let db: ObservingDatabase = db else {
             return dependencies[singleton: .storage].read { db in
                 displayNameNoFallback(db, id: id, threadVariant: threadVariant, using: dependencies)
             }
@@ -289,7 +289,7 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreate(_ db: Database, id: String) -> Profile {
+    static func fetchOrCreate(_ db: ObservingDatabase, id: String) -> Profile {
         return (
             (try? Profile.fetchOne(db, id: id)) ??
             defaultFor(id)
@@ -420,7 +420,7 @@ public extension ProfileAssociated {
 }
 
 public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
-    func fetchAllWithProfiles(_ db: Database, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
+    func fetchAllWithProfiles(_ db: ObservingDatabase, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
         let originalResult: [RowDecoder] = try self.fetchAll(db)
         let profiles: [String: Profile]? = try? Profile
             .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())

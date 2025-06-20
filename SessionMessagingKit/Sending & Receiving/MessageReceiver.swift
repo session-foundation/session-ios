@@ -235,7 +235,7 @@ public enum MessageReceiver {
     // MARK: - Handling
     
     public static func handle(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
@@ -389,7 +389,7 @@ public enum MessageReceiver {
     }
     
     public static func postHandleMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
@@ -465,7 +465,7 @@ public enum MessageReceiver {
     }
     
     public static func handleOpenGroupReactions(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         openGroupMessageServerId: Int64,
         openGroupReactions: [Reaction]
@@ -580,45 +580,30 @@ public enum MessageReceiver {
     }
     
     /// Notify any observers of newly received messages
-    public static func notifyForInsertedInteractions(
-        _ insertedInteractionInfo: [InsertedInteractionInfo?],
+    public static func prepareNotificationsForInsertedInteractions(
+        _ db: ObservingDatabase,
+        insertedInteractionInfo: InsertedInteractionInfo?,
+        isMessageRequest: Bool,
         using dependencies: Dependencies
-    ) async {
-        let insertedInfo: [InsertedInteractionInfo] = insertedInteractionInfo.compactMap { $0 }
+    ) {
+        guard let info: InsertedInteractionInfo = insertedInteractionInfo else { return }
         
-        guard !insertedInfo.isEmpty else { return }
-        
-        await dependencies.mutate(cache: .libSession) { cache in
-            for info in insertedInfo {
-                switch info {
-                    case (let threadId, let threadVariant, let interactionId, _, false, let numPreviousInteractionsForMessageRequest):
-                        await cache.addPendingChange(
-                            key: .unreadMessageReceived(threadId: threadId),
-                            value: interactionId
-                        )
-                        
-                        if cache.isMessageRequest(threadId: threadId, threadVariant: threadVariant) {
-                            await cache.addPendingChange(
-                                key: .unreadMessageRequestMessageReceived,
-                                value: interactionId
-                            )
-                            
-                            // Need to re-show the message requests section if we received a new message
-                            // request
-                            if numPreviousInteractionsForMessageRequest == 0 {
-                                await cache.set(.hasHiddenMessageRequests, false)
-                            }
-                        }
+        switch info {
+            case (let threadId, let threadVariant, let interactionId, _, false, let numPreviousInteractionsForMessageRequest):
+                db.addChange(interactionId, forKey: .unreadMessageReceived(threadId: threadId))
+                
+                if isMessageRequest {
+                    db.addChange(interactionId, forKey: .unreadMessageRequestMessageReceived)
                     
-                    case (let threadId, _, let interactionId, _, _, _):
-                        await cache.addPendingChange(
-                            key: .messageReceived(threadId: threadId),
-                            value: interactionId
-                        )
+                    // Need to re-show the message requests section if we received a new message
+                    // request
+                    if numPreviousInteractionsForMessageRequest == 0 {
+                        dependencies.setAsync(.hasHiddenMessageRequests, false)
+                    }
                 }
-            }
             
-            await cache.yieldAllPendingChanges()
+            case (let threadId, _, let interactionId, _, _, _):
+                db.addChange(interactionId, forKey: .messageReceived(threadId: threadId))
         }
     }
 }

@@ -16,7 +16,7 @@ internal extension Cache {
     )
 }
 
-public extension Database {
+public extension ObservingDatabase {
     func makeFTS5Pattern<T>(rawPattern: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         return try makeFTS5Pattern(rawPattern: rawPattern, forTable: table.databaseTableName)
     }
@@ -27,8 +27,8 @@ public extension Database {
     /// **Note:** GRDB doesn't notify read-only transactions to transaction observers
     func afterNextTransactionNested(
         using dependencies: Dependencies,
-        onCommit: @escaping (Database) -> Void,
-        onRollback: @escaping (Database) -> Void = { _ in }
+        onCommit: @escaping (ObservingDatabase) -> Void,
+        onRollback: @escaping (ObservingDatabase) -> Void = { _ in }
     ) {
         dependencies.mutate(cache: .transactionObserver) {
             $0.add(self, dedupeId: UUID().uuidString, onCommit: onCommit, onRollback: onRollback)
@@ -38,8 +38,8 @@ public extension Database {
     func afterNextTransactionNestedOnce(
         dedupeId: String,
         using dependencies: Dependencies,
-        onCommit: @escaping (Database) -> Void,
-        onRollback: @escaping (Database) -> Void = { _ in }
+        onCommit: @escaping (ObservingDatabase) -> Void,
+        onRollback: @escaping (ObservingDatabase) -> Void = { _ in }
     ) {
         dependencies.mutate(cache: .transactionObserver) {
             $0.add(self, dedupeId: dedupeId, onCommit: onCommit, onRollback: onRollback)
@@ -50,19 +50,22 @@ public extension Database {
 internal class TransactionHandler: TransactionObserver {
     private let dependencies: Dependencies
     private let identifier: String
-    private let onCommit: (Database) -> Void
-    private let onRollback: (Database) -> Void
+    private let onCommit: (ObservingDatabase) -> Void
+    private let onRollback: (ObservingDatabase) -> Void
+    private let changeRetriever: () -> [ObservingDatabase.Change]
 
     init(
         identifier: String,
-        onCommit: @escaping (Database) -> Void,
-        onRollback: @escaping (Database) -> Void,
+        onCommit: @escaping (ObservingDatabase) -> Void,
+        onRollback: @escaping (ObservingDatabase) -> Void,
+        changeRetriever: @escaping () -> [ObservingDatabase.Change],
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.identifier = identifier
         self.onCommit = onCommit
         self.onRollback = onRollback
+        self.changeRetriever = changeRetriever
     }
     
     // Ignore changes
@@ -74,7 +77,7 @@ internal class TransactionHandler: TransactionObserver {
         
         do {
             try db.inTransaction {
-                onCommit(db)
+                onCommit(ObservingDatabase(db, changes: changeRetriever(), using: dependencies))
                 return .commit
             }
         }
@@ -85,7 +88,7 @@ internal class TransactionHandler: TransactionObserver {
     
     func databaseDidRollback(_ db: Database) {
         dependencies.mutate(cache: .transactionObserver) { $0.remove(for: identifier) }
-        onRollback(db)
+        onRollback(ObservingDatabase(db, changes: changeRetriever(), using: dependencies))
     }
 }
 
@@ -105,10 +108,10 @@ internal extension Storage {
         // MARK: - Functions
         
         public func add(
-            _ db: Database,
+            _ db: ObservingDatabase,
             dedupeId: String,
-            onCommit: @escaping (Database) -> Void,
-            onRollback: @escaping (Database) -> Void
+            onCommit: @escaping (ObservingDatabase) -> Void,
+            onRollback: @escaping (ObservingDatabase) -> Void
         ) {
             // Only allow a single observer per `dedupeId` per transaction, this allows us to
             // schedule an action to run at most once per transaction (eg. auto-scheduling a ConfigSyncJob
@@ -119,6 +122,7 @@ internal extension Storage {
                 identifier: dedupeId,
                 onCommit: onCommit,
                 onRollback: onRollback,
+                changeRetriever: { db.changes },
                 using: dependencies
             )
             db.add(transactionObserver: observer, extent: .nextTransaction)
@@ -142,10 +146,10 @@ internal protocol TransactionObserverCacheType: TransactionObserverImmutableCach
     var registeredHandlers: [String: TransactionHandler] { get }
     
     func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         dedupeId: String,
-        onCommit: @escaping (Database) -> Void,
-        onRollback: @escaping (Database) -> Void
+        onCommit: @escaping (ObservingDatabase) -> Void,
+        onRollback: @escaping (ObservingDatabase) -> Void
     )
     func remove(for identifier: String)
 }

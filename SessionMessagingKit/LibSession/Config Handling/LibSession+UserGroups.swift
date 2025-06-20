@@ -38,7 +38,7 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleUserGroupsUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         serverTimestampMs: Int64
     ) throws {
@@ -428,7 +428,7 @@ internal extension LibSessionCacheType {
     }
     
     func markAsDestroyed(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -650,7 +650,7 @@ internal extension LibSession {
     }
     
     @discardableResult static func updatingGroups<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
@@ -693,7 +693,7 @@ public extension LibSession {
     // MARK: -- Communities
     
     static func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         server: String,
         rootToken: String,
         publicKey: String,
@@ -719,7 +719,7 @@ public extension LibSession {
     }
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         server: String,
         roomToken: String,
         using dependencies: Dependencies
@@ -754,7 +754,7 @@ public extension LibSession {
     // MARK: -- Legacy Group Changes
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         legacyGroupIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -780,7 +780,7 @@ public extension LibSession {
     // MARK: -- Group Changes
     
     static func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: String,
         groupIdentityPrivateKey: Data?,
         name: String?,
@@ -810,7 +810,7 @@ public extension LibSession {
     }
     
     static func update(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: String,
         groupIdentityPrivateKey: Data? = nil,
         name: String? = nil,
@@ -838,7 +838,7 @@ public extension LibSession {
     }
     
     func markAsInvited(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -852,7 +852,7 @@ public extension LibSession {
     }
     
     static func markAsKicked(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
@@ -866,7 +866,7 @@ public extension LibSession {
     }
     
     static func remove(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionIds: [SessionId],
         using dependencies: Dependencies
     ) throws {

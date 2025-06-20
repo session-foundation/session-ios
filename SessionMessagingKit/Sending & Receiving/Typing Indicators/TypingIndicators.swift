@@ -87,7 +87,7 @@ public class TypingIndicators {
         }
     }
     
-    public func didStopTyping(_ db: Database, threadId: String, direction: Direction) {
+    public func didStopTyping(_ db: ObservingDatabase, threadId: String, direction: Direction) {
         switch direction {
             case .outgoing:
                 if let indicator: Indicator = outgoing[threadId] {
@@ -134,7 +134,7 @@ public extension TypingIndicators {
             self.timestampMs = timestampMs
         }
         
-        fileprivate func start(_ db: Database, timerQueue: DispatchQueue, using dependencies: Dependencies) {
+        fileprivate func start(_ db: ObservingDatabase, timerQueue: DispatchQueue, using dependencies: Dependencies) {
             // Start the typing indicator
             switch direction {
                 case .outgoing: scheduleRefreshCallback(timerQueue: timerQueue, using: dependencies)
@@ -150,7 +150,7 @@ public extension TypingIndicators {
             refreshTimeout(timerQueue: timerQueue, using: dependencies)
         }
         
-        fileprivate func stop(_ db: Database, using dependencies: Dependencies) {
+        fileprivate func stop(_ db: ObservingDatabase, using dependencies: Dependencies) {
             self.refreshTimer?.cancel()
             self.refreshTimer = nil
             self.stopTimer?.cancel()

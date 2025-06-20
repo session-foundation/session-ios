@@ -10,7 +10,7 @@ import SessionSnodeKit
 
 extension MessageReceiver {
     internal static func handleMessageRequestResponse(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: MessageRequestResponse,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
@@ -192,7 +192,7 @@ extension MessageReceiver {
     }
     
     internal static func updateContactApprovalStatusIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         senderSessionId: String,
         threadId: String?,
         using dependencies: Dependencies
@@ -206,7 +206,7 @@ extension MessageReceiver {
             guard
                 let threadId: String = threadId,
                 let thread: SessionThread = try? SessionThread.fetchOne(db, id: threadId),
-                !thread.isNoteToSelf(db, using: dependencies)
+                !thread.isNoteToSelf(using: dependencies)
             else { return }
             
             // Sending a message to someone flags them as approved so create the contact record if

@@ -58,7 +58,7 @@ internal extension LibSession {
     }
     
     @discardableResult static func updatingThreads<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {

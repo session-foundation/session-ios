@@ -361,7 +361,7 @@ extension ConfigurationSyncJob {
 
 public extension ConfigurationSyncJob {
     static func enqueue(
-        _ db: Database,
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) {
@@ -374,7 +374,7 @@ public extension ConfigurationSyncJob {
     }
     
     @discardableResult static func createIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) -> Job? {

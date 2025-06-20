@@ -243,7 +243,7 @@ public extension DisappearingMessagesConfiguration {
 
 public extension DisappearingMessagesConfiguration {
     func clearUnrelatedControlMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies
     ) throws {
@@ -288,7 +288,7 @@ public extension DisappearingMessagesConfiguration {
     }
     
     func insertControlMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadVariant: SessionThread.Variant,
         authorId: String,
         timestampMs: Int64,

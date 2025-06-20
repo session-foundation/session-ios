@@ -344,8 +344,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public lazy var observableThreadData: ThreadObservation = setupObservableThreadData(for: self.threadId)
     
     private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
-        return ValueObservation
-            .trackingConstantRegion { [weak self, dependencies] db -> SessionThreadViewModel? in
+        return ObservationBuilder
+            .databaseObservation(dependencies) { [weak self, dependencies] db -> SessionThreadViewModel? in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
@@ -388,7 +388,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     )
                 }
             }
-            .removeDuplicates()
             .handleEvents(didFail: { Log.error(.conversation, "Observation failed with error: \($0)") })
     }
 

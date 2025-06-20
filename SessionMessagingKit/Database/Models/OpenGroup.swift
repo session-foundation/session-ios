@@ -202,7 +202,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
 
 public extension OpenGroup {
     static func fetchOrCreate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         server: String,
         roomToken: String,
         publicKey: String

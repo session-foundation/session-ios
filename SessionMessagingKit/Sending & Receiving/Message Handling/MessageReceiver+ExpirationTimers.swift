@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleExpirationTimerUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
@@ -57,7 +57,7 @@ extension MessageReceiver {
     }
     
     public static func updateContactDisappearingMessagesVersionIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         messageVariant: Message.Variant?,
         contactId: String?,
         version: FeatureVersion?,

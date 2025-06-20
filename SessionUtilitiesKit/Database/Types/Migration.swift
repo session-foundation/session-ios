@@ -17,7 +17,7 @@ public protocol Migration {
     static var minExpectedRunDuration: TimeInterval { get }
     static var createdTables: [(TableRecord & FetchableRecord).Type] { get }
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws
 }
 
 public extension Migration {
@@ -25,8 +25,8 @@ public extension Migration {
         _ storage: Storage?,
         targetIdentifier: TargetMigrations.Identifier,
         using dependencies: Dependencies
-    ) -> ((_ db: Database) throws -> ()) {
-        return { (db: Database) in
+    ) -> ((_ db: ObservingDatabase) throws -> ()) {
+        return { (db: ObservingDatabase) in
             Log.info(.migration, "Starting \(targetIdentifier.key(with: self))")
             storage?.willStartMigration(db, self, targetIdentifier)
             defer { storage?.didCompleteMigration() }

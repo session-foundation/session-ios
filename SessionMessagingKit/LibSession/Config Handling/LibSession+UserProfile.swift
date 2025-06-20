@@ -23,18 +23,17 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         oldState: [LibSession.ObservableKey: Any],
         serverTimestampMs: Int64
-    ) throws -> [(key: LibSession.ObservableKey, value: Any?)] {
-        guard configNeedsDump(config) else { return [] }
+    ) throws {
+        guard configNeedsDump(config) else { return }
         guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
-        guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return [] }
+        guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
-        var changes: [(key: LibSession.ObservableKey, value: Any?)] = []
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
         let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
@@ -48,7 +47,7 @@ internal extension LibSessionCacheType {
             let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile,
             profile != updatedProfile
         {
-            changes.append((.profile(updatedProfile.id), updatedProfile))
+            db.addChange(updatedProfile, forKey: .profile(updatedProfile.id))
         }
         
         // Handle user profile changes
@@ -156,7 +155,7 @@ internal extension LibSessionCacheType {
             oldCheckForCommunityMessageRequests != nil &&
             oldCheckForCommunityMessageRequests != newCheckForCommunityMessageRequests
         {
-            changes.append((checkForCommunityMessageRequestsKey, newCheckForCommunityMessageRequests))
+            db.addChange(newCheckForCommunityMessageRequests, forKey: checkForCommunityMessageRequestsKey)
         }
         
         // Create a contact for the current user if needed (also force-approve the current user
@@ -175,8 +174,6 @@ internal extension LibSessionCacheType {
                     using: dependencies
                 )
         }
-        
-        return changes
     }
 }
 
@@ -215,7 +212,7 @@ internal extension LibSession {
 
 public extension LibSession {
     static func updateNoteToSelf(
-        _ db: Database,
+        _ db: ObservingDatabase,
         priority: Int32? = nil,
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         using dependencies: Dependencies
@@ -279,12 +276,6 @@ public extension LibSession.Cache {
                 name: displayName,
                 profilePictureUrl: profilePictureUrl
             )
-            
-            Task { [dependencies] in
-                await dependencies.mutate(cache: .libSession) { cache in
-                    await cache.addPendingChange(key: .profile(updatedProfile.id), value: updatedProfile)
-                }
-            }
         }
     }
 }

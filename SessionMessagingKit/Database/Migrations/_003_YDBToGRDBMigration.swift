@@ -10,7 +10,7 @@ enum _003_YDBToGRDBMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         guard
             !SNUtilitiesKit.isRunningTests,
             MigrationHelper.userExists(db)

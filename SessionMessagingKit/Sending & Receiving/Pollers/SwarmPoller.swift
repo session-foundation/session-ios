@@ -226,7 +226,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     }
     
     @discardableResult public static func processPollResponse(
-        _ db: Database,
+        _ db: ObservingDatabase,
         cat: Log.Category,
         source: PollSource,
         swarmPublicKey: String,
@@ -353,36 +353,34 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 }
                 else {
                     /// Individually process non-config messages
-                    var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
-                    
                     processedMessages.forEach { processedMessage in
                         guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
                             return
                         }
                         
                         do {
-                            insertedInteractionInfo.append(
-                                try MessageReceiver.handle(
-                                    db,
-                                    threadId: threadId,
-                                    threadVariant: threadVariant,
-                                    message: messageInfo.message,
-                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                    associatedWithProto: proto,
-                                    suppressNotifications: (source == .pushNotification),   /// Have already shown
-                                    using: dependencies
-                                )
+                            let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
+                                db,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                message: messageInfo.message,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                associatedWithProto: proto,
+                                suppressNotifications: (source == .pushNotification),   /// Have already shown
+                                using: dependencies
+                            )
+                            
+                            /// Notify about the received message
+                            MessageReceiver.prepareNotificationsForInsertedInteractions(
+                                db,
+                                insertedInteractionInfo: info,
+                                isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
+                                    cache.isMessageRequest(threadId: threadId, threadVariant: messageInfo.threadVariant)
+                                },
+                                using: dependencies
                             )
                         }
                         catch { Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).") }
-                    }
-                    
-                    /// Notify about the received messages
-                    Task { [dependencies] in
-                        await MessageReceiver.notifyForInsertedInteractions(
-                            insertedInteractionInfo,
-                            using: dependencies
-                        )
                     }
                 }
                 

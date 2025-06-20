@@ -16,7 +16,7 @@ enum _026_MessageDeduplicationTable: Migration {
         MessageDeduplication.self
     ]
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         typealias DedupeRecord = (
             threadId: String,
             identifier: String,

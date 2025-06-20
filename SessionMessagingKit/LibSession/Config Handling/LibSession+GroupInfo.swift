@@ -45,7 +45,7 @@ private struct InteractionInfo: Codable, FetchableRecord {
 
 internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         groupSessionId: SessionId,
         serverTimestampMs: Int64
@@ -300,7 +300,7 @@ internal extension LibSessionCacheType {
 
 internal extension LibSession {
     static func updatingGroupInfo<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
@@ -355,7 +355,7 @@ internal extension LibSession {
     }
     
     static func updatingDisappearingConfigsGroups<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
@@ -406,7 +406,7 @@ internal extension LibSession {
 
 public extension LibSession {
     static func update(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         disappearingConfig: DisappearingMessagesConfiguration?,
         using dependencies: Dependencies
@@ -423,7 +423,7 @@ public extension LibSession {
     }
     
     static func deleteMessagesBefore(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         timestamp: TimeInterval,
         using dependencies: Dependencies
@@ -441,7 +441,7 @@ public extension LibSession {
     }
     
     static func deleteAttachmentsBefore(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         timestamp: TimeInterval,
         using dependencies: Dependencies
@@ -460,7 +460,7 @@ public extension LibSession {
 }
 
 public extension LibSessionCacheType {
-    func deleteGroupForEveryone(_ db: Database, groupSessionId: SessionId) throws {
+    func deleteGroupForEveryone(_ db: ObservingDatabase, groupSessionId: SessionId) throws {
         try performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
             guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
             

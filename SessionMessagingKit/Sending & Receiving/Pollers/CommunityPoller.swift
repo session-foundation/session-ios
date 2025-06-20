@@ -141,7 +141,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     )
                     .send(using: dependencies)
             }
-            .flatMapStorageWritePublisher(using: dependencies) { [pollerDestination] (db: Database, response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)) in
+            .flatMapStorageWritePublisher(using: dependencies) { [pollerDestination] (db: ObservingDatabase, response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)) in
                 OpenGroupManager.handleCapabilities(
                     db,
                     capabilities: response.data,
@@ -320,7 +320,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 )
             }
             .handleEvents(
-                receiveOutput: { [weak self, dependencies] _, insertedInteractionInfo in
+                receiveOutput: { [weak self, dependencies] _ in
                     self?.pollCount += 1
                     
                     dependencies.mutate(cache: .openGroupManager) { cache in
@@ -328,17 +328,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             dependencies.dateNow.timeIntervalSince1970
                         )
                     }
-                    
-                    /// Notify about the received messages
-                    Task { [dependencies] in
-                        await MessageReceiver.notifyForInsertedInteractions(
-                            insertedInteractionInfo,
-                            using: dependencies
-                        )
-                    }
                 }
             )
-            .map { result, _ in result }
             .eraseToAnyPublisher()
     }
     
@@ -347,7 +338,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         response: Network.BatchResponseMap<OpenGroupAPI.Endpoint>,
         failureCount: Int,
         using dependencies: Dependencies
-    ) -> AnyPublisher<(PollResult, [MessageReceiver.InsertedInteractionInfo?]), Error> {
+    ) -> AnyPublisher<PollResult, Error> {
         var rawMessageCount: Int = 0
         let validResponses: [OpenGroupAPI.Endpoint: Any] = response.data
             .filter { endpoint, data in
@@ -416,7 +407,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         // If there are no remaining 'validResponses' and there hasn't been a failure then there is
         // no need to do anything else
         guard !validResponses.isEmpty || failureCount != 0 else {
-            return Just((((info, response), rawMessageCount, 0, true), []))
+            return Just(((info, response), rawMessageCount, 0, true))
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
@@ -456,7 +447,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 
                 return (capabilities, groups)
             }
-            .flatMap { [pollerDestination, dependencies] (capabilities: OpenGroupAPI.Capabilities, groups: [OpenGroup]) -> AnyPublisher<(PollResult, [MessageReceiver.InsertedInteractionInfo?]), Error> in
+            .flatMap { [pollerDestination, dependencies] (capabilities: OpenGroupAPI.Capabilities, groups: [OpenGroup]) -> AnyPublisher<PollResult, Error> in
                 let changedResponses: [OpenGroupAPI.Endpoint: Any] = validResponses
                     .filter { endpoint, data in
                         switch endpoint {
@@ -492,13 +483,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 // If there are no 'changedResponses' and there hasn't been a failure then there is
                 // no need to do anything else
                 guard !changedResponses.isEmpty || failureCount != 0 else {
-                    return Just((((info, response), rawMessageCount, 0, true), []))
+                    return Just(((info, response), rawMessageCount, 0, true))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
                 
                 return dependencies[singleton: .storage]
-                    .writePublisher { db -> [MessageReceiver.InsertedInteractionInfo?] in
+                    .writePublisher { db -> PollResult in
                         // Reset the failure count
                         if failureCount > 0 {
                             try OpenGroup
@@ -581,11 +572,18 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             }
                         }
                         
-                        return interactionInfo
-                    }
-                    .map { interactionInfo -> (PollResult, [MessageReceiver.InsertedInteractionInfo?]) in
+                        /// Notify about the received message
+                        interactionInfo.forEach { info in
+                            MessageReceiver.prepareNotificationsForInsertedInteractions(
+                                db,
+                                insertedInteractionInfo: info,
+                                isMessageRequest: false,    /// Communities can't be message requests
+                                using: dependencies
+                            )
+                        }
+                        
                         /// Assume all messages were handled
-                        (((info, response), rawMessageCount, rawMessageCount, true), interactionInfo)
+                        return ((info, response), rawMessageCount, rawMessageCount, true)
                     }
                     .eraseToAnyPublisher()
             }

@@ -218,7 +218,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         let associatedRecords: [ErasedAssociatedRecord] = self.associatedRecords
         let observedTableChangeTypes: [String: PagedData.ObservedChanges] = self.observedTableChangeTypes
-        let getAssociatedDataInfo: (Database, PagedData.PageInfo) -> AssociatedDataInfo = { db, updatedPageInfo in
+        let getAssociatedDataInfo: (ObservingDatabase, PagedData.PageInfo) -> AssociatedDataInfo = { db, updatedPageInfo in
             associatedRecords.map { associatedRecord in
                 let hasChanges: Bool = associatedRecord.tryUpdateForDatabaseCommit(
                     db,
@@ -680,7 +680,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         // cached data and trigger a fresh `initialPageAround`
                         let callback: () -> () = {
                             self?.dataCache = DataCache()
-                            self?.associatedRecords.forEach { $0.clearCache(db) }
+                            self?.associatedRecords.forEach { $0.clearCache() }
                             self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
                             self?.load(.initialPageAround(id: targetId))
                         }
@@ -837,15 +837,15 @@ public protocol ErasedAssociatedRecord {
     
     func settingPagedTableName(pagedTableName: String) -> Self
     func tryUpdateForDatabaseCommit(
-        _ db: Database,
+        _ db: ObservingDatabase,
         changes: Set<PagedData.TrackedChange>,
         joinSQL: SQL?,
         orderSQL: SQL,
         filterSQL: SQL,
         pageInfo: PagedData.PageInfo
     ) -> Bool
-    @discardableResult func updateCache(_ db: Database, rowIds: [Int64], hasOtherChanges: Bool) -> Bool
-    func clearCache(_ db: Database)
+    @discardableResult func updateCache(_ db: ObservingDatabase, rowIds: [Int64], hasOtherChanges: Bool) -> Bool
+    func clearCache()
     func updateAssociatedData<O>(to unassociatedCache: DataCache<O>) -> DataCache<O>
 }
 
@@ -1132,7 +1132,7 @@ public enum PagedData {
     // MARK: - Internal Functions
     
     fileprivate static func totalCount(
-        _ db: Database,
+        _ db: ObservingDatabase,
         tableName: String,
         requiredJoinSQL: SQL? = nil,
         filterSQL: SQL
@@ -1151,7 +1151,7 @@ public enum PagedData {
     }
     
     fileprivate static func rowIds(
-        _ db: Database,
+        _ db: ObservingDatabase,
         tableName: String,
         requiredJoinSQL: SQL? = nil,
         filterSQL: SQL,
@@ -1177,7 +1177,7 @@ public enum PagedData {
     }
     
     fileprivate static func index<ID: SQLExpressible>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for id: ID,
         tableName: String,
         idColumn: String,
@@ -1209,7 +1209,7 @@ public enum PagedData {
     ///
     /// **Note:** If the `associatedRecord` is null then the index for the rowId of the paged data type will be returned
     fileprivate static func indexes(
-        _ db: Database,
+        _ db: ObservingDatabase,
         rowIds: [Int64],
         tableName: String,
         requiredJoinSQL: SQL? = nil,
@@ -1241,7 +1241,7 @@ public enum PagedData {
     
     /// Returns the rowIds for the associated types based on the specified pagedTypeRowIds
     fileprivate static func associatedRowIds(
-        _ db: Database,
+        _ db: ObservingDatabase,
         tableName: String,
         pagedTableName: String,
         pagedTypeRowIds: [Int64],
@@ -1263,7 +1263,7 @@ public enum PagedData {
     
     /// Returns the rowIds for the paged type based on the specified relatedRowIds
     fileprivate static func pagedRowIdsForRelatedRowIds(
-        _ db: Database,
+        _ db: ObservingDatabase,
         tableName: String,
         pagedTableName: String,
         relatedRowIds: [Int64],
@@ -1324,7 +1324,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
     }
     
     public func tryUpdateForDatabaseCommit(
-        _ db: Database,
+        _ db: ObservingDatabase,
         changes: Set<PagedData.TrackedChange>,
         joinSQL: SQL?,
         orderSQL: SQL,
@@ -1422,7 +1422,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         )
     }
     
-    @discardableResult public func updateCache(_ db: Database, rowIds: [Int64], hasOtherChanges: Bool = false) -> Bool {
+    @discardableResult public func updateCache(_ db: ObservingDatabase, rowIds: [Int64], hasOtherChanges: Bool = false) -> Bool {
         // If there are no rowIds then stop here
         guard !rowIds.isEmpty else { return hasOtherChanges }
         
@@ -1449,7 +1449,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         }
     }
     
-    public func clearCache(_ db: Database) {
+    public func clearCache() {
         dataCache = DataCache()
     }
     

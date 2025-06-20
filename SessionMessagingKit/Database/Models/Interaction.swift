@@ -392,9 +392,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 Log.error("[Interaction] Could not update disappearing messages job due to missing transientDependencies.")
                 
             case (.some(let dependencies), .some):
+                let observableDb: ObservingDatabase = ObservingDatabase(db, using: dependencies)
                 dependencies[singleton: .jobRunner].upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
+                    observableDb,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(observableDb, using: dependencies),
                     canStartJob: true
                 )
         }
@@ -481,7 +482,7 @@ public extension Interaction {
         )
     }
     
-    func withDisappearingMessagesConfiguration(_ db: Database, threadVariant: SessionThread.Variant) -> Interaction {
+    func withDisappearingMessagesConfiguration(_ db: ObservingDatabase, threadVariant: SessionThread.Variant) -> Interaction {
         guard threadVariant != .community else { return self }
         
         if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
@@ -507,7 +508,7 @@ public extension Interaction {
     }
     
     static func fetchAppBadgeUnreadCount(
-        _ db: Database,
+        _ db: ObservingDatabase,
         using dependencies: Dependencies
     ) throws -> Int {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -548,7 +549,7 @@ public extension Interaction {
     ///   - includingOlder: Setting this to `true` will updated the `wasRead` flag for all older interactions as well
     ///   - trySendReadReceipt: Setting this to `true` will schedule a `ReadReceiptJob`
     static func markAsRead(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionId: Int64?,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -651,7 +652,7 @@ public extension Interaction {
     ///
     /// **Note:** This method won't update the 'wasRead' flag (it will be updated via the above method)
     @discardableResult static func markAsRecipientRead(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         timestampMsValues: [Int64],
         readTimestampMs: Int64,
@@ -730,7 +731,7 @@ public extension Interaction {
     }
     
     static func scheduleReadJobs(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         interactionInfo: [Interaction.ReadInfo],
@@ -914,7 +915,7 @@ public extension Interaction {
     }
     
     static func isUserMentioned(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         body: String?,
         quoteAuthorId: String? = nil,
@@ -972,7 +973,7 @@ public extension Interaction {
     
     /// Use the `Interaction.previewText` method directly where possible rather than this one to avoid database queries
     static func notificationPreviewText(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interaction: Interaction,
         using dependencies: Dependencies
     ) -> String {
@@ -1257,7 +1258,7 @@ public extension Interaction {
     /// When deleting a message we should also delete any reactions which were on the message, so fetch and
     /// return those hashes as well
     static func serverHashesForDeletion(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionIds: Set<Int64>,
         additionalServerHashesToRemove: [String] = []
     ) throws -> Set<String> {
@@ -1278,7 +1279,7 @@ public extension Interaction {
     }
     
     static func markAsDeleted(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         interactionIds: Set<Int64>,

@@ -206,7 +206,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Actions
     
-    public func startSessionCall(_ db: Database) {
+    public func startSessionCall(_ db: ObservingDatabase) {
         let sessionId: String = self.sessionId
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .outgoing)
         

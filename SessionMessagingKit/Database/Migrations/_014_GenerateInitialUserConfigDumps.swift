@@ -12,7 +12,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static let minExpectedRunDuration: TimeInterval = 4.0
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
         guard
             MigrationHelper.userExists(db),

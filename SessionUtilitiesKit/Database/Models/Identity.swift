@@ -70,14 +70,14 @@ public extension Identity {
         )
     }
 
-    static func store(_ db: Database, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) throws {
+    static func store(_ db: ObservingDatabase, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) throws {
         try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).upsert(db)
         try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).upsert(db)
         try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).upsert(db)
         try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).upsert(db)
     }
     
-    static func fetchUserKeyPair(_ db: Database) -> KeyPair? {
+    static func fetchUserKeyPair(_ db: ObservingDatabase) -> KeyPair? {
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .x25519PublicKey)?.data,
             let secretKey: Data = try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
@@ -89,7 +89,7 @@ public extension Identity {
         )
     }
     
-    static func fetchUserEd25519KeyPair(_ db: Database) -> KeyPair? {
+    static func fetchUserEd25519KeyPair(_ db: ObservingDatabase) -> KeyPair? {
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .ed25519PublicKey)?.data,
             let secretKey: Data = try? Identity.fetchOne(db, id: .ed25519SecretKey)?.data

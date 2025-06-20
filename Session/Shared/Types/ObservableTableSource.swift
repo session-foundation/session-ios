@@ -175,7 +175,7 @@ public enum ObservationBuilder {
     
     /// The `ValueObserveration` will trigger whenever any of the data fetched in the closure is updated, please see the following link for tips
     /// to help optimise performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> T) -> TableObservation<T> {
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> T) -> TableObservation<T> {
         /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
         /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
         /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
@@ -207,7 +207,9 @@ public enum ObservationBuilder {
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
-                                            .trackingConstantRegion(fetch)
+                                            .trackingConstantRegion { db in
+                                                try fetch(ObservingDatabase(db, using: dependencies))
+                                            }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
@@ -234,7 +236,7 @@ public enum ObservationBuilder {
         }
     }
     
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> [T]) -> TableObservation<[T]> {
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> [T]) -> TableObservation<[T]> {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?
@@ -262,7 +264,9 @@ public enum ObservationBuilder {
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
-                                            .trackingConstantRegion(fetch)
+                                            .trackingConstantRegion { db in
+                                                try fetch(ObservingDatabase(db, using: dependencies))
+                                            }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
@@ -287,6 +291,23 @@ public enum ObservationBuilder {
                 .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
                 .eraseToAnyPublisher()
         }
+    }
+    
+    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> AnyPublisher<T, Error> {
+        return ValueObservation
+            .trackingConstantRegion { db in
+                try fetch(ObservingDatabase(db, using: dependencies))
+            }
+            .removeDuplicates()
+            .publisher(in: dependencies[singleton: .storage], scheduling: .immediate)
+    }
+    
+    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<T>>> {
+        return ValueObservation
+            .trackingConstantRegion { db in
+                try fetch(ObservingDatabase(db, using: dependencies))
+            }
+            .removeDuplicates()
     }
     
     static func refreshableData<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping () -> T) -> TableObservation<T> {

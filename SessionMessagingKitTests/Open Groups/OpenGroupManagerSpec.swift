@@ -702,7 +702,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- stores the open group server
                 it("stores the open group server") {
                     mockStorage
-                        .writePublisher { (db: Database) -> Bool in
+                        .writePublisher { db -> Bool in
                             openGroupManager.add(
                                 db,
                                 roomToken: "testRoom",
@@ -723,13 +723,12 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(
-                        mockStorage
-                            .read { (db: Database) in
-                                try OpenGroup
-                                    .select(.threadId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            }
+                        mockStorage.read { db in
+                            try OpenGroup
+                                .select(.threadId)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                        }
                     )
                     .to(equal(OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1")))
                 }
@@ -737,7 +736,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- adds a poller
                 it("adds a poller") {
                     mockStorage
-                        .writePublisher { (db: Database) -> Bool in
+                        .writePublisher { db -> Bool in
                             openGroupManager.add(
                                 db,
                                 roomToken: "testRoom",
@@ -781,7 +780,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ does not reset the sequence number or update the public key
                     it("does not reset the sequence number or update the public key") {
                         mockStorage
-                            .writePublisher { (db: Database) -> Bool in
+                            .writePublisher { db -> Bool in
                                 openGroupManager.add(
                                     db,
                                     roomToken: "testRoom",
@@ -843,7 +842,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var error: Error?
                         
                         mockStorage
-                            .writePublisher { (db: Database) -> Bool in
+                            .writePublisher { db -> Bool in
                                 openGroupManager.add(
                                     db,
                                     roomToken: "testRoom",

@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleTypingIndicator(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: TypingIndicator,

@@ -51,7 +51,7 @@ public extension Message {
         }
         
         public static func from(
-            _ db: Database,
+            _ db: ObservingDatabase,
             threadId: String,
             threadVariant: SessionThread.Variant
         ) throws -> Message.Destination {

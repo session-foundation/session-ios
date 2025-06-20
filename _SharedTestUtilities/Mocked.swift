@@ -59,11 +59,11 @@ extension Dependencies {
 
 // MARK: - Conformance
 
-extension Database: Mocked {
-    static var mock: Database {
+extension ObservingDatabase: Mocked {
+    static var mock: Self {
         var result: Database!
         try! DatabaseQueue().read { result = $0 }
-        return result!
+        return ObservingDatabase(result!, using: .any) as! Self
     }
 }
 

@@ -101,7 +101,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         dependencies.warmCache(cache: .appVersion)
         
         /// Configure the different targets
-        SNUtilitiesKit.configure(networkMaxFileSize: Network.maxFileSize, using: dependencies)
+        SNUtilitiesKit.configure(
+            networkMaxFileSize: Network.maxFileSize,
+            observationNotifier: LibSession.handlePendingChanges(using: dependencies),
+            using: dependencies
+        )
         SNMessagingKit.configure(using: dependencies)
         
         /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
@@ -286,7 +290,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         sessionId: sessionId,
                         timestampMs: timestampMs
                     )
-                    return ([], nil)
+                    return nil
                 }
             )
         }

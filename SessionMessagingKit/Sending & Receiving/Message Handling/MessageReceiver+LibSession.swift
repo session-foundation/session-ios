@@ -47,7 +47,7 @@ extension MessageReceiver {
     }
     
     public static func handleLibSessionMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: LibSessionMessage,

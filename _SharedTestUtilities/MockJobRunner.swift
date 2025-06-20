@@ -44,15 +44,15 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job? {
+    @discardableResult func add(_ db: ObservingDatabase, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job? {
         return mock(args: [job, dependantJob, canStartJob], untrackedArgs: [db])
     }
     
-    func upsert(_ db: Database, job: Job?, canStartJob: Bool) -> Job? {
+    func upsert(_ db: ObservingDatabase, job: Job?, canStartJob: Bool) -> Job? {
         return mock(args: [job, canStartJob], untrackedArgs: [db])
     }
     
-    func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)? {
+    func insert(_ db: ObservingDatabase, job: Job?, before otherJob: Job) -> (Int64, Job)? {
         return mock(args: [job, otherJob], untrackedArgs: [db])
     }
     

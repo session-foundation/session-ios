@@ -16,7 +16,7 @@ extension MessageReceiver {
     )
     
     internal static func handleVisibleMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
@@ -504,7 +504,7 @@ extension MessageReceiver {
     }
     
     private static func handleEmojiReactIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         thread: SessionThread,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
@@ -627,7 +627,7 @@ extension MessageReceiver {
     }
     
     private static func updateRecipientAndReadStatesForOutgoingInteraction(
-        _ db: Database,
+        _ db: ObservingDatabase,
         thread: SessionThread,
         interactionId: Int64,
         messageSentTimestamp: TimeInterval,

@@ -14,7 +14,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: Database, requestId: String?) {
+    func loadState(_ db: ObservingDatabase, requestId: String?) {
         mockNoReturn(args: [requestId], untrackedArgs: [db])
     }
     
@@ -64,7 +64,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: Database) {
+    func syncAllPendingPushes(_ db: ObservingDatabase) {
         mockNoReturn(untrackedArgs: [db])
     }
     
@@ -73,7 +73,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     }
     
     func performAndPushChange(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
         change: @escaping (LibSession.Config?) throws -> ()
@@ -122,7 +122,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> LibSession.PostMergeResult
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
     ) throws -> [LibSession.MergeResult] {
         try mockThrowingNoReturn(args: [swarmPublicKey, messages])
         
@@ -145,7 +145,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     }
     
     func handleConfigMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {
@@ -193,8 +193,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         mockNoReturn(generics: [T.self], args: [key, value])
     }
     
-    func updateProfile(displayName: String, profilePictureUrl: String?, profileEncryptionKey: Data?) throws {
-        try mockThrowingNoReturn(args: [displayName, profilePictureUrl, profileEncryptionKey])
+    @discardableResult func updateProfile(displayName: String, displayPictureUrl: String?, displayPictureEncryptionKey: Data?) throws -> Profile? {
+        return try mockThrowing(args: [displayName, displayPictureUrl, displayPictureEncryptionKey])
     }
     
     func canPerformChange(
@@ -274,6 +274,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         visibleMessage: VisibleMessage?
     ) -> Profile? {
         return mock(args: [contactId, threadId, threadVariant, visibleMessage])
+    }
+    
+    func displayPictureUrl(threadId: String, threadVariant: SessionThread.Variant) -> String? {
+        return mock(args: [threadId, threadVariant])
     }
     
     func hasCredentials(groupSessionId: SessionId) -> Bool {

@@ -10,7 +10,7 @@ extension MessageSender {
     // MARK: - Durable
     
     public static func send(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interaction: Interaction,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -33,7 +33,7 @@ extension MessageSender {
     }
     
     public static func send(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         interactionId: Int64?,
         threadId: String,
@@ -54,7 +54,7 @@ extension MessageSender {
     }
     
     public static func send(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         threadId: String?,
         interactionId: Int64?,
@@ -133,7 +133,7 @@ extension MessageSender {
     }
     
     internal static func handleMessageWillSend(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         destination: Message.Destination,
         interactionId: Int64?
@@ -159,7 +159,7 @@ extension MessageSender {
     }
     
     private static func handleSuccessfulMessageSend(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
@@ -282,7 +282,7 @@ extension MessageSender {
     }
 
     @discardableResult internal static func handleFailedMessageSend(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         destination: Message.Destination?,
         error: MessageSenderError,
@@ -335,7 +335,7 @@ extension MessageSender {
         return error
     }
     
-    private static func interaction(_ db: Database, for message: Message, interactionId: Int64?) throws -> Interaction? {
+    private static func interaction(_ db: ObservingDatabase, for message: Message, interactionId: Int64?) throws -> Interaction? {
         if let interactionId: Int64 = interactionId {
             return try Interaction.fetchOne(db, id: interactionId)
         }
@@ -350,7 +350,7 @@ extension MessageSender {
     }
     
     private static func scheduleSyncMessageIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: Message,
         destination: Message.Destination,
         threadId: String?,
@@ -389,7 +389,7 @@ extension MessageSender {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage {
-    static func from(_ db: Database, interaction: Interaction) -> VisibleMessage {
+    static func from(_ db: ObservingDatabase, interaction: Interaction) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
         let visibleMessage: VisibleMessage = VisibleMessage(

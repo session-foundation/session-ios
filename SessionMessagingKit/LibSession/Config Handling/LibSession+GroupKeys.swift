@@ -25,7 +25,7 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleGroupKeysUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         groupSessionId: SessionId
     ) throws {
@@ -89,7 +89,7 @@ public extension LibSession.Cache {
 
 internal extension LibSession {
     static func rekey(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
@@ -112,7 +112,7 @@ internal extension LibSession {
     }
     
     static func keySupplement(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberIds: Set<String>,
         using dependencies: Dependencies
@@ -147,7 +147,7 @@ internal extension LibSession {
     }
     
     static func loadAdminKey(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupIdentitySeed: Data,
         groupSessionId: SessionId,
         using dependencies: Dependencies

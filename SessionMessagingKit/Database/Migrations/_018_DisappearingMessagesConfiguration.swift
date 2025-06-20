@@ -10,7 +10,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "disappearingMessagesConfiguration") { t in
             t.add(column: "type", .integer)
         }

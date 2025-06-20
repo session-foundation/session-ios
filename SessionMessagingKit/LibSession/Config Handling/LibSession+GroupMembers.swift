@@ -25,7 +25,7 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleGroupMembersUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         groupSessionId: SessionId,
         serverTimestampMs: Int64
@@ -186,7 +186,7 @@ internal extension LibSession {
     }
     
     static func addMembers(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         members: [(id: String, profile: Profile?)],
         allowAccessToHistoricMessages: Bool,
@@ -232,7 +232,7 @@ internal extension LibSession {
     }
     
     static func updateMemberStatus(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberId: String,
         role: GroupMember.Role,
@@ -277,7 +277,7 @@ internal extension LibSession {
     }
     
     static func updateMemberProfile(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberId: String,
         profile: Profile?,
@@ -317,7 +317,7 @@ internal extension LibSession {
     }
     
     static func flagMembersForRemoval(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberIds: Set<String>,
         removeMessages: Bool,
@@ -338,7 +338,7 @@ internal extension LibSession {
     }
     
     static func removeMembers(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberIds: Set<String>,
         using dependencies: Dependencies
@@ -357,7 +357,7 @@ internal extension LibSession {
     }
     
     static func updatingGroupMembers<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {

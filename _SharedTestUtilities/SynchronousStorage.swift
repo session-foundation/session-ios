@@ -7,14 +7,14 @@ import GRDB
 
 class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
     public var dependencies: Dependencies
-    private let initialData: ((Database) throws -> ())?
+    private let initialData: ((ObservingDatabase) throws -> ())?
     
     public init(
         customWriter: DatabaseWriter? = nil,
         migrationTargets: [MigratableTarget.Type]? = nil,
         migrations: [Storage.KeyedMigration]? = nil,
         using dependencies: Dependencies,
-        initialData: ((Database) throws -> ())? = nil
+        initialData: ((ObservingDatabase) throws -> ())? = nil
     ) {
         self.dependencies = dependencies
         self.initialData = initialData
@@ -53,7 +53,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
     // MARK: - InitialSetupable
     
     func performInitialSetup() {
-        guard let closure: ((Database) throws -> ()) = initialData else { return }
+        guard let closure: ((ObservingDatabase) throws -> ()) = initialData else { return }
         
         write { db in try closure(db) }
     }
@@ -64,7 +64,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T?
+        updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -76,7 +76,9 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
             let result: T?
             let didThrow: Bool
             do {
-                result = try dbWriter.unsafeReentrantWrite(updates)
+                result = try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                    try updates(ObservingDatabase(db, using: dependencies))
+                }
                 didThrow = false
             }
             catch {
@@ -115,7 +117,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        _ value: @escaping (Database) throws -> T?
+        _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -127,7 +129,9 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
             let result: T?
             let didThrow: Bool
             do {
-                result = try dbWriter.unsafeReentrantRead(value)
+                result = try dbWriter.unsafeReentrantRead { [dependencies] db in
+                    try value(ObservingDatabase(db, using: dependencies))
+                }
                 didThrow = false
             }
             catch {
@@ -168,7 +172,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        value: @escaping (Database) throws -> T
+        value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
@@ -182,7 +186,11 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         guard !dependencies.forceSynchronous else {
             return Just(())
                 .setFailureType(to: Error.self)
-                .tryMap { _ in try dbWriter.unsafeReentrantRead(value) }
+                .tryMap { [dependencies] _ in
+                    try dbWriter.unsafeReentrantRead { [dependencies] db in
+                        try value(ObservingDatabase(db, using: dependencies))
+                    }
+                }
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
                         try? dbWriter.unsafeReentrantRead { db in
@@ -211,7 +219,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T,
+        updates: @escaping (ObservingDatabase) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void
     ) {
         do {
@@ -227,7 +235,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T
+        updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
@@ -241,7 +249,11 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         guard !dependencies.forceSynchronous else {
             return Just(())
                 .setFailureType(to: Error.self)
-                .tryMap { _ in try dbWriter.unsafeReentrantWrite(updates) }
+                .tryMap { [dependencies] _ in
+                    try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                        try updates(ObservingDatabase(db, using: dependencies))
+                    }
+                }
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
                         dbWriter.unsafeReentrantWrite { db in

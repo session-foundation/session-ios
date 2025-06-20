@@ -109,7 +109,7 @@ public extension Quote {
 // MARK: - Protobuf
 
 public extension Quote {
-    init?(_ db: Database, proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
+    init?(proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
         guard
             let quoteProto = proto.quote,
             quoteProto.id != 0,

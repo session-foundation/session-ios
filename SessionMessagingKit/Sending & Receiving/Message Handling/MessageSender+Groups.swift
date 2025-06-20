@@ -1252,7 +1252,7 @@ extension MessageSender {
     /// This function also removes all encryption key pairs associated with the closed group and the group's public key, and
     /// unregisters from push notifications.
     public static func leave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies

@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import DifferenceKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 public struct EmojiWithSkinTones: Hashable, Equatable, ContentEquatable, ContentIdentifiable {
     let baseEmoji: Emoji?
@@ -55,7 +56,7 @@ public struct EmojiWithSkinTones: Hashable, Equatable, ContentEquatable, Content
 }
 
 extension Emoji {
-    static func getRecent(_ db: Database, withDefaultEmoji: Bool) throws -> [String] {
+    static func getRecent(_ db: ObservingDatabase, withDefaultEmoji: Bool) throws -> [String] {
         let recentReactionEmoji: [String] = (db[.recentReactionEmoji]?
             .components(separatedBy: ","))
             .defaulting(to: [])
@@ -72,7 +73,7 @@ extension Emoji {
             .prefix(6))
     }
     
-    static func addRecent(_ db: Database, emoji: String) {
+    static func addRecent(_ db: ObservingDatabase, emoji: String) {
         // Add/move the emoji to the start of the most recent list
         db[.recentReactionEmoji] = (db[.recentReactionEmoji]?
             .components(separatedBy: ","))
@@ -83,7 +84,7 @@ extension Emoji {
             .joined(separator: ",")
     }
 
-    static func allSendableEmojiByCategoryWithPreferredSkinTones(_ db: Database) -> [Category: [EmojiWithSkinTones]] {
+    static func allSendableEmojiByCategoryWithPreferredSkinTones(_ db: ObservingDatabase) -> [Category: [EmojiWithSkinTones]] {
         return Category.allCases
             .reduce(into: [Category: [EmojiWithSkinTones]]()) { result, category in
                 result[category] = category.normalizedEmoji
@@ -92,7 +93,7 @@ extension Emoji {
             }
     }
 
-    private func withPreferredSkinTones(_ db: Database) -> EmojiWithSkinTones {
+    private func withPreferredSkinTones(_ db: ObservingDatabase) -> EmojiWithSkinTones {
         guard let rawSkinTones: String = db[.emojiPreferredSkinTones(emoji: rawValue)] else {
             return EmojiWithSkinTones(baseEmoji: self, skinTones: nil)
         }
@@ -105,7 +106,7 @@ extension Emoji {
         )
     }
 
-    func setPreferredSkinTones(_ db: Database, preferredSkinTonePermutation: [SkinTone]?) {
+    func setPreferredSkinTones(_ db: ObservingDatabase, preferredSkinTonePermutation: [SkinTone]?) {
         db[.emojiPreferredSkinTones(emoji: rawValue)] = preferredSkinTonePermutation
             .map { preferredSkinTonePermutation in
                 preferredSkinTonePermutation

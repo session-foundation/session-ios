@@ -263,10 +263,10 @@ open class Storage {
     
     public typealias KeyedMigration = (key: String, identifier: TargetMigrations.Identifier, migration: Migration.Type)
     
-    public static func appliedMigrationIdentifiers(_ db: Database) -> Set<String> {
+    public static func appliedMigrationIdentifiers(_ db: ObservingDatabase) -> Set<String> {
         let migrator: DatabaseMigrator = DatabaseMigrator()
         
-        return (try? migrator.appliedIdentifiers(db))
+        return (try? migrator.appliedIdentifiers(db.originalDb))
             .defaulting(to: [])
     }
     
@@ -429,7 +429,7 @@ open class Storage {
     }
     
     public func willStartMigration(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ migration: Migration.Type,
         _ identifier: TargetMigrations.Identifier
     ) {
@@ -616,20 +616,21 @@ open class Storage {
     private static func performOperation<T>(
         _ info: CallInfo,
         _ dbWriter: DatabaseWriter,
-        _ operation: @escaping (Database) throws -> T,
+        _ operation: @escaping (ObservingDatabase) throws -> T,
         _ dependencies: Dependencies
     ) async -> Result<T, Error> {
         await withThrowingTaskGroup(of: T.self) { group in
             /// Add the task to perform the actual database operation
             group.addTask {
-                let trackedOperation: @Sendable (Database) throws -> T = { db in
+                let trackedOperation: @Sendable (Database) throws -> (result: T, changes: [ObservingDatabase.Change]) = { db in
                     info.start()
                     guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
                     guard info.storage?.isSuspended == false else {
                         throw StorageError.databaseSuspended
                     }
                     
-                    let result: T = try operation(db)
+                    let observingDatabase: ObservingDatabase = ObservingDatabase(db, using: dependencies)
+                    let result: T = try operation(observingDatabase)
                     
                     /// Update the state flags
                     switch info.isWrite {
@@ -637,7 +638,7 @@ open class Storage {
                         case false: info.storage?.hasSuccessfullyRead = true
                     }
                     
-                    return result
+                    return (result, observingDatabase.changes)
                 }
                 
                 /// Do this outside of the actually db operation as it's more for debugging queries running on the main thread
@@ -646,10 +647,15 @@ open class Storage {
                     try await Task.sleep(for: .seconds(1))
                 }
                 
-                return (info.isWrite ?
+                let output: (result: T, changes: [ObservingDatabase.Change]) = (info.isWrite ?
                     try await dbWriter.write(trackedOperation) :
                     try await dbWriter.read(trackedOperation)
                 )
+                
+                /// Trigger the observations
+                Task { await SNUtilitiesKit.observationNotifier.notify(output.changes) }
+                
+                return output.result
             }
             
             /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
@@ -708,7 +714,7 @@ open class Storage {
     @discardableResult private func performOperation<T>(
         _ info: CallInfo,
         _ dependencies: Dependencies,
-        _ operation: @escaping (Database) throws -> T,
+        _ operation: @escaping (ObservingDatabase) throws -> T,
         _ asyncCompletion: ((Result<T, Error>) -> Void)? = nil
     ) -> Result<T, Error> {
         /// Ensure we are in a valid state
@@ -770,7 +776,7 @@ open class Storage {
         _ functionName: String,
         _ lineNumber: Int,
         isWrite: Bool,
-        _ operation: @escaping (Database) throws -> T
+        _ operation: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .asyncWrite : .asyncRead))
         
@@ -840,7 +846,7 @@ open class Storage {
         _ functionName: String,
         _ lineNumber: Int,
         isWrite: Bool,
-        _ operation: @escaping (Database) throws -> T
+        _ operation: @escaping (ObservingDatabase) throws -> T
     ) async throws -> T {
         let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .swiftConcurrencyWrite : .swiftConcurrencyRead))
         let storageState: StorageState = StorageState(self)
@@ -893,7 +899,7 @@ open class Storage {
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        updates: @escaping (Database) throws -> T?
+        updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         switch performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
             case .failure: return nil
@@ -905,7 +911,7 @@ open class Storage {
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        updates: @escaping (Database) throws -> T,
+        updates: @escaping (ObservingDatabase) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void = { _ in }
     ) {
         performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
@@ -915,7 +921,7 @@ open class Storage {
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        updates: @escaping (Database) throws -> T
+        updates: @escaping (ObservingDatabase) throws -> T
     ) async throws -> T {
         return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: true, updates)
     }
@@ -924,7 +930,7 @@ open class Storage {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T
+        updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         return performPublisherOperation(fileName, functionName, lineNumber, isWrite: true, updates)
     }
@@ -933,7 +939,7 @@ open class Storage {
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        _ value: @escaping (Database) throws -> T?
+        _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         switch performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
             case .failure: return nil
@@ -945,7 +951,7 @@ open class Storage {
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        value: @escaping (Database) throws -> T
+        value: @escaping (ObservingDatabase) throws -> T
     ) async throws -> T {
         return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: false, value)
     }
@@ -954,7 +960,7 @@ open class Storage {
         fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        value: @escaping (Database) throws -> T
+        value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         return performPublisherOperation(fileName, functionName, lineNumber, isWrite: false, value)
     }
@@ -1062,13 +1068,13 @@ public extension ValueObservation {
 }
 
 public extension Publisher where Failure == Error {
-    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (Database, Output) throws -> T) -> AnyPublisher<T, Error> {
+    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
         return self.flatMap { output -> AnyPublisher<T, Error> in
             dependencies[singleton: .storage].writePublisher(updates: { db in try updates(db, output) })
         }.eraseToAnyPublisher()
     }
     
-    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (Database, Output) throws -> T) -> AnyPublisher<T, Error> {
+    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
         return self.flatMap { output -> AnyPublisher<T, Error> in
             dependencies[singleton: .storage].readPublisher(value: { db in try value(db, output) })
         }.eraseToAnyPublisher()

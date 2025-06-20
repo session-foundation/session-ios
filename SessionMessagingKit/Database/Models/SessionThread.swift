@@ -250,7 +250,7 @@ public extension SessionThread {
     ///
     /// **Note:** This method **will** save the newly created/updated `SessionThread` to the database
     @discardableResult static func upsert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         id: ID,
         variant: Variant,
         values: TargetValues,
@@ -410,7 +410,7 @@ public extension SessionThread {
     }
     
     static func canSendReadReceipt(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant maybeThreadVariant: SessionThread.Variant? = nil,
         isBlocked maybeIsBlocked: Bool? = nil,
@@ -453,7 +453,7 @@ public extension SessionThread {
     }
     
     @available(*, unavailable, message: "should not be used until pin re-ordering is built")
-    static func refreshPinnedPriorities(_ db: Database, adding threadId: String) throws {
+    static func refreshPinnedPriorities(_ db: ObservingDatabase, adding threadId: String) throws {
         struct PinnedPriority: TableRecord, ColumnExpressible {
             public typealias Columns = CodingKeys
             public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -505,7 +505,7 @@ public extension SessionThread {
     }
     
     static func deleteOrLeave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         type: SessionThread.DeletionType,
         threadId: String,
         threadVariant: Variant,
@@ -521,7 +521,7 @@ public extension SessionThread {
     }
     
     static func deleteOrLeave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         type: SessionThread.DeletionType,
         threadIds: [String],
         threadVariant: Variant,

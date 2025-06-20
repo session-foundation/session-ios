@@ -424,7 +424,7 @@ public extension Message {
     }
     
     static func processRawReceivedReactions(
-        _ db: Database,
+        _ db: ObservingDatabase,
         openGroupId: String,
         message: OpenGroupAPI.Message,
         associatedPendingChanges: [OpenGroupAPI.PendingChange],

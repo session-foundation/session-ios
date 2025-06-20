@@ -17,7 +17,7 @@ public extension Log.Category {
 
 extension MessageReceiver {
     public static func handleCallMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
@@ -68,7 +68,7 @@ extension MessageReceiver {
     // MARK: - Specific Handling
     
     private static func handleNewCallMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
@@ -271,7 +271,7 @@ extension MessageReceiver {
         }
     }
     
-    private static func handleOfferCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) {
+    private static func handleOfferCallMessage(_ db: ObservingDatabase, message: CallMessage, using dependencies: Dependencies) {
         Log.info(.calls, "Received offer message.")
         
         // Ensure we have a call manager before continuing
@@ -286,7 +286,7 @@ extension MessageReceiver {
     }
     
     private static func handleAnswerCallMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: CallMessage,
         using dependencies: Dependencies
     ) {
@@ -315,7 +315,7 @@ extension MessageReceiver {
     }
     
     private static func handleEndCallMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: CallMessage,
         using dependencies: Dependencies
     ) {
@@ -341,7 +341,7 @@ extension MessageReceiver {
     // MARK: - Convenience
     
     public static func handleIncomingCallOfferInBusyState(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
@@ -435,7 +435,7 @@ extension MessageReceiver {
     }
     
     @discardableResult public static func insertCallInfoMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         for message: CallMessage,

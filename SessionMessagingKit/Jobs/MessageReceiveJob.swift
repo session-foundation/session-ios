@@ -52,22 +52,28 @@ public enum MessageReceiveJob: JobExecutor {
             }
         
         dependencies[singleton: .storage].writeAsync(
-            updates: { db -> ([MessageReceiver.InsertedInteractionInfo?], Error?) in
-                var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
-                
+            updates: { db -> Error? in
                 for (messageInfo, protoContent) in messageData {
                     do {
-                        insertedInteractionInfo.append(
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: threadId,
-                                threadVariant: messageInfo.threadVariant,
-                                message: messageInfo.message,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: protoContent,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
+                        let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
+                            db,
+                            threadId: threadId,
+                            threadVariant: messageInfo.threadVariant,
+                            message: messageInfo.message,
+                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                            associatedWithProto: protoContent,
+                            suppressNotifications: false,
+                            using: dependencies
+                        )
+                        
+                        /// Notify about the received message
+                        MessageReceiver.prepareNotificationsForInsertedInteractions(
+                            db,
+                            insertedInteractionInfo: info,
+                            isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
+                                cache.isMessageRequest(threadId: threadId, threadVariant: messageInfo.threadVariant)
+                            },
+                            using: dependencies
                         )
                     }
                     catch {
@@ -101,28 +107,20 @@ public enum MessageReceiveJob: JobExecutor {
                 
                 // If any messages failed to process then we want to update the job to only include
                 // those failed messages
-                guard !remainingMessagesToProcess.isEmpty else { return (insertedInteractionInfo, nil) }
+                guard !remainingMessagesToProcess.isEmpty else { return nil }
                 
                 updatedJob = try job
                     .with(details: Details(messages: remainingMessagesToProcess))
                     .defaulting(to: job)
                     .upserted(db)
                 
-                return (insertedInteractionInfo, lastError)
+                return lastError
             },
             completion: { result in
                 // Handle the result
                 switch result {
                     case .failure(let error): failure(updatedJob, error, false)
-                    case .success((let insertedInteractionInfo, let lastError)):
-                        /// Notify about the received messages
-                        Task { [dependencies] in
-                            await MessageReceiver.notifyForInsertedInteractions(
-                                insertedInteractionInfo,
-                                using: dependencies
-                            )
-                        }
-                        
+                    case .success(let lastError):
                         /// Report the result of the job
                         switch lastError {
                             case let error as MessageReceiverError where !error.isRetryable:

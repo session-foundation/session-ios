@@ -37,7 +37,7 @@ public extension LibSession {
             self.dependencies = dependencies
         }
         
-        public func upsert(_ db: Database) throws {
+        public func upsert(_ db: ObservingDatabase) throws {
             /// If we don't need to dump or push then don't bother continuing
             guard needsDump || (needsPush && !skipAutomaticConfigSync) else { return }
             
