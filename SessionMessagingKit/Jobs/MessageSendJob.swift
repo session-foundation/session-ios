@@ -203,10 +203,15 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         dependencies[singleton: .storage]
-            .readPublisher(value: { db -> AuthenticationMethod in
+            .readPublisher(value: { [dependencies] db -> AuthenticationMethod in
                 try Authentication.with(
                     db,
-                    threadId: threadId,
+                    threadId: {
+                        switch details.destination {
+                            case .syncMessage: return dependencies[cache: .general].sessionId.hexString
+                            default: return threadId
+                        }
+                    }(),
                     threadVariant: details.destination.threadVariant,
                     using: dependencies
                 )
