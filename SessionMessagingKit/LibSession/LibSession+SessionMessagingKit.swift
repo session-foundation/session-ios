@@ -702,15 +702,11 @@ public extension LibSession {
                 .reduce(into: PendingPushes()) { result, info in
                     guard let config: Config = configStore[info.sessionId, info.variant] else { return }
                     
-                    // Add any obsolete hashes to be removed (want to do this even if there isn't a pending push
-                    // to ensure we clean things up)
-                    result.append(hashes: config.obsoleteHashes())
-                    
-                    // Only generate the push data if we need to do a push
+                    /// Only generate the push data if we need to do a push
                     guard config.needsPush else { return }
                     
-                    // Try to generate the push data (will throw if there is an error)
-                    try result.append(data: config.push(variant: info.variant))
+                    /// Try to generate the push data (will throw if there is an error)
+                    try result.append(config.push(variant: info.variant))
                 }
         }
         

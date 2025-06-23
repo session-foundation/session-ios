@@ -75,11 +75,10 @@ public enum ConfigurationSyncJob: JobExecutor {
             return failure(job, StorageError.generic, false)
         }
         
-        /// If there is no `pushData`, `obsoleteHashes` or additional sequence requests then the job can just complete (next time
-        /// something is updated we want to try and run immediately so don't scuedule another run in this case)
+        /// If there is no `pushData` or additional sequence requests then the job can just complete (next time something is updated
+        /// we want to try and run immediately so don't scuedule another run in this case)
         guard
             !pendingPushes.pushData.isEmpty ||
-            !pendingPushes.obsoleteHashes.isEmpty ||
             job.transientData != nil
         else {
             Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")

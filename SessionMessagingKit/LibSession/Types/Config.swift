@@ -126,7 +126,7 @@ public extension LibSession {
         
         // MARK: - Functions
         
-        func push(variant: ConfigDump.Variant) throws -> PendingPushes.PushData? {
+        func push(variant: ConfigDump.Variant) throws -> PendingPushes? {
             switch self {
                 case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
                     .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
@@ -152,13 +152,20 @@ public extension LibSession {
                                 )
                             )
                         }
+                    let obsoleteHashes: [String] = [String](
+                        cStringArray: cPushData.pointee.obsolete,
+                        count: cPushData.pointee.obsolete_len
+                    ).defaulting(to: [])
                     let seqNo: Int64 = cPushData.pointee.seqno
                     free(UnsafeMutableRawPointer(mutating: cPushData))
                     
-                    return PendingPushes.PushData(
-                        data: allPushData,
-                        seqNo: seqNo,
-                        variant: variant
+                    return PendingPushes(
+                        pushData: PendingPushes.PushData(
+                            data: allPushData,
+                            seqNo: seqNo,
+                            variant: variant
+                        ),
+                        obsoleteHashes: Set(obsoleteHashes)
                     )
                     
                 case .groupKeys(let conf, _, _):
@@ -167,10 +174,12 @@ public extension LibSession {
                     
                     guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else { return nil }
                     
-                    return PendingPushes.PushData(
-                        data: [Data(bytes: pushResult, count: pushResultLen)],
-                        seqNo: 0,
-                        variant: variant
+                    return PendingPushes(
+                        pushData: PendingPushes.PushData(
+                            data: [Data(bytes: pushResult, count: pushResultLen)],
+                            seqNo: 0,
+                            variant: variant
+                        )
                     )
             }
         }
@@ -235,25 +244,6 @@ public extension LibSession {
                     
                 case .groupKeys(let conf, _, _):
                     guard let hashList: UnsafeMutablePointer<config_string_list> = groups_keys_active_hashes(conf) else {
-                        return []
-                    }
-                    
-                    let result: [String] = [String](
-                        cStringArray: hashList.pointee.value,
-                        count: hashList.pointee.len
-                    ).defaulting(to: [])
-                    free(UnsafeMutableRawPointer(mutating: hashList))
-                    
-                    return result
-            }
-        }
-        
-        func obsoleteHashes() -> [String] {
-            switch self {
-                case .groupKeys: return []
-                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
-                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
-                    guard let hashList: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
                         return []
                     }
                     
@@ -359,6 +349,18 @@ public extension LibSession {
         init(pushData: [PushData] = [], obsoleteHashes: Set<String> = []) {
             self.pushData = pushData
             self.obsoleteHashes = obsoleteHashes
+        }
+        
+        init(pushData: PushData, obsoleteHashes: Set<String> = []) {
+            self.pushData = [pushData]
+            self.obsoleteHashes = obsoleteHashes
+        }
+        
+        mutating func append(_ data: PendingPushes?) {
+            guard let data: PendingPushes = data else { return }
+            
+            pushData.append(contentsOf: data.pushData)
+            obsoleteHashes.insert(contentsOf: data.obsoleteHashes)
         }
         
         mutating func append(data: PushData? = nil, hashes: [String] = []) {
