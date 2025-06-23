@@ -19,8 +19,6 @@ public extension Singleton {
 // MARK: - SessionApp
 
 public class SessionApp: SessionAppType {
-    public static let maxMessageCharacterCount: Int = 2000
-    
     private let dependencies: Dependencies
     private var homeViewController: HomeVC?
     

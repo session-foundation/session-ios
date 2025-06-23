@@ -890,6 +890,7 @@ public extension LibSession {
 public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
+    var isSessionPro: Bool { get }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
 }
@@ -900,6 +901,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
+    var isSessionPro: Bool { get }
     
     // MARK: - State Management
     

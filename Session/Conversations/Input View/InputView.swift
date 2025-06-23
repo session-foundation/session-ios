@@ -11,11 +11,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     // MARK: - Variables
     
     private static let linkPreviewViewInset: CGFloat = 6
+    private static let thresholdForCharacterLimit: Int = 200
 
     private var disposables: Set<AnyCancellable> = Set()
     private let dependencies: Dependencies
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
+    
+    private var isSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -80,7 +83,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
 
     private lazy var sendButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
+        let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), delegate: self)
         result.isHidden = true
         result.accessibilityIdentifier = "Send message button"
         result.accessibilityLabel = "Send message button"
@@ -146,6 +149,24 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         label.lineBreakMode = .byWordWrapping
 
         return label
+    }()
+    
+    private lazy var characterLimitLabel: UILabel = {
+        let label: UILabel = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: Values.smallFontSize)
+        label.themeTextColor = .textPrimary
+        label.textAlignment = .center
+        label.alpha = 0
+        
+        return label
+    }()
+    
+    private lazy var sessionProBadge: SessionProBadge = {
+        let result: SessionProBadge = SessionProBadge(size: .small)
+        result.isHidden = true
+        
+        return result
     }()
 
     private lazy var additionalContentContainer = UIView()
@@ -219,6 +240,15 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         mainStackView.pin(.top, to: .bottom, of: separator)
         mainStackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self)
         mainStackView.pin(.bottom, to: .bottom, of: self)
+        
+        // Pro stack view
+        let proStackView = UIStackView(arrangedSubviews: [ characterLimitLabel, sessionProBadge ])
+        proStackView.axis = .vertical
+        proStackView.spacing = Values.verySmallSpacing
+        proStackView.alignment = .center
+        addSubview(proStackView)
+        proStackView.pin(.bottom, to: .bottom, of: inputTextView)
+        proStackView.center(.horizontal, in: sendButton)
 
         addSubview(disabledInputLabel)
 
@@ -244,6 +274,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
         invalidateIntrinsicContentSize()
+        self.bottomStackView?.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
     }
 
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
@@ -251,6 +282,15 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         sendButton.isHidden = !hasText
         voiceMessageButtonContainer.isHidden = hasText
         autoGenerateLinkPreviewIfPossible()
+        
+        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
+            for: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: isSessionPro
+        )
+        characterLimitLabel.text = "\(numberOfCharactersLeft)"
+        characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
+        characterLimitLabel.alpha = (numberOfCharactersLeft < Self.thresholdForCharacterLimit) ? 1 : 0
+        
         delegate?.inputTextViewDidChangeContent(inputTextView)
     }
 

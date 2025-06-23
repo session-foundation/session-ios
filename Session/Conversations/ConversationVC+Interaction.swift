@@ -539,11 +539,41 @@ extension ConversationVC:
     // MARK: --Message Sending
     
     func handleSendButtonTapped() {
+        let isSessionPro: Bool = viewModel.dependencies[cache: .libSession].isSessionPro
+        guard LibSession.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: isSessionPro
+        ) >= 0 else {
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: isSessionPro)
+            return
+        }
+        
         sendMessage(
             text: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
             linkPreviewDraft: snInputView.linkPreviewInfo?.draft,
             quoteModel: snInputView.quoteDraftInfo?.model
         )
+    }
+    
+    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        guard !isSessionPro else {
+            // TODO: Show Session Pro CTA
+            return
+        }
+        
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "Message Too Long",
+                body: .attributedText(
+                    "blockUnblockName"
+                        .put(key: "name", value: viewModel.threadData.displayName)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
     }
 
     func sendMessage(
