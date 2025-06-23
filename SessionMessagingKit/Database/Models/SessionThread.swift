@@ -26,7 +26,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case variant
         case creationDateTimestamp
         case shouldBeVisible
-        @available(*, deprecated, message: "use 'pinnedPriority > 0' instead") case isPinned
         case messageDraft
         case notificationSound
         case mutedUntilTimestamp
@@ -59,10 +58,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A flag indicating whether the thread should be visible
     public let shouldBeVisible: Bool
-    
-    /// A flag indicating whether the thread is pinned
-    @available(*, deprecated, message: "use 'pinnedPriority > 0' instead")
-    private var isPinned: Bool = false
     
     /// The value the user started entering into the input field before they left the conversation screen
     public let messageDraft: String?

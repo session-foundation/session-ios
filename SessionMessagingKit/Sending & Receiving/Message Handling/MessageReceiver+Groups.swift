@@ -144,18 +144,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .contactRemove }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 using: dependencies
@@ -259,18 +248,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .contactRemove }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 using: dependencies
@@ -630,18 +608,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .contactRemove }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 using: dependencies
@@ -658,8 +625,9 @@ extension MessageReceiver {
                     Profile(
                         id: sender,
                         name: $0,
-                        profilePictureUrl: profile.profilePictureUrl,
-                        profileEncryptionKey: profile.profileKey
+                        displayPictureUrl: profile.profilePictureUrl,
+                        displayPictureEncryptionKey: profile.profileKey,
+                        displayPictureLastUpdated: (Double(sentTimestampMs) / 1000)
                     )
                 }
             },

@@ -1,6 +1,7 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVFoundation
 import SessionUIKit
 import SessionSnodeKit
 import SessionUtilitiesKit
@@ -84,36 +85,16 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         }
     }
     
-    func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage {
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        var cachedIcon: UIImage?
-        
-        Task {
-            switch await dependencies[singleton: .imageDataManager].cachedImage(identifier: cacheKey)?.type {
-                case .staticImage(let image): cachedIcon = image
-                case .animatedImage(let frames, _): cachedIcon = frames.first // Shouldn't be possible
-                case .none: break
-            }
-            
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        switch cachedIcon {
-            case .some(let image): return image
-            case .none:
-                let generatedImage: UIImage = generator()
-                Task {
-                    await dependencies[singleton: .imageDataManager].cacheImage(
-                        generatedImage,
-                        for: cacheKey
-                    )
-                }
-                return generatedImage
-        }
-    }
-    
     func shouldShowStringKeys() -> Bool {
         return dependencies[feature: .showStringKeys]
+    }
+    
+    func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+        return AVURLAsset.asset(
+            for: path,
+            mimeType: mimeType,
+            sourceFilename: sourceFilename,
+            using: dependencies
+        )
     }
 }

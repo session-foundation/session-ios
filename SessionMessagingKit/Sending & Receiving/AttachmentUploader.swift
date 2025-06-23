@@ -204,12 +204,15 @@ public final class AttachmentUploader {
                         (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     ),
                     downloadUrl: {
-                        switch (uploadInfo.attachment.downloadUrl, destination) {
-                            case (.some(let downloadUrl), _): return downloadUrl
-                            case (.none, .fileServer):
+                        let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
+                            .isPlaceholderUploadUrl(uploadInfo.attachment.downloadUrl)
+                        
+                        switch (uploadInfo.attachment.downloadUrl, isPlaceholderUploadUrl, destination) {
+                            case (.some(let downloadUrl), false, _): return downloadUrl
+                            case (_, _, .fileServer):
                                 return Network.FileServer.downloadUrlString(for: response.id)
                                 
-                            case (.none, .community(let info)):
+                            case (_, _, .community(let info)):
                                 return OpenGroupAPI.downloadUrlString(
                                     for: response.id,
                                     server: info.server,

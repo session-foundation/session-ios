@@ -773,6 +773,44 @@ public extension LibSession.Cache {
         }
     }
     
+    func displayPictureUrl(threadId: String, threadVariant: SessionThread.Variant) -> String? {
+        switch threadVariant {
+            case .contact where threadId == userSessionId.hexString:
+                guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+                    return nil
+                }
+                
+                let profilePic: user_profile_pic = user_profile_get_pic(conf)
+                return profilePic.get(\.url, nullIfEmpty: true)
+                
+            case .contact:
+                var contact: contacts_contact = contacts_contact()
+                
+                guard case .contacts(let conf) = config(for: .contacts, sessionId: userSessionId) else {
+                    return nil
+                }
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    contacts_get(conf, &contact, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return nil
+                }
+                
+                return contact.get(\.profile_pic.url, nullIfEmpty: true)
+                
+            case .group:
+                guard case .groupInfo(let conf) = config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId)) else {
+                    return nil
+                }
+                
+                let profilePic: user_profile_pic = groups_info_get_pic(conf)
+                return profilePic.get(\.url, nullIfEmpty: true)
+                
+            case .legacyGroup, .community: return nil
+        }
+    }
+    
     func profile(
         contactId: String,
         threadId: String?,
@@ -797,17 +835,17 @@ public extension LibSession.Cache {
                 return nil
             }
             
-            let profilePic: user_profile_pic = user_profile_get_pic(conf)
-            let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
+            let displayPic: user_profile_pic = user_profile_get_pic(conf)
+            let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
             
             return Profile(
                 id: contactId,
                 name: String(cString: profileNamePtr),
                 lastNameUpdate: nil,
                 nickname: nil,
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil : profilePic.get(\.key)),
-                lastProfilePictureUpdate: nil
+                displayPictureUrl: displayPictureUrl,
+                displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : displayPic.get(\.key)),
+                displayPictureLastUpdated: nil
             )
         }
         
@@ -827,7 +865,7 @@ public extension LibSession.Cache {
                 return fallbackProfile
             }
             
-            let profilePictureUrl: String? = member.get(\.profile_pic.url, nullIfEmpty: true)
+            let displayPictureUrl: String? = member.get(\.profile_pic.url, nullIfEmpty: true)
             
             /// The `displayNameInMessage` value is likely newer than the `name` value in the config so use that if available
             return Profile(
@@ -835,9 +873,9 @@ public extension LibSession.Cache {
                 name: (displayNameInMessage ?? member.get(\.name)),
                 lastNameUpdate: nil,
                 nickname: nil,
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-                lastProfilePictureUpdate: nil
+                displayPictureUrl: displayPictureUrl,
+                displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
+                displayPictureLastUpdated: nil
             )
         }
         
@@ -853,7 +891,7 @@ public extension LibSession.Cache {
             return extractGroupMembersProfile()
         }
         
-        let profilePictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
+        let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
         
         /// The `displayNameInMessage` value is likely newer than the `name` value in the config so use that if available
         return Profile(
@@ -861,9 +899,9 @@ public extension LibSession.Cache {
             name: (displayNameInMessage ?? contact.get(\.name)),
             lastNameUpdate: nil,
             nickname: contact.get(\.nickname, nullIfEmpty: true),
-            profilePictureUrl: profilePictureUrl,
-            profileEncryptionKey: (profilePictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            lastProfilePictureUpdate: nil
+            displayPictureUrl: displayPictureUrl,
+            displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
+            displayPictureLastUpdated: nil
         )
     }
     

@@ -153,8 +153,8 @@ public final class MessageSender {
                     .map { profile in
                         VisibleMessage.VMProfile(
                             displayName: profile.name,
-                            profileKey: profile.profileEncryptionKey,
-                            profilePictureUrl: profile.profilePictureUrl
+                            profileKey: profile.displayPictureEncryptionKey,
+                            profilePictureUrl: profile.displayPictureUrl
                         )
                     }
         }
@@ -251,8 +251,8 @@ public final class MessageSender {
             .map { profile, checkForCommunityMessageRequests in
                 VisibleMessage.VMProfile(
                     displayName: profile.name,
-                    profileKey: profile.profileEncryptionKey,
-                    profilePictureUrl: profile.profilePictureUrl,
+                    profileKey: profile.displayPictureEncryptionKey,
+                    profilePictureUrl: profile.displayPictureUrl,
                     blocksCommunityMessageRequests: !checkForCommunityMessageRequests
                 )
             }
@@ -317,8 +317,8 @@ public final class MessageSender {
                     .map { profile in
                         VisibleMessage.VMProfile(
                             displayName: profile.name,
-                            profileKey: profile.profileEncryptionKey,
-                            profilePictureUrl: profile.profilePictureUrl
+                            profileKey: profile.displayPictureEncryptionKey,
+                            profilePictureUrl: profile.displayPictureUrl
                         )
                     }
             

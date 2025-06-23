@@ -96,6 +96,7 @@ public enum TSImageQuality: UInt {
 // [SignalAttachment hasError] will be true for non-valid attachments.
 //
 // TODO: Perhaps do conversion off the main thread?
+// FIXME: Would be nice to replace the `SignalAttachment` and use our internal types (eg. `ImageDataManager`)
 public class SignalAttachment: Equatable {
 
     // MARK: Properties
@@ -220,15 +221,22 @@ public class SignalAttachment: Equatable {
 
         do {
             let filePath = mediaUrl.path
-            guard dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-                return nil
-            }
-
-            let asset = AVURLAsset(url: mediaUrl)
-            let generator = AVAssetImageGenerator(asset: asset)
+            guard
+                dependencies[singleton: .fileManager].fileExists(atPath: filePath),
+                let mimeType: String = dataType.sessionMimeType,
+                let assetInfo: (asset: AVURLAsset, cleanup: () -> Void) = AVURLAsset.asset(
+                    for: filePath,
+                    mimeType: mimeType,
+                    sourceFilename: sourceFilename,
+                    using: dependencies
+                )
+            else { return nil }
+            
+            let generator = AVAssetImageGenerator(asset: assetInfo.asset)
             generator.appliesPreferredTrackTransform = true
             let cgImage = try generator.copyCGImage(at: CMTimeMake(value: 0, timescale: 1), actualTime: nil)
             let image = UIImage(cgImage: cgImage)
+            assetInfo.cleanup()
 
             cachedVideoPreview = image
             return image
@@ -246,7 +254,7 @@ public class SignalAttachment: Equatable {
         return text
     }
     
-    public func duration() -> TimeInterval? {
+    public func duration(using dependencies: Dependencies) -> TimeInterval? {
         switch (isAudio, isVideo) {
             case (true, _):
                 let audioPlayer: AVAudioPlayer? = try? AVAudioPlayer(data: dataSource.data)
@@ -254,12 +262,22 @@ public class SignalAttachment: Equatable {
                 return (audioPlayer?.duration).map { $0 > 0 ? $0 : nil }
                 
             case (_, true):
-                return dataUrl.map { url in
-                    let asset: AVURLAsset = AVURLAsset(url: url, options: nil)
-                    
-                    // According to the CMTime docs "value/timescale = seconds"
-                    return (TimeInterval(asset.duration.value) / TimeInterval(asset.duration.timescale))
-                }
+                guard
+                    let mimeType: String = dataType.sessionMimeType,
+                    let url: URL = dataUrl,
+                    let assetInfo: (asset: AVURLAsset, cleanup: () -> Void) = AVURLAsset.asset(
+                        for: url.path,
+                        mimeType: mimeType,
+                        sourceFilename: sourceFilename,
+                        using: dependencies
+                    )
+                else { return nil }
+                
+                // According to the CMTime docs "value/timescale = seconds"
+                let duration: TimeInterval = (TimeInterval(assetInfo.asset.duration.value) / TimeInterval(assetInfo.asset.duration.timescale))
+                assetInfo.cleanup()
+                
+                return duration
                 
             default: return nil
         }

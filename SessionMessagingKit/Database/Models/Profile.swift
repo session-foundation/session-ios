@@ -24,10 +24,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         case lastNameUpdate
         case nickname
         
-        case profilePictureUrl
-        case profilePictureFileName
-        case profileEncryptionKey
-        case lastProfilePictureUpdate
+        case displayPictureUrl
+        case displayPictureEncryptionKey
+        case displayPictureLastUpdated
         
         case blocksCommunityMessageRequests
         case lastBlocksCommunityMessageRequests
@@ -45,17 +44,16 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     /// A custom name for the profile set by the current user
     public let nickname: String?
 
-    /// The URL from which to fetch the contact's profile picture.
-    public let profilePictureUrl: String?
-
-    /// The file name of the contact's profile picture on local storage.
-    public let profilePictureFileName: String?
+    /// The URL from which to fetch the contact's profile picture
+    ///
+    /// **Note:** This won't be updated until the display picture has actually been downloaded
+    public let displayPictureUrl: String?
 
     /// The key with which the profile is encrypted.
-    public let profileEncryptionKey: Data?
+    public let displayPictureEncryptionKey: Data?
     
     /// The timestamp (in seconds since epoch) that the profile picture was last updated
-    public let lastProfilePictureUpdate: TimeInterval?
+    public let displayPictureLastUpdated: TimeInterval?
     
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
@@ -70,10 +68,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         name: String,
         lastNameUpdate: TimeInterval? = nil,
         nickname: String? = nil,
-        profilePictureUrl: String? = nil,
-        profilePictureFileName: String? = nil,
-        profileEncryptionKey: Data? = nil,
-        lastProfilePictureUpdate: TimeInterval? = nil,
+        displayPictureUrl: String? = nil,
+        displayPictureEncryptionKey: Data? = nil,
+        displayPictureLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
         lastBlocksCommunityMessageRequests: TimeInterval? = nil
     ) {
@@ -81,10 +78,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         self.name = name
         self.lastNameUpdate = lastNameUpdate
         self.nickname = nickname
-        self.profilePictureUrl = profilePictureUrl
-        self.profilePictureFileName = profilePictureFileName
-        self.profileEncryptionKey = profileEncryptionKey
-        self.lastProfilePictureUpdate = lastProfilePictureUpdate
+        self.displayPictureUrl = displayPictureUrl
+        self.displayPictureEncryptionKey = displayPictureEncryptionKey
+        self.displayPictureLastUpdated = displayPictureLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
     }
@@ -97,8 +93,8 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
         """
         Profile(
             name: \(name),
-            profileKey: \(profileEncryptionKey?.description ?? "null"),
-            profilePictureUrl: \(profilePictureUrl ?? "null")
+            profileKey: \(displayPictureEncryptionKey?.description ?? "null"),
+            profilePictureUrl: \(displayPictureUrl ?? "null")
         )
         """
     }
@@ -110,10 +106,9 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             name: \(name),
             lastNameUpdate: \(lastNameUpdate.map { "\($0)" } ?? "null"),
             nickname: \(nickname.map { "\($0)" } ?? "null"),
-            profilePictureUrl: \(profilePictureUrl.map { "\"\($0)\"" } ?? "null"),
-            profilePictureFileName: \(profilePictureFileName.map { "\"\($0)\"" } ?? "null"),
-            profileEncryptionKey: \(profileEncryptionKey?.toHexString() ?? "null"),
-            lastProfilePictureUpdate: \(lastProfilePictureUpdate.map { "\($0)" } ?? "null"),
+            displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
+            displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
+            displayPictureLastUpdated: \(displayPictureLastUpdated.map { "\($0)" } ?? "null"),
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
         )
@@ -127,16 +122,16 @@ public extension Profile {
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        var profileKey: Data?
-        var profilePictureUrl: String?
+        var displayPictureKey: Data?
+        var displayPictureUrl: String?
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if
-            let profileKeyData: Data = try? container.decode(Data?.self, forKey: .profileEncryptionKey),
-            let profilePictureUrlValue: String = try? container.decode(String?.self, forKey: .profilePictureUrl)
+            let displayPictureKeyData: Data = try? container.decode(Data?.self, forKey: .displayPictureEncryptionKey),
+            let displayPictureUrlValue: String = try? container.decode(String?.self, forKey: .displayPictureUrl)
         {
-            profileKey = profileKeyData
-            profilePictureUrl = profilePictureUrlValue
+            displayPictureKey = displayPictureKeyData
+            displayPictureUrl = displayPictureUrlValue
         }
         
         self = Profile(
@@ -144,10 +139,9 @@ public extension Profile {
             name: try container.decode(String.self, forKey: .name),
             lastNameUpdate: try? container.decode(TimeInterval?.self, forKey: .lastNameUpdate),
             nickname: try? container.decode(String?.self, forKey: .nickname),
-            profilePictureUrl: profilePictureUrl,
-            profilePictureFileName: try? container.decode(String?.self, forKey: .profilePictureFileName),
-            profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: try? container.decode(TimeInterval?.self, forKey: .lastProfilePictureUpdate),
+            displayPictureUrl: displayPictureUrl,
+            displayPictureEncryptionKey: displayPictureKey,
+            displayPictureLastUpdated: try? container.decode(TimeInterval?.self, forKey: .displayPictureLastUpdated),
             blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
             lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests)
         )
@@ -160,10 +154,9 @@ public extension Profile {
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(lastNameUpdate, forKey: .lastNameUpdate)
         try container.encodeIfPresent(nickname, forKey: .nickname)
-        try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
-        try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
-        try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
-        try container.encodeIfPresent(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
+        try container.encodeIfPresent(displayPictureUrl, forKey: .displayPictureUrl)
+        try container.encodeIfPresent(displayPictureEncryptionKey, forKey: .displayPictureEncryptionKey)
+        try container.encodeIfPresent(displayPictureLastUpdated, forKey: .displayPictureLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
@@ -177,9 +170,11 @@ public extension Profile {
         let profileProto = SNProtoLokiProfile.builder()
         profileProto.setDisplayName(name)
         
-        if let profileKey: Data = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
-            dataMessageProto.setProfileKey(profileKey)
-            profileProto.setProfilePicture(profilePictureUrl)
+        if
+            let displayPictureEncryptionKey: Data = displayPictureEncryptionKey,
+            let displayPictureUrl: String = displayPictureUrl {
+            dataMessageProto.setProfileKey(displayPictureEncryptionKey)
+            profileProto.setProfilePicture(displayPictureUrl)
         }
         
         do {
@@ -276,10 +271,9 @@ public extension Profile {
             name: "",
             lastNameUpdate: nil,
             nickname: nil,
-            profilePictureUrl: nil,
-            profilePictureFileName: nil,
-            profileEncryptionKey: nil,
-            lastProfilePictureUpdate: nil,
+            displayPictureUrl: nil,
+            displayPictureEncryptionKey: nil,
+            displayPictureLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
             lastBlocksCommunityMessageRequests: nil
         )

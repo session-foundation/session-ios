@@ -501,7 +501,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 ),
                 PagedData.ObservedChanges(
                     table: Profile.self,
-                    columns: [.profilePictureFileName],
+                    columns: [.displayPictureUrl],
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
@@ -790,8 +790,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     interactionId: -1,    // Can't save to db optimistically
                     authorId: model.authorId,
                     timestampMs: model.timestampMs,
-                    body: model.body,
-                    attachmentId: model.attachment?.id
+                    body: model.body
                 )
             },
             quoteAttachment: quoteModel?.attachment,
@@ -1145,8 +1144,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             let attachment: Attachment = viewModel.attachments?.first,
             attachment.isAudio,
             attachment.isValid,
-            let originalFilePath: String = attachment.originalFilePath(using: dependencies),
-            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+            let path: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
+            dependencies[singleton: .fileManager].fileExists(atPath: path)
         else { return nil }
         
         // Create the info with the update callback
@@ -1173,8 +1172,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         
         guard
             let attachment: Attachment = viewModel.attachments?.first,
-            let originalFilePath: String = attachment.originalFilePath(using: dependencies),
-            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+            let filePath: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
+            dependencies[singleton: .fileManager].fileExists(atPath: filePath)
         else { return }
         
         // If the user interacted with the currently playing item
@@ -1213,7 +1212,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         _audioPlayer.set(to: nil)
         
         let newAudioPlayer: OWSAudioPlayer = OWSAudioPlayer(
-            mediaUrl: URL(fileURLWithPath: originalFilePath),
+            mediaUrl: URL(fileURLWithPath: filePath),
             audioBehavior: .audioMessagePlayback,
             delegate: self
         )

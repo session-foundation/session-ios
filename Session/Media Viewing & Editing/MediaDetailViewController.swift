@@ -97,20 +97,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         
         super.init(nibName: nil, bundle: nil)
         
-        switch (galleryItem.attachment.isVideo, galleryItem.attachment.originalFilePath(using: dependencies)) {
-            case (false, .some(let filePath)): mediaView.loadImage(from: filePath)
-            default:
-                galleryItem.attachment.thumbnail(
-                    size: .large,
-                    using: dependencies,
-                    success: { [weak self] thumbnailPath, _, _ in
-                        self?.mediaView.loadImage(from: thumbnailPath)
-                    },
-                    failure: {
-                        Log.error(.media, "Could not load media.")
-                    }
-                )
-        }
+        mediaView.loadImage(attachment: galleryItem.attachment, using: dependencies)
     }
     
     required init?(coder: NSCoder) {
@@ -246,13 +233,24 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
 
     @objc public func playVideo() {
         guard
-            let originalFilePath: String = self.galleryItem.attachment.originalFilePath(using: dependencies),
-            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+            let path: String = try? dependencies[singleton: .attachmentManager].createTemporaryFileForOpening(
+                downloadUrl: self.galleryItem.attachment.downloadUrl,
+                mimeType: self.galleryItem.attachment.contentType,
+                sourceFilename: self.galleryItem.attachment.sourceFilename
+            ),
+            dependencies[singleton: .fileManager].fileExists(atPath: path)
         else { return Log.error(.media, "Missing video file") }
         
-        let videoUrl: URL = URL(fileURLWithPath: originalFilePath)
+        let videoUrl: URL = URL(fileURLWithPath: path)
         let player: AVPlayer = AVPlayer(url: videoUrl)
-        let viewController: AVPlayerViewController = AVPlayerViewController()
+        let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies] in
+            /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+            guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                return
+            }
+            
+            try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+        }
         viewController.player = player
         self.present(viewController, animated: true) { [weak player] in
             player?.play()

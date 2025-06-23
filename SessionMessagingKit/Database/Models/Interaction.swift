@@ -1321,82 +1321,10 @@ public extension Interaction {
             }
         )
         
-        /// Retrieve any attachments for the messages
+        /// Retrieve any attachments for the messages and delete them from the database
         let attachments: [Attachment] = try Attachment
             .joining(required: Attachment.interaction.filter(interactionIds.contains(Interaction.Columns.id)))
             .fetchAll(db)
-        
-        /// If attachments were removed then we also need to tetrieve any quotes of the interactions which had attachments and
-        /// remove their thumbnails
-        ///
-        /// **Note:** This needs to happen before the attachments are deleted otherwise the joins in the query will fail
-        if !attachments.isEmpty {
-            let quote: TypedTableAlias<Quote> = TypedTableAlias()
-            let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-            let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            var userSessionIds: Set<String> = [userSessionId.hexString]
-            
-            /// If it's a `community` conversation then we need to get the blinded ids
-            if
-                threadVariant == .community,
-                let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
-                    .fetchOne(db, id: threadId)
-            {
-                userSessionIds = userSessionIds.inserting(
-                    SessionThread.getCurrentUserBlindedSessionId(
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        blindingPrefix: .blinded15,
-                        openGroupCapabilityInfo: openGroupCapabilityInfo,
-                        using: dependencies
-                    )?.hexString
-                )
-                userSessionIds = userSessionIds.inserting(
-                    SessionThread.getCurrentUserBlindedSessionId(
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        blindingPrefix: .blinded25,
-                        openGroupCapabilityInfo: openGroupCapabilityInfo,
-                        using: dependencies
-                    )?.hexString
-                )
-            }
-            
-            /// Construct a request which gets the `quote.attachmentId` for any `Quote` entries related
-            /// to the removed `interactionIds`
-            let request: SQLRequest<String> = """
-                SELECT \(quote[.attachmentId])
-                FROM \(Quote.self)
-                JOIN \(Interaction.self) ON (
-                    \(interaction[.timestampMs]) = \(quote[.timestampMs]) AND (
-                        \(interaction[.authorId]) = \(quote[.authorId]) OR (
-                            -- A users outgoing message is stored in some cases using their standard id
-                            -- but the quote will use their blinded id so handle that case
-                            \(interaction[.authorId]) = \(userSessionId.hexString) AND
-                            \(quote[.authorId]) IN \(userSessionIds)
-                        )
-                    )
-                )
-                JOIN \(InteractionAttachment.self) ON (
-                    \(interactionAttachment[.interactionId]) = \(interaction[.id]) AND
-                    \(interactionAttachment[.attachmentId]) IN \(attachments.map { $0.id })
-                )
-            
-                WHERE (
-                    \(quote[.attachmentId]) IS NOT NULL AND
-                    \(interaction[.id]) IN \(interactionIds)
-                )
-            """
-            
-            let quoteAttachmentIds: [String] = try request.fetchAll(db)
-            
-            _ = try Attachment
-                .filter(ids: quoteAttachmentIds)
-                .deleteAll(db)
-        }
-        
-        /// Delete any attachments from the database
         try attachments.forEach { try $0.delete(db) }
         
         /// Delete the reactions from the database
@@ -1458,7 +1386,9 @@ public extension Interaction {
         /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
         /// but we should still try to handle it immediately
         if !attachments.isEmpty {
-            let attachmentPaths: [String] = attachments.compactMap { $0.originalFilePath(using: dependencies) }
+            let attachmentPaths: [String] = attachments.compactMap {
+                try? dependencies[singleton: .attachmentManager].path(for: $0.downloadUrl)
+            }
             
             DispatchQueue.global(qos: .background).async {
                 attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }

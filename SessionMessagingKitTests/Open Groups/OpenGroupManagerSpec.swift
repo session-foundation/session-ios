@@ -1490,7 +1490,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     beforeEach {
                         mockStorage.write { db in
                             try OpenGroup
-                                .updateAll(db, OpenGroup.Columns.displayPictureFilename.set(to: nil))
+                                .updateAll(db, OpenGroup.Columns.displayPictureOriginalUrl.set(to: nil))
                         }
                     }
                     
@@ -1560,8 +1560,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 imageId: "12",
                                 userCount: 0,
                                 infoUpdates: 10,
-                                displayPictureFilename: "test",
-                                lastDisplayPictureUpdate: 1234567890
+                                displayPictureOriginalUrl: "http://127.0.0.1/room/testRoom/12"
                             ).insert(db)
                         }
                         
@@ -1593,7 +1592,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         expect(
                             mockStorage.read { db -> String? in
                                 try OpenGroup
-                                    .select(.displayPictureFilename)
+                                    .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
@@ -1614,8 +1613,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 imageId: "12",
                                 userCount: 0,
                                 infoUpdates: 10,
-                                displayPictureFilename: "test",
-                                lastDisplayPictureUpdate: 1234567890
+                                displayPictureOriginalUrl: "http://127.0.0.1/room/testRoom/10"
                             ).insert(db)
                         }
                         
@@ -1652,7 +1650,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         expect(
                             mockStorage.read { db -> String? in
                                 try OpenGroup
-                                    .select(.displayPictureFilename)
+                                    .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
@@ -1695,7 +1693,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         expect(
                             mockStorage.read { db -> String? in
                                 try OpenGroup
-                                    .select(.displayPictureFilename)
+                                    .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }

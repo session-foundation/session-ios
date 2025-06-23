@@ -492,7 +492,7 @@ public final class OpenGroupManager {
         if
             let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
             (
-                openGroup.displayPictureFilename == nil ||
+                openGroup.displayPictureOriginalUrl == nil ||
                 openGroup.imageId != imageId
             )
         {

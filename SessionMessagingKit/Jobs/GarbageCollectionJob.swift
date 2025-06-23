@@ -27,8 +27,8 @@ public enum GarbageCollectionJob: JobExecutor {
     private static let minInteractionsToTrim: Int = 2000
     
     private struct FileInfo {
-        let attachmentLocalRelativePaths: Set<String>
-        let displayPictureFilenames: Set<String>
+        let attachmentDownloadUrls: Set<String>
+        let displayPictureFilePaths: Set<String>
         let messageDedupeRecords: [MessageDeduplication]
     }
     
@@ -246,7 +246,6 @@ public enum GarbageCollectionJob: JobExecutor {
                 /// Orphaned attachments - attachments which have no related interactions, quotes or link previews
                 if finalTypesToCollect.contains(.orphanedAttachments) {
                     let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
-                    let quote: TypedTableAlias<Quote> = TypedTableAlias()
                     let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
                     let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
                     
@@ -255,11 +254,9 @@ public enum GarbageCollectionJob: JobExecutor {
                         WHERE \(Column.rowID) IN (
                             SELECT \(attachment[.rowId])
                             FROM \(Attachment.self)
-                            LEFT JOIN \(Quote.self) ON \(quote[.attachmentId]) = \(attachment[.id])
                             LEFT JOIN \(LinkPreview.self) ON \(linkPreview[.attachmentId]) = \(attachment[.id])
                             LEFT JOIN \(InteractionAttachment.self) ON \(interactionAttachment[.attachmentId]) = \(attachment[.id])
                             WHERE (
-                                \(quote[.attachmentId]) IS NULL AND
                                 \(linkPreview[.url]) IS NULL AND
                                 \(interactionAttachment[.attachmentId]) IS NULL
                             )
@@ -354,8 +351,8 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Retrieve any files which need to be deleted
-                var attachmentLocalRelativePaths: Set<String> = []
-                var displayPictureFilenames: Set<String> = []
+                var attachmentDownloadUrls: Set<String> = []
+                var displayPictureFilePaths: Set<String> = []
                 var messageDedupeRecords: [MessageDeduplication] = []
                 
                 /// Orphaned attachment files - attachment files which don't have an associated record in the database
@@ -364,35 +361,38 @@ public enum GarbageCollectionJob: JobExecutor {
                     /// it's own garbage collection so we can just ignore it according to the various comments in the following stack overflow
                     /// post, the directory will be cleared during app updates as well as if the system is running low on memory (if the app isn't running)
                     /// https://stackoverflow.com/questions/6879860/when-are-files-from-nscachesdirectory-removed
-                    attachmentLocalRelativePaths = try Attachment
-                        .select(.localRelativeFilePath)
-                        .filter(Attachment.Columns.localRelativeFilePath != nil)
+                    attachmentDownloadUrls = try Attachment
+                        .select(.downloadUrl)
+                        .filter(Attachment.Columns.downloadUrl != nil)
                         .asRequest(of: String.self)
                         .fetchSet(db)
                 }
                 
                 /// Orphaned display picture files - profile avatar files which don't have an associated record in the database
                 if finalTypesToCollect.contains(.orphanedDisplayPictures) {
-                    displayPictureFilenames.insert(
-                        contentsOf: try Profile
-                            .select(.profilePictureFileName)
-                            .filter(Profile.Columns.profilePictureFileName != nil)
+                    displayPictureFilePaths.insert(
+                        contentsOf: Set(try Profile
+                            .select(.displayPictureUrl)
+                            .filter(Profile.Columns.displayPictureUrl != nil)
                             .asRequest(of: String.self)
                             .fetchSet(db)
+                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for:  $0) })
                     )
-                    displayPictureFilenames.insert(
-                        contentsOf: try ClosedGroup
-                            .select(.displayPictureFilename)
-                            .filter(ClosedGroup.Columns.displayPictureFilename != nil)
+                    displayPictureFilePaths.insert(
+                        contentsOf: Set(try ClosedGroup
+                            .select(.displayPictureUrl)
+                            .filter(ClosedGroup.Columns.displayPictureUrl != nil)
                             .asRequest(of: String.self)
                             .fetchSet(db)
+                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for:  $0) })
                     )
-                    displayPictureFilenames.insert(
-                        contentsOf: try OpenGroup
-                            .select(.displayPictureFilename)
-                            .filter(OpenGroup.Columns.displayPictureFilename != nil)
+                    displayPictureFilePaths.insert(
+                        contentsOf: Set(try OpenGroup
+                            .select(.displayPictureOriginalUrl)
+                            .filter(OpenGroup.Columns.displayPictureOriginalUrl != nil)
                             .asRequest(of: String.self)
                             .fetchSet(db)
+                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for:  $0) })
                     )
                 }
                 
@@ -403,8 +403,8 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 return FileInfo(
-                    attachmentLocalRelativePaths: attachmentLocalRelativePaths,
-                    displayPictureFilenames: displayPictureFilenames,
+                    attachmentDownloadUrls: attachmentDownloadUrls,
+                    displayPictureFilePaths: displayPictureFilePaths,
                     messageDedupeRecords: messageDedupeRecords
                 )
             },
@@ -419,42 +419,24 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     /// Orphaned attachment files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
-                        /// **Note:** Looks like in order to recursively look through files we need to use the enumerator method
-                        let fileEnumerator = dependencies[singleton: .fileManager].enumerator(
-                            at: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies)),
-                            includingPropertiesForKeys: nil,
-                            options: .skipsHiddenFiles  // Ignore the `.DS_Store` for the simulator
-                        )
-                        
-                        let allAttachmentFilePaths: Set<String> = (fileEnumerator?
-                            .allObjects
-                            .compactMap { Attachment.localRelativeFilePath(from: ($0 as? URL)?.path, using: dependencies) })
-                            .defaulting(to: [])
-                            .asSet()
-                        
-                        /// **Note:** Directories will have their own entries in the list, if there is a folder with content the file will
-                        /// include the directory in it's path with a forward slash so we can use this to distinguish empty directories
-                        /// from ones with content so we don't unintentionally delete a directory which contains content to keep as
-                        /// well as delete (directories which end up empty after this clean up will be removed during the next run)
-                        // stringlint:ignore_start
-                        let directoryNamesContainingContent: [String] = allAttachmentFilePaths
-                            .filter { path -> Bool in path.contains("/") }
-                            .compactMap { path -> String? in path.components(separatedBy: "/").first }
+                        let attachmentDirPath: String = dependencies[singleton: .attachmentManager]
+                            .sharedDataAttachmentsDirPath()
+                        let allAttachmentFilePaths: Set<String> = (Set((try? dependencies[singleton: .fileManager]
+                            .contentsOfDirectory(atPath: attachmentDirPath))?
+                            .map { filename in
+                                URL(fileURLWithPath: attachmentDirPath)
+                                    .appendingPathComponent(filename)
+                                    .path
+                            } ?? []))
+                        let databaseAttachmentFilePaths: Set<String> = Set(fileInfo.attachmentDownloadUrls
+                            .compactMap { try? dependencies[singleton: .attachmentManager].path(for: $0) })
                         let orphanedAttachmentFiles: Set<String> = allAttachmentFilePaths
-                            .subtracting(fileInfo.attachmentLocalRelativePaths)
-                            .subtracting(directoryNamesContainingContent)
-                        // stringlint:ignore_stop
+                            .subtracting(databaseAttachmentFilePaths)
                         
                         orphanedAttachmentFiles.forEach { filepath in
                             /// We don't want a single deletion failure to block deletion of the other files so try each one and store
                             /// the error to be used to determine success/failure of the job
-                            do {
-                                try dependencies[singleton: .fileManager].removeItem(
-                                    atPath: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies))
-                                        .appendingPathComponent(filepath)
-                                        .path
-                                )
-                            }
+                            do { try dependencies[singleton: .fileManager].removeItem(atPath: filepath) }
                             catch CocoaError.fileNoSuchFile {}  /// No need to do anything if the file doesn't eixst
                             catch { deletionErrors.append(error) }
                         }
@@ -464,26 +446,27 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     /// Orphaned display picture files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedDisplayPictures) {
-                        let allDisplayPictureFilenames: Set<String> = (try? dependencies[singleton: .fileManager]
+                        let allDisplayPictureFilePaths: Set<String> = (try? dependencies[singleton: .fileManager]
                             .contentsOfDirectory(atPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath()))
                             .defaulting(to: [])
+                            .map { filename in
+                                URL(fileURLWithPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath())
+                                    .appendingPathComponent(filename)
+                                    .path
+                            }
                             .asSet()
-                        let orphanedFiles: Set<String> = allDisplayPictureFilenames
-                            .subtracting(fileInfo.displayPictureFilenames)
+                        let orphanedFilePaths: Set<String> = allDisplayPictureFilePaths
+                            .subtracting(fileInfo.displayPictureFilePaths)
                         
-                        orphanedFiles.forEach { filename in
+                        orphanedFilePaths.forEach { path in
                             /// We don't want a single deletion failure to block deletion of the other files so try each one and store
                             /// the error to be used to determine success/failure of the job
-                            do {
-                                try dependencies[singleton: .fileManager].removeItem(
-                                    atPath: dependencies[singleton: .displayPictureManager].filepath(for: filename)
-                                )
-                            }
+                            do { try dependencies[singleton: .fileManager].removeItem(atPath: path) }
                             catch CocoaError.fileNoSuchFile {}  /// No need to do anything if the file doesn't eixst
                             catch { deletionErrors.append(error) }
                         }
                         
-                        Log.info(.cat, "Orphaned display pictures removed: \(orphanedFiles.count)")
+                        Log.info(.cat, "Orphaned display pictures removed: \(orphanedFilePaths.count)")
                     }
                     
                     /// Explicit deduplication records that we want to delete

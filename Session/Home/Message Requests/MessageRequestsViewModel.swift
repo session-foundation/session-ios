@@ -71,7 +71,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 ),
                 PagedData.ObservedChanges(
                     table: Profile.self,
-                    columns: [.name, .nickname, .profilePictureFileName],
+                    columns: [.name, .nickname, .displayPictureUrl],
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         

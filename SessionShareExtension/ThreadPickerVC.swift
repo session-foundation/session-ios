@@ -384,18 +384,36 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .map { results in (message, destination, interactionId, authMethod, results.map { _, value in value }) }
                         .eraseToAnyPublisher()
                 }
-                .tryFlatMap { message, destination, interactionId, authMethod, attachments -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                    try MessageSender.preparedSend(
-                        message: message,
-                        to: destination,
-                        namespace: destination.defaultNamespace,
-                        interactionId: interactionId,
-                        attachments: attachments,
-                        authMethod: authMethod,
-                        onEvent: MessageSender.standardEventHandling(using: dependencies),
-                        using: dependencies
-                    ).send(using: dependencies)
+                .tryFlatMap { message, destination, interactionId, authMethod, attachments -> AnyPublisher<(Message, [Attachment]), Error> in
+                    try MessageSender
+                        .preparedSend(
+                            message: message,
+                            to: destination,
+                            namespace: destination.defaultNamespace,
+                            interactionId: interactionId,
+                            attachments: attachments,
+                            authMethod: authMethod,
+                            onEvent: MessageSender.standardEventHandling(using: dependencies),
+                            using: dependencies
+                        )
+                        .send(using: dependencies)
+                        .map { _, message in
+                            (message, attachments.map { attachment, _ in attachment })
+                        }
+                        .eraseToAnyPublisher()
                 }
+                .handleEvents(
+                    receiveOutput: { _, attachments in
+                        guard !attachments.isEmpty else { return }
+                        
+                        /// Need to actually save the uploaded attachments now that we are done
+                        dependencies[singleton: .storage].write { db in
+                            attachments.forEach { attachment in
+                                try? attachment.upsert(db)
+                            }
+                        }
+                    }
+                )
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in

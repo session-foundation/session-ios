@@ -22,9 +22,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         case formationTimestamp
         
         case displayPictureUrl
-        case displayPictureFilename
         case displayPictureEncryptionKey
-        case lastDisplayPictureUpdate
         
         case shouldPoll
         case groupIdentityPrivateKey
@@ -44,17 +42,13 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     public let groupDescription: String?
     public let formationTimestamp: TimeInterval
     
-    /// The URL from which to fetch the groups's display picture.
+    /// The URL from which to fetch the groups's display picture
+    ///
+    /// **Note:** This won't be updated until the display picture has actually been downloaded
     public let displayPictureUrl: String?
-
-    /// The file name of the groups's display picture on local storage.
-    public let displayPictureFilename: String?
 
     /// The key with which the display picture is encrypted.
     public let displayPictureEncryptionKey: Data?
-    
-    /// The timestamp (in seconds since epoch) that the display picture was last updated
-    public let lastDisplayPictureUpdate: TimeInterval?
     
     /// A flag indicating whether we should poll for messages in this group
     public let shouldPoll: Bool?
@@ -111,9 +105,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         groupDescription: String? = nil,
         formationTimestamp: TimeInterval,
         displayPictureUrl: String? = nil,
-        displayPictureFilename: String? = nil,
         displayPictureEncryptionKey: Data? = nil,
-        lastDisplayPictureUpdate: TimeInterval? = nil,
         shouldPoll: Bool?,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
@@ -125,9 +117,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         self.groupDescription = groupDescription
         self.formationTimestamp = formationTimestamp
         self.displayPictureUrl = displayPictureUrl
-        self.displayPictureFilename = displayPictureFilename
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
-        self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
         self.shouldPoll = shouldPoll
         self.groupIdentityPrivateKey = groupIdentityPrivateKey
         self.authData = authData

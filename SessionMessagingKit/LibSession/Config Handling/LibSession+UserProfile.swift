@@ -10,8 +10,8 @@ import SessionUtilitiesKit
 internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
         Profile.Columns.name,
-        Profile.Columns.profilePictureUrl,
-        Profile.Columns.profileEncryptionKey
+        Profile.Columns.displayPictureUrl,
+        Profile.Columns.displayPictureEncryptionKey
     ]
     
     static let syncedSettings: [String] = [
@@ -35,12 +35,12 @@ internal extension LibSessionCacheType {
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
         let profileName: String = String(cString: profileNamePtr)
-        let profilePic: user_profile_pic = user_profile_get_pic(conf)
-        let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
+        let displayPic: user_profile_pic = user_profile_get_pic(conf)
+        let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
         let updatedProfile: Profile = Profile(
             id: userSessionId.hexString,
             name: profileName,
-            profilePictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.profilePictureUrl
+            displayPictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.displayPictureUrl
         )
         
         if
@@ -56,12 +56,16 @@ internal extension LibSessionCacheType {
             publicKey: userSessionId.hexString,
             displayNameUpdate: .currentUserUpdate(profileName),
             displayPictureUpdate: {
-                guard let profilePictureUrl: String = profilePictureUrl else { return .currentUserRemove }
+                guard
+                    let displayPictureUrl: String = displayPictureUrl,
+                    let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: displayPictureUrl)
+                else { return .currentUserRemove }
                 
                 return .currentUserUpdateTo(
-                    url: profilePictureUrl,
-                    key: profilePic.get(\.key),
-                    fileName: nil
+                    url: displayPictureUrl,
+                    key: displayPic.get(\.key),
+                    filePath: filePath
                 )
             }(),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
@@ -241,19 +245,19 @@ public extension LibSession.Cache {
         return String(cString: profileNamePtr)
     }
     
-    func updateProfile(
+    @discardableResult func updateProfile(
         displayName: String,
-        profilePictureUrl: String?,
-        profileEncryptionKey: Data?
-    ) throws {
+        displayPictureUrl: String?,
+        displayPictureEncryptionKey: Data?
+    ) throws -> Profile? {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
             throw LibSessionError.invalidConfigObject
         }
         
         // Get the old values to determine if something changed
         let oldName: String? = user_profile_get_name(conf).map { String(cString: $0) }
-        let oldProfilePic: user_profile_pic = user_profile_get_pic(conf)
-        let oldProfilePictureUrl: String? = oldProfilePic.get(\.url, nullIfEmpty: true)
+        let oldDisplayPic: user_profile_pic = user_profile_get_pic(conf)
+        let oldDisplayPictureUrl: String? = oldDisplayPic.get(\.url, nullIfEmpty: true)
         
         // Update the name
         var cUpdatedName: [CChar] = try displayName.cString(using: .utf8) ?? {
@@ -264,19 +268,21 @@ public extension LibSession.Cache {
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.set(\.url, to: profilePictureUrl)
-        profilePic.set(\.key, to: profileEncryptionKey)
+        profilePic.set(\.url, to: displayPictureUrl)
+        profilePic.set(\.key, to: displayPictureEncryptionKey)
         user_profile_set_pic(conf, profilePic)
         try LibSessionError.throwIfNeeded(conf)
         
         /// Add a pending observation to notify any observers of the change once it's committed
-        if displayName != oldName || profilePictureUrl != oldProfilePictureUrl {
-            let updatedProfile: Profile = Profile(
+        if displayName != oldName || displayPictureUrl != oldDisplayPictureUrl {
+            return Profile(
                 id: userSessionId.hexString,
                 name: displayName,
-                profilePictureUrl: profilePictureUrl
+                displayPictureUrl: displayPictureUrl
             )
         }
+        
+        return nil
     }
 }
 

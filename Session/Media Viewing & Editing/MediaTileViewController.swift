@@ -884,7 +884,21 @@ class GalleryGridCellItem: PhotoGridItem {
     }
 
     func asyncThumbnail(completion: @escaping (UIImage?) -> Void) {
-        galleryItem.thumbnailImage(using: dependencies, async: completion)
+        dependencies[singleton: .imageDataManager].loadThumbnail(
+            size: .medium,
+            attachment: galleryItem.attachment,
+            using: dependencies
+        ) { imageData in
+            guard
+                let imageData: ImageDataManager.ProcessedImageData = imageData,
+                imageData.frameCount >= 1
+            else { return completion(nil) }
+            
+            switch imageData.type {
+                case .staticImage(let image): completion(image)
+                case .animatedImage(let frames, _): completion(frames[0])
+            }
+        }
     }
 }
 

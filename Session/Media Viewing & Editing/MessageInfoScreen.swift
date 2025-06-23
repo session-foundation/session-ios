@@ -284,7 +284,7 @@ struct MessageInfoScreen: View {
                                         size: .message,
                                         publicKey: messageViewModel.authorId,
                                         threadVariant: .contact,    // Always show the display picture in 'contact' mode
-                                        displayPictureFilename: nil,
+                                        displayPictureUrl: nil,
                                         profile: messageViewModel.profile,
                                         profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                                         using: dependencies

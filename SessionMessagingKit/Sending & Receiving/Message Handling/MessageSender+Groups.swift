@@ -51,7 +51,6 @@ extension MessageSender {
                         name: name,
                         description: description,
                         displayPictureUrl: displayPictureInfo?.downloadUrl,
-                        displayPictureFilename: displayPictureInfo?.fileName,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
                         using: dependencies
@@ -375,8 +374,6 @@ extension MessageSender {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: nil),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: nil),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
                                         using: dependencies
                                     )
                                 
@@ -387,8 +384,6 @@ extension MessageSender {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: url),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
                                         using: dependencies
                                     )
                                 

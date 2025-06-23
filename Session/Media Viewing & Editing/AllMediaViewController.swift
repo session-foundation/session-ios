@@ -151,13 +151,23 @@ extension AllMediaViewController: UIDocumentInteractionControllerDelegate {
     public func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
         return self
     }
+    
+    public func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) {
+        guard let temporaryFileUrl: URL = controller.url else { return }
+        
+        /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
+        /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
+        if temporaryFileUrl.path.starts(with: dependencies[singleton: .fileManager].temporaryDirectory) {
+            try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
+        }
+    }
 }
 
 // MARK: - DocumentTitleViewControllerDelegate
 
 extension AllMediaViewController: DocumentTileViewControllerDelegate {
-    public func share(fileUrl: URL) {
-        let shareVC = UIActivityViewController(activityItems: [ fileUrl ], applicationActivities: nil)
+    public func share(temporaryFileUrl: URL) {
+        let shareVC = UIActivityViewController(activityItems: [ temporaryFileUrl ], applicationActivities: nil)
         
         if UIDevice.current.isIPad {
             shareVC.excludedActivityTypes = []
@@ -166,11 +176,17 @@ extension AllMediaViewController: DocumentTileViewControllerDelegate {
             shareVC.popoverPresentationController?.sourceRect = self.view.bounds
         }
         
-        navigationController?.present(shareVC, animated: true, completion: nil)
+        navigationController?.present(shareVC, animated: true) { [dependencies] in
+            /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
+            /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
+            if temporaryFileUrl.path.starts(with: dependencies[singleton: .fileManager].temporaryDirectory) {
+                try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
+            }
+        }
     }
     
-    public func preview(fileUrl: URL) {
-        let interactionController: UIDocumentInteractionController = UIDocumentInteractionController(url: fileUrl)
+    public func preview(temporaryFileUrl: URL) {
+        let interactionController: UIDocumentInteractionController = UIDocumentInteractionController(url: temporaryFileUrl)
         interactionController.delegate = self
         interactionController.presentPreview(animated: true)
     }

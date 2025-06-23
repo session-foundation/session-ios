@@ -54,7 +54,6 @@ internal extension LibSession {
         name: String,
         description: String?,
         displayPictureUrl: String?,
-        displayPictureFilename: String?,
         displayPictureEncryptionKey: Data?,
         members: [(id: String, profile: Profile?)],
         using dependencies: Dependencies
@@ -126,8 +125,8 @@ internal extension LibSession {
                 member.set(\.invited, to: (memberInfo.isAdmin ? 0 : 1))  // Admins can't be in the invited state
                 
                 if
-                    let picUrl: String = memberInfo.profile?.profilePictureUrl,
-                    let picKey: Data = memberInfo.profile?.profileEncryptionKey,
+                    let picUrl: String = memberInfo.profile?.displayPictureUrl,
+                    let picKey: Data = memberInfo.profile?.displayPictureEncryptionKey,
                     !picUrl.isEmpty,
                     picKey.count == DisplayPictureManager.aes256KeyByteLength
                 {
@@ -162,9 +161,7 @@ internal extension LibSession {
                 name: name,
                 formationTimestamp: creationTimestamp,
                 displayPictureUrl: displayPictureUrl,
-                displayPictureFilename: displayPictureFilename,
                 displayPictureEncryptionKey: displayPictureEncryptionKey,
-                lastDisplayPictureUpdate: creationTimestamp,
                 shouldPoll: true,
                 groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
                 invited: false

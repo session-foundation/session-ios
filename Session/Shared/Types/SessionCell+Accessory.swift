@@ -11,6 +11,10 @@ public extension SessionCell {
     enum AccessoryConfig {}
     
     class Accessory: Hashable, Equatable {
+        open var viewIdentifier: String {
+            fatalError("Subclasses of Accessory must provide a viewIdentifier.")
+        }
+        
         public let accessibility: Accessibility?
         public var shouldFitToEdge: Bool { false }
         public var currentBoolValue: Bool { false }
@@ -153,7 +157,7 @@ public extension SessionCell.Accessory {
         id: String,
         size: ProfilePictureView.Size = .list,
         threadVariant: SessionThread.Variant = .contact,
-        displayPictureFilename: String? = nil,
+        displayPictureUrl: String? = nil,
         profile: Profile? = nil,
         profileIcon: ProfilePictureView.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
@@ -164,7 +168,7 @@ public extension SessionCell.Accessory {
             id: id,
             size: size,
             threadVariant: threadVariant,
-            displayPictureFilename: displayPictureFilename,
+            displayPictureUrl: displayPictureUrl,
             profile: profile,
             profileIcon: profileIcon,
             additionalProfile: additionalProfile,
@@ -212,10 +216,15 @@ public extension SessionCell.Accessory {
 
 // MARK: Structs
 
+// stringlint:ignore_contents
 public extension SessionCell.AccessoryConfig {
     // MARK: - Icon
     
     class Icon: SessionCell.Accessory {
+        override public var viewIdentifier: String {
+            "icon-\(iconSize.size)\(shouldFill ? "-fill" : "")"
+        }
+        
         public let icon: Lucide.Icon?
         public let image: UIImage?
         public let iconSize: IconSize
@@ -267,6 +276,8 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - IconAsync
     
     class IconAsync: SessionCell.Accessory {
+        override public var viewIdentifier: String { "iconAsync" }
+        
         public let iconSize: IconSize
         public let customTint: ThemeValue?
         public let shouldFill: Bool
@@ -311,6 +322,8 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - Toggle
     
     class Toggle: SessionCell.Accessory {
+        override public var viewIdentifier: String { "toggle" }
+        
         public let value: Bool
         public let oldValue: Bool
         
@@ -349,6 +362,8 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - DropDown
     
     class DropDown: SessionCell.Accessory {
+        override public var viewIdentifier: String { "dropDown" }
+        
         public let dynamicString: () -> String?
         
         fileprivate init(
@@ -380,6 +395,8 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - Radio
     
     class Radio: SessionCell.Accessory {
+        override public var viewIdentifier: String { "radio-\(size.selectionSize)" }
+        
         public enum Size: Hashable, Equatable {
             case small
             case medium
@@ -445,6 +462,8 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - HighlightingBackgroundLabel
     
     class HighlightingBackgroundLabel: SessionCell.Accessory {
+        override public var viewIdentifier: String { "highlightingBackgroundLabel" }
+        
         public let title: String
         
         init(
@@ -478,6 +497,10 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - HighlightingBackgroundLabelAndRadio
     
     class HighlightingBackgroundLabelAndRadio: SessionCell.Accessory {
+        override public var viewIdentifier: String {
+            "highlightingBackgroundLabelAndRadio-\(size.selectionSize)"
+        }
+        
         public enum Size: Hashable, Equatable {
             case small
             case medium
@@ -553,10 +576,12 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - DisplayPicture
     
     class DisplayPicture: SessionCell.Accessory {
+        override public var viewIdentifier: String { "displayPicture-\(size.viewSize)" }
+        
         public let id: String
         public let size: ProfilePictureView.Size
         public let threadVariant: SessionThread.Variant
-        public let displayPictureFilename: String?
+        public let displayPictureUrl: String?
         public let profile: Profile?
         public let profileIcon: ProfilePictureView.ProfileIcon
         public let additionalProfile: Profile?
@@ -566,7 +591,7 @@ public extension SessionCell.AccessoryConfig {
             id: String,
             size: ProfilePictureView.Size,
             threadVariant: SessionThread.Variant,
-            displayPictureFilename: String?,
+            displayPictureUrl: String?,
             profile: Profile?,
             profileIcon: ProfilePictureView.ProfileIcon,
             additionalProfile: Profile?,
@@ -576,7 +601,7 @@ public extension SessionCell.AccessoryConfig {
             self.id = id
             self.size = size
             self.threadVariant = threadVariant
-            self.displayPictureFilename = displayPictureFilename
+            self.displayPictureUrl = displayPictureUrl
             self.profile = profile
             self.profileIcon = profileIcon
             self.additionalProfile = additionalProfile
@@ -591,7 +616,7 @@ public extension SessionCell.AccessoryConfig {
             id.hash(into: &hasher)
             size.hash(into: &hasher)
             threadVariant.hash(into: &hasher)
-            displayPictureFilename.hash(into: &hasher)
+            displayPictureUrl.hash(into: &hasher)
             profile.hash(into: &hasher)
             profileIcon.hash(into: &hasher)
             additionalProfile.hash(into: &hasher)
@@ -606,7 +631,7 @@ public extension SessionCell.AccessoryConfig {
                 id == rhs.id &&
                 size == rhs.size &&
                 threadVariant == rhs.threadVariant &&
-                displayPictureFilename == rhs.displayPictureFilename &&
+                displayPictureUrl == rhs.displayPictureUrl &&
                 profile == rhs.profile &&
                 profileIcon == rhs.profileIcon &&
                 additionalProfile == rhs.additionalProfile &&
@@ -617,6 +642,8 @@ public extension SessionCell.AccessoryConfig {
     }
     
     class Search: SessionCell.Accessory {
+        override public var viewIdentifier: String { "search" }
+        
         public let placeholder: String
         public let searchTermChanged: (String?) -> Void
         
@@ -648,6 +675,8 @@ public extension SessionCell.AccessoryConfig {
     }
     
     class Button: SessionCell.Accessory {
+        override public var viewIdentifier: String { "button" }
+        
         public let style: SessionButton.Style
         public let title: String
         public let run: (SessionButton?) -> Void
@@ -684,6 +713,8 @@ public extension SessionCell.AccessoryConfig {
     }
     
     class Custom<T: SessionCell.Accessory.CustomViewInfo>: SessionCell.Accessory, AnyCustom {
+        override public var viewIdentifier: String { "custom" }
+        
         public let info: T
         
         fileprivate init(

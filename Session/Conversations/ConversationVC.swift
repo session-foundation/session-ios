@@ -1384,7 +1384,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     profilePictureView.update(
                         publicKey: threadData.threadId,  // Contact thread uses the contactId
                         threadVariant: threadData.threadVariant,
-                        displayPictureFilename: nil,
+                        displayPictureUrl: nil,
                         profile: threadData.profile,
                         additionalProfile: nil,
                         using: viewModel.dependencies

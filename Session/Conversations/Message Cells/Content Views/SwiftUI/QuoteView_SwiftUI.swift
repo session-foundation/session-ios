@@ -18,8 +18,6 @@ struct QuoteView_SwiftUI: View {
         var attachment: Attachment?
     }
     
-    @State private var thumbnail: UIImage? = nil
-    
     private static let thumbnailSize: CGFloat = 48
     private static let iconSize: CGFloat = 24
     private static let labelStackViewSpacing: CGFloat = 2
@@ -65,17 +63,6 @@ struct QuoteView_SwiftUI: View {
         self.dependencies = dependencies
         self.info = info
         self.onCancel = onCancel
-        
-        if let attachment = info.attachment, attachment.isVisualMedia {
-            attachment.thumbnail(
-                size: .small,
-                using: dependencies,
-                success: { [self] _, imageRetriever, _ in
-                    self.thumbnail = imageRetriever()
-                },
-                failure: {}
-            )
-        }
     }
     
     var body: some View {
@@ -84,42 +71,48 @@ struct QuoteView_SwiftUI: View {
             spacing: Values.smallSpacing
         ) {
             if let attachment: Attachment = info.attachment {
-                // Attachment thumbnail
-                if let image: UIImage = {
-                    if let thumbnail = self.thumbnail {
-                        return thumbnail
-                    }
+                ZStack() {
+                    RoundedRectangle(
+                        cornerRadius: Self.cornerRadius
+                    )
+                    .fill(themeColor: .messageBubble_overlay)
+                    .frame(
+                        width: Self.thumbnailSize,
+                        height: Self.thumbnailSize
+                    )
                     
-                    let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
-                    return UIImage(named: fallbackImageName)?
-                        .withRenderingMode(.alwaysTemplate)
-                }() {
-                    ZStack() {
-                        RoundedRectangle(
-                            cornerRadius: Self.cornerRadius
-                        )
-                        .fill(themeColor: .messageBubble_overlay)
-                        .frame(
-                            width: Self.thumbnailSize,
-                            height: Self.thumbnailSize
-                        )
+                    SessionAsyncImage(
+                        attachment: attachment,
+                        thumbnailSize: .medium,
+                        using: dependencies
+                    ) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
                         
-                        Image(uiImage: image)
-                            .foregroundColor(themeColor: {
-                                switch info.mode {
-                                    case .regular: return (info.direction == .outgoing ?
-                                        .messageBubble_outgoingText :
-                                            .messageBubble_incomingText
-                                    )
-                                    case .draft: return .textPrimary
-                                }
-                            }())
-                            .frame(
-                                width: Self.iconSize,
-                                height: Self.iconSize,
-                                alignment: .center
-                            )
+                        if let image = UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate) {
+                            Image(uiImage: image)
+                                .foregroundColor(themeColor: {
+                                    switch info.mode {
+                                        case .regular: return (info.direction == .outgoing ?
+                                            .messageBubble_outgoingText :
+                                                .messageBubble_incomingText
+                                        )
+                                        case .draft: return .textPrimary
+                                    }
+                                }())
+                        }
+                        else {
+                            Color.clear
+                        }
                     }
+                    .frame(
+                        width: Self.iconSize,
+                        height: Self.iconSize,
+                        alignment: .center
+                    )
                 }
             } else {
                 // Line view

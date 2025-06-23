@@ -169,13 +169,6 @@ public enum AttachmentDownloadJob: JobExecutor {
                                     .with(
                                         state: .downloaded,
                                         creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                        localRelativeFilePath: (
-                                            attachment.localRelativeFilePath ??
-                                            Attachment.localRelativeFilePath(
-                                                from: attachment.originalFilePath(using: dependencies),
-                                                using: dependencies
-                                            )
-                                        ),
                                         using: dependencies
                                     )
                                     .upserted(db)

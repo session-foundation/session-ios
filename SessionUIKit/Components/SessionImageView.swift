@@ -124,29 +124,52 @@ public class SessionImageView: UIImageView {
     }
     
     @MainActor
-    public func loadImage(identifier: String? = nil, from path: String, onComplete: (() -> Void)? = nil) {
-        /// Call through to the `url` loader so that the identifier would match regardless of whether the called used `path` or `url`
-        loadImage(identifier: identifier, from: URL(fileURLWithPath: path), onComplete: onComplete)
-    }
-    
-    @MainActor
-    public func loadImage(identifier: String? = nil, from url: URL, onComplete: (() -> Void)? = nil) {
-        loadImage(identifier: (identifier ?? url.absoluteString), source: .url(url), onComplete: onComplete)
-    }
-    
-    @MainActor
-    public func loadImage(identifier: String, from data: Data, onComplete: (() -> Void)? = nil) {
-        loadImage(identifier: identifier, source: .data(data), onComplete: onComplete)
-    }
-    
-    @MainActor
-    public func loadImage(identifier: String, from closure: @Sendable @escaping () -> Data?, onComplete: (() -> Void)? = nil) {
-        loadImage(identifier: identifier, source: .closure(closure), onComplete: onComplete)
-    }
-    
-    @MainActor
-    public func loadImage(identifier: String, from source: ImageDataManager.DataSource, onComplete: (() -> Void)? = nil) {
-        loadImage(identifier: identifier, source: source, onComplete: onComplete)
+    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: ((Bool) -> Void)? = nil) {
+        /// If we are trying to load the image that is already displayed then no need to do anything
+        if currentLoadIdentifier == source.identifier && (self.image == nil || isAnimating()) {
+            /// If it was an animation that got paused then resume it
+            if let frames: [UIImage] = animationFrames, !frames.isEmpty, !isAnimating() {
+                startAnimationLoop()
+            }
+            return
+        }
+        
+        imageLoadTask?.cancel()
+        resetState(identifier: source.identifier)
+        
+        /// No need to kick of an async task if we were given an image directly
+        switch source {
+            case .image(_, .some(let image)):
+                imageSizeMetadata = image.size
+                return handleLoadedImageData(
+                    ImageDataManager.ProcessedImageData(type: .staticImage(image))
+                )
+            
+            default: break
+        }
+        
+        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
+        /// background task for loading
+        imageSizeMetadata = source.sizeFromMetadata
+        
+        guard let dataManager: ImageDataManagerType = self.dataManager else {
+            #if DEBUG
+            preconditionFailure("Error! No `ImageDataManager` configured for `SessionImageView")
+            #else
+            return
+            #endif
+        }
+        
+        imageLoadTask = Task.detached(priority: .userInitiated) { [weak self, dataManager] in
+            let processedData: ImageDataManager.ProcessedImageData? = await dataManager.load(source)
+            
+            await MainActor.run { [weak self] in
+                guard !Task.isCancelled && self?.currentLoadIdentifier == source.identifier else { return }
+                
+                self?.handleLoadedImageData(processedData)
+                onComplete?(processedData != nil)
+            }
+        }
     }
     
     @MainActor
@@ -198,62 +221,6 @@ public class SessionImageView: UIImageView {
     }
     
     // MARK: - Internal Functions
-    
-    @MainActor
-    private func loadImage(
-        identifier: String,
-        source: ImageDataManager.DataSource,
-        onComplete: (() -> Void)?
-    ) {
-        /// If we are trying to load the image that is already displayed then no need to do anything
-        if currentLoadIdentifier == identifier && (self.image == nil || isAnimating()) {
-            /// If it was an animation that got paused then resume it
-            if let frames: [UIImage] = animationFrames, !frames.isEmpty, !isAnimating() {
-                startAnimationLoop()
-            }
-            return
-        }
-        
-        imageLoadTask?.cancel()
-        resetState(identifier: identifier)
-        
-        /// No need to kick of an async task if we were given an image directly
-        switch source {
-            case .image(_, .some(let image)):
-                imageSizeMetadata = image.size
-                return handleLoadedImageData(
-                    ImageDataManager.ProcessedImageData(type: .staticImage(image))
-                )
-            
-            default: break
-        }
-        
-        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
-        /// background task for loading
-        imageSizeMetadata = source.sizeFromMetadata
-        
-        guard let dataManager: ImageDataManagerType = self.dataManager else {
-            #if DEBUG
-            preconditionFailure("Error! No `ImageDataManager` configured for `SessionImageView")
-            #else
-            return
-            #endif
-        }
-        
-        imageLoadTask = Task { [weak self, dataManager] in
-            let processedData: ImageDataManager.ProcessedImageData? = await dataManager.loadImageData(
-                identifier: identifier,
-                source: source
-            )
-            
-            await MainActor.run { [weak self] in
-                guard !Task.isCancelled && self?.currentLoadIdentifier == identifier else { return }
-                
-                self?.handleLoadedImageData(processedData)
-                onComplete?()
-            }
-        }
-    }
     
     @MainActor
     private func resetState(identifier: String?) {

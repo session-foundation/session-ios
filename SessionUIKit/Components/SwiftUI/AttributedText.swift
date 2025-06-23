@@ -27,8 +27,11 @@ public struct AttributedText: View {
         if let text = attributedText?.value {
             text.enumerateAttributes(in: NSMakeRange(0, text.length), options: [], using: { (attribute, range, stop) in
                 let substring = (text.string as NSString).substring(with: range)
-                let font =  (attribute[.font] as? UIFont).map { Font($0) }
-                let color = (attribute[.foregroundColor] as? UIColor).map { Color($0) }
+                let font = (attribute[.font] as? UIFont).map { Font($0) }
+                let color = (
+                    (attribute[.themeForegroundColor] as? ThemeValue).map { Color($0) } ??
+                    (attribute[.foregroundColor] as? UIColor).map { Color($0) }
+                )
                 let baselineOffset = (attribute[.baselineOffset] as? CGFloat)
                 descriptions.append(
                     AttributedTextBlock(

@@ -326,9 +326,6 @@ public extension MessageSendJob {
         /// device - both `LinkPreview` and `Quote` can have this case)
         let pendingUploadAttachmentIds: [String] = allAttachmentStateInfo
             .filter { attachment -> Bool in
-                // Non-media quotes won't have thumbnails so so don't try to upload them
-                guard attachment.downloadUrl != Attachment.nonMediaQuoteFileId else { return false }
-
                 switch attachment.state {
                     case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
                         return true
@@ -371,7 +368,6 @@ extension MessageSendJob {
         private enum CodingKeys: String, CodingKey {
             case destination
             case message
-            @available(*, deprecated, message: "replaced by 'Message.Destination.syncMessage'") case isSyncMessage
             case variant
             case requiredConfigSyncVariant
         }

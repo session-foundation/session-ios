@@ -105,7 +105,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         @TestState(singleton: .imageDataManager, in: dependencies) var mockImageDataManager: MockImageDataManager! = MockImageDataManager(
             initialSetup: { imageDataManager in
                 imageDataManager
-                    .when { await $0.loadImageData(identifier: .any, source: .any) }
+                    .when { await $0.load(.any) }
                     .thenReturn(nil)
             }
         )
@@ -649,7 +649,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         expect(mockFileManager)
                             .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                         expect(mockImageDataManager).toNot(call {
-                            await $0.loadImageData(identifier: .any, source: .any)
+                            await $0.load(.any)
                         })
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
@@ -668,7 +668,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         expect(mockFileManager)
                             .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                         expect(mockImageDataManager).toNot(call {
-                            await $0.loadImageData(identifier: .any, source: .any)
+                            await $0.load(.any)
                         })
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
@@ -685,7 +685,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
                         expect(mockImageDataManager).toNot(call {
-                            await $0.loadImageData(identifier: .any, source: .any)
+                            await $0.load(.any)
                         })
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
@@ -707,10 +707,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 it("adds the image data to the displayPicture cache") {
                     expect(mockImageDataManager)
                         .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            await $0.loadImageData(
-                                identifier: "\(filenameHash).png",
-                                source: .data(imageData)
-                            )
+                            await $0.load(.data(imageData))
                         })
                 }
                 
@@ -763,7 +760,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                             expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
+                                await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(beNil())
                         }
@@ -791,7 +788,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                             expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
+                                await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .toNot(equal(
@@ -829,7 +826,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                             expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
+                                await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .toNot(equal(
@@ -872,10 +869,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             })
                             expect(mockImageDataManager)
                                 .to(call(.exactly(times: 1), matchingParameters: .all) {
-                                    await $0.loadImageData(
-                                        identifier: "\(filenameHash).png",
-                                        source: .data(imageData)
-                                    )
+                                    await $0.load(.data(imageData))
                                 })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .to(equal(
@@ -967,7 +961,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                             expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
+                                await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) }).to(beNil())
                         }
@@ -995,7 +989,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                             expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
+                                await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .toNot(equal(
@@ -1039,7 +1033,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
                             expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
+                                await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .toNot(equal(
@@ -1088,10 +1082,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             })
                             expect(mockImageDataManager)
                                 .to(call(.exactly(times: 1), matchingParameters: .all) {
-                                    await $0.loadImageData(
-                                        identifier: "\(filenameHash).png",
-                                        source: .data(imageData)
-                                    )
+                                    await $0.load(.data(imageData))
                                 })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .to(equal(
@@ -1193,9 +1184,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
-                            })
+                            expect(mockImageDataManager).toNot(call { await $0.load(.any) })
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) }).to(beNil())
                         }
                     }
@@ -1217,9 +1206,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNot(call {
-                                await $0.loadImageData(identifier: .any, source: .any)
-                            })
+                            expect(mockImageDataManager).toNot(call { await $0.load(.any) })
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
                                 .toNot(equal(
                                     OpenGroup(
@@ -1262,10 +1249,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             })
                             expect(mockImageDataManager)
                                 .to(call(.exactly(times: 1), matchingParameters: .all) {
-                                    await $0.loadImageData(
-                                        identifier: "\(filenameHash).png",
-                                        source: .data(imageData)
-                                    )
+                                    await $0.load(.data(imageData))
                                 })
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
                                 .to(equal(

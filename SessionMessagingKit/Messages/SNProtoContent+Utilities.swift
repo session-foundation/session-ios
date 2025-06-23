@@ -15,7 +15,6 @@ public extension SNProtoContent {
         guard
             let message: VisibleMessage = message as? VisibleMessage, (
                 !message.attachmentIds.isEmpty ||
-                message.quote?.attachmentId != nil ||
                 message.linkPreview?.attachmentId != nil
             )
         else { return self }
@@ -23,12 +22,10 @@ public extension SNProtoContent {
         /// Calculate attachment information
         let expectedAttachmentUploadCount: Int = (
             message.attachmentIds.count +
-            (message.linkPreview?.attachmentId != nil ? 1 : 0) +
-            (message.quote?.attachmentId != nil ? 1 : 0)
+            (message.linkPreview?.attachmentId != nil ? 1 : 0)
         )
         let uniqueAttachmentIds: Set<String> = Set(message.attachmentIds)
             .inserting(message.linkPreview?.attachmentId)
-            .inserting(message.quote?.attachmentId)
         
         /// We need to ensure we don't send a message which should have uploaded files but hasn't, we do this by comparing the
         /// `attachmentIds` on the `VisibleMessage` to the `attachments` value
@@ -52,46 +49,6 @@ public extension SNProtoContent {
             
             let builder = self.asBuilder()
             var attachmentIds: [String] = message.attachmentIds
-            
-            /// Quote
-            if let attachmentId: String = message.quote?.attachmentId {
-                if let index: Array<String>.Index = attachmentIds.firstIndex(of: attachmentId) {
-                    attachmentIds.remove(at: index)
-                }
-                
-                if
-                    let quoteBuilder = self.dataMessage?.quote?.asBuilder(),
-                    let attachment: Attachment = processedAttachments.first(where: { $0.id == attachmentId })
-                {
-                    let attachmentProtoBuilder = SNProtoDataMessageQuoteQuotedAttachment.builder()
-                    attachmentProtoBuilder.setContentType(attachment.contentType)
-                    
-                    if let fileName = attachment.sourceFilename {
-                        attachmentProtoBuilder.setFileName(fileName)
-                    }
-                    
-                    if
-                        attachment.state == .uploaded,
-                        let attachmentProto = attachment.buildProto()
-                    {
-                        attachmentProtoBuilder.setThumbnail(attachmentProto)
-                    }
-                    else {
-                        Log.warn(.messageSender, "Ignoring invalid attachment for quoted message.")
-                    }
-                    
-                    do {
-                        try quoteBuilder.addAttachments(attachmentProtoBuilder.build())
-                        try dataMessage.setQuote(quoteBuilder.build())
-                    }
-                    catch {
-                        Log.warn(.messageSender, "Couldn't construct quoted attachment proto from: \(message).")
-                    }
-                }
-                
-                /// Remove the `quote` attachment from the general attachments set
-                processedAttachments = processedAttachments.filter { $0.id != attachmentId }
-            }
             
             /// Link preview
             if let attachmentId: String = message.linkPreview?.attachmentId {

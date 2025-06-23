@@ -22,8 +22,8 @@ internal extension LibSession {
         Contact.Columns.didApproveMe,
         Profile.Columns.name,
         Profile.Columns.nickname,
-        Profile.Columns.profilePictureUrl,
-        Profile.Columns.profileEncryptionKey,
+        Profile.Columns.displayPictureUrl,
+        Profile.Columns.displayPictureEncryptionKey,
         DisappearingMessagesConfiguration.Columns.isEnabled,
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
@@ -67,10 +67,10 @@ internal extension LibSessionCacheType {
                 )
                 let profilePictureShouldBeUpdated: Bool = (
                     (
-                        profile.profilePictureUrl != data.profile.profilePictureUrl ||
-                        profile.profileEncryptionKey != data.profile.profileEncryptionKey
+                        profile.displayPictureUrl != data.profile.displayPictureUrl ||
+                        profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey
                     ) &&
-                    (profile.lastProfilePictureUpdate ?? 0) < (data.profile.lastProfilePictureUpdate ?? 0)
+                    (profile.displayPictureLastUpdated ?? 0) < (data.profile.displayPictureLastUpdated ?? 0)
                 )
                 
                 if
@@ -94,14 +94,14 @@ internal extension LibSessionCacheType {
                                 (profile.nickname == data.profile.nickname ? nil :
                                     Profile.Columns.nickname.set(to: data.profile.nickname)
                                 ),
-                                (profile.profilePictureUrl != data.profile.profilePictureUrl ? nil :
-                                    Profile.Columns.profilePictureUrl.set(to: data.profile.profilePictureUrl)
+                                (profile.displayPictureUrl != data.profile.displayPictureUrl ? nil :
+                                    Profile.Columns.displayPictureUrl.set(to: data.profile.displayPictureUrl)
                                 ),
-                                (profile.profileEncryptionKey != data.profile.profileEncryptionKey ? nil :
-                                    Profile.Columns.profileEncryptionKey.set(to: data.profile.profileEncryptionKey)
+                                (profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey ? nil :
+                                    Profile.Columns.displayPictureEncryptionKey.set(to: data.profile.displayPictureEncryptionKey)
                                 ),
                                 (!profilePictureShouldBeUpdated ? nil :
-                                    Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
+                                    Profile.Columns.displayPictureLastUpdated.set(to: data.profile.displayPictureLastUpdated)
                                 )
                             ].compactMap { $0 },
                             using: dependencies
@@ -336,8 +336,8 @@ public extension LibSession {
                     
                     contact.set(\.name, to: updatedName)
                     contact.set(\.nickname, to: info.nickname)
-                    contact.set(\.profile_pic.url, to: info.profilePictureUrl)
-                    contact.set(\.profile_pic.key, to: info.profileEncryptionKey)
+                    contact.set(\.profile_pic.url, to: info.displayPictureUrl)
+                    contact.set(\.profile_pic.key, to: info.displayPictureEncryptionKey)
                     
                     // Attempts retrieval of the profile picture (will schedule a download if
                     // needed via a throttled subscription on another thread to prevent blocking)
@@ -347,13 +347,12 @@ public extension LibSession {
                     if
                         let updatedProfile: Profile = info.profile,
                         dependencies[singleton: .appContext].isMainApp && (
-                            oldAvatarUrl != (info.profilePictureUrl ?? "") ||
-                            oldAvatarKey != (info.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
+                            oldAvatarUrl != (info.displayPictureUrl ?? "") ||
+                            oldAvatarKey != (info.displayPictureEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                         )
                     {
                         dependencies[singleton: .displayPictureManager].scheduleDownload(
-                            for: .user(updatedProfile),
-                            currentFileInvalid: false
+                            for: .user(updatedProfile)
                         )
                     }
                     
@@ -493,10 +492,13 @@ internal extension LibSession {
         if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                    try cache.updateProfile(
-                        displayName: updatedUserProfile.name,
-                        profilePictureUrl: updatedUserProfile.profilePictureUrl,
-                        profileEncryptionKey: updatedUserProfile.profileEncryptionKey
+                    db.addChangeIfNotNull(
+                        try cache.updateProfile(
+                            displayName: updatedUserProfile.name,
+                            displayPictureUrl: updatedUserProfile.displayPictureUrl,
+                            displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey
+                        ),
+                        forKey: .profile(userSessionId.hexString)
                     )
                 }
             }
@@ -697,8 +699,8 @@ extension LibSession {
         
         let name: String?
         let nickname: String?
-        let profilePictureUrl: String?
-        let profileEncryptionKey: Data?
+        let displayPictureUrl: String?
+        let displayPictureEncryptionKey: Data?
         
         let disappearingMessagesInfo: DisappearingMessageInfo?
         let priority: Int32?
@@ -711,8 +713,8 @@ extension LibSession {
                 id: id,
                 name: name,
                 nickname: nickname,
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: profileEncryptionKey
+                displayPictureUrl: displayPictureUrl,
+                displayPictureEncryptionKey: displayPictureEncryptionKey
             )
         }
         
@@ -732,8 +734,8 @@ extension LibSession {
                 didApproveMe: contact?.didApproveMe,
                 name: profile?.name,
                 nickname: profile?.nickname,
-                profilePictureUrl: profile?.profilePictureUrl,
-                profileEncryptionKey: profile?.profileEncryptionKey,
+                displayPictureUrl: profile?.displayPictureUrl,
+                displayPictureEncryptionKey: profile?.displayPictureEncryptionKey,
                 disappearingMessagesInfo: disappearingMessagesConfig.map {
                     DisappearingMessageInfo(
                         isEnabled: $0.isEnabled,
@@ -754,8 +756,8 @@ extension LibSession {
             didApproveMe: Bool? = nil,
             name: String? = nil,
             nickname: String? = nil,
-            profilePictureUrl: String? = nil,
-            profileEncryptionKey: Data? = nil,
+            displayPictureUrl: String? = nil,
+            displayPictureEncryptionKey: Data? = nil,
             disappearingMessagesInfo: DisappearingMessageInfo? = nil,
             priority: Int32? = nil,
             created: TimeInterval? = nil
@@ -767,8 +769,8 @@ extension LibSession {
             self.didApproveMe = didApproveMe
             self.name = name
             self.nickname = nickname
-            self.profilePictureUrl = profilePictureUrl
-            self.profileEncryptionKey = profileEncryptionKey
+            self.displayPictureUrl = displayPictureUrl
+            self.displayPictureEncryptionKey = displayPictureEncryptionKey
             self.disappearingMessagesInfo = disappearingMessagesInfo
             self.priority = priority
             self.created = created
@@ -829,15 +831,15 @@ internal extension LibSession {
                 didApproveMe: contact.approved_me,
                 using: dependencies
             )
-            let profilePictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
+            let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: contact.get(\.name),
                 lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 nickname: contact.get(\.nickname, nullIfEmpty: true),
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000)
+                displayPictureUrl: displayPictureUrl,
+                displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
+                displayPictureLastUpdated: (TimeInterval(serverTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,

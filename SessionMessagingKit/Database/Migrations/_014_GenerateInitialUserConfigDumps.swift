@@ -66,8 +66,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         )
         try cache.updateProfile(
             displayName: (userProfile?["name"] ?? ""),
-            profilePictureUrl: userProfile?["profilePictureUrl"],
-            profileEncryptionKey: userProfile?["profileEncryptionKey"]
+            displayPictureUrl: userProfile?["profilePictureUrl"],
+            displayPictureEncryptionKey: userProfile?["profileEncryptionKey"]
         )
         
         try LibSession.updateNoteToSelf(
@@ -150,8 +150,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         didApproveMe: row["didApproveMe"],
                         name: row["name"],
                         nickname: row["nickname"],
-                        profilePictureUrl: row["profilePictureUrl"],
-                        profileEncryptionKey: row["profileEncryptionKey"],
+                        displayPictureUrl: row["profilePictureUrl"],
+                        displayPictureEncryptionKey: row["profileEncryptionKey"],
                         priority: {
                             guard allThreads[contactId]?["shouldBeVisible"] == true else {
                                 return -1 // Hidden priority

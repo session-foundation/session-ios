@@ -111,13 +111,7 @@ internal extension LibSessionCacheType {
                 ClosedGroup.Columns.displayPictureUrl.set(to: nil)
             ),
             (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
-                ClosedGroup.Columns.displayPictureFilename.set(to: nil)
-            ),
-            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
                 ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil)
-            ),
-            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
-                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: (serverTimestampMs / 1000))
             )
         ].compactMap { $0 }
 

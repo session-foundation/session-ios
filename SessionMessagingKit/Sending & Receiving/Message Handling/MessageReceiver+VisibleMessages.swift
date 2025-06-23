@@ -41,18 +41,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .contactRemove }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: messageSentTimestamp,
                 using: dependencies
@@ -333,7 +322,6 @@ extension MessageReceiver {
         
         // Persist quote if needed
         let quote: Quote? = try? Quote(
-            db,
             proto: dataMessage,
             interactionId: interactionId,
             thread: thread
@@ -367,7 +355,6 @@ extension MessageReceiver {
         if isContactTrusted || thread.variant != .contact {
             attachments
                 .map { $0.id }
-                .appending(quote?.attachmentId)
                 .appending(linkPreview?.attachmentId)
                 .forEach { attachmentId in
                     dependencies[singleton: .jobRunner].add(

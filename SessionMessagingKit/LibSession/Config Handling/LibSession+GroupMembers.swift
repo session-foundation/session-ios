@@ -131,18 +131,7 @@ internal extension LibSessionCacheType {
                 db,
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileEncryptionKey
-                    else { return .none }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
                 using: dependencies
             )
@@ -214,8 +203,8 @@ internal extension LibSession {
                     }
                     
                     if
-                        let picUrl: String = profile?.profilePictureUrl,
-                        let picKey: Data = profile?.profileEncryptionKey,
+                        let picUrl: String = profile?.displayPictureUrl,
+                        let picKey: Data = profile?.displayPictureEncryptionKey,
                         !picUrl.isEmpty,
                         picKey.count == DisplayPictureManager.aes256KeyByteLength
                     {
@@ -307,9 +296,9 @@ internal extension LibSession {
         
         groupMember.set(\.name, to: profile.name)
         
-        if profile.profilePictureUrl != nil && profile.profileEncryptionKey != nil {
-            groupMember.set(\.profile_pic.url, to: profile.profilePictureUrl)
-            groupMember.set(\.profile_pic.key, to: profile.profileEncryptionKey)
+        if profile.displayPictureUrl != nil && profile.displayPictureEncryptionKey != nil {
+            groupMember.set(\.profile_pic.url, to: profile.displayPictureUrl)
+            groupMember.set(\.profile_pic.key, to: profile.displayPictureEncryptionKey)
         }
         
         groups_members_set(conf, &groupMember)
@@ -517,11 +506,11 @@ internal extension LibSession {
                     name: member.get(\.name),
                     lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                     nickname: nil,
-                    profilePictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
-                    profileEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
+                    displayPictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
+                    displayPictureEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
                         member.get(\.profile_pic.key)
                     ),
-                    lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
+                    displayPictureLastUpdated: TimeInterval(Double(serverTimestampMs) / 1000),
                     lastBlocksCommunityMessageRequests: nil
                 )
             )

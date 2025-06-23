@@ -1029,8 +1029,7 @@ public extension MessageViewModel {
                 )
                 LEFT JOIN \(quoteAttachment) ON (
                     \(quoteAttachment[.id]) = \(quoteInteractionAttachment[.attachmentId]) OR
-                    \(quoteAttachment[.id]) = \(quoteLinkPreview[.attachmentId]) OR
-                    \(quoteAttachment[.id]) = \(quote[.attachmentId])
+                    \(quoteAttachment[.id]) = \(quoteLinkPreview[.attachmentId])
                 )
             
                 LEFT JOIN \(LinkPreview.self) ON (
@@ -1329,10 +1328,7 @@ public extension MessageViewModel.QuotedInfo {
                     \(quoteInteractionAttachment[.interactionId]) = \(quoteInteraction[.id]) AND
                     \(quoteInteractionAttachment[.albumIndex]) = 0
                 )
-                LEFT JOIN \(Attachment.self) ON (
-                    \(attachment[.id]) = \(quoteInteractionAttachment[.attachmentId]) OR
-                    \(attachment[.id]) = \(quote[.attachmentId])
-                )
+                LEFT JOIN \(Attachment.self) ON \(attachment[.id]) = \(quoteInteractionAttachment[.attachmentId])
                 \(finalFilterSQL)
             """
             
@@ -1400,7 +1396,6 @@ public extension MessageViewModel.QuotedInfo {
                         guard
                             (
                                 dataToUpdate.quote?.body != nil ||
-                                dataToUpdate.quote?.attachmentId != nil ||
                                 dataToUpdate.quoteAttachment != nil
                             )
                         else { return }

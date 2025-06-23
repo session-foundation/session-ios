@@ -50,7 +50,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case disappearingMessagesConfiguration
         
         case contactLastKnownClientVersion
-        case displayPictureFilename
+        case threadDisplayPictureUrl
         case contactProfile
         case closedGroupProfileFront
         case closedGroupProfileBack
@@ -153,7 +153,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     
     public let contactLastKnownClientVersion: FeatureVersion?
-    public let displayPictureFilename: String?
+    public let threadDisplayPictureUrl: String?
     private let contactProfile: Profile?
     private let closedGroupProfileFront: Profile?
     private let closedGroupProfileBack: Profile?
@@ -499,7 +499,7 @@ public extension SessionThreadViewModel {
         self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactLastKnownClientVersion = nil
-        self.displayPictureFilename = nil
+        self.threadDisplayPictureUrl = nil
         self.contactProfile = contactProfile
         self.closedGroupProfileFront = nil
         self.closedGroupProfileBack = nil
@@ -579,7 +579,7 @@ public extension SessionThreadViewModel {
             threadCanWrite: threadCanWrite,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
-            displayPictureFilename: self.displayPictureFilename,
+            threadDisplayPictureUrl: self.threadDisplayPictureUrl,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -770,10 +770,10 @@ public extension SessionThreadViewModel {
                     \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
             
                     COALESCE(
-                        \(openGroup[.displayPictureFilename]),
-                        \(closedGroup[.displayPictureFilename]),
-                        \(contactProfile[.profilePictureFileName])
-                    ) AS \(ViewModel.Columns.displayPictureFilename),
+                        \(openGroup[.displayPictureOriginalUrl]),
+                        \(closedGroup[.displayPictureUrl]),
+                        \(contactProfile[.displayPictureUrl])
+                    ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
 
                     \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                     \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
@@ -1231,10 +1231,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.publicKey]) AS \(ViewModel.Columns.openGroupPublicKey),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
                     
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
             
@@ -1344,11 +1344,11 @@ public extension SessionThreadViewModel {
             .replacingOccurrences(of: "“", with: "\"")
     }
     
-    static func pattern(_ db: Database, searchTerm: String) throws -> FTS5Pattern {
+    static func pattern(_ db: ObservingDatabase, searchTerm: String) throws -> FTS5Pattern {
         return try pattern(db, searchTerm: searchTerm, forTable: Interaction.self)
     }
     
-    static func pattern<T>(_ db: Database, searchTerm: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
+    static func pattern<T>(_ db: ObservingDatabase, searchTerm: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         // Note: FTS doesn't support both prefix/suffix wild cards so don't bother trying to
         // add a prefix one
         let rawPattern: String = {
@@ -1417,10 +1417,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
             
                 \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                 \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
@@ -1565,10 +1565,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
@@ -1845,10 +1845,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
                 
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
@@ -2116,10 +2116,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
         
                 \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                 \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),

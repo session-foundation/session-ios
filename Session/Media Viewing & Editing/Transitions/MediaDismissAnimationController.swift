@@ -107,7 +107,24 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
         }
 
         guard let fromMediaContext: MediaPresentationContext = fromContextProvider.mediaPresentationContext(mediaItem: mediaItem, in: containerView) else {
-            transitionContext.completeTransition(false)
+            /// iOS won't automatically handle failure cases so if we can't get the "from" context then we want to just complete the change
+            /// instantly so the user doesn't permanently get stuck on the screen
+            if transitionContext.transitionWasCancelled {
+                transitionContext.view(forKey: .from)?.isUserInteractionEnabled = true
+            }
+            else {
+                if let toView: UIView = transitionContext.view(forKey: .to) {
+                    containerView.insertSubview(toView, at: 0)
+                }
+                
+                transitionContext.view(forKey: .from)?.removeFromSuperview()
+                
+                // Note: We shouldn't need to do this but for some reason it's not
+                // automatically getting re-enabled so we manually enable it
+                transitionContext.view(forKey: .to)?.isUserInteractionEnabled = true
+            }
+
+            transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
             return
         }
 

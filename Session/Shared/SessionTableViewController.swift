@@ -583,28 +583,20 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell)
                     
                 case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
-                    guard let touchLocation: UITouch = touchLocation else { return cell }
-                    
-                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
-                    
                     guard
-                        !cell.trailingAccessoryView.isHidden &&
-                        cell.trailingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
-                    else { return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell) }
+                        let touchLocation: UITouch = touchLocation,
+                        !cell.trailingAccessoryView.isHidden
+                    else { return cell }
                     
-                    return cell.trailingAccessoryView.highlightingBackgroundLabel
+                    return cell.trailingAccessoryView.touchedView(touchLocation)
                     
                 case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
-                    guard let touchLocation: UITouch = touchLocation else { return cell }
-                    
-                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
-                    
                     guard
-                        !cell.leadingAccessoryView.isHidden &&
-                        cell.leadingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
-                    else { return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell) }
+                        let touchLocation: UITouch = touchLocation,
+                        !cell.leadingAccessoryView.isHidden
+                    else { return cell }
                     
-                    return cell.leadingAccessoryView.highlightingBackgroundLabel
+                    return cell.leadingAccessoryView.touchedView(touchLocation)
                 
                 default:
                     return cell

@@ -498,11 +498,16 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             Log.error("[MediaPageViewController] currentViewController was unexpectedly nil")
             return
         }
-        guard let originalFilePath: String = currentViewController.galleryItem.attachment.originalFilePath(using: viewModel.dependencies) else {
-            return
-        }
+        guard
+            let path: String = try? viewModel.dependencies[singleton: .attachmentManager].createTemporaryFileForOpening(
+                downloadUrl: currentViewController.galleryItem.attachment.downloadUrl,
+                mimeType: currentViewController.galleryItem.attachment.contentType,
+                sourceFilename: currentViewController.galleryItem.attachment.sourceFilename
+            ),
+            viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
+        else { return }
         
-        let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: originalFilePath) ], applicationActivities: nil)
+        let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: path) ], applicationActivities: nil)
         
         if UIDevice.current.isIPad {
             shareVC.excludedActivityTypes = []
@@ -517,6 +522,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             }
             else if completed {
                 Log.info("[MediaPageViewController] Did share with activityType: \(activityType.debugDescription)")
+            }
+            
+            /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+            if path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
             }
             
             guard
@@ -897,12 +907,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
 extension MediaGalleryViewModel.Item: GalleryRailItem {
     public func buildRailItemView(using dependencies: Dependencies) -> UIView {
-        let imageView: UIImageView = UIImageView()
+        let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         
-        self.thumbnailImage(using: dependencies) { [weak imageView] image in
-            DispatchQueue.main.async {
-                imageView?.image = image
+        if attachment.downloadUrl != nil {
+            Task.detached(priority: .userInitiated) {
+                await imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
             }
         }
 

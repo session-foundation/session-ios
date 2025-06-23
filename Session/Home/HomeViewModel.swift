@@ -98,7 +98,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 ),
                 PagedData.ObservedChanges(
                     table: Profile.self,
-                    columns: [.name, .nickname, .profilePictureFileName],
+                    columns: [.name, .nickname, .displayPictureUrl],
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -152,7 +152,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 ),
                 PagedData.ObservedChanges(
                     table: ClosedGroup.self,
-                    columns: [.name, .invited, .displayPictureFilename],
+                    columns: [.name, .invited, .displayPictureUrl],
                     joinToPagedType: {
                         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
                         
@@ -161,7 +161,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 ),
                 PagedData.ObservedChanges(
                     table: OpenGroup.self,
-                    columns: [.name, .displayPictureFilename],
+                    columns: [.name, .displayPictureOriginalUrl],
                     joinToPagedType: {
                         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                         

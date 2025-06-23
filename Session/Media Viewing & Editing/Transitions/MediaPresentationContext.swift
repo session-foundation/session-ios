@@ -11,13 +11,10 @@ enum Media {
     var image: UIImage? {
         switch self {
             case let .gallery(item, dependencies):
-                // For videos attempt to load a large thumbnail, for other items just try to load
-                // the source file directly
-                switch (item.isVideo, item.attachment.originalFilePath(using: dependencies)) {
-                    case (false, .some(let filePath)): return UIImage(contentsOfFile: filePath)
-                    default:
-                        return item.attachment.existingThumbnail(size: .large, using: dependencies)
-                }
+                return dependencies[singleton: .imageDataManager].cachedImage(
+                    attachment: item.attachment,
+                    using: dependencies
+                )
                 
             case let .image(image): return image
         }

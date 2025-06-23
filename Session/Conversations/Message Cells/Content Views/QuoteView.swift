@@ -131,32 +131,10 @@ final class QuoteView: UIView {
             }
             
             // Generate the thumbnail if needed
-            if attachment.isVisualMedia {
-                let thumbnailPath: String = attachment.thumbnailPath(for: Attachment.ThumbnailSize.medium.dimension)
+            imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak imageView] success in
+                guard success else { return }
                 
-                imageView.loadImage(
-                    identifier: thumbnailPath,
-                    from: { [weak self] () -> Data? in
-                        guard let self = self else { return nil }
-                        
-                        var data: Data?
-                        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                        
-                        attachment.thumbnail(
-                            size: .medium,
-                            using: self.dependencies,
-                            success: { _, _, imageData in
-                                data = try? imageData()
-                                semaphore.signal()
-                            },
-                            failure: { semaphore.signal() }
-                        )
-                        semaphore.wait()
-                        
-                        return data
-                    },
-                    onComplete: { [weak imageView] in imageView?.contentMode = .scaleAspectFill }
-                )
+                imageView?.contentMode = .scaleAspectFill
             }
         }
         else {

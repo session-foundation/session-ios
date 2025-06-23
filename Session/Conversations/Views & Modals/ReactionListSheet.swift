@@ -458,7 +458,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                     .icon(
                         UIImage(named: "X")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .fit
+                        size: .medium
                     )
                 ),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),

@@ -108,7 +108,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             case (true, .none), (true, false): break
             default:
                 /// Save the updated failure count to the database
-                dependencies[singleton: .storage].write { [pollerDestination, failureCount] db in
+                dependencies[singleton: .storage].writeAsync { [pollerDestination, failureCount] db in
                     try OpenGroup
                         .filter(OpenGroup.Columns.server == pollerDestination.target)
                         .updateAll(

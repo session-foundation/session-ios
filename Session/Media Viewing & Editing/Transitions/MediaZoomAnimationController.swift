@@ -110,7 +110,6 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
             let toMediaContext: MediaPresentationContext = toContextProvider.mediaPresentationContext(mediaItem: mediaItem, in: containerView),
             let presentationImage: UIImage = mediaItem.image
         else {
-            
             toView.frame = containerView.bounds
             toView.alpha = 0
             containerView.addSubview(toView)

@@ -586,7 +586,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         profilePictureView.update(
             publicKey: userProfile.id,
             threadVariant: .contact,
-            displayPictureFilename: nil,
+            displayPictureUrl: nil,
             profile: userProfile,
             profileIcon: {
                 switch (viewModel.dependencies[feature: .serviceNetwork], viewModel.dependencies[feature: .forceOffline]) {
@@ -622,7 +622,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     profilePictureView?.update(
                         publicKey: userProfile.id,
                         threadVariant: .contact,
-                        displayPictureFilename: nil,
+                        displayPictureUrl: nil,
                         profile: userProfile,
                         profileIcon: {
                             switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {

@@ -9,17 +9,15 @@ public extension VisibleMessage {
         public let timestamp: UInt64?
         public let authorId: String?
         public let text: String?
-        public let attachmentId: String?
 
         public func isValid(isSending: Bool) -> Bool { timestamp != nil && authorId != nil }
         
         // MARK: - Initialization
 
-        internal init(timestamp: UInt64, authorId: String, text: String?, attachmentId: String?) {
+        internal init(timestamp: UInt64, authorId: String, text: String?) {
             self.timestamp = timestamp
             self.authorId = authorId
             self.text = text
-            self.attachmentId = attachmentId
         }
         
         // MARK: - Proto Conversion
@@ -28,8 +26,7 @@ public extension VisibleMessage {
             return VMQuote(
                 timestamp: proto.id,
                 authorId: proto.author,
-                text: proto.text,
-                attachmentId: nil
+                text: proto.text
             )
         }
 
@@ -55,8 +52,7 @@ public extension VisibleMessage {
             Quote(
                 timestamp: \(timestamp?.description ?? "null"),
                 authorId: \(authorId ?? "null"),
-                text: \(text ?? "null"),
-                attachmentId: \(attachmentId ?? "null")
+                text: \(text ?? "null")
             )
             """
         }
@@ -70,8 +66,7 @@ public extension VisibleMessage.VMQuote {
         return VisibleMessage.VMQuote(
             timestamp: UInt64(quote.timestampMs),
             authorId: quote.authorId,
-            text: quote.body,
-            attachmentId: quote.attachmentId
+            text: quote.body
         )
     }
 }

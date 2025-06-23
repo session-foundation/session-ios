@@ -32,18 +32,7 @@ extension MessageReceiver {
                 db,
                 publicKey: senderId,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .none }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
                 sentTimestamp: messageSentTimestamp,
                 using: dependencies
             )

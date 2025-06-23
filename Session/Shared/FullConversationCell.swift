@@ -283,7 +283,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -311,7 +311,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -359,7 +359,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -434,7 +434,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies

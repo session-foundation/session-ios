@@ -133,7 +133,7 @@ public class SessionApp: SessionAppType {
         }
         dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .displayPictureManager].resetStorage()
-        Attachment.resetAttachmentStorage(using: dependencies)
+        dependencies[singleton: .attachmentManager].resetStorage()
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         try? dependencies[singleton: .keychain].removeAll()
         

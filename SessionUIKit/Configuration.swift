@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVFoundation
 
 public typealias ThemeSettings = (theme: Theme?, primaryColor: Theme.PrimaryColor?, matchSystemNightModeSetting: Bool?)
 
@@ -15,8 +16,8 @@ public actor SNUIKit {
         func cachedContextualActionInfo(tableViewHash: Int, sideKey: String) -> [Int: Any]?
         func cacheContextualActionInfo(tableViewHash: Int, sideKey: String, actionIndex: Int, actionInfo: Any)
         func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String])
-        func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage
         func shouldShowStringKeys() -> Bool
+        func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)?
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -60,15 +61,15 @@ public actor SNUIKit {
         config?.persistentTopBannerChanged(warningKey: warning.rawValue)
     }
     
-    internal static func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage {
-        guard let config: ConfigType = self.config else { return generator() }
-        
-        return config.placeholderIconCacher(cacheKey: cacheKey, generator: generator)
-    }
-    
     public static func shouldShowStringKeys() -> Bool {
         guard let config: ConfigType = self.config else { return false }
         
         return config.shouldShowStringKeys()
+    }
+    
+    internal static func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+        guard let config: ConfigType = self.config else { return nil }
+        
+        return config.asset(for: path, mimeType: mimeType, sourceFilename: sourceFilename)
     }
 }

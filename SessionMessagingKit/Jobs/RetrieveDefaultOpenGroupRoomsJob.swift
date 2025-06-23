@@ -145,7 +145,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                             guard
                                 let imageId: String = room.imageId,
                                 imageId != existingImageIds[openGroupId] ||
-                                openGroup.displayPictureFilename == nil
+                                openGroup.displayPictureOriginalUrl == nil
                             else { return }
                             
                             dependencies[singleton: .jobRunner].add(

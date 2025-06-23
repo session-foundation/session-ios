@@ -617,103 +617,95 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        DispatchQueue.global(qos:.userInitiated).asyncAfter(deadline: .now() + 0.01, using: viewModel.dependencies) { [dependencies = viewModel.dependencies] in
-            // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
-            // this can take up to 0.5s
-            let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?
-                .cloneAsQuoteThumbnail(using: dependencies)
-            
-            // Actually send the message
-            dependencies[singleton: .storage]
-                .writePublisher { [weak self] db in
-                    // Update the thread to be visible (if it isn't already)
-                    if self?.viewModel.threadData.threadShouldBeVisible == false {
-                        _ = try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                                SessionThread.Columns.isDraft.set(to: false),
-                                using: dependencies
-                            )
-                    }
-                    
-                    // Insert the interaction and associated it with the optimistically inserted message so
-                    // we can remove it once the database triggers a UI update
-                    let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
-                    self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
-                    
-                    // If there is a LinkPreview draft then check the state of any existing link previews and
-                    // insert a new one if needed
-                    if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
-                        let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
-                            .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
-                        ]
-                        let linkPreviewAttachmentId: String? = try? insertedInteraction.linkPreview
-                            .select(.attachmentId)
-                            .asRequest(of: String.self)
-                            .fetchOne(db)
-                        let linkPreviewAttachmentState: Attachment.State = linkPreviewAttachmentId
-                            .map {
-                                try? Attachment
-                                    .filter(id: $0)
-                                    .select(.state)
-                                    .asRequest(of: Attachment.State.self)
-                                    .fetchOne(db)
-                            }
-                            .defaulting(to: .invalid)
-                        
-                        // If we don't have a "valid" existing link preview then upsert a new one
-                        if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
-                            try LinkPreview(
-                                url: linkPreviewDraft.urlString,
-                                title: linkPreviewDraft.title,
-                                attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id,
-                                using: dependencies
-                            ).upsert(db)
-                        }
-                    }
-                    
-                    // If there is a Quote the insert it now
-                    if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = optimisticData.quoteModel {
-                        try Quote(
-                            interactionId: interactionId,
-                            authorId: quoteModel.authorId,
-                            timestampMs: quoteModel.timestampMs,
-                            body: nil,
-                            attachmentId: try quoteThumbnailAttachment?.inserted(db).id
-                        ).insert(db)
-                    }
-                    
-                    // Process any attachments
-                    try AttachmentUploader.process(
-                        db,
-                        attachments: optimisticData.attachmentData,
-                        for: insertedInteraction.id
-                    )
-                    
-                    try MessageSender.send(
-                        db,
-                        interaction: insertedInteraction,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        using: dependencies
-                    )
+        // Actually send the message
+        viewModel.dependencies[singleton: .storage]
+            .writePublisher { [weak self, dependencies = viewModel.dependencies] db in
+                // Update the thread to be visible (if it isn't already)
+                if self?.viewModel.threadData.threadShouldBeVisible == false {
+                    _ = try SessionThread
+                        .filter(id: threadId)
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.shouldBeVisible.set(to: true),
+                            SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                            SessionThread.Columns.isDraft.set(to: false),
+                            using: dependencies
+                        )
                 }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .sinkUntilComplete(
-                    receiveCompletion: { [weak self] result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                self?.viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
+                
+                // Insert the interaction and associated it with the optimistically inserted message so
+                // we can remove it once the database triggers a UI update
+                let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
+                self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
+                
+                // If there is a LinkPreview draft then check the state of any existing link previews and
+                // insert a new one if needed
+                if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
+                    let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
+                        .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
+                    ]
+                    let linkPreviewAttachmentId: String? = try? insertedInteraction.linkPreview
+                        .select(.attachmentId)
+                        .asRequest(of: String.self)
+                        .fetchOne(db)
+                    let linkPreviewAttachmentState: Attachment.State = linkPreviewAttachmentId
+                        .map {
+                            try? Attachment
+                                .filter(id: $0)
+                                .select(.state)
+                                .asRequest(of: Attachment.State.self)
+                                .fetchOne(db)
                         }
-                        
-                        self?.handleMessageSent()
+                        .defaulting(to: .invalid)
+                    
+                    // If we don't have a "valid" existing link preview then upsert a new one
+                    if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
+                        try LinkPreview(
+                            url: linkPreviewDraft.urlString,
+                            title: linkPreviewDraft.title,
+                            attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id,
+                            using: dependencies
+                        ).upsert(db)
                     }
+                }
+                
+                // If there is a Quote the insert it now
+                if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = optimisticData.quoteModel {
+                    try Quote(
+                        interactionId: interactionId,
+                        authorId: quoteModel.authorId,
+                        timestampMs: quoteModel.timestampMs,
+                        body: nil
+                    ).insert(db)
+                }
+                
+                // Process any attachments
+                try AttachmentUploader.process(
+                    db,
+                    attachments: optimisticData.attachmentData,
+                    for: insertedInteraction.id
                 )
-        }
+                
+                try MessageSender.send(
+                    db,
+                    interaction: insertedInteraction,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    using: dependencies
+                )
+            }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            self?.viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
+                    }
+                    
+                    self?.handleMessageSent()
+                }
+            )
     }
 
     func handleMessageSent() {
@@ -1153,16 +1145,28 @@ extension ConversationVC:
                         
                         guard albumView.numItems > 1 || !mediaView.attachment.isVideo else {
                             guard
-                                let originalFilePath: String = mediaView.attachment.originalFilePath(using: viewModel.dependencies),
-                                viewModel.dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+                                let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                                    .createTemporaryFileForOpening(
+                                        downloadUrl: mediaView.attachment.downloadUrl,
+                                        mimeType: mediaView.attachment.contentType,
+                                        sourceFilename: mediaView.attachment.sourceFilename
+                                    ),
+                                viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
                             else { return Log.warn(.conversation, "Missing video file") }
                             
                             /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
                             /// doesn't prevent video audio from playing
                             try? AVAudioSession.sharedInstance().setCategory(.playback)
-                            let viewController: AVPlayerViewController = AVPlayerViewController()
-                            viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
-                            self.navigationController?.present(viewController, animated: true)
+                            let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies = viewModel.dependencies] in
+                                /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                                guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                                    return
+                                }
+                                
+                                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                            }
+                            viewController.player = AVPlayer(url: URL(fileURLWithPath: path))
+                            self.present(viewController, animated: true)
                             return
                         }
                         
@@ -1201,24 +1205,43 @@ extension ConversationVC:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
-                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies)
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .createTemporaryFileForOpening(
+                            downloadUrl: attachment.downloadUrl,
+                            mimeType: attachment.contentType,
+                            sourceFilename: attachment.sourceFilename
+                        ),
+                    viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
                 else { return }
                 
                 /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
                 /// doesn't prevent video audio from playing
                 try? AVAudioSession.sharedInstance().setCategory(.playback)
-                let viewController: AVPlayerViewController = AVPlayerViewController()
-                viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
+                let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies = viewModel.dependencies] in
+                    /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                    guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                        return
+                    }
+                    
+                    try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                }
+                viewController.player = AVPlayer(url: URL(fileURLWithPath: path))
                 self.navigationController?.present(viewController, animated: true)
                 
             case .genericAttachment:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
-                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies)
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .createTemporaryFileForOpening(
+                            downloadUrl: attachment.downloadUrl,
+                            mimeType: attachment.contentType,
+                            sourceFilename: attachment.sourceFilename
+                        ),
+                    viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
                 else { return }
                 
-                let fileUrl: URL = URL(fileURLWithPath: originalFilePath)
+                let fileUrl: URL = URL(fileURLWithPath: path)
                 
                 // Open a preview of the document for text, pdf or microsoft files
                 if
@@ -1977,31 +2000,6 @@ extension ConversationVC:
                 let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id)
             else { return }
             
-            if
-                let quote = try? interaction.quote.fetchOne(db),
-                let quotedAttachment = try? quote.attachment.fetchOne(db),
-                quotedAttachment.isVisualMedia,
-                quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
-                let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
-            {
-                let attachment: Attachment? = {
-                    if let attachment = try? quotedInteraction.attachments.fetchOne(db) {
-                        return attachment
-                    }
-                    if
-                        let linkPreview = try? quotedInteraction.linkPreview.fetchOne(db),
-                        let linkPreviewAttachment = try? linkPreview.attachment.fetchOne(db)
-                    {
-                        return linkPreviewAttachment
-                    }
-                       
-                    return nil
-                }()
-                try quote.with(
-                    attachmentId: attachment?.cloneAsQuoteThumbnail(using: dependencies)?.inserted(db).id
-                ).update(db)
-            }
-            
             // Remove message sending jobs for the same interaction in database
             // Prevent the same message being sent twice
             try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
@@ -2063,8 +2061,9 @@ extension ConversationVC:
                         attachment.state == .uploaded
                     ),
                     let type: UTType = UTType(sessionMimeType: attachment.contentType),
-                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies),
-                    let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .path(for: attachment.downloadUrl),
+                    let data: Data = try? Data(contentsOf: URL(fileURLWithPath: path))
                 else { return }
             
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
@@ -2211,11 +2210,17 @@ extension ConversationVC:
                 )
             }
             .compactMap { attachment in
-                guard let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies) else {
-                    return nil
-                }
+                guard
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .createTemporaryFileForOpening(
+                            downloadUrl: attachment.downloadUrl,
+                            mimeType: attachment.contentType,
+                            sourceFilename: attachment.sourceFilename
+                        ),
+                    viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
+                else { return nil }
                 
-                return (attachment, originalFilePath)
+                return (attachment, path)
             }
         
         guard !mediaAttachments.isEmpty else { return }
@@ -2224,32 +2229,41 @@ extension ConversationVC:
             isSavingMedia: true,
             presentingViewController: self,
             using: viewModel.dependencies
-        ) { [weak self] in
-            mediaAttachments.forEach { attachment, originalFilePath in
-                PHPhotoLibrary.shared().performChanges(
-                    {
+        ) { [weak self, dependencies = viewModel.dependencies] in
+            PHPhotoLibrary.shared().performChanges(
+                {
+                    mediaAttachments.forEach { attachment, path in
                         if attachment.isImage || attachment.isAnimated {
                             PHAssetChangeRequest.creationRequestForAssetFromImage(
-                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                                atFileURL: URL(fileURLWithPath: path)
                             )
                         }
                         else if attachment.isVideo {
                             PHAssetChangeRequest.creationRequestForAssetFromVideo(
-                                atFileURL: URL(fileURLWithPath: originalFilePath)
-                            )
-                        }
-                    },
-                    completionHandler: { _, _ in
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
-                            self?.viewModel.showToast(
-                                text: "saved".localized(),
-                                backgroundColor: .toast_background,
-                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                atFileURL: URL(fileURLWithPath: path)
                             )
                         }
                     }
-                )
-            }
+                },
+                completionHandler: { [dependencies] _, _ in
+                    mediaAttachments.forEach { attachment, path in
+                        /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                        guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                            return
+                        }
+                        
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                        self?.viewModel.showToast(
+                            text: "saved".localized(),
+                            backgroundColor: .toast_background,
+                            inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                        )
+                    }
+                }
+            )
             
             // Send a 'media saved' notification if needed
             guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
@@ -2282,7 +2296,7 @@ extension ConversationVC:
                             let server: String = threadData.openGroupServer,
                             let publicKey: String = threadData.openGroupPublicKey,
                             let capabilities: Set<Capability.Variant> = threadData.openGroupCapabilities,
-                            let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
+                            cellViewModel.openGroupServerMessageId != nil
                         else { throw CryptoError.invalidAuthentication }
                         
                         return (
@@ -2536,17 +2550,14 @@ extension ConversationVC:
         }
         
         // Get data
-        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: nil, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
+        let fileName = ("messageVoice".localized() as NSString)
+            .appendingPathExtension("m4a") // stringlint:ignore
+        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: fileName, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
         self.audioRecorder = nil
         
         guard let dataSource = dataSourceOrNil else {
             return Log.error(.conversation, "Couldn't load recorded data.")
         }
-        
-        // Create attachment
-        let fileName = ("messageVoice".localized() as NSString)
-            .appendingPathExtension("m4a") // stringlint:ignore
-        dataSource.sourceFilename = fileName
         
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio, using: viewModel.dependencies)
         
@@ -2621,6 +2632,16 @@ extension ConversationVC:
 extension ConversationVC: UIDocumentInteractionControllerDelegate {
     func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
         return self
+    }
+    
+    public func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) {
+        guard let temporaryFileUrl: URL = controller.url else { return }
+        
+        /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
+        /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
+        if temporaryFileUrl.path.starts(with: viewModel.dependencies[singleton: .fileManager].temporaryDirectory) {
+            try? viewModel.dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
+        }
     }
 }
 

@@ -68,8 +68,8 @@ public enum GroupInviteMemberJob: JobExecutor {
                         memberAuthData: details.memberAuthData,
                         profile: VisibleMessage.VMProfile(
                             displayName: adminProfile.name,
-                            profileKey: adminProfile.profileEncryptionKey,
-                            profilePictureUrl: adminProfile.profilePictureUrl
+                            profileKey: adminProfile.displayPictureEncryptionKey,
+                            profilePictureUrl: adminProfile.displayPictureUrl
                         ),
                         sentTimestampMs: UInt64(sentTimestampMs),
                         authMethod: authMethod,

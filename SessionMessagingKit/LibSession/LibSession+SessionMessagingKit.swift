@@ -1119,11 +1119,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async
     
     var displayName: String? { get }
-    func updateProfile(
+    @discardableResult func updateProfile(
         displayName: String,
-        profilePictureUrl: String?,
-        profileEncryptionKey: Data?
-    ) throws
+        displayPictureUrl: String?,
+        displayPictureEncryptionKey: Data?
+    ) throws -> Profile?
     
     func canPerformChange(
         threadId: String,
@@ -1179,6 +1179,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile?
+    func displayPictureUrl(threadId: String, threadVariant: SessionThread.Variant) -> String?
     
     func hasCredentials(groupSessionId: SessionId) -> Bool
     func secretKey(groupSessionId: SessionId) -> [UInt8]?
@@ -1260,8 +1261,8 @@ public extension LibSessionCacheType {
         await addPendingChange(key: .setting(key), value: value)
     }
     
-    func updateProfile(displayName: String) throws {
-        try updateProfile(displayName: displayName, profilePictureUrl: nil, profileEncryptionKey: nil)
+    @discardableResult func updateProfile(displayName: String) throws -> Profile? {
+        return try updateProfile(displayName: displayName, displayPictureUrl: nil, displayPictureEncryptionKey: nil)
     }
 }
 
@@ -1388,11 +1389,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) async {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {}
-    func updateProfile(
+    @discardableResult func updateProfile(
         displayName: String,
-        profilePictureUrl: String?,
-        profileEncryptionKey: Data?
-    ) throws {}
+        displayPictureUrl: String?,
+        displayPictureEncryptionKey: Data?
+    ) throws -> Profile? { return nil }
     
     func canPerformChange(
         threadId: String,
@@ -1445,6 +1446,9 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile? { return nil }
+    func displayPictureUrl(threadId: String, threadVariant: SessionThread.Variant) -> String? {
+        return nil
+    }
     
     func hasCredentials(groupSessionId: SessionId) -> Bool { return false }
     func secretKey(groupSessionId: SessionId) -> [UInt8]? { return nil }

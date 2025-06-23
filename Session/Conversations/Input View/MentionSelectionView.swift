@@ -205,7 +205,7 @@ private extension MentionSelectionView {
             profilePictureView.update(
                 publicKey: profile.id,
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode
-                displayPictureFilename: nil,
+                displayPictureUrl: nil,
                 profile: profile,
                 profileIcon: (isUserModeratorOrAdmin ? .crown : .none),
                 using: dependencies
