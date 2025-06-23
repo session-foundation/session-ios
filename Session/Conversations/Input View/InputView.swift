@@ -83,7 +83,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
 
     private lazy var sendButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), delegate: self)
+        let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
         result.isHidden = true
         result.accessibilityIdentifier = "Send message button"
         result.accessibilityLabel = "Send message button"
@@ -149,6 +149,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         label.lineBreakMode = .byWordWrapping
 
         return label
+    }()
+    
+    private lazy var characterLimitLabelTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.addTarget(self, action: #selector(characterLimitLabelTapped))
+        result.isEnabled = false
+        
+        return result
     }()
     
     private lazy var characterLimitLabel: UILabel = {
@@ -249,6 +257,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         addSubview(proStackView)
         proStackView.pin(.bottom, to: .bottom, of: inputTextView)
         proStackView.center(.horizontal, in: sendButton)
+        proStackView.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
 
         addSubview(disabledInputLabel)
 
@@ -290,6 +299,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         characterLimitLabel.text = "\(numberOfCharactersLeft)"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
         characterLimitLabel.alpha = (numberOfCharactersLeft < Self.thresholdForCharacterLimit) ? 1 : 0
+        characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
         
         delegate?.inputTextViewDidChangeContent(inputTextView)
     }
@@ -598,6 +608,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     @objc private func disabledInputTapped() {
         delegate?.handleDisabledInputTapped()
     }
+    
+    @objc private func characterLimitLabelTapped() {
+        delegate?.handleCharacterLimitLabelTapped()
+    }
 
     // MARK: - Convenience
     
@@ -619,6 +633,7 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     func handleSendButtonTapped()
     func handleDisabledInputTapped()
     func handleDisabledVoiceMessageButtonTapped()
+    func handleCharacterLimitLabelTapped()
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
     func didPasteImageFromPasteboard(_ image: UIImage)

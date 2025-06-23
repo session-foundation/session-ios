@@ -502,6 +502,46 @@ extension ConversationVC:
         self.showBlockedModalIfNeeded()
     }
     
+    func handleCharacterLimitLabelTapped() {
+        hideInputAccessoryView()
+        let isSessionPro: Bool = viewModel.dependencies[cache: .libSession].isSessionPro
+        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: isSessionPro
+        )
+        let limit: Int = (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: (
+                    (numberOfCharactersLeft >= 0) ?
+                        "modalMessageCharacterDisplayTitle".localized() :
+                        "modalMessageCharacterTooLongTitle".localized()
+                ),
+                body: .text(
+                    (
+                        (numberOfCharactersLeft >= 0) ?
+                            "modalMessageCharacterDisplayDescription"
+                                .putNumber(numberOfCharactersLeft)
+                                .put(key: "limit", value: limit)
+                                .localized() :
+                            "modalMessageCharacterTooLongDescription"
+                                .put(key: "limit", value: limit)
+                                .localized()
+                    ),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                hasCloseButton: true,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
+    }
+    
     func handleDisabledAttachmentButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
@@ -556,6 +596,7 @@ extension ConversationVC:
     }
     
     func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        self.hideInputAccessoryView()
         guard !isSessionPro else {
             // TODO: Show Session Pro CTA
             return
@@ -563,14 +604,19 @@ extension ConversationVC:
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "Message Too Long",
-                body: .attributedText(
-                    "blockUnblockName"
-                        .put(key: "name", value: viewModel.threadData.displayName)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                title: "modalMessageCharacterTooLongTitle".localized(),
+                body: .text(
+                    "modalMessageTooLongDescription"
+                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .localized(),
+                    scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
+                hasCloseButton: true,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
             )
         )
         present(confirmationModal, animated: true, completion: nil)
