@@ -335,6 +335,7 @@ extension SessionCell {
             let result: UISwitch = UISwitch()
             result.translatesAutoresizingMaskIntoConstraints = false
             result.isUserInteractionEnabled = false // Triggered by didSelectCell instead
+            result.themeOnTintColor = .primary
             result.setContentHugging(to: .required)
             result.setCompressionResistance(to: .required)
             

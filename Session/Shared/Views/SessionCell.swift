@@ -327,6 +327,11 @@ public class SessionCell: UITableViewCell {
         isManualReload: Bool = false,
         using dependencies: Dependencies
     ) {
+        /// Need to do this here as `prepareForReuse` doesn't always seem to get called
+        titleExtraView?.removeFromSuperview()
+        subtitleExtraView?.removeFromSuperview()
+        
+        /// Do other configuration
         interactionMode = (info.title?.interaction ?? .none)
         shouldHighlightTitle = (info.title?.interaction != .copy)
         titleExtraView = info.title?.extraViewGenerator?()
