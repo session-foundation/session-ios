@@ -231,6 +231,26 @@ extension ConversationVC:
         
         return true
     }
+    
+    // MARK: - Session Pro CTA
+    
+    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+        let dependencies: Dependencies = viewModel.dependencies
+        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
+            return false
+        }
+        self.hideInputAccessoryView()
+        let sessionProModal: ProCTAModal = ProCTAModal(
+            touchPoint: .longerMessages,
+            using: viewModel.dependencies,
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+            }
+        )
+        present(sessionProModal, animated: true, completion: nil)
+        
+        return true
+    }
 
     // MARK: - SendMediaNavDelegate
 
@@ -503,13 +523,14 @@ extension ConversationVC:
     }
     
     func handleCharacterLimitLabelTapped() {
-        hideInputAccessoryView()
-        let isSessionPro: Bool = viewModel.dependencies[cache: .libSession].isSessionPro
+        guard !showSessionProCTAIfNeeded() else { return }
+        
+        self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: isSessionPro
+            isSessionPro: viewModel.isSessionPro
         )
-        let limit: Int = (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        let limit: Int = (viewModel.isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -579,12 +600,11 @@ extension ConversationVC:
     // MARK: --Message Sending
     
     func handleSendButtonTapped() {
-        let isSessionPro: Bool = viewModel.dependencies[cache: .libSession].isSessionPro
         guard LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: isSessionPro
+            isSessionPro: viewModel.isSessionPro
         ) >= 0 else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: isSessionPro)
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isSessionPro)
             return
         }
         
@@ -596,19 +616,9 @@ extension ConversationVC:
     }
     
     func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        self.hideInputAccessoryView()
-        guard isSessionPro else {
-            let sessionProModal: ProCTAModal = ProCTAModal(
-                touchPoint: .longerMessages,
-                using: viewModel.dependencies,
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                }
-            )
-            present(sessionProModal, animated: true, completion: nil)
-            return
-        }
+        guard !showSessionProCTAIfNeeded() else { return }
         
+        self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),

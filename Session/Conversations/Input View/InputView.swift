@@ -18,7 +18,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
     
-    private var isSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
+    private var isSessionPro: Bool {
+        dependencies[cache: .libSession].isSessionPro ||
+        dependencies[feature: .mockCurrentUserSessionPro] == true
+    }
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -151,6 +154,16 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         return label
     }()
     
+    private lazy var proStackView: UIStackView = {
+        let result = UIStackView(arrangedSubviews: [ characterLimitLabel, sessionProBadge ])
+        result.axis = .vertical
+        result.spacing = Values.verySmallSpacing
+        result.alignment = .center
+        result.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
+        result.alpha = 0
+        
+        return result
+    }()
     private lazy var characterLimitLabelTapGestureRecognizer: UITapGestureRecognizer = {
         let result: UITapGestureRecognizer = UITapGestureRecognizer()
         result.addTarget(self, action: #selector(characterLimitLabelTapped))
@@ -165,14 +178,13 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         label.font = .systemFont(ofSize: Values.smallFontSize)
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
-        label.alpha = 0
         
         return label
     }()
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .small)
-        result.isHidden = true
+        result.isHidden = !dependencies[feature: .sessionProEnabled]
         
         return result
     }()
@@ -250,14 +262,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         mainStackView.pin(.bottom, to: .bottom, of: self)
         
         // Pro stack view
-        let proStackView = UIStackView(arrangedSubviews: [ characterLimitLabel, sessionProBadge ])
-        proStackView.axis = .vertical
-        proStackView.spacing = Values.verySmallSpacing
-        proStackView.alignment = .center
         addSubview(proStackView)
         proStackView.pin(.bottom, to: .bottom, of: inputTextView)
         proStackView.center(.horizontal, in: sendButton)
-        proStackView.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
 
         addSubview(disabledInputLabel)
 
@@ -298,7 +305,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         )
         characterLimitLabel.text = "\(numberOfCharactersLeft)"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
-        characterLimitLabel.alpha = (numberOfCharactersLeft < Self.thresholdForCharacterLimit) ? 1 : 0
+        proStackView.alpha = (numberOfCharactersLeft < Self.thresholdForCharacterLimit) ? 1 : 0
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
         
         delegate?.inputTextViewDidChangeContent(inputTextView)
