@@ -15,7 +15,7 @@ public class SessionProBadge: UIView {
         var height: CGFloat {
             switch self {
                 case .small: return 18
-                case .large: return 24
+                case .large: return 26
             }
         }
         var cornerRadius: CGFloat {
@@ -27,7 +27,7 @@ public class SessionProBadge: UIView {
         var proFontHeight: CGFloat {
             switch self {
                 case .small: return 7
-                case .large: return 10
+                case .large: return 11
             }
         }
         var proFontWidth: CGFloat {

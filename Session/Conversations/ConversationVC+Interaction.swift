@@ -597,8 +597,15 @@ extension ConversationVC:
     
     func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
         self.hideInputAccessoryView()
-        guard !isSessionPro else {
-            // TODO: Show Session Pro CTA
+        guard isSessionPro else {
+            let sessionProModal: ProCTAModal = ProCTAModal(
+                touchPoint: .longerMessages,
+                using: viewModel.dependencies,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+            present(sessionProModal, animated: true, completion: nil)
             return
         }
         
