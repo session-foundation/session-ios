@@ -12,12 +12,11 @@ public enum PhotoGridItemType {
 
 public protocol PhotoGridItem: AnyObject {
     var type: PhotoGridItemType { get }
-    
-    func asyncThumbnail(completion: @escaping (UIImage?) -> Void)
+    var source: ImageDataManager.DataSource { get }
 }
 
 public class PhotoGridViewCell: UICollectionViewCell {
-    public let imageView: UIImageView
+    public let imageView: SessionImageView
 
     private let contentTypeBadgeView: UIImageView
     private let selectedBadgeView: UIImageView
@@ -30,8 +29,6 @@ public class PhotoGridViewCell: UICollectionViewCell {
     private static let videoBadgeImage = #imageLiteral(resourceName: "ic_gallery_badge_video")
     private static let animatedBadgeImage = #imageLiteral(resourceName: "ic_gallery_badge_gif")
     private static let selectedBadgeImage = UIImage(systemName: "checkmark.circle.fill")
-
-    public var loadingColor: ThemeValue = .textSecondary
 
     override public var isSelected: Bool {
         didSet {
@@ -47,7 +44,7 @@ public class PhotoGridViewCell: UICollectionViewCell {
     }
 
     override init(frame: CGRect) {
-        self.imageView = UIImageView()
+        self.imageView = SessionImageView()
         imageView.contentMode = .scaleAspectFill
 
         self.contentTypeBadgeView = UIImageView()
@@ -104,42 +101,26 @@ public class PhotoGridViewCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    var image: UIImage? {
-        get { return imageView.image }
-        set {
-            imageView.image = newValue
-            imageView.themeBackgroundColor = (newValue == nil ? loadingColor : .clear)
-        }
-    }
-
-    var contentTypeBadgeImage: UIImage? {
-        get { return contentTypeBadgeView.image }
-        set {
-            contentTypeBadgeView.image = newValue
-            contentTypeBadgeView.isHidden = newValue == nil
-        }
-    }
-
-    public func configure(item: PhotoGridItem) {
+    public func configure(item: PhotoGridItem, using dependencies: Dependencies) {
         self.item = item
-
-        item.asyncThumbnail { [weak self] image in
-            guard let currentItem = self?.item else { return }
-            guard currentItem === item else { return }
-
-            if image == nil {
-                Log.debug("[PhotoGridViewCell] image == nil")
-            }
-            
-            DispatchQueue.main.async {
-                self?.image = image
-            }
+        imageView.setDataManager(dependencies[singleton: .imageDataManager])
+        imageView.themeBackgroundColor = .textSecondary
+        imageView.loadImage(item.source) { [weak imageView] success in
+            imageView?.themeBackgroundColor = (success ? .clear : .textSecondary)
         }
 
         switch item.type {
-            case .video: self.contentTypeBadgeImage = PhotoGridViewCell.videoBadgeImage
-            case .animated: self.contentTypeBadgeImage = PhotoGridViewCell.animatedBadgeImage
-            case .photo: self.contentTypeBadgeImage = nil
+            case .video:
+                contentTypeBadgeView.image = PhotoGridViewCell.videoBadgeImage
+                contentTypeBadgeView.isHidden = false
+                
+            case .animated:
+                contentTypeBadgeView.image = PhotoGridViewCell.animatedBadgeImage
+                contentTypeBadgeView.isHidden = false
+                
+            case .photo:
+                contentTypeBadgeView.image = nil
+                contentTypeBadgeView.isHidden = true
         }
     }
 

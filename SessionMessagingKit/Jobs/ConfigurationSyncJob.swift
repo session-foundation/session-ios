@@ -235,7 +235,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         // Save the updated dumps to the database
                         try configDumps.forEach { dump in
                             try dump.upsert(db)
-                            Task { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                            Task.detached(priority: .medium) { [extensionHelper = dependencies[singleton: .extensionHelper]] in
                                 extensionHelper.replicate(dump: dump)
                             }
                         }

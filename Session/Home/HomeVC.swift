@@ -404,32 +404,40 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     // MARK: - Updating
     
     public func startObservingChanges(onReceivedInitialChange: (() -> ())? = nil) {
-        guard dataChangeTask == nil else { return }
-        
         var runAndClearInitialChangeCallback: (() -> Void)?
         
-        runAndClearInitialChangeCallback = { [weak self] in
-            guard self?.hasLoadedInitialStateData == true && self?.hasLoadedInitialThreadData == true else { return }
-            
-            onReceivedInitialChange?()
-            runAndClearInitialChangeCallback = nil
-        }
-        
-        dataChangeTask = Task { [weak self, stream = viewModel.createStateStream()] in
-            do {
-                for try await state in stream {
-                    await MainActor.run { [weak self] in
-                        self?.handleUpdates(state)
-                        runAndClearInitialChangeCallback?()
-                    }
+        /// Create the `dataChange` if needed
+        switch dataChangeTask {
+            case .some: break   /// Already observing, do nothing
+            case .none:
+                runAndClearInitialChangeCallback = { [weak self] in
+                    guard self?.hasLoadedInitialStateData == true && self?.hasLoadedInitialThreadData == true else { return }
+                    
+                    onReceivedInitialChange?()
+                    runAndClearInitialChangeCallback = nil
                 }
-            } catch is CancellationError {  /// Ignore (cancel when leaving the screen)
-            } catch { Log.error(.homeViewModel, "Observation failed with error: \(error)") }
+                
+                dataChangeTask = Task.detached(priority: .userInitiated) { [weak self, stream = viewModel.createStateStream()] in
+                    do {
+                        for try await state in stream {
+                            await MainActor.run { [weak self] in
+                                self?.handleUpdates(state)
+                                runAndClearInitialChangeCallback?()
+                            }
+                        }
+                    } catch is CancellationError {  /// Ignore (cancel when leaving the screen)
+                    } catch { Log.error(.homeViewModel, "Observation failed with error: \(error)") }
+                }
         }
         
-        self.viewModel.onThreadChange = { [weak self] updatedThreadData, changeset in
-            self?.handleThreadUpdates(updatedThreadData, changeset: changeset)
-            runAndClearInitialChangeCallback?()
+        /// Create the `onThreadChange` callback if needed
+        switch self.viewModel.onThreadChange {
+            case .some: break   /// Already observing, do nothing
+            case .none:
+                self.viewModel.onThreadChange = { [weak self] updatedThreadData, changeset in
+                    self?.handleThreadUpdates(updatedThreadData, changeset: changeset)
+                    runAndClearInitialChangeCallback?()
+                }
         }
     }
     

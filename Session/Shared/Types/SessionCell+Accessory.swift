@@ -71,16 +71,16 @@ public extension SessionCell.Accessory {
     
     static func iconAsync(
         size: IconSize = .medium,
+        source: ImageDataManager.DataSource?,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
-        accessibility: Accessibility? = nil,
-        setter: @escaping (UIImageView) -> Void
+        accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.IconAsync(
             iconSize: size,
+            source: source,
             customTint: customTint,
             shouldFill: shouldFill,
-            setter: setter,
             accessibility: accessibility
         )
     }
@@ -279,21 +279,21 @@ public extension SessionCell.AccessoryConfig {
         override public var viewIdentifier: String { "iconAsync" }
         
         public let iconSize: IconSize
+        public let source: ImageDataManager.DataSource?
         public let customTint: ThemeValue?
         public let shouldFill: Bool
-        public let setter: (UIImageView) -> Void
         
         fileprivate init(
             iconSize: IconSize,
+            source: ImageDataManager.DataSource?,
             customTint: ThemeValue?,
             shouldFill: Bool,
-            setter: @escaping (UIImageView) -> Void,
             accessibility: Accessibility?
         ) {
             self.iconSize = iconSize
+            self.source = source
             self.customTint = customTint
             self.shouldFill = shouldFill
-            self.setter = setter
             
             super.init(accessibility: accessibility)
         }
@@ -302,6 +302,7 @@ public extension SessionCell.AccessoryConfig {
         
         override public func hash(into hasher: inout Hasher) {
             iconSize.hash(into: &hasher)
+            source?.hash(into: &hasher)
             customTint.hash(into: &hasher)
             shouldFill.hash(into: &hasher)
             accessibility.hash(into: &hasher)
@@ -312,6 +313,7 @@ public extension SessionCell.AccessoryConfig {
             
             return (
                 iconSize == rhs.iconSize &&
+                source == rhs.source &&
                 customTint == rhs.customTint &&
                 shouldFill == rhs.shouldFill &&
                 accessibility == rhs.accessibility

@@ -307,29 +307,8 @@ public extension LibSession {
                     )
                 }
                 
-                // Assign all properties to match the updated contact (if there is one)
-                if
-                    let isApproved: Bool = info.isApproved,
-                    let didApproveMe: Bool = info.didApproveMe,
-                    let isBlocked: Bool = info.isBlocked
-                {
-                    contact.approved = isApproved
-                    contact.approved_me = didApproveMe
-                    contact.blocked = isBlocked
-                    
-                    // If we were given a `created` timestamp then set it to the min between the current
-                    // setting and the value (as long as the current setting isn't `0`)
-                    if let created: Int64 = info.created.map({ Int64(floor($0)) }) {
-                        contact.created = (contact.created > 0 ? min(contact.created, created) : created)
-                    }
-                    
-                    // Store the updated contact (needs to happen before variables go out of scope)
-                    contacts_set(conf, &contact)
-                    try LibSessionError.throwIfNeeded(conf)
-                }
-                
-                // Update the profile data (if there is one - users we have sent a message request to may
-                // not have profile info in certain situations)
+                /// Update the profile data (if there is one - users we have sent a message request to may not have profile info
+                /// in certain situations)
                 if let updatedName: String = info.name {
                     let oldAvatarUrl: String? = contact.get(\.profile_pic.url)
                     let oldAvatarKey: Data? = contact.get(\.profile_pic.key)
@@ -361,7 +340,7 @@ public extension LibSession {
                     try LibSessionError.throwIfNeeded(conf)
                 }
                 
-                // Assign all properties to match the updated disappearing messages configuration (if there is one)
+                /// Assign all properties to match the updated disappearing messages configuration (if there is one)
                 if
                     let disappearingInfo: LibSession.DisappearingMessageInfo = info.disappearingMessagesInfo,
                     let exp_mode: CONVO_EXPIRATION_MODE = disappearingInfo.type?.toLibSession()
@@ -370,7 +349,24 @@ public extension LibSession {
                     contact.exp_seconds = Int32(disappearingInfo.durationSeconds)
                 }
                 
-                // Store the updated contact (can't be sure if we made any changes above)
+                /// If we were given a `created` timestamp then set it to the min between the current setting and the value (as
+                /// long as the current setting isn't `0`)
+                if let created: Int64 = info.created.map({ Int64(floor($0)) }) {
+                    contact.created = (contact.created > 0 ? min(contact.created, created) : created)
+                }
+                
+                /// Only support approving (not un-approving) a contact
+                contact.approved = (!contact.approved ?
+                    (info.isApproved ?? contact.approved) :
+                    contact.approved
+                )
+                contact.approved_me = (!contact.approved_me ?
+                    (info.didApproveMe ?? contact.approved_me) :
+                    contact.approved_me
+                )
+                
+                /// Store the updated contact (can't be sure if we made any changes above)
+                contact.blocked = (info.isBlocked ?? contact.blocked)
                 contact.priority = (info.priority ?? contact.priority)
                 contacts_set(conf, &contact)
                 try LibSessionError.throwIfNeeded(conf)

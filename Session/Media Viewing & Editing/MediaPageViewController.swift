@@ -976,7 +976,7 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
         guard let currentItem: MediaGalleryViewModel.Item = currentItem else { return nil }
         guard self == presented || self.navigationController == presented else { return nil }
 
-        return MediaZoomAnimationController(galleryItem: currentItem, using: viewModel.dependencies)
+        return MediaZoomAnimationController(attachment: currentItem.attachment, using: viewModel.dependencies)
     }
 
     public func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
@@ -984,7 +984,7 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
         guard self == dismissed || self.navigationController == dismissed else { return nil }
         guard !self.viewModel.albumData.isEmpty else { return nil }
 
-        let animationController = MediaDismissAnimationController(galleryItem: currentItem, interactionController: mediaInteractiveDismiss, using: viewModel.dependencies)
+        let animationController = MediaDismissAnimationController(attachment: currentItem.attachment, interactionController: mediaInteractiveDismiss, using: viewModel.dependencies)
         mediaInteractiveDismiss?.interactiveDismissDelegate = animationController
 
         return animationController
@@ -1005,7 +1005,7 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
 // MARK: - MediaPresentationContextProvider
 
 extension MediaPageViewController: MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         guard
             let mediaView: SessionImageView = currentViewController?.mediaView,
             let mediaSuperview: UIView = mediaView.superview,
@@ -1021,21 +1021,10 @@ extension MediaPageViewController: MediaPresentationContextProvider {
             }()
         else { return nil }
         
-        var topInset: CGFloat = 0
-        var leftInset: CGFloat = 0
-        var scaledWidth: CGFloat = mediaSize.width
-        var scaledHeight: CGFloat = mediaSize.height
-
-        if mediaSize.width > mediaSize.height {
-            scaledWidth = mediaSuperview.frame.width
-            scaledHeight = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
-            topInset = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
-        }
-        else if mediaSize.width < mediaSize.height {
-            scaledWidth = (mediaSize.width * (mediaSuperview.frame.height / mediaSize.height))
-            scaledHeight = mediaSuperview.frame.height
-            leftInset = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
-        }
+        let scaledWidth: CGFloat = mediaSuperview.frame.width
+        let scaledHeight: CGFloat = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
+        let topInset: CGFloat = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
+        let leftInset: CGFloat = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
         
         return MediaPresentationContext(
             mediaView: mediaView,

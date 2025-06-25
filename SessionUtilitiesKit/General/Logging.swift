@@ -114,6 +114,10 @@ public enum Log {
     @ThreadSafeObject private static var logger: Logger? = nil
     @ThreadSafeObject private static var pendingStartupLogs: [LogInfo] = []
     
+    public static func loggerExists(withPrefix prefix: String) -> Bool {
+        return (Log._logger.wrappedValue?.primaryPrefix == prefix)
+    }
+    
     public static func setup(with logger: Logger) {
         logger.setPendingLogsRetriever {
             _pendingStartupLogs.performUpdateAndMap { ([], $0) }
@@ -400,7 +404,7 @@ public enum Log {
 
 open class Logger {
     private let dependencies: Dependencies
-    private let primaryPrefix: String
+    fileprivate let primaryPrefix: String
     @ThreadSafeObject private var systemLoggers: [String: SystemLoggerType] = [:]
     fileprivate let fileLogger: DDFileLogger
     @ThreadSafe fileprivate var isSuspended: Bool = true

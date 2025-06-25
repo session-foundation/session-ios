@@ -22,7 +22,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
     case invalidConfigMessageHandling
     case outdatedMessage
     case ignorableMessage
-    case ignorableMessageRequestMessage
+    case ignorableMessageRequestMessage(String)
     case duplicatedCall
     case missingRequiredAdminPrivileges
     case deprecatedMessage

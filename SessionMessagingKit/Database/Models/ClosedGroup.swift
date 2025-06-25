@@ -218,7 +218,9 @@ public extension ClosedGroup {
         }
         
         /// Start the poller
-        dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id).startIfNeeded() }
+        dependencies.mutate(cache: .groupPollers) {
+            $0.getOrCreatePoller(for: group.id).startIfNeeded()
+        }
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {

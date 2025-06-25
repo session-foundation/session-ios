@@ -110,7 +110,7 @@ public enum AppSetup {
                         unreadCount: userInfo.unreadCount
                     )
                     
-                    Task {
+                    Task.detached(priority: .medium) {
                         dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
                             userSessionId: userInfo.sessionId
                         )

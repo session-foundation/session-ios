@@ -136,7 +136,7 @@ public extension NotificationsManagerType {
             case (.community, _), (.legacyGroup, _), (.contact, false), (.group, false): break
             case (.contact, true), (.group, true):
                 guard shouldShowForMessageRequest() else {
-                    throw MessageReceiverError.ignorableMessageRequestMessage
+                    throw MessageReceiverError.ignorableMessageRequestMessage(threadId)
                 }
                 break
         }
@@ -298,10 +298,7 @@ public extension NotificationsManagerType {
             notificationSettings: notificationSettings,
             openGroupUrlInfo: openGroupUrlInfo,
             currentUserSessionIds: currentUserSessionIds,
-            shouldShowForMessageRequest: {
-                !dependencies[singleton: .extensionHelper]
-                    .hasAtLeastOneDedupeRecord(threadId: threadId)
-            },
+            shouldShowForMessageRequest: shouldShowForMessageRequest,
             using: dependencies
         )
         

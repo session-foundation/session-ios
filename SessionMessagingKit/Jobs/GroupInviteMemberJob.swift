@@ -46,7 +46,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> AuthenticationMethod in
+            .writePublisher { db -> (AuthenticationMethod, AuthenticationMethod) in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -57,9 +57,16 @@ public enum GroupInviteMemberJob: JobExecutor {
                         using: dependencies
                     )
                 
-                return try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+                return (
+                    try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
+                    try Authentication.with(
+                        db,
+                        swarmPublicKey: details.memberSessionIdHexString,
+                        using: dependencies
+                    )
+                )
             }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
+            .tryFlatMap { groupAuthMethod, memberAuthMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
                 try MessageSender.preparedSend(
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,
@@ -72,14 +79,14 @@ public enum GroupInviteMemberJob: JobExecutor {
                             profilePictureUrl: adminProfile.displayPictureUrl
                         ),
                         sentTimestampMs: UInt64(sentTimestampMs),
-                        authMethod: authMethod,
+                        authMethod: groupAuthMethod,
                         using: dependencies
                     ),
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,
                     interactionId: nil,
                     attachments: nil,
-                    authMethod: authMethod,
+                    authMethod: memberAuthMethod,
                     onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
                 ).send(using: dependencies)

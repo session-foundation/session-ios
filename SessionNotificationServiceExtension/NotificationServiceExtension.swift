@@ -706,6 +706,19 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 return
         }
         
+        /// Since we are going to save the message and generate deduplication files we need to determine whether we would want
+        /// to show the message in case it is a message request (this is done by checking if there are already any dedupe records
+        /// for this conversation so needs to be done before they are generated)
+        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.isMessageRequest(
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
+        }
+        let shouldShowForMessageRequest: Bool = (!isMessageRequest ? false :
+            !dependencies[singleton: .extensionHelper].hasAtLeastOneDedupeRecord(threadId: threadId)
+        )
+        
         /// Save the message and generate any deduplication files needed
         try saveMessage(
             notification,
@@ -745,10 +758,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     default: return nil
                 }
             },
-            shouldShowForMessageRequest: {
-                !dependencies[singleton: .extensionHelper]
-                    .hasAtLeastOneDedupeRecord(threadId: threadId)
-            }
+            shouldShowForMessageRequest: { shouldShowForMessageRequest }
         )
         
         /// Since we succeeded we can complete silently
@@ -881,8 +891,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (MessageReceiverError.ignorableMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToRequiresNoNotification)
                 
-            case (MessageReceiverError.ignorableMessageRequestMessage, _, _):
-                self.completeSilenty(info, .ignoreDueToMessageRequest)
+            case (MessageReceiverError.ignorableMessageRequestMessage(let threadId), _, _):
+                self.completeSilenty(info, .ignoreDueToMessageRequest(threadId))
                 
             case (MessageReceiverError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)

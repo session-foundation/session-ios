@@ -1,28 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-enum Media {
-    case gallery(MediaGalleryViewModel.Item, Dependencies)
-    case image(UIImage)
-
-    var image: UIImage? {
-        switch self {
-            case let .gallery(item, dependencies):
-                return dependencies[singleton: .imageDataManager].cachedImage(
-                    attachment: item.attachment,
-                    using: dependencies
-                )
-                
-            case let .image(image): return image
-        }
-    }
-}
-
 struct MediaPresentationContext {
-    let mediaView: UIView
+    let mediaView: SessionImageView
     let presentationFrame: CGRect
     let cornerRadius: CGFloat
     let cornerMask: CACornerMask
@@ -45,7 +29,7 @@ struct MediaPresentationContext {
 // The other animation controller, the MediaDismissAnimationController is used when we're going to
 // stop showing the media pager. This can be a pop to the tile view, or a modal dismiss.
 protocol MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext?
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext?
 
     // The transitionView will be presented below this view.
     // If nil, the transitionView will be presented above all

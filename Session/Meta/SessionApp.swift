@@ -179,7 +179,7 @@ public class SessionApp: SessionAppType {
             return onComplete()
         }
         
-        Task { [storage = dependencies[singleton: .storage], dependencies] in
+        Task.detached(priority: .userInitiated) { [storage = dependencies[singleton: .storage], dependencies] in
             storage.writeAsync(
                 updates: { db in
                     try SessionThread.upsert(

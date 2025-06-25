@@ -54,7 +54,7 @@ public extension LibSession {
                 
                 /// If we needed to dump then we should replicate it and yield any pending changes to observers
                 if needsDump {
-                    Task {
+                    Task.detached(priority: .medium) {
                         dependencies[singleton: .extensionHelper].replicate(dump: dump)
                         
                         await dependencies.mutate(cache: .libSession) { cache in

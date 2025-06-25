@@ -145,22 +145,16 @@ public class Dependencies {
     }
     
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
-        threadSafeChange(for: singleton.identifier, of: .singleton) {
-            setValue(instance, typedStorage: .singleton(instance), key: singleton.identifier)
-        }
+        setValue(instance, typedStorage: .singleton(instance), key: singleton.identifier)
     }
     
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
-        threadSafeChange(for: cache.identifier, of: .cache) {
-            let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
-            setValue(value, typedStorage: .cache(value), key: cache.identifier)
-        }
+        let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
+        setValue(value, typedStorage: .cache(value), key: cache.identifier)
     }
     
     public func remove<M, I>(cache: CacheConfig<M, I>) {
-        threadSafeChange(for: cache.identifier, of: .cache) {
-            removeValue(cache.identifier, of: .cache)
-        }
+        removeValue(cache.identifier, of: .cache)
     }
     
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
@@ -213,37 +207,44 @@ public extension Dependencies {
     }
     
     func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
-        return threadSafeChange(for: feature.identifier, of: .feature) {
-            guard let instance: Feature<T> = getValue(feature.identifier, of: .feature) else {
-                return false
-            }
-            
-            return instance.hasStoredValue(using: self)
-        }
+        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
+            .key(feature.identifier)
+        
+        /// Use a `readLock` to check if a value has been set
+        guard
+            let typedValue: DependencyStorage.Value = storage.instances[key],
+            let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
+        else { return false }
+        
+        return existingValue.hasStoredValue(using: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
-        threadSafeChange(for: feature.identifier, of: .feature) {
-            /// Update the cached & in-memory values
-            let instance: Feature<T> = (
-                getValue(feature.identifier, of: .feature) ??
-                feature.createInstance(self)
-            )
-            instance.setValue(to: updatedFeature, using: self)
-            setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
-        }
+        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
+            .key(feature.identifier)
+        let typedValue: DependencyStorage.Value? = storage.instances[key]
+        
+        /// Update the cached & in-memory values
+        let instance: Feature<T> = (
+            typedValue?.value(as: Feature<T>.self) ??
+            feature.createInstance(self)
+        )
+        instance.setValue(to: updatedFeature, using: self)
+        setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
         
         /// Notify observers
         featureChangeSubject.send((feature.identifier, feature.groupIdentifier, updatedFeature))
     }
     
     func reset<T: FeatureOption>(feature: FeatureConfig<T>) {
-        threadSafeChange(for: feature.identifier, of: .feature) {
-            /// Reset the cached and in-memory values
-            let instance: Feature<T>? = getValue(feature.identifier, of: .feature)
-            instance?.setValue(to: nil, using: self)
-            removeValue(feature.identifier, of: .feature)
-        }
+        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
+            .key(feature.identifier)
+        
+        /// Reset the cached and in-memory values
+        storage.instances[key]?
+            .value(as: Feature<T>.self)?
+            .setValue(to: nil, using: self)
+        removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
         featureChangeSubject.send((feature.identifier, feature.groupIdentifier, nil))
@@ -376,38 +377,41 @@ private extension Dependencies {
         identifier: String,
         constructor: DependencyStorage.Constructor<Value>
     ) -> Value {
-        /// If we already have an instance then just return that
-        if let existingValue: Value = getValue(identifier, of: constructor.variant) {
+        let key: Dependencies.DependencyStorage.Key = constructor.variant.key(identifier)
+        
+        /// If we already have an instance then just return that (using a `readLock` rather than a `writeLock`)
+        if let existingValue: Value = storage.instances[key]?.value(as: Value.self) {
             return existingValue
         }
         
-        return threadSafeChange(for: identifier, of: constructor.variant) {
-            /// Now that we are within a synchronized group, check to make sure an instance wasn't created while we were waiting to
-            /// enter the group
-            if let existingValue: Value = getValue(identifier, of: constructor.variant) {
-                return existingValue
+        /// Otherwise we need to prevent multiple threads initialising **this** dependency, this is done with it's own
+        /// separate lock
+        let initializationLock: NSLock = _storage.performUpdateAndMap { storage in
+            if let existingLock = storage.initializationLocks[key] {
+                return (storage, existingLock)
             }
             
-            let result: (typedStorage: DependencyStorage.Value, value: Value) = constructor.create()
-            setValue(result.value, typedStorage: result.typedStorage, key: identifier)
-            return result.value
+            let newLock = NSLock()
+            storage.initializationLocks[key] = newLock
+            return (storage, newLock)
         }
-    }
-    
-    /// Convenience method to retrieve the existing dependency instance from memory in a thread-safe way
-    private func getValue<T>(_ key: String, of variant: DependencyStorage.Key.Variant) -> T? {
-        return _storage.performMap { storage in
-            guard let typedValue: DependencyStorage.Value = storage.instances[variant.key(key)] else {
-                return nil
-            }
-            guard let result: T = typedValue.value(as: T.self) else {
-                /// If there is a value stored for the key, but it's not the right type then something has gone wrong, and we should log
-                Log.critical("Failed to convert stored dependency '\(variant.key(key))' to expected type: \(T.self)")
-                return nil
-            }
-            
-            return result
+        
+        /// Acquire the `initializationLock`
+        initializationLock.lock()
+        defer { initializationLock.unlock() }
+        
+        /// Now that we have acquired the `initializationLock` we need to check if an instance was created on another
+        /// thread while we were waiting
+        if let existingValue: Value = storage.instances[key]?.value(as: Value.self) {
+            return existingValue
         }
+        
+        /// Create an instance of the dependency **outside** of the `storage` lock (to prevent the initialiser of another
+        /// dependency from causing a deadlock)
+        let instance: (typedStorage: DependencyStorage.Value, value: Value) = constructor.create()
+        
+        /// Finally we can store the newly created dependency (this will acquire a `storage` lock again
+        return setValue(instance.value, typedStorage: instance.typedStorage, key: identifier)
     }
     
     /// Convenience method to store a dependency instance in memory in a thread-safe way
@@ -424,27 +428,6 @@ private extension Dependencies {
             storage.instances.removeValue(forKey: variant.key(key))
             return storage
         }
-    }
-    
-    /// This function creates an `NSLock` for the given identifier which allows us to block instance creation on a per-identifier basis
-    /// and avoid situations where multithreading could result in multiple instances of the same dependency being created concurrently
-    ///
-    /// **Note:** This `NSLock` is an additional mechanism on top of the `ThreadSafeObject<T>` because the interface is a little
-    /// simpler and we don't need to wrap every instance within `ThreadSafeObject<T>` this way
-    @discardableResult private func threadSafeChange<T>(for identifier: String, of variant: DependencyStorage.Key.Variant, change: () -> T) -> T {
-        let lock: NSLock = _storage.performUpdateAndMap { storage in
-            if let existing = storage.initializationLocks[variant.key(identifier)] {
-                return (storage, existing)
-            }
-            
-            let lock: NSLock = NSLock()
-            storage.initializationLocks[variant.key(identifier)] = lock
-            return (storage, lock)
-        }
-        lock.lock()
-        defer { lock.unlock() }
-        
-        return change()
     }
 }
  

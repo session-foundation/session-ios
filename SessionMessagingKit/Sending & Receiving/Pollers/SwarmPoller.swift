@@ -332,9 +332,11 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 }
                 
                 /// If this message should be stored and should be handled synchronously then do so here before processing the next namespace
-                guard shouldStoreMessages && (namespace.shouldHandleSynchronously || forceSynchronousProcessing) else {
-                    return processedMessages
-                }
+                guard
+                    shouldStoreMessages &&
+                    !processedMessages.isEmpty &&
+                    (namespace.shouldHandleSynchronously || forceSynchronousProcessing)
+                else { return processedMessages }
                 
                 if namespace.isConfigNamespace {
                     do {

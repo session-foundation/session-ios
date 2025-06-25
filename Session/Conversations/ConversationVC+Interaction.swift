@@ -2675,9 +2675,8 @@ extension ConversationVC {
         
         switch threadVariant {
             case .contact:
-                // If the contact doesn't exist then we should create it so we can store the 'isApproved' state
-                // (it'll be updated with correct profile info if they accept the message request so this
-                // shouldn't cause weird behaviours)
+                /// If the contact doesn't exist then we should create it so we can store the `isApproved` state (it'll be updated
+                /// with correct profile info if they accept the message request so this shouldn't cause weird behaviours)
                 guard
                     let contact: Contact = viewModel.dependencies[singleton: .storage].read({ [dependencies = viewModel.dependencies] db in
                         Contact.fetchOrCreate(db, id: threadId, using: dependencies)
@@ -2953,9 +2952,7 @@ extension ConversationVC {
 // MARK: - MediaPresentationContextProvider
 
 extension ConversationVC: MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        guard case let .gallery(galleryItem, _) = mediaItem else { return nil }
-        
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         // Note: According to Apple's docs the 'indexPathsForVisibleRows' method returns an
         // unsorted array which means we can't use it to determine the desired 'visibleCell'
         // we are after, due to this we will need to iterate all of the visible cells to find
@@ -2966,7 +2963,7 @@ extension ConversationVC: MediaPresentationContextProvider {
                     .albumView?
                     .itemViews
                     .contains(where: { mediaView in
-                        mediaView.attachment.id == galleryItem.attachment.id
+                        mediaView.attachment.id == mediaId
                     }))
                     .defaulting(to: false)
             }
@@ -2974,7 +2971,7 @@ extension ConversationVC: MediaPresentationContextProvider {
         let maybeTargetView: MediaView? = maybeMessageCell?
             .albumView?
             .itemViews
-            .first(where: { $0.attachment.id == galleryItem.attachment.id })
+            .first(where: { $0.attachment.id == mediaId })
         
         guard
             let messageCell: VisibleMessageCell = maybeMessageCell,
@@ -3035,7 +3032,7 @@ extension ConversationVC: MediaPresentationContextProvider {
         }
         
         return MediaPresentationContext(
-            mediaView: targetView,
+            mediaView: targetView.imageView,
             presentationFrame: presentationFrame,
             cornerRadius: cornerRadius,
             cornerMask: cornerMask

@@ -6,6 +6,7 @@ import Photos
 import CoreServices
 import UniformTypeIdentifiers
 import SignalUtilitiesKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -29,12 +30,19 @@ class PhotoPickerAssetItem: PhotoGridItem {
 
     let asset: PHAsset
     let photoCollectionContents: PhotoCollectionContents
-    let photoMediaSize: PhotoMediaSize
+    let size: ImageDataManager.ThumbnailSize
+    let pixelDimension: CGFloat
 
-    init(asset: PHAsset, photoCollectionContents: PhotoCollectionContents, photoMediaSize: PhotoMediaSize) {
+    init(
+        asset: PHAsset,
+        photoCollectionContents: PhotoCollectionContents,
+        size: ImageDataManager.ThumbnailSize,
+        pixelDimension: CGFloat
+    ) {
         self.asset = asset
         self.photoCollectionContents = photoCollectionContents
-        self.photoMediaSize = photoMediaSize
+        self.size = size
+        self.pixelDimension = pixelDimension
     }
 
     // MARK: PhotoGridItem
@@ -48,24 +56,13 @@ class PhotoPickerAssetItem: PhotoGridItem {
 
         return  .photo
     }
-
-    func asyncThumbnail(completion: @escaping (UIImage?) -> Void) {
-        var hasLoadedImage = false
-
-        // Surprisingly, iOS will opportunistically run the completion block sync if the image is
-        // already available.
-        photoCollectionContents.requestThumbnail(for: self.asset, thumbnailSize: photoMediaSize.thumbnailSize) { image, _ in
-            Threading.dispatchMainThreadSafe {
-                // Once we've _successfully_ completed (e.g. invoked the completion with
-                // a non-nil image), don't invoke the completion again with a nil argument.
-                if !hasLoadedImage || image != nil {
-                    completion(image)
-
-                    if image != nil {
-                        hasLoadedImage = true
-                    }
-                }
-            }
+    
+    var source: ImageDataManager.DataSource {
+        return .closureThumbnail(self.asset.localIdentifier, size) { [photoCollectionContents, asset, pixelDimension] in
+            await photoCollectionContents.requestThumbnail(
+                for: asset,
+                thumbnailSize: CGSize(width: pixelDimension, height: pixelDimension)
+            )
         }
     }
 }
@@ -115,28 +112,52 @@ class PhotoCollectionContents {
 
     // MARK: - AssetItem Accessors
 
-    func assetItem(at index: Int, photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem? {
+    func assetItem(at index: Int, size: ImageDataManager.ThumbnailSize, pixelDimension: CGFloat) -> PhotoPickerAssetItem? {
         guard let mediaAsset: PHAsset = asset(at: index) else { return nil }
         
-        return PhotoPickerAssetItem(asset: mediaAsset, photoCollectionContents: self, photoMediaSize: photoMediaSize)
+        return PhotoPickerAssetItem(
+            asset: mediaAsset,
+            photoCollectionContents: self,
+            size: size,
+            pixelDimension: pixelDimension
+        )
     }
 
-    func firstAssetItem(photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem? {
+    func firstAssetItem(size: ImageDataManager.ThumbnailSize, pixelDimension: CGFloat) -> PhotoPickerAssetItem? {
         guard let mediaAsset = firstAsset else { return nil }
         
-        return PhotoPickerAssetItem(asset: mediaAsset, photoCollectionContents: self, photoMediaSize: photoMediaSize)
+        return PhotoPickerAssetItem(
+            asset: mediaAsset,
+            photoCollectionContents: self,
+            size: size,
+            pixelDimension: pixelDimension
+        )
     }
 
-    func lastAssetItem(photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem? {
+    func lastAssetItem(size: ImageDataManager.ThumbnailSize, pixelDimension: CGFloat) -> PhotoPickerAssetItem? {
         guard let mediaAsset = lastAsset else { return nil }
         
-        return PhotoPickerAssetItem(asset: mediaAsset, photoCollectionContents: self, photoMediaSize: photoMediaSize)
+        return PhotoPickerAssetItem(
+            asset: mediaAsset,
+            photoCollectionContents: self,
+            size: size,
+            pixelDimension: pixelDimension
+        )
     }
 
     // MARK: ImageManager
-
-    func requestThumbnail(for asset: PHAsset, thumbnailSize: CGSize, resultHandler: @escaping (UIImage?, [AnyHashable: Any]?) -> Void) {
-        _ = imageManager.requestImage(for: asset, targetSize: thumbnailSize, contentMode: .aspectFill, options: nil, resultHandler: resultHandler)
+    
+    func requestThumbnail(for asset: PHAsset, thumbnailSize: CGSize) async -> UIImage? {
+        return await withCheckedContinuation { [imageManager] continuation in
+            imageManager.requestImage(
+                for: asset,
+                targetSize: thumbnailSize,
+                contentMode: .aspectFill,
+                options: nil
+            ) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
     }
 
     private func requestImageDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {

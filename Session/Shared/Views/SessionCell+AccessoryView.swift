@@ -159,8 +159,12 @@ extension SessionCell {
             using dependencies: Dependencies
         ) -> UIView? {
             switch accessory {
-                case is SessionCell.AccessoryConfig.Icon: return createIconView()
-                case is SessionCell.AccessoryConfig.IconAsync: return createIconView()
+                case is SessionCell.AccessoryConfig.Icon:
+                    return createIconView(using: dependencies)
+                    
+                case is SessionCell.AccessoryConfig.IconAsync:
+                    return createIconView(using: dependencies)
+                    
                 case is SessionCell.AccessoryConfig.Toggle: return createToggleView()
                 case is SessionCell.AccessoryConfig.DropDown: return createDropDownView()
                 case is SessionCell.AccessoryConfig.Radio: return createRadioView()
@@ -280,8 +284,10 @@ extension SessionCell {
         
         // MARK: -- Icon
         
-        private func createIconView() -> UIImageView {
-            let result: UIImageView = UIImageView()
+        private func createIconView(using dependencies: Dependencies) -> SessionImageView {
+            let result: SessionImageView = SessionImageView(
+                dataManager: dependencies[singleton: .imageDataManager]
+            )
             result.translatesAutoresizingMaskIntoConstraints = false
             result.clipsToBounds = true
             result.layer.minificationFilter = .trilinear
@@ -291,7 +297,7 @@ extension SessionCell {
         }
         
         private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool) {
-            guard let imageView: UIImageView = view as? UIImageView else { return }
+            guard let imageView: SessionImageView = view as? SessionImageView else { return }
             
             imageView.set(.width, to: iconSize.size)
             imageView.set(.height, to: iconSize.size)
@@ -302,7 +308,7 @@ extension SessionCell {
         }
         
         private func configureIconView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.Icon, tintColor: ThemeValue) {
-            guard let imageView: UIImageView = view as? UIImageView else { return }
+            guard let imageView: SessionImageView = view as? SessionImageView else { return }
             
             imageView.accessibilityIdentifier = accessory.accessibility?.identifier
             imageView.accessibilityLabel = accessory.accessibility?.label
@@ -323,10 +329,17 @@ extension SessionCell {
         // MARK: -- IconAsync
         
         private func configureIconView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.IconAsync, tintColor: ThemeValue) {
-            guard let imageView: UIImageView = view as? UIImageView else { return }
+            guard let imageView: SessionImageView = view as? SessionImageView else { return }
             
-            accessory.setter(imageView)
-            configureIconView(imageView, accessory, tintColor: tintColor)
+            imageView.accessibilityIdentifier = accessory.accessibility?.identifier
+            imageView.accessibilityLabel = accessory.accessibility?.label
+            imageView.themeTintColor = (accessory.customTint ?? tintColor)
+            imageView.contentMode = (accessory.shouldFill ? .scaleAspectFill : .scaleAspectFit)
+            
+            switch accessory.source {
+                case .none: imageView.image = nil
+                case .some(let source): imageView.loadImage(source)
+            }
         }
     
         // MARK: -- Toggle

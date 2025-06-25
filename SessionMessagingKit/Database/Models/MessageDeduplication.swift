@@ -326,47 +326,41 @@ public extension MessageDeduplication {
         ignoreDedupeFiles: Bool,
         using dependencies: Dependencies
     ) throws {
-        typealias StandardInfo = (
-            threadVariant: SessionThread.Variant,
-            message: Message,
-            serverExpirationTimestamp: TimeInterval?
-        )
-        
-        let standardInfo: StandardInfo? = {
-            switch processedMessage {
-                case .config, .invalid: return nil
-                case .standard(_, let threadVariant, _, let messageInfo, _):
-                    return (
-                        threadVariant,
-                        messageInfo.message,
-                        messageInfo.serverExpirationTimestamp
-                    )
-            }
-        }()
-        
-        try insert(
-            db,
-            threadId: processedMessage.threadId,
-            threadVariant: standardInfo?.threadVariant,
-            uniqueIdentifier: processedMessage.uniqueIdentifier,
-            legacyIdentifier: getLegacyIdentifier(for: processedMessage),
-            message: standardInfo?.message,
-            serverExpirationTimestamp: standardInfo?.serverExpirationTimestamp,
-            ignoreDedupeFiles: ignoreDedupeFiles,
-            using: dependencies
-        )
+        /// We don't actually want to dedupe config messages as `libSession` will take care of that logic and if we do anything
+        /// special then it could result in unexpected behaviours where config messages don't get merged correctly
+        switch processedMessage {
+            case .config, .invalid: return
+            case .standard(_, let threadVariant, _, let messageInfo, _):
+                try insert(
+                    db,
+                    threadId: processedMessage.threadId,
+                    threadVariant: threadVariant,
+                    uniqueIdentifier: processedMessage.uniqueIdentifier,
+                    legacyIdentifier: getLegacyIdentifier(for: processedMessage),
+                    message: messageInfo.message,
+                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                    ignoreDedupeFiles: ignoreDedupeFiles,
+                    using: dependencies
+                )
+        }
     }
     
     static func createDedupeFile(
         _ processedMessage: ProcessedMessage,
         using dependencies: Dependencies
     ) throws {
-        try createDedupeFile(
-            threadId: processedMessage.threadId,
-            uniqueIdentifier: processedMessage.uniqueIdentifier,
-            legacyIdentifier: getLegacyIdentifier(for: processedMessage),
-            using: dependencies
-        )
+        /// We don't actually want to dedupe config messages as `libSession` will take care of that logic and if we do anything
+        /// special then it could result in unexpected behaviours where config messages don't get merged correctly
+        switch processedMessage {
+            case .config, .invalid: return
+            case .standard:
+                try createDedupeFile(
+                    threadId: processedMessage.threadId,
+                    uniqueIdentifier: processedMessage.uniqueIdentifier,
+                    legacyIdentifier: getLegacyIdentifier(for: processedMessage),
+                    using: dependencies
+                )
+        }
     }
 }
 

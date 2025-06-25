@@ -244,7 +244,8 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 }
                 
             case false:
-                // Play sound and vibrate, but without a `body` no banner will show
+                // Play sound and vibrate, but without a `title` and `body` so the banner won't show
+                mutableContent.title = ""
                 mutableContent.body = ""
                 Log.debug("supressing notification body")
         }

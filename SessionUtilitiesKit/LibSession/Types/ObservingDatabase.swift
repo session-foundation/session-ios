@@ -26,7 +26,9 @@ public class ObservingDatabase {
             afterNextTransactionNested(using: dependencies) { [weak self] _ in
                 guard let changes: [Change] = self?.changes, !changes.isEmpty else { return }
                 
-                Task { await SNUtilitiesKit.observationNotifier.notify(changes) }
+                Task.detached(priority: .medium) {
+                    await SNUtilitiesKit.observationNotifier.notify(changes)
+                }
             }
         }
         

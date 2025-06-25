@@ -940,18 +940,23 @@ public extension LibSession {
             }.defaulting(to: false)
             
             /// If we don't need to push and there were no merge results then no need to do anything else
-            guard needsPush else { return }
+            guard
+                needsPush ||
+                results.contains(where: { $0.dump != nil })
+            else { return }
             
             db.afterNextTransactionNested(using: dependencies) { [dependencies] db in
                 if needsPush {
                     ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
                 }
                 
-                Task { [dependencies] in
+                Task.detached(priority: .medium) { [dependencies] in
                     /// Replicate any dumps
                     for result in results {
                         switch result.dump {
-                            case .some(let dump): dependencies[singleton: .extensionHelper].replicate(dump: dump)
+                            case .some(let dump):
+                                dependencies[singleton: .extensionHelper].replicate(dump: dump)
+                            
                             case .none:
                                 dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
                                     sessionId: result.sessionId,

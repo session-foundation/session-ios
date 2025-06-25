@@ -527,13 +527,14 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         guard let delegate = delegate else { return UICollectionViewCell() }
 
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
+        let size: ImageDataManager.ThumbnailSize = .small
         
-        guard let assetItem: PhotoPickerAssetItem = photoCollectionContents.assetItem(at: indexPath.item, photoMediaSize: photoMediaSize) else {
+        guard let assetItem: PhotoPickerAssetItem = photoCollectionContents.assetItem(at: indexPath.item, size: size, pixelDimension: size.pixelDimension()) else {
             Log.error(.media, "Failed to style cell for asset at \(indexPath.item)")
             return cell
         }
          
-        cell.configure(item: assetItem)
+        cell.configure(item: assetItem, using: dependencies)
         cell.isAccessibilityElement = true
         cell.accessibilityIdentifier = "\(assetItem.asset.modificationDate.map { "\($0)" } ?? "Unknown Date")"
         cell.isSelected = delegate.imagePicker(self, isAssetSelected: assetItem.asset)

@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -15,7 +16,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToNonLegacyGroupLegacyNotification
     case ignoreDueToOutdatedMessage
     case ignoreDueToRequiresNoNotification
-    case ignoreDueToMessageRequest
+    case ignoreDueToMessageRequest(String)
     case ignoreDueToDuplicateMessage
     case ignoreDueToDuplicateCall
     case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
@@ -31,15 +32,18 @@ enum NotificationResolution: CustomStringConvertible {
     
     public var description: String {
         switch self {
-            case .success(let metadata): return "Completed: Handled notification from namespace: \(metadata.namespace)"
+            case .success(let metadata):
+                return "Completed: Handled notification from \(metadata.namespace) namespace for \(metadata.accountId)"
+            
             case .successCall: return "Completed: Notified main app of call message"
             
             case .ignoreDueToMainAppRunning: return "Ignored: Main app running"
             case .ignoreDueToNoContentFromApple: return "Ignored: No content"
             case .ignoreDueToNonLegacyGroupLegacyNotification: return "Ignored: Non-group legacy notification"
-            case .ignoreDueToOutdatedMessage: return "Ignored: Alteady seen message"
+            case .ignoreDueToOutdatedMessage: return "Ignored: Already seen message"
             case .ignoreDueToRequiresNoNotification: return "Ignored: Message requires no notification"
-            case .ignoreDueToMessageRequest: return "Ignored: Subsequent message in a message request"
+            case .ignoreDueToMessageRequest(let threadId):
+                return "Ignored: Subsequent message in message request \(threadId)"
             
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
@@ -48,7 +52,7 @@ enum NotificationResolution: CustomStringConvertible {
                 return "Ignored: Duplicate call (probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
-                return "Ignored: Notification content from namespace: \(metadata.namespace) was too long: \(metadata.dataLength)"
+                return "Ignored: Notification content from \(metadata.namespace) namespace was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
@@ -56,7 +60,7 @@ enum NotificationResolution: CustomStringConvertible {
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
             case .errorNoContent(let metadata):
-                return "Failed: Notification from namespace: \(metadata.namespace) contained no content, expected dataLength: \(metadata.dataLength)"
+                return "Failed: Notification from namespace: \(metadata.namespace) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength))))"
                 
             case .errorProcessing(let result): return "Failed: Unable to process notification (\(result))"
             case .errorMessageHandling(let error): return "Failed: Handling the message (\(error))"

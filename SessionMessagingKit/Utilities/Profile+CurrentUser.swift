@@ -62,7 +62,7 @@ public extension Profile {
                                 let filePath: String = try? dependencies[singleton: .displayPictureManager]
                                     .path(for: existingProfileUrl)
                             {
-                                Task {
+                                Task.detached(priority: .low) {
                                     await dependencies[singleton: .imageDataManager].removeImage(
                                         identifier: filePath
                                     )

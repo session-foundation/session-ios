@@ -247,8 +247,8 @@ extension AllMediaViewController: UIViewControllerTransitioningDelegate {
 // MARK: - MediaPresentationContextProvider
 
 extension AllMediaViewController: MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        return self.mediaTitleViewController.mediaPresentationContext(mediaItem: mediaItem, in: coordinateSpace)
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
+        return self.mediaTitleViewController.mediaPresentationContext(mediaId: mediaId, in: coordinateSpace)
     }
 
     func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {

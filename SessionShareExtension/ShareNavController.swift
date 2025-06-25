@@ -48,15 +48,17 @@ final class ShareNavController: UINavigationController {
             additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
                 // stringlint:ignore_start
-                Log.setup(with: Logger(
-                    primaryPrefix: "SessionShareExtension",
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
-                    using: dependencies
-                ))
+                if !Log.loggerExists(withPrefix: "SessionShareExtension") {
+                    Log.setup(with: Logger(
+                        primaryPrefix: "SessionShareExtension",
+                        customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
+                        using: dependencies
+                    ))
+                    LibSession.setupLogger(using: dependencies)
+                }
                 // stringlint:ignore_stop
                 
                 // Setup LibSession
-                LibSession.setupLogger(using: dependencies)
                 dependencies.warmCache(cache: .libSessionNetwork)
                 
                 // Configure the different targets

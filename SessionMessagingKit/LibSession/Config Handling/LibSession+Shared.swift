@@ -818,8 +818,10 @@ public extension LibSession.Cache {
         visibleMessage: VisibleMessage?
     ) -> Profile? {
         // FIXME: Once `libSession` manages unsynced "Profile" data we should source this from there
-        /// Extract the `displayName` directly from the `VisibleMessage` if available
-        let displayNameInMessage: String? = visibleMessage?.profile?.displayName?.nullIfEmpty
+        /// Extract the `displayName` directly from the `VisibleMessage` if available and it was sent by the desired contact
+        let displayNameInMessage: String? = (visibleMessage?.sender != contactId ? nil :
+            visibleMessage?.profile?.displayName?.nullIfEmpty
+        )
         let fallbackProfile: Profile? = displayNameInMessage.map { Profile(id: contactId, name: $0) }
         
         guard var cContactId: [CChar] = contactId.cString(using: .utf8) else {
@@ -855,7 +857,7 @@ public extension LibSession.Cache {
             guard
                 threadVariant == .group,
                 let threadId: String = threadId,
-                case .groupMembers(let conf) = config(for: .contacts, sessionId: SessionId(.group, hex: threadId))
+                case .groupMembers(let conf) = config(for: .groupMembers, sessionId: SessionId(.group, hex: threadId))
             else { return nil }
             
             var member: config_group_member = config_group_member()
@@ -933,7 +935,7 @@ public extension LibSession.Cache {
 
 public extension Dependencies {
     func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (() -> Void)? = nil) {
-        Task { [dependencies = self] in
+        Task.detached(priority: .userInitiated) { [dependencies = self] in
             let targetVariant: ConfigDump.Variant
             
             switch key {
@@ -956,7 +958,7 @@ public extension Dependencies {
     }
     
     func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
-        Task { [dependencies = self] in
+        Task.detached(priority: .userInitiated) { [dependencies = self] in
             let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
                 try await cache.perform(for: .local) {
                     await cache.set(key, value)
@@ -972,7 +974,7 @@ public extension Dependencies {
     }
     
     func notifyAsync(_ key: LibSession.ObservableKey) {
-        Task { [dependencies = self] in
+        Task.detached(priority: .userInitiated) { [dependencies = self] in
             await dependencies.mutate(cache: .libSession) { cache in
                 await cache.addPendingChange(key: key, value: nil)
                 await cache.yieldAllPendingChanges()

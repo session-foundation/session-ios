@@ -12,8 +12,8 @@ public class SessionImageView: UIImageView {
     private var displayLink: CADisplayLink?
     private var animationFrames: [UIImage]?
     private var animationFrameDurations: [TimeInterval]?
-    private var currentFrameIndex: Int = 0
-    private var accumulatedTime: TimeInterval = 0
+    public private(set) var currentFrameIndex: Int = 0
+    public private(set) var accumulatedTime: TimeInterval = 0
     
     public var imageSizeMetadata: CGSize?
     
@@ -197,6 +197,33 @@ public class SessionImageView: UIImageView {
 
         displayLink = CADisplayLink(target: self, selector: #selector(updateFrame))
         displayLink?.add(to: .main, forMode: .common)
+    }
+    
+    @MainActor
+    public func setAnimationPoint(index: Int, time: TimeInterval) {
+        guard index >= 0, index < animationFrames?.count ?? 0 else { return }
+        currentFrameIndex = index
+        self.image = animationFrames?[index]
+        
+        /// Stop animating if we don't have a valid animation state
+        guard
+            let frames: [UIImage] = animationFrames,
+            let durations = animationFrameDurations,
+            !frames.isEmpty,
+            frames.count == durations.count,
+            index >= 0,
+            index < durations.count,
+            time > 0,
+            time < durations.reduce(0, +)
+        else { return stopAnimationLoop() }
+        
+        /// Update the values
+        accumulatedTime = time
+        currentFrameIndex = index
+        
+        /// Set the image using `super.image` as `self.image` is overwritten to stop the animation (in case it gets called
+        /// to replace the current image with something else)
+        super.image = frames[currentFrameIndex]
     }
     
     @MainActor

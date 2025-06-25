@@ -181,6 +181,17 @@ public actor ImageDataManager: ImageDataManagerType {
                     type: .staticImage(decodedImage)
                 )
                 
+            case .closureThumbnail(_, _, let imageRetrier):
+                guard let image: UIImage = await imageRetrier() else { return nil }
+                
+                /// Since there is likely custom (external) logic used to retrieve this thumbnail we don't save it to disk as there
+                /// is no way to know if it _should_ change between generations/launches or not
+                let decodedImage: UIImage = (image.predecodedImage() ?? image)
+                
+                return ProcessedImageData(
+                    type: .staticImage(decodedImage)
+                )
+                
             /// Custom handle `placeholderIcon` generation
             case .placeholderIcon(let seed, let text, let size):
                 let image: UIImage = PlaceholderIcon.generate(seed: seed, text: text, size: size)
@@ -338,8 +349,8 @@ public extension ImageDataManager {
         case data(String, Data)
         case image(String, UIImage?)
         case videoUrl(URL, String, String?, ThumbnailManager)
-        case closure(String, @Sendable () -> Data?)
         case urlThumbnail(URL, ImageDataManager.ThumbnailSize, ThumbnailManager)
+        case closureThumbnail(String, ImageDataManager.ThumbnailSize, @Sendable () async -> UIImage?)
         case placeholderIcon(seed: String, text: String, size: CGFloat)
         
         public var identifier: String {
@@ -348,9 +359,11 @@ public extension ImageDataManager {
                 case .data(let identifier, _): return identifier
                 case .image(let identifier, _): return identifier
                 case .videoUrl(let url, _, _, _): return url.absoluteString
-                case .closure(let identifier, _): return identifier
                 case .urlThumbnail(let url, let size, _):
                     return "\(url.absoluteString)-\(size)"
+                
+                case .closureThumbnail(let identifier, let size, _):
+                    return "\(identifier)-\(size)"
                 
                 case .placeholderIcon(let seed, let text, let size):
                     let content: (intSeed: Int, initials: String) = PlaceholderIcon.content(
@@ -368,8 +381,8 @@ public extension ImageDataManager {
                 case .data(_, let data): return data
                 case .image(_, let image): return image?.pngData()
                 case .videoUrl: return nil
-                case .closure(_, let dataRetriever): return dataRetriever()
-                case .urlThumbnail: return nil // TODO: [Data Relocation] Test this
+                case .urlThumbnail: return nil
+                case .closureThumbnail: return nil
                 case .placeholderIcon: return nil
             }
         }
@@ -399,12 +412,16 @@ public extension ImageDataManager {
                         lhsMimeType == rhsMimeType &&
                         lhsSourceFilename == rhsSourceFilename
                     )
-                case (.closure(let lhsIdentifier, _), .closure(let rhsIdentifier, _)):
-                    return (lhsIdentifier == rhsIdentifier)
                     
                 case (.urlThumbnail(let lhsUrl, let lhsSize, _), .urlThumbnail(let rhsUrl, let rhsSize, _)):
                     return (
                         lhsUrl == rhsUrl &&
+                        lhsSize == rhsSize
+                    )
+                    
+                case (.closureThumbnail(let lhsIdentifier, let lhsSize, _), .closureThumbnail(let rhsIdentifier, let rhsSize, _)):
+                    return (
+                        lhsIdentifier == rhsIdentifier &&
                         lhsSize == rhsSize
                     )
                     
@@ -435,11 +452,12 @@ public extension ImageDataManager {
                     mimeType.hash(into: &hasher)
                     sourceFilename.hash(into: &hasher)
                     
-                case .closure(let identifier, _):
-                    identifier.hash(into: &hasher)
-                    
                 case .urlThumbnail(let url, let size, _):
                     url.hash(into: &hasher)
+                    size.hash(into: &hasher)
+                    
+                case .closureThumbnail(let identifier, let size, _):
+                    identifier.hash(into: &hasher)
                     size.hash(into: &hasher)
                     
                 case .placeholderIcon(let seed, let text, let size):
@@ -558,7 +576,26 @@ extension AVAsset {
 }
 
 public extension ImageDataManager.DataSource {
+    @MainActor
     var sizeFromMetadata: CGSize? {
+        /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
+        /// read it from data so we doncan avoid processing
+        switch self {
+            case .image(_, let image):
+                guard let image: UIImage = image else { break }
+                
+                return image.size
+                
+            case .urlThumbnail(_, let size, _), .closureThumbnail(_, let size, _):
+                let dimension: CGFloat = size.pixelDimension()
+                return CGSize(width: dimension, height: dimension)
+                
+            case .placeholderIcon(_, _, let size): return CGSize(width: size, height: size)
+                
+            case .url, .data, .videoUrl: break
+        }
+        
+        /// Since we don't have a direct size, try to extract it from the data
         guard
             let imageData: Data = imageData,
             let imageFormat: SUIKImageFormat = imageData.suiKitGuessedImageFormat.nullIfUnknown

@@ -79,7 +79,7 @@ public class MediaView: UIView {
     
     // MARK: - UI
     
-    private lazy var imageView: SessionImageView = {
+    public lazy var imageView: SessionImageView = {
         let result: SessionImageView = SessionImageView(
             dataManager: dependencies[singleton: .imageDataManager]
         )

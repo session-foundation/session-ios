@@ -696,7 +696,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
+                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage(threadId)))
             }
             
             // MARK: -- does not throw if the message was sent to a message request and we should show
@@ -1051,6 +1051,29 @@ class NotificationsManagerSpec: QuickSpec {
                 }.to(equal("Test"))
             }
             
+            // MARK: -- resolves a mention that is not the sender
+            it("resolves a mention that is not the sender") {
+                message = VisibleMessage(
+                    sender: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                    text: "Hey @05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "3"))",
+                    profile: VisibleMessage.VMProfile(displayName: "TestSender")
+                )
+                
+                expect {
+                    mockNotificationsManager.notificationBody(
+                        message: message,
+                        threadVariant: .contact,
+                        isMessageRequest: false,
+                        notificationSettings: notificationSettings,
+                        interactionVariant: .standardIncoming,
+                        attachmentDescriptionInfo: nil,
+                        currentUserSessionIds: [],
+                        displayNameRetriever: { _ in "TestMention" },
+                        using: dependencies
+                    )
+                }.to(equal("Hey TestMention"))
+            }
+            
             // MARK: -- returns a generic message if no interaction variant is provided
             it("returns a generic message if no interaction variant is provided") {
                 expect {
@@ -1080,7 +1103,7 @@ class NotificationsManagerSpec: QuickSpec {
                     )
                 }
                 
-                // MARK: -- returns a missed call message
+                // MARK: ---- returns a missed call message
                 it("returns a missed call message") {
                     expect {
                         mockNotificationsManager.notificationBody(
@@ -1097,7 +1120,7 @@ class NotificationsManagerSpec: QuickSpec {
                     }.to(equal("callsYouMissedCallPermissions".put(key: "name", value: "TestName").localizedDeformatted()))
                 }
                 
-                // MARK: -- includes the senders display name if retrieved
+                // MARK: ---- includes the senders display name if retrieved
                 it("includes the senders display name if retrieved") {
                     expect {
                         mockNotificationsManager.notificationBody(
@@ -1114,7 +1137,7 @@ class NotificationsManagerSpec: QuickSpec {
                     }.to(equal("callsYouMissedCallPermissions".put(key: "name", value: "TestName").localizedDeformatted()))
                 }
                 
-                // MARK: -- defaults to the truncated id if it cannot retrieve a display name
+                // MARK: ---- defaults to the truncated id if it cannot retrieve a display name
                 it("defaults to the truncated id if it cannot retrieve a display name") {
                     expect {
                         mockNotificationsManager.notificationBody(
@@ -1144,7 +1167,7 @@ class NotificationsManagerSpec: QuickSpec {
                     )
                 }
                 
-                // MARK: -- returns a missed call message
+                // MARK: ---- returns a missed call message
                 it("returns a missed call message") {
                     expect {
                         mockNotificationsManager.notificationBody(
@@ -1161,7 +1184,7 @@ class NotificationsManagerSpec: QuickSpec {
                     }.to(equal("callsMissedCallFrom".put(key: "name", value: "TestName").localizedDeformatted()))
                 }
                 
-                // MARK: -- includes the senders display name if retrieved
+                // MARK: ---- includes the senders display name if retrieved
                 it("includes the senders display name if retrieved") {
                     expect {
                         mockNotificationsManager.notificationBody(
@@ -1182,7 +1205,7 @@ class NotificationsManagerSpec: QuickSpec {
                     ))
                 }
                 
-                // MARK: -- defaults to the truncated id if it cannot retrieve a display name
+                // MARK: ---- defaults to the truncated id if it cannot retrieve a display name
                 it("defaults to the truncated id if it cannot retrieve a display name") {
                     expect {
                         mockNotificationsManager.notificationBody(
