@@ -57,6 +57,7 @@ public class MessageCell: UITableViewCell {
         with cellViewModel: MessageViewModel,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
+        shouldExpanded: Bool,
         lastSearchText: String?,
         using dependencies: Dependencies
     ) {
@@ -106,6 +107,7 @@ protocol MessageCellDelegate: ReactionDelegate {
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?)
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
+    func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel)
 }
 
 extension MessageCellDelegate {

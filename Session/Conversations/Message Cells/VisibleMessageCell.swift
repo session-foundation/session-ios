@@ -7,6 +7,8 @@ import SessionUtilitiesKit
 import SessionMessagingKit
 
 final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
+    private static let maxNumberOfLinesAfterTruncation: Int = 25
+    
     private var isHandlingLongPress: Bool = false
     private var previousX: CGFloat = 0
     
@@ -15,6 +17,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     var linkPreviewView: LinkPreviewView?
     var documentView: DocumentView?
     var bodyTappableLabel: TappableLabel?
+    var bodyTappableLabelHeight: CGFloat = 0
+    var bodayTappableLabelHeightConstraint: NSLayoutConstraint?
     var voiceMessageView: VoiceMessageView?
     var audioStateChanged: ((TimeInterval, Bool) -> ())?
     
@@ -114,6 +118,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         result.set(.height, to: size)
         result.image = UIImage(named: "ic_reply")?.withRenderingMode(.alwaysTemplate)
         result.themeTintColor = .textPrimary
+        
+        return result
+    }()
+    
+    private lazy var readMoreButton: UILabel = {
+        let result = UILabel()
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textPrimary
+        result.textAlignment = .natural
+        result.text = "messageBubbleReadMore".localized()
         
         return result
     }()
@@ -276,6 +290,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         with cellViewModel: MessageViewModel,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
+        shouldExpanded: Bool,
         lastSearchText: String?,
         using dependencies: Dependencies
     ) {
@@ -333,6 +348,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         populateContentView(
             for: cellViewModel,
             playbackInfo: playbackInfo,
+            shouldExpanded: shouldExpanded,
             lastSearchText: lastSearchText,
             using: dependencies
         )
@@ -448,6 +464,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private func populateContentView(
         for cellViewModel: MessageViewModel,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
+        shouldExpanded: Bool,
         lastSearchText: String?,
         using dependencies: Dependencies
     ) {
@@ -563,7 +580,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 }
                 
                 // Body text view
-                let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
@@ -572,7 +589,18 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     using: dependencies
                 )
                 self.bodyTappableLabel = bodyTappableLabel
+                self.bodyTappableLabelHeight = height
                 stackView.addArrangedSubview(bodyTappableLabel)
+                readMoreButton.themeTextColor = bodyLabelTextColor
+                let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
+                self.bodayTappableLabelHeightConstraint = bodyTappableLabel.set(
+                    .height,
+                    to: (shouldExpanded ? height : min(height, maxHeight))
+                )
+                if (height > maxHeight && !shouldExpanded) {
+                    stackView.addArrangedSubview(readMoreButton)
+                    readMoreButton.isHidden = false
+                }
                 
                 // Constraints
                 bubbleView.addSubview(stackView)
@@ -640,7 +668,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.addArrangedSubview(quoteViewContainer)
                 
                 // Body
-                let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
@@ -649,7 +677,18 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     using: dependencies
                 )
                 self.bodyTappableLabel = bodyTappableLabel
+                self.bodyTappableLabelHeight = height
                 stackView.addArrangedSubview(bodyTappableLabel)
+                readMoreButton.themeTextColor = bodyLabelTextColor
+                let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
+                self.bodayTappableLabelHeightConstraint = bodyTappableLabel.set(
+                    .height,
+                    to: (shouldExpanded ? height : min(height, maxHeight))
+                )
+                if (height > maxHeight && !shouldExpanded) {
+                    stackView.addArrangedSubview(readMoreButton)
+                    readMoreButton.isHidden = false
+                }
                 
                 // Constraints
                 bubbleView.addSubview(stackView)
@@ -659,7 +698,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
             /// Just body
             case (_, .some(let body)) where !body.isEmpty:
-                let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                // Stack view
+                let stackView = UIStackView(arrangedSubviews: [])
+                stackView.axis = .vertical
+                stackView.spacing = 2
+            
+                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
@@ -669,8 +713,23 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 )
 
                 self.bodyTappableLabel = bodyTappableLabel
-                bubbleView.addSubview(bodyTappableLabel)
-                bodyTappableLabel.pin(to: bubbleView, withInset: inset)
+                self.bodyTappableLabelHeight = height
+                stackView.addArrangedSubview(bodyTappableLabel)
+                readMoreButton.themeTextColor = bodyLabelTextColor
+                let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
+                self.bodayTappableLabelHeightConstraint = bodyTappableLabel.set(
+                    .height,
+                    to: (shouldExpanded ? height : min(height, maxHeight))
+                )
+                if (height > maxHeight && !shouldExpanded) {
+                    stackView.addArrangedSubview(readMoreButton)
+                    readMoreButton.isHidden = false
+                }
+                
+                // Constraints
+                bubbleView.addSubview(stackView)
+                stackView.pin(to: bubbleView, withInset: inset)
+                stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
                 snContentView.addArrangedSubview(bubbleBackgroundView)
             
             /// Just quote
@@ -853,6 +912,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         linkPreviewView = nil
         documentView = nil
         bodyTappableLabel = nil
+        bodyTappableLabelHeight = 0
+        bodayTappableLabelHeightConstraint = nil
         viewsToMoveForReply.forEach { $0.transform = .identity }
         replyButton.alpha = 0
         timerView.prepareForReuse()
@@ -991,7 +1052,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             }
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
-            delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
+            if !self.readMoreButton.isHidden {
+                self.bodayTappableLabelHeightConstraint?.constant = self.bodyTappableLabelHeight
+                self.bodyTappableLabel?.invalidateIntrinsicContentSize()
+                self.readMoreButton.isHidden = true
+                delegate?.handleReadMoreButtonTapped(self, for: cellViewModel)
+            } else {
+                delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
+            }
         }
     }
 
@@ -1092,6 +1160,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case 3, 4, 5: return baselineFontSize + 18
             default: return baselineFontSize
         }
+    }
+    
+    private static func getMaxHeightAfterTruncation(for cellViewModel: MessageViewModel) -> CGFloat {
+        return CGFloat(maxNumberOfLinesAfterTruncation) * UIFont.systemFont(ofSize: getFontSize(for: cellViewModel)).lineHeight
     }
 
     private func getSize(for cellViewModel: MessageViewModel) -> CGSize {
@@ -1302,7 +1374,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         searchText: String?,
         delegate: TappableLabelDelegate?,
         using dependencies: Dependencies
-    ) -> TappableLabel {
+    ) -> (TappableLabel, CGFloat) {
         let result: TappableLabel = TappableLabel()
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.themeAttributedText = VisibleMessageCell.getBodyAttributedText(
@@ -1318,8 +1390,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         let availableSpace: CGSize = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
         let size: CGSize = result.sizeThatFits(availableSpace)
-        result.set(.height, to: size.height)
-        
-        return result
+
+        return (result, size.height)
     }
 }

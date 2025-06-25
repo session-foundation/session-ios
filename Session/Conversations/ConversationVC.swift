@@ -1648,6 +1648,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     },
                     showExpandedReactions: viewModel.reactionExpandedInteractionIds
                         .contains(cellViewModel.id),
+                    shouldExpanded: viewModel.messageExpandedInteractionIds
+                        .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
                     using: viewModel.dependencies
                 )

@@ -1612,6 +1612,29 @@ extension ConversationVC:
         }
     }
     
+    func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel) {
+        guard
+            let messageSectionIndex: Int = self.viewModel.interactionData
+                .firstIndex(where: { $0.model == .messages }),
+            let targetMessageIndex = self.viewModel.interactionData[messageSectionIndex]
+                .elements
+                .firstIndex(where: { $0.id == cellViewModel.id })
+        else { return }
+        
+        self.viewModel.expandMessage(for: cellViewModel.id)
+        
+        UIView.setAnimationsEnabled(false)
+        cell.setNeedsLayout()
+        cell.layoutIfNeeded()
+        tableView.beginUpdates()
+        tableView.endUpdates()
+        
+        // Only re-enable animations if the feature flag isn't disabled
+        if viewModel.dependencies[feature: .animationsEnabled] {
+            UIView.setAnimationsEnabled(true)
+        }
+    }
+    
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones) {
         react(cellViewModel, with: emoji.rawValue, remove: false)
     }
