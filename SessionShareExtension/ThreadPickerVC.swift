@@ -91,7 +91,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         super.viewDidLoad()
         
         navigationItem.titleView = titleLabel
-        ThemeManager.applyNavigationStylingIfNeeded(to: self)
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
@@ -104,6 +103,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
+        /// Apply the nav styling in `viewWillAppear` instead of `viewDidLoad` as it's possible the nav stack isn't fully setup
+        /// and could crash when trying to access it (whereas by the time `viewWillAppear` is called it should be setup)
+        ThemeManager.applyNavigationStylingIfNeeded(to: self)
         startObservingChanges()
     }
     
