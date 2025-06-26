@@ -174,11 +174,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var fadeView: GradientView = {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
-            .value(.newConversation_background, alpha: 0), // Want this to take up 20% (~25pt)
-            .newConversation_background,
-            .newConversation_background,
-            .newConversation_background,
-            .newConversation_background
+            .value(.backgroundSecondary, alpha: 0), // Want this to take up 20% (~25pt)
+            .backgroundSecondary,
+            .backgroundSecondary,
+            .backgroundSecondary,
+            .backgroundSecondary
         ]
         result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
         
@@ -202,7 +202,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.themeBackgroundColor = .newConversation_background
+        view.themeBackgroundColor = .backgroundSecondary
         
         let customTitleFontSize = Values.largeFontSize
         setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)

@@ -75,7 +75,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         super.viewDidLoad()
         
         setNavBarTitle("communityJoin".localized())
-        view.themeBackgroundColor = .newConversation_background
+        view.themeBackgroundColor = .backgroundSecondary
         let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
