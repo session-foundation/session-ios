@@ -355,7 +355,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private lazy var legacyGroupsFadeView: GradientView = {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
-            .value(.backgroundPrimary, alpha: 0), // Want this to take up 20% (~20px)
+            .clear, // Want this to take up 20% (~20px)
             .backgroundPrimary,
             .backgroundPrimary,
             .backgroundPrimary

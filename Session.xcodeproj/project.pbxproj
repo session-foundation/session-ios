@@ -198,6 +198,9 @@
 		94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BC2E0908340097754D /* LibSession+Pro.swift */; };
 		94CD95BF2E0936D50097754D /* ProCTAModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BE2E0936CF0097754D /* ProCTAModal.swift */; };
 		94CD95C12E0CBF430097754D /* _026_AddProMessageFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */; };
+		94CD95C42E0D0BFC0097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */; };
+		94CD95C62E0D290F0097754D /* GenericCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C52E0D290F0097754D /* GenericCTA.webp */; };
+		94CD95C82E0D299D0097754D /* GenericCTAAnimatedAvatar.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C72E0D299D0097754D /* GenericCTAAnimatedAvatar.webp */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1509,6 +1512,9 @@
 		94CD95BC2E0908340097754D /* LibSession+Pro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Pro.swift"; sourceTree = "<group>"; };
 		94CD95BE2E0936CF0097754D /* ProCTAModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProCTAModal.swift; sourceTree = "<group>"; };
 		94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _026_AddProMessageFlag.swift; sourceTree = "<group>"; };
+		94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = HigherCharLimitCTA.webp; sourceTree = "<group>"; };
+		94CD95C52E0D290F0097754D /* GenericCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTA.webp; sourceTree = "<group>"; };
+		94CD95C72E0D299D0097754D /* GenericCTAAnimatedAvatar.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTAAnimatedAvatar.webp; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -2747,6 +2753,16 @@
 			path = SessionNetworkScreen;
 			sourceTree = "<group>";
 		};
+		94CD95C22E0D0BDF0097754D /* WebPImages */ = {
+			isa = PBXGroup;
+			children = (
+				94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */,
+				94CD95C52E0D290F0097754D /* GenericCTA.webp */,
+				94CD95C72E0D299D0097754D /* GenericCTAAnimatedAvatar.webp */,
+			);
+			path = WebPImages;
+			sourceTree = "<group>";
+		};
 		B8041A7325C8F758003C2166 /* Content Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -3677,6 +3693,7 @@
 				B8FF8E6025C10D8B004D1F22 /* Countries */,
 				34330A581E7875FB00DF2FB9 /* Fonts */,
 				B66DBF4919D5BBC8006EA940 /* Images.xcassets */,
+				94CD95C22E0D0BDF0097754D /* WebPImages */,
 				45CB2FA71CB7146C00E1B343 /* Launch Screen.storyboard */,
 				FDE125222A837E4E002DA685 /* MainAppContext.swift */,
 				C3CA3AA0255CDA7000F4C6D4 /* Mnemonic */,
@@ -5463,6 +5480,7 @@
 				34C3C78D20409F320000134C /* Opening.m4r in Resources */,
 				C3CA3AB4255CDAE600F4C6D4 /* japanese.txt in Resources */,
 				B67EBF5D19194AC60084CCFD /* Settings.bundle in Resources */,
+				94CD95C82E0D299D0097754D /* GenericCTAAnimatedAvatar.webp in Resources */,
 				34CF0787203E6B78005C4D61 /* busy_tone_ansi.caf in Resources */,
 				45A2F005204473A3002E978A /* NewMessage.aifc in Resources */,
 				45B74A882044AAB600CD42F8 /* aurora.aifc in Resources */,
@@ -5479,6 +5497,7 @@
 				FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
 				4503F1BE20470A5B00CEE724 /* classic-quiet.aifc in Resources */,
+				94CD95C62E0D290F0097754D /* GenericCTA.webp in Resources */,
 				45B74A7E2044AAB600CD42F8 /* complete.aifc in Resources */,
 				9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,
@@ -5500,6 +5519,7 @@
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,
+				94CD95C42E0D0BFC0097754D /* HigherCharLimitCTA.webp in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

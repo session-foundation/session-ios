@@ -15,12 +15,13 @@ final class ProCTAModal: Modal {
         case groupLimit
         case groupLimitNonAdmin
         
+        // stringlint:ignore_contents
         public var backgroundImageName: String {
             switch self {
                 case .generic:
-                    return "session_pro_modal_background_generic"
+                    return "GenericCTA.webp"
                 case .longerMessages:
-                    return "session_pro_modal_background_longer_messages"
+                    return "HigherCharLimitCTA.webp"
                 case .animatedProfileImage:
                     return "session_pro_modal_background_animated_profile_image"
                 case .largerFiles:
@@ -33,13 +34,21 @@ final class ProCTAModal: Modal {
                     return "session_pro_modal_background_group_limit_non_admin"
             }
         }
+        // stringlint:ignore_contents
+        public var animatedAvatarImageName: String? {
+            switch self {
+                case .generic: return "GenericCTAAnimatedAvatar"
+                default: return nil
+            }
+        }
+        
         // TODO: Localization
         public var subtitle: String {
             switch self {
                 case .generic:
                     return "Want to use Session to its fullest potential? Upgrade to Session Pro to gain access to loads exclusive perks and features."
                 case .longerMessages:
-                    return "Want to send longer messages? Upgrade to Session Pro to send longer messages up to 10,000 characters."
+                    return "Want to send longer messages? Send more text and unlock premium features with Session Pro."
                 case .animatedProfileImage:
                     return "Want to use gifs? Upgrade to Session Pro to upload animated display pictures and gain access to loads of other exclusive features."
                 case .largerFiles:
@@ -63,9 +72,9 @@ final class ProCTAModal: Modal {
                     ]
                 case .longerMessages:
                     return [
-                        "Send messages up to 10k characters",
-                        "Increase group sizes to 300 members",
-                        "Heaps more exclusive features"
+                        "Messages up to 10,000 characters",
+                        "Larger group chats up to 300 members",
+                        "Plus loads more exclusive features"
                     ]
                 case .animatedProfileImage:
                     return [
@@ -125,7 +134,33 @@ final class ProCTAModal: Modal {
     private lazy var backgroundImageView: UIImageView = {
         let result: UIImageView = UIImageView(image: UIImage(named: self.touchPoint.backgroundImageName))
         result.contentMode = .scaleAspectFill
-        result.clipsToBounds = true
+        result.set(.height, to: .width, of: result, multiplier: (1258.0/1522))
+        
+        return result
+    }()
+    
+    private lazy var animatedAvatarImageView: SessionImageView = {
+        let result: SessionImageView = SessionImageView()
+        result.contentMode = .scaleAspectFill
+        
+        return result
+    }()
+    
+    private lazy var fadeView: GradientView = {
+        let height: CGFloat = 90
+        let result: GradientView = GradientView()
+        result.themeBackgroundGradient = [
+            .clear,
+            .alert_background
+        ]
+        result.set(.height, to: height)
+
+        return result
+    }()
+    
+    private lazy var backgroundImageContainer: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .primary
         
         return result
     }()
@@ -251,10 +286,26 @@ final class ProCTAModal: Modal {
     // MARK: - Lifecycle
     
     override func populateContentView() {
-        contentView.addSubview(backgroundImageView)
-        backgroundImageView.pin(.top, to: .top, of: contentView)
-        backgroundImageView.pin(.leading, to: .leading, of: contentView)
-        backgroundImageView.pin(.trailing, to: .trailing, of: contentView)
+        if let animatedAvatarImageName: String = self.touchPoint.animatedAvatarImageName,
+           let imageURL = Bundle.main.url(forResource: animatedAvatarImageName, withExtension: "webp")
+        {
+            backgroundImageContainer.addSubview(animatedAvatarImageView)
+            animatedAvatarImageView.pin(to: backgroundImageContainer)
+            animatedAvatarImageView.loadImage(from: imageURL)
+        }
+        
+        backgroundImageContainer.addSubview(backgroundImageView)
+        backgroundImageContainer.pin(to: backgroundImageView)
+        
+        backgroundImageContainer.addSubview(fadeView)
+        fadeView.pin(.leading, to: .leading, of: backgroundImageContainer)
+        fadeView.pin(.trailing, to: .trailing, of: backgroundImageContainer)
+        fadeView.pin(.bottom, to: .bottom, of: backgroundImageContainer)
+        
+        contentView.addSubview(backgroundImageContainer)
+        backgroundImageContainer.pin(.top, to: .top, of: contentView)
+        backgroundImageContainer.pin(.leading, to: .leading, of: contentView)
+        backgroundImageContainer.pin(.trailing, to: .trailing, of: contentView)
         
         contentView.addSubview(mainStackView)
         mainStackView.pin(.bottom, to: .bottom, of: contentView, withInset: -Values.mediumSpacing)
