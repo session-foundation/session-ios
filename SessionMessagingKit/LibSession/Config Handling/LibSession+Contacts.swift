@@ -36,7 +36,7 @@ internal extension LibSessionCacheType {
     func handleContactsUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        oldState: [LibSession.ObservableKey: Any],
+        oldState: [ObservableKey: Any],
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
@@ -261,7 +261,11 @@ internal extension LibSessionCacheType {
             
             try LibSession.remove(
                 db,
-                volatileContactIds: combinedIds,
+                volatileContactIds: combinedIds
+                    .filter {
+                        (try? SessionId.Prefix(from: $0)) != .blinded15 &&
+                        (try? SessionId.Prefix(from: $0)) != .blinded25
+                    },
                 using: dependencies
             )
         }

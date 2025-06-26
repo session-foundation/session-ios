@@ -82,25 +82,7 @@ public final class GroupPoller: SwarmPoller {
     
     // MARK: - Abstract Methods
 
-    override public func nextPollDelay() -> TimeInterval {
-        // Get the received date of the last message in the thread. If we don't have
-        // any messages yet, pick some reasonable fake time interval to use instead
-        // FIXME: Update this to be based on `active_at` once it gets added to libSession
-        let lastMessageDate: Date = dependencies[singleton: .storage]
-            .read { [pollerDestination] db in
-                try Interaction
-                    .filter(Interaction.Columns.threadId == pollerDestination.target)
-                    .select(.receivedAtTimestampMs)
-                    .order(Interaction.Columns.timestampMs.desc)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db)
-            }
-            .map { receivedAtTimestampMs -> Date? in
-                guard receivedAtTimestampMs > 0 else { return nil }
-                
-                return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
-            }
-            .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
+    override public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
         let lastReadDate: Date = dependencies
             .mutate(cache: .libSession) { cache in
                 cache.conversationLastRead(
@@ -116,13 +98,35 @@ public final class GroupPoller: SwarmPoller {
             }
             .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
-        let timeSinceLastMessage: TimeInterval = dependencies.dateNow
-            .timeIntervalSince(max(lastMessageDate, lastReadDate))
-        let limit: Double = (12 * 60 * 60)
-        let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
-        let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
-        
-        return nextPollInterval
+        // Get the received date of the last message in the thread. If we don't have
+        // any messages yet, pick some reasonable fake time interval to use instead
+        return dependencies[singleton: .storage]
+            .readPublisher { [pollerDestination] db in
+                try Interaction
+                    .filter(Interaction.Columns.threadId == pollerDestination.target)
+                    .select(.receivedAtTimestampMs)
+                    .order(Interaction.Columns.timestampMs.desc)
+                    .asRequest(of: Int64.self)
+                    .fetchOne(db)
+            }
+            .map { [dependencies] receivedAtTimestampMs -> Date in
+                guard
+                    let receivedAtTimestampMs: Int64 = receivedAtTimestampMs,
+                    receivedAtTimestampMs > 0
+                else { return dependencies.dateNow.addingTimeInterval(-5 * 60) }
+                
+                return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
+            }
+            .map { [maxPollInterval, minPollInterval, dependencies] lastMessageDate in
+                let timeSinceLastMessage: TimeInterval = dependencies.dateNow
+                    .timeIntervalSince(max(lastMessageDate, lastReadDate))
+                let limit: Double = (12 * 60 * 60)
+                let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
+                let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
+                
+                return nextPollInterval
+            }
+            .eraseToAnyPublisher()
     }
 
     override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {

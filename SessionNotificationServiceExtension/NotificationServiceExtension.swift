@@ -103,7 +103,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Configure the different targets
         SNUtilitiesKit.configure(
             networkMaxFileSize: Network.maxFileSize,
-            observationNotifier: LibSession.handlePendingChanges(using: dependencies),
             using: dependencies
         )
         SNMessagingKit.configure(using: dependencies)

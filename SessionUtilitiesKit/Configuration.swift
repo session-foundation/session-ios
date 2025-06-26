@@ -5,25 +5,10 @@ import UIKit.UIFont
 import GRDB
 
 public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API nice
-    internal actor AbstractedObservationNotifier {
-        private var notifier: (([ObservingDatabase.Change]) async -> Void)?
-        
-        // MARK: - Functions
-        
-        fileprivate func setNotifier(_ notifier: @escaping ([ObservingDatabase.Change]) async -> Void) async {
-            self.notifier = notifier
-        }
-        
-        internal func notify(_ changes: [ObservingDatabase.Change]) async {
-            await notifier?(changes)
-        }
-    }
-    
     public static var maxFileSize: UInt = 0
     public static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:ignore
     }
-    internal static let observationNotifier: AbstractedObservationNotifier = AbstractedObservationNotifier()
 
     public static func migrations() -> TargetMigrations {
         return TargetMigrations(
@@ -56,13 +41,9 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
 
     public static func configure(
         networkMaxFileSize: UInt,
-        observationNotifier: @escaping ([ObservingDatabase.Change]) async -> Void,
         using dependencies: Dependencies
     ) {
         self.maxFileSize = networkMaxFileSize
-        
-        // Register the observation notifier
-        Task { await SNUtilitiesKit.observationNotifier.setNotifier(observationNotifier) }
         
         // Register any recurring jobs to ensure they are actually scheduled
         dependencies[singleton: .jobRunner].registerRecurringJobs(

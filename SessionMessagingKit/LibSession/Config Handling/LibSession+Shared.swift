@@ -943,25 +943,24 @@ public extension Dependencies {
                 default: targetVariant = .local
             }
             
-            let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
-                try await cache.perform(for: targetVariant) {
-                    await cache.set(key, value)
+            let mutation: LibSession.Mutation? = try? dependencies.mutate(cache: .libSession) { cache in
+                try cache.perform(for: targetVariant) {
+                    cache.set(key, value)
                 }
             }
 
-            try? await dependencies[singleton: .storage].writeAsync { db in
-                try mutation?.upsert(db)
-            }
-            
-            onComplete?()
+            dependencies[singleton: .storage].writeAsync(
+                updates: { db in try mutation?.upsert(db) },
+                completion: { _ in onComplete?() }
+            )
         }
     }
     
     func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
         Task(priority: .userInitiated) { [dependencies = self] in
-            let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
-                try await cache.perform(for: .local) {
-                    await cache.set(key, value)
+            let mutation: LibSession.Mutation? = try? dependencies.mutate(cache: .libSession) { cache in
+                try cache.perform(for: .local) {
+                    cache.set(key, value)
                 }
             }
 
@@ -970,15 +969,6 @@ public extension Dependencies {
             }
             
             onComplete?()
-        }
-    }
-    
-    func notifyAsync(_ key: LibSession.ObservableKey) {
-        Task(priority: .userInitiated) { [dependencies = self] in
-            await dependencies.mutate(cache: .libSession) { cache in
-                await cache.addPendingChange(key: key, value: nil)
-                await cache.yieldAllPendingChanges()
-            }
         }
     }
 }

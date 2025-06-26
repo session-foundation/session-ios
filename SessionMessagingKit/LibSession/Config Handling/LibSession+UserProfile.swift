@@ -25,7 +25,7 @@ internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        oldState: [LibSession.ObservableKey: Any],
+        oldState: [ObservableKey: Any],
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
@@ -151,7 +151,7 @@ internal extension LibSessionCacheType {
         }
         
         // Notify of settings change if needed
-        let checkForCommunityMessageRequestsKey: LibSession.ObservableKey = .setting(Setting.BoolKey.checkForCommunityMessageRequests)
+        let checkForCommunityMessageRequestsKey: ObservableKey = .setting(Setting.BoolKey.checkForCommunityMessageRequests)
         let oldCheckForCommunityMessageRequests: Bool? = oldState[checkForCommunityMessageRequestsKey] as? Bool
         let newCheckForCommunityMessageRequests: Bool = get(.checkForCommunityMessageRequests)
         

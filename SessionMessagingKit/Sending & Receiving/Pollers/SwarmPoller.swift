@@ -75,7 +75,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     // MARK: - Abstract Methods
     
     /// Calculate the delay which should occur before the next poll
-    public func nextPollDelay() -> TimeInterval {
+    public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
         preconditionFailure("abstract class - override in subclass")
     }
     

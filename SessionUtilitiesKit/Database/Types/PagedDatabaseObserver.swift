@@ -49,7 +49,12 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
     @ThreadSafe private var dataCache: DataCache<T> = DataCache()
     @ThreadSafe private var isLoadingMoreData: Bool = false
     @ThreadSafe private var isSuspended: Bool = false
+    @ThreadSafe private var isProcessingCommit: Bool = false
     @ThreadSafeObject private var changesInCommit: Set<PagedData.TrackedChange> = []
+    @ThreadSafeObject private var pendingCommits: [Set<PagedData.TrackedChange>] = []
+    
+    /// This is a cache of `relatedRowId -> pagedRowId` grouped by `relatedTableName`
+    @ThreadSafeObject private var relationshipCache: [String: [Int64: [Int64]]] = [:]
     private let onChangeUnsorted: (([T], PagedData.PageInfo) -> ())
     
     // MARK: - Initialization
@@ -137,29 +142,15 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         // there won't be a way to associated the deleted related record to the
         // original so we need to retrieve the association in here)
         let trackedChange: PagedData.TrackedChange = {
-            guard
-                event.tableName != pagedTableName,
-                event.kind == .delete,
-                let observedChange: PagedData.ObservedChanges = observedTableChangeTypes[event.tableName],
-                let joinToPagedType: SQL = observedChange.joinToPagedType
-            else { return PagedData.TrackedChange(event: event) }
+            guard event.tableName != pagedTableName && event.kind == .delete else {
+                return PagedData.TrackedChange(event: event)
+            }
             
-            // Retrieve the pagedRowId for the related value that is
-            // getting deleted
-            let pagedTableName: String = self.pagedTableName
-            let pagedRowIds: [Int64] = dependencies[singleton: .storage]
-                .read { db in
-                    PagedData.pagedRowIdsForRelatedRowIds(
-                        db,
-                        tableName: event.tableName,
-                        pagedTableName: pagedTableName,
-                        relatedRowIds: [event.rowID],
-                        joinToPagedType: joinToPagedType
-                    )
-                }
-                .defaulting(to: [])
-            
-            return PagedData.TrackedChange(event: event, pagedRowIdsForRelatedDeletion: pagedRowIds)
+            // Retrieve the pagedRowId for the related value that is getting deleted
+            return PagedData.TrackedChange(
+                event: event,
+                pagedRowIdsForRelatedDeletion: relationshipCache[event.tableName]?[event.rowID]
+            )
         }()
         
         // The 'event' object only exists during this method so we need to copy the info
@@ -196,17 +187,36 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
             committedChanges = cachedChanges
             return []
         }
-        
-        // Dispatch to the `commitProcessingQueue` so we don't block the database `write` queue
-        // when updatind the data
+        _pendingCommits.performUpdate { $0.appending(committedChanges) }
+        triggerNextCommitProcessing()
+    }
+    
+    private func triggerNextCommitProcessing() {
         commitProcessingQueue.async { [weak self] in
-            self?.processDatabaseCommit(committedChanges: committedChanges)
+            guard let self = self else { return }
+            guard !self.isProcessingCommit && !pendingCommits.isEmpty else { return }
+            
+            self.isProcessingCommit = true
+            let changesToProcess: Set<PagedData.TrackedChange> = self._pendingCommits.performUpdateAndMap { pending in
+                var remainingChanges: [Set<PagedData.TrackedChange>] = pending
+                let nextCommit: Set<PagedData.TrackedChange> = remainingChanges.removeFirst()
+                
+                return (remainingChanges, nextCommit)
+            }
+            
+            self.processDatabaseCommit(committedChanges: changesToProcess)
         }
     }
     
     private func processDatabaseCommit(committedChanges: Set<PagedData.TrackedChange>) {
         typealias AssociatedDataInfo = [(hasChanges: Bool, data: ErasedAssociatedRecord)]
-        typealias UpdatedData = (cache: DataCache<T>, pageInfo: PagedData.PageInfo, hasChanges: Bool, associatedData: AssociatedDataInfo)
+        typealias UpdatedData = (
+            cache: DataCache<T>,
+            pageInfo: PagedData.PageInfo,
+            hasChanges: Bool,
+            updatedRelationships: [String: [Int64: [Int64]]],
+            associatedData: AssociatedDataInfo
+        )
         
         // Store the instance variables locally to avoid unwrapping
         let dataCache: DataCache<T> = self.dataCache
@@ -218,6 +228,10 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         let associatedRecords: [ErasedAssociatedRecord] = self.associatedRecords
         let observedTableChangeTypes: [String: PagedData.ObservedChanges] = self.observedTableChangeTypes
+        let relatedTables: [PagedData.ObservedChanges] = self.observedTableChangeTypes.values.filter { change in
+            change.databaseTableName != pagedTableName &&
+            change.joinToPagedType != nil
+        }
         let getAssociatedDataInfo: (ObservingDatabase, PagedData.PageInfo) -> AssociatedDataInfo = { db, updatedPageInfo in
             associatedRecords.map { associatedRecord in
                 let hasChanges: Bool = associatedRecord.tryUpdateForDatabaseCommit(
@@ -244,24 +258,33 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                 
                 result[next.tableName] = (result[next.tableName] ?? []).appending(next)
             }
+        let deletionChanges: [Int64] = directChanges
+            .filter { $0.kind == .delete }
+            .map { $0.rowId }
         let relatedDeletions: [PagedData.TrackedChange] = committedChanges
             .filter { $0.tableName != pagedTableName }
             .filter { $0.kind == .delete }
+        let pagedRowIdsForRelatedChanges: Set<Int64> = {
+            guard !relatedChanges.isEmpty else { return [] }
+            
+            return Set(relatedChanges.values.flatMap { changes in
+                changes.flatMap { change in
+                    (self.relationshipCache[change.tableName]?[change.rowId] ?? [])
+                }
+            })
+        }()
         
         // Process and retrieve the updated data
-        let updatedData: UpdatedData = dependencies[singleton: .storage]
-            .read { [dependencies] db -> UpdatedData in
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [dependencies] db -> UpdatedData in
                 // If there aren't any direct or related changes then early-out
                 guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
-                    return (dataCache, pageInfo, false, getAssociatedDataInfo(db, pageInfo))
+                    return (dataCache, pageInfo, false, [:], getAssociatedDataInfo(db, pageInfo))
                 }
                 
                 // Store a mutable copies of the dataCache and pageInfo for updating
                 var updatedDataCache: DataCache<T> = dataCache
                 var updatedPageInfo: PagedData.PageInfo = pageInfo
-                let deletionChanges: [Int64] = directChanges
-                    .filter { $0.kind == .delete }
-                    .map { $0.rowId }
                 let oldDataCount: Int = dataCache.count
                 
                 // First remove any items which have been deleted
@@ -287,37 +310,14 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                 
                 guard !changesToQuery.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
                     let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                    return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, associatedData)
+                    return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, [:], associatedData)
                 }
                 
                 // Next we need to determine if any related changes were associated to the pagedData we are
                 // observing, if they aren't (and there were no other direct changes) we can early-out
-                let pagedRowIdsForRelatedChanges: Set<Int64> = {
-                    guard !relatedChanges.isEmpty else { return [] }
-                    
-                    return relatedChanges
-                        .reduce(into: []) { result, next in
-                            guard
-                                let observedChange: PagedData.ObservedChanges = observedTableChangeTypes[next.key],
-                                let joinToPagedType: SQL = observedChange.joinToPagedType
-                            else { return }
-                            
-                            let pagedRowIds: [Int64] = PagedData.pagedRowIdsForRelatedRowIds(
-                                db,
-                                tableName: next.key,
-                                pagedTableName: pagedTableName,
-                                relatedRowIds: Array(next.value.map { $0.rowId }.asSet()),
-                                joinToPagedType: joinToPagedType
-                            )
-                            
-                            result.append(contentsOf: pagedRowIds)
-                        }
-                        .asSet()
-                }()
-                
                 guard !changesToQuery.isEmpty || !pagedRowIdsForRelatedChanges.isEmpty || !relatedDeletions.isEmpty else {
                     let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                    return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, associatedData)
+                    return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, [:], associatedData)
                 }
                 
                 // Fetch the indexes of the rowIds so we can determine whether they should be added to the screen
@@ -438,7 +438,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                 // so we want to flat 'hasChanges' as true)
                 guard !validChangeRowIds.isEmpty || !validRelatedChangeRowIds.isEmpty || !validRelatedDeletionRowIds.isEmpty else {
                     let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                    return (updatedDataCache, updatedPageInfo, true, associatedData)
+                    return (updatedDataCache, updatedPageInfo, true, [:], associatedData)
                 }
                 
                 // Fetch the inserted/updated rows
@@ -466,33 +466,118 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                     totalCount: updatedPageInfo.totalCount
                 )
                 
+                let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
+                    guard let joinToPagedType: SQL = change.joinToPagedType else { return }
+                    
+                    let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
+                        db,
+                        tableName: change.databaseTableName,
+                        pagedTableName: pagedTableName,
+                        pagedRowIds: validChangeRowIds,
+                        joinToPagedType: joinToPagedType
+                    )
+                    result[change.databaseTableName] = relationshipIds
+                        .grouped(by: { $0.relatedRowId })
+                        .mapValues { value in value.map { $0.pagedRowId } }
+                }
+                
                 // Return the final updated data
                 let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                return (updatedDataCache, updatedPageInfo, true, associatedData)
+                return (updatedDataCache, updatedPageInfo, true, updatedRelationships, associatedData)
+            },
+            completion: { [weak self] result in
+                self?.commitProcessingQueue.async {
+                    switch result {
+                        case .failure:
+                            self?.isProcessingCommit = false
+                            self?.triggerNextCommitProcessing()
+                            
+                        case .success(let updatedData):
+                            // Now that we have all of the changes, check if there were actually any changes
+                            guard
+                                updatedData.hasChanges ||
+                                updatedData.associatedData.contains(where: { hasChanges, _ in hasChanges })
+                            else {
+                                self?.isProcessingCommit = false
+                                self?.triggerNextCommitProcessing()
+                                return
+                            }
+                            
+                            // If the associated data changed then update the updatedCachedData with the updated associated data
+                            var finalUpdatedDataCache: DataCache<T> = updatedData.cache
+
+                            updatedData.associatedData.forEach { hasChanges, associatedData in
+                                guard updatedData.hasChanges || hasChanges else { return }
+
+                                finalUpdatedDataCache = associatedData.updateAssociatedData(to: finalUpdatedDataCache)
+                            }
+                            
+                            // Update the relationshipCache records for the paged values
+                            self?._relationshipCache.performUpdate { cache in
+                                var updatedCache: [String: [Int64: [Int64]]] = cache
+                                
+                                // Add the updated relationships
+                                updatedData.updatedRelationships.forEach { key, value in
+                                    if updatedCache[key] == nil {
+                                        updatedCache[key] = [:]
+                                    }
+                                    updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                                }
+                                
+                                // Delete any removed relationships
+                                if !relatedDeletions.isEmpty || !relatedDeletions.isEmpty {
+                                    let deletionPagedIdSet: Set<Int64> = Set(deletionChanges)
+                                    
+                                    cache.forEach { key, relationships in
+                                        var updatedRelationships: [Int64: [Int64]] = relationships
+                                        
+                                        // Remove any deleted related rows first
+                                        relatedDeletions.forEach { change in
+                                            updatedRelationships.removeValue(forKey: change.rowId)
+                                        }
+                                        
+                                        // Remove deleted paged ids
+                                        guard !deletionPagedIdSet.isEmpty else { return }
+                                        
+                                        let allRelatedRowIds: [Int64] = Array(updatedRelationships.keys)
+                                        
+                                        allRelatedRowIds.forEach { relatedRowId in
+                                            guard let pagedIds: [Int64] = updatedRelationships[relatedRowId] else {
+                                                return
+                                            }
+                                            
+                                            let updatedPagedIds: [Int64] = Array(Set(pagedIds)
+                                                .subtracting(deletionPagedIdSet))
+                                            
+                                            if updatedPagedIds.isEmpty {
+                                                updatedRelationships.removeValue(forKey: relatedRowId)
+                                            }
+                                            else {
+                                                updatedRelationships[relatedRowId] = updatedPagedIds
+                                            }
+                                        }
+                                        
+                                        updatedCache[key] = updatedRelationships
+                                    }
+                                }
+                                
+                                return updatedCache
+                            }
+
+                            // Update the cache, pageInfo and the change callback
+                            self?.dataCache = finalUpdatedDataCache
+                            self?.pageInfo = updatedData.pageInfo
+
+                            // Trigger the unsorted change callback (the actual UI update triggering
+                            // should eventually be run on the main thread via the
+                            // `PagedData.processAndTriggerUpdates` function)
+                            self?.onChangeUnsorted(finalUpdatedDataCache.values, updatedData.pageInfo)
+                            self?.isProcessingCommit = false
+                            self?.triggerNextCommitProcessing()
+                    }
+                }
             }
-            .defaulting(to: (cache: dataCache, pageInfo: pageInfo, hasChanges: false, associatedData: []))
-        
-        // Now that we have all of the changes, check if there were actually any changes
-        guard updatedData.hasChanges || updatedData.associatedData.contains(where: { hasChanges, _ in hasChanges }) else {
-            return
-        }
-        
-        // If the associated data changed then update the updatedCachedData with the updated associated data
-        var finalUpdatedDataCache: DataCache<T> = updatedData.cache
-
-        updatedData.associatedData.forEach { hasChanges, associatedData in
-            guard updatedData.hasChanges || hasChanges else { return }
-
-            finalUpdatedDataCache = associatedData.updateAssociatedData(to: finalUpdatedDataCache)
-        }
-
-        // Update the cache, pageInfo and the change callback
-        self.dataCache = finalUpdatedDataCache
-        self.pageInfo = updatedData.pageInfo
-
-        // Trigger the unsorted change callback (the actual UI update triggering should eventually be run on
-        // the main thread via the `PagedData.processAndTriggerUpdates` function)
-        self.onChangeUnsorted(finalUpdatedDataCache.values, updatedData.pageInfo)
+        )
     }
     
     public func databaseDidRollback(_ db: Database) {}
@@ -521,6 +606,10 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         let groupSQL: SQL? = self.groupSQL
         let orderSQL: SQL = self.orderSQL
         let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
+        let relatedTables: [PagedData.ObservedChanges] = self.observedTableChangeTypes.values.filter { change in
+            change.databaseTableName != pagedTableName &&
+            change.joinToPagedType != nil
+        }
         
         let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = dependencies[singleton: .storage].read { [weak self] db in
             typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
@@ -742,6 +831,33 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                     }(),
                     totalCount: totalCount
                 )
+                let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
+                    guard let joinToPagedType: SQL = change.joinToPagedType else { return }
+                    
+                    let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
+                        db,
+                        tableName: change.databaseTableName,
+                        pagedTableName: pagedTableName,
+                        pagedRowIds: pageRowIds,
+                        joinToPagedType: joinToPagedType
+                    )
+                    result[change.databaseTableName] = relationshipIds
+                        .grouped(by: { $0.relatedRowId })
+                        .mapValues { value in value.map { $0.pagedRowId } }
+                }
+                
+                // Update the relationshipCache records for the paged values
+                self?._relationshipCache.performUpdate { cache in
+                    var updatedCache: [String: [Int64: [Int64]]] = cache
+                    updatedRelationships.forEach { key, value in
+                        if updatedCache[key] == nil {
+                            updatedCache[key] = [:]
+                        }
+                        updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                    }
+                    
+                    return updatedCache
+                }
                 
                 // Update the associatedRecords for the newly retrieved data
                 let newDataRowIds: [Int64] = newData.map { $0.rowId }
@@ -1261,7 +1377,38 @@ public enum PagedData {
         return try request.fetchAll(db)
     }
     
-    /// Returns the rowIds for the paged type based on the specified relatedRowIds
+    /// Returns the relatedRowIds for the specified pagedRowIds
+    fileprivate static func relatedRowIdsForPagedRowIds(
+        _ db: ObservingDatabase,
+        tableName: String,
+        pagedTableName: String,
+        pagedRowIds: [Int64],
+        joinToPagedType: SQL
+    ) -> [(pagedRowId: Int64, relatedRowId: Int64)] {
+        guard !pagedRowIds.isEmpty else { return [] }
+        
+        struct RowIdPair: Decodable, FetchableRecord {
+            let pagedRowId: Int64
+            let relatedRowId: Int64
+        }
+        
+        let tableNameLiteral: SQL = SQL(stringLiteral: tableName)
+        let pagedTableNameLiteral: SQL = SQL(stringLiteral: pagedTableName)
+        let request: SQLRequest<RowIdPair> = """
+            SELECT
+                \(pagedTableNameLiteral).rowid AS pagedRowId,
+                \(tableNameLiteral).rowid AS relatedRowId
+            FROM \(pagedTableNameLiteral)
+            \(joinToPagedType)
+            WHERE \(pagedTableNameLiteral).rowId IN \(pagedRowIds)
+        """
+        
+        return (try? request.fetchAll(db))
+            .defaulting(to: [])
+            .map { ($0.pagedRowId, $0.relatedRowId) }
+    }
+    
+    /// Returns the pagedRowIds for the specified relatedRowIds
     fileprivate static func pagedRowIdsForRelatedRowIds(
         _ db: ObservingDatabase,
         tableName: String,

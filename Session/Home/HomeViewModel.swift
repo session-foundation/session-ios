@@ -48,7 +48,7 @@ public class HomeViewModel: NavigatableStateHolder {
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.state = dependencies.mutate(cache: .libSession) { cache in
-            HomeViewModel.retrieveState(cache: KeyCollector(store: cache), using: dependencies)
+            HomeViewModel.retrieveState(cache: ObservationCollector(store: cache), using: dependencies)
         }
         self.pagedDataObserver = nil
         
@@ -242,7 +242,7 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     private static func retrieveState(
-        cache: KeyCollector,
+        cache: ObservationCollector,
         using dependencies: Dependencies
     ) -> State {
         /// Register to also be updated when receiving an unread message request message

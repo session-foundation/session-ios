@@ -35,8 +35,8 @@ extension LibSession.OpenGroupUrlInfo: Mocked {
     )
 }
 
-extension LibSession.ObservableKey: Mocked {
-    static var mock: LibSession.ObservableKey = "mockObservableKey"
+extension ObservableKey: Mocked {
+    static var mock: ObservableKey = "mockObservableKey"
 }
 
 extension SessionThread: Mocked {

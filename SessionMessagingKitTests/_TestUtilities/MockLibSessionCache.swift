@@ -84,8 +84,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     func perform(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
-        change: @escaping (LibSession.Config?) async throws -> ()
-    ) async throws -> LibSession.Mutation {
+        change: @escaping (LibSession.Config?) throws -> ()
+    ) throws -> LibSession.Mutation {
         return try mockThrowing(args: [variant, sessionId], untrackedArgs: [change])
     }
     
@@ -101,12 +101,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return try mockThrowing(args: [data, sentTimestamp, swarmPublicKey])
     }
     
-    func addPendingChange(key: LibSession.ObservableKey, value: Any?) async {
+    func addPendingChange(key: ObservableKey, value: Any?) {
         mockNoReturn(args: [key, value])
-    }
-    
-    func yieldAllPendingChanges() async {
-        mockNoReturn()
     }
 
     // MARK: - Config Message Handling
@@ -122,7 +118,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
     ) throws -> [LibSession.MergeResult] {
         try mockThrowingNoReturn(args: [swarmPublicKey, messages])
         
@@ -135,7 +131,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
             let sessionId: SessionId = expectation.closureCallArgs[0] as? SessionId,
             let variant: ConfigDump.Variant = expectation.closureCallArgs[1] as? ConfigDump.Variant,
             let timestamp: Int64 = expectation.closureCallArgs[3] as? Int64,
-            let oldState: [LibSession.ObservableKey: Any] = expectation.closureCallArgs[4] as? [LibSession.ObservableKey: Any]
+            let oldState: [ObservableKey: Any] = expectation.closureCallArgs[4] as? [ObservableKey: Any]
         else {
             return try mockThrowing(args: [swarmPublicKey, messages])
         }
@@ -159,12 +155,6 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         try mockThrowingNoReturn(args: [swarmPublicKey, messages])
     }
     
-    // MARK: - State Observation
-    
-    func observe(_ key: LibSession.ObservableKey) -> AsyncStream<Any?> {
-        return mock(args: [key])
-    }
-    
     // MARK: - State Access
     
     var displayName: String? { mock() }
@@ -185,11 +175,11 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(generics: [T.self], args: [key])
     }
     
-    func set(_ key: Setting.BoolKey, _ value: Bool?) async {
+    func set(_ key: Setting.BoolKey, _ value: Bool?) {
         mockNoReturn(generics: [Bool.self], args: [key, value])
     }
     
-    func set<T>(_ key: Setting.EnumKey, _ value: T?) async where T : LibSessionConvertibleEnum {
+    func set<T>(_ key: Setting.EnumKey, _ value: T?) where T : LibSessionConvertibleEnum {
         mockNoReturn(generics: [T.self], args: [key, value])
     }
     
@@ -382,13 +372,13 @@ extension Mock where T == LibSessionCacheType {
             }
             .thenReturn(())
         self
-            .when { try await $0.perform(for: .any, sessionId: .any, change: { _ in }) }
+            .when { try $0.perform(for: .any, sessionId: .any, change: { _ in }) }
             .then { args, untrackedArgs in
-                let callback: ((LibSession.Config?) async throws -> Void)? = (untrackedArgs[test: 0] as? (LibSession.Config?) async throws -> Void)
+                let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 0] as? (LibSession.Config?) throws -> Void)
                 
                 switch configs[(args[test: 0] as? ConfigDump.Variant ?? .invalid)] {
                     case .none: break
-                    case .some(let config): try? await callback?(config)
+                    case .some(let config): try? callback?(config)
                 }
             }
             .thenReturn(nil)
@@ -450,21 +440,19 @@ extension Mock where T == LibSessionCacheType {
         self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
         self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
-        self.when { $0.observe(.any) }.thenReturn(AsyncStream<Any?> { cont in cont.finish() })
         self.when { $0.get(.any) }.thenReturn(false)
         self.when { $0.get(.any) }.thenReturn(MockLibSessionConvertible.mock)
         self.when { $0.get(.any) }.thenReturn(Preferences.Sound.defaultNotificationSound)
         self.when { $0.get(.any) }.thenReturn(Preferences.NotificationPreviewType.defaultPreviewType)
         self.when { $0.get(.any) }.thenReturn(Theme.defaultTheme)
         self.when { $0.get(.any) }.thenReturn(Theme.PrimaryColor.defaultPrimaryColor)
-        self.when { await $0.set(.any, true) }.thenReturn(())
-        self.when { await $0.set(.any, false) }.thenReturn(())
-        self.when { await $0.set(.defaultNotificationSound, Preferences.Sound.mock) }.thenReturn(())
-        self.when { await $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.mock) }.thenReturn(())
-        self.when { await $0.set(.theme, Theme.mock) }.thenReturn(())
-        self.when { await $0.set(.themePrimaryColor, Theme.PrimaryColor.mock) }.thenReturn(())
-        self.when { await $0.addPendingChange(key: .any, value: anyAny()) }.thenReturn(())
-        self.when { await $0.yieldAllPendingChanges() }.thenReturn(())
+        self.when { $0.set(.any, true) }.thenReturn(())
+        self.when { $0.set(.any, false) }.thenReturn(())
+        self.when { $0.set(.defaultNotificationSound, Preferences.Sound.mock) }.thenReturn(())
+        self.when { $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.mock) }.thenReturn(())
+        self.when { $0.set(.theme, Theme.mock) }.thenReturn(())
+        self.when { $0.set(.themePrimaryColor, Theme.PrimaryColor.mock) }.thenReturn(())
+        self.when { $0.addPendingChange(key: .any, value: anyAny()) }.thenReturn(())
         self
             .when { $0.displayPictureUrl(threadId: .any, threadVariant: .any) }
             .thenReturn(nil)

@@ -173,71 +173,6 @@ private class BehaviourStore {
     }
 }
 
-// MARK: - Observable Keys
-
-// stringlint:ignore_contents
-public extension LibSession.ObservableKey {
-    static func setting(_ key: any Setting.Key) -> LibSession.ObservableKey {
-        LibSession.ObservableKey(key.rawValue)
-    }
-    static func profile(_ id: String) -> LibSession.ObservableKey {
-        LibSession.ObservableKey("profile-\(id)")
-    }
-    static func contact(_ id: String) -> LibSession.ObservableKey {
-        LibSession.ObservableKey("contact-\(id)")
-    }
-    static func messageReceived(threadId: String) -> LibSession.ObservableKey {
-        LibSession.ObservableKey("messageReceived-\(threadId)")
-    }
-    static func unreadMessageReceived(threadId: String) -> LibSession.ObservableKey {
-        LibSession.ObservableKey("unreadMessageReceived-\(threadId)")
-    }
-    static let isUsingFullAPNs: LibSession.ObservableKey = "isUsingFullAPNs"
-    static let unreadMessageRequestMessageReceived: LibSession.ObservableKey = "unreadMessageRequestMessageReceived"
-}
-
-// MARK: - ObserverStore
-
-internal actor ObserverStore {
-    private var store: [LibSession.ObservableKey: [UUID: AsyncStream<(Any?)>.Continuation]] = [:]
-    private var pendingChanges: [LibSession.ObservableKey: Any?] = [:]
-    private var pendingChangeIndexes: [LibSession.ObservableKey: Int] = [:]
-    
-    // MARK: - Functions
-    
-    func addContinuation(_ continuation: AsyncStream<(Any?)>.Continuation, for key: LibSession.ObservableKey, id: UUID) {
-        store[key, default: [:]][id] = continuation
-    }
-    
-    func removeContinuation(for key: LibSession.ObservableKey, id: UUID) {
-        store[key]?.removeValue(forKey: id)
-        
-        if store[key]?.isEmpty == true {
-            store.removeValue(forKey: key)
-        }
-    }
-    func addPendingChange(forKey key: LibSession.ObservableKey, value: Any?) {
-        pendingChanges[key] = value
-        pendingChangeIndexes[key] = (pendingChanges.count - 1)
-    }
-    
-    func yieldAllPendingChanges() {
-        pendingChangeIndexes
-            .sorted(by: { $0.value < $1.value })
-            .compactMap { key, _ in pendingChanges[key].map { (key, $0) } }
-            .forEach { key, value in
-                store[key]?.values.forEach { $0.yield(value) }
-            }
-        pendingChanges.removeAll()
-        pendingChangeIndexes.removeAll()
-    }
-    
-    func finishAll() {
-        store.values.forEach { $0.values.forEach { $0.finish() } }
-        store.removeAll()
-    }
-}
-
 // MARK: - SessionUtil Cache
 
 public extension LibSession {
@@ -255,7 +190,7 @@ public extension LibSession {
     class Cache: LibSessionCacheType {
         private let configStore: ConfigStore = ConfigStore()
         private let behaviourStore: BehaviourStore = BehaviourStore()
-        internal let observerStore: ObserverStore = ObserverStore()
+        private var pendingChanges: [(key: ObservableKey, value: Any?)] = []
         
         public let dependencies: Dependencies
         public let userSessionId: SessionId
@@ -266,12 +201,6 @@ public extension LibSession {
         public init(userSessionId: SessionId, using dependencies: Dependencies) {
             self.userSessionId = userSessionId
             self.dependencies = dependencies
-        }
-        
-        deinit {
-            Task { [observerStore] in
-                await observerStore.finishAll()
-            }
         }
         
         // MARK: - State Management
@@ -606,6 +535,10 @@ public extension LibSession {
                 // Peform the change
                 try change(config)
                 
+                // Store the pending changes locally and clear them from the instance
+                let pendingChanges: [(key: ObservableKey, value: Any?)] = self.pendingChanges
+                self.pendingChanges = []
+                
                 // If an error occurred during the change then actually throw it to prevent
                 // any database change from completing
                 try LibSessionError.throwIfNeeded(config)
@@ -616,12 +549,14 @@ public extension LibSession {
                     sessionId: sessionId,
                     skipAutomaticConfigSync: behaviourStore
                         .hasBehaviour(.skipAutomaticConfigSync, for: sessionId, variant),
+                    pendingChanges: pendingChanges,
                     cache: self,
                     using: dependencies
                 ).upsert(db)
             }
             catch {
                 Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
+                self.pendingChanges = []
                 throw error
             }
         }
@@ -629,8 +564,8 @@ public extension LibSession {
         public func perform(
             for variant: ConfigDump.Variant,
             sessionId: SessionId,
-            change: (Config?) async throws -> ()
-        ) async throws -> LibSession.Mutation {
+            change: (Config?) throws -> ()
+        ) throws -> LibSession.Mutation {
             // To prevent crashes by trying to make an invalid change due to incorrect state being
             // provided by a client, if we want to change one of the group configs then check if we
             // are a group admin first
@@ -651,7 +586,11 @@ public extension LibSession {
                 }
                 
                 // Peform the change
-                try await change(config)
+                try change(config)
+                
+                // Store the pending changes locally and clear them from the instance
+                let pendingChanges: [(key: ObservableKey, value: Any?)] = self.pendingChanges
+                self.pendingChanges = []
                 
                 // If an error occurred during the change then actually throw it to prevent
                 // any database change from completing
@@ -663,12 +602,14 @@ public extension LibSession {
                     sessionId: sessionId,
                     skipAutomaticConfigSync: behaviourStore
                         .hasBehaviour(.skipAutomaticConfigSync, for: sessionId, variant),
+                    pendingChanges: pendingChanges,
                     cache: self,
                     using: dependencies
                 )
             }
             catch {
                 Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
+                self.pendingChanges = []
                 throw error
             }
         }
@@ -748,12 +689,8 @@ public extension LibSession {
                 }
         }
         
-        public func addPendingChange(key: ObservableKey, value: Any?) async {
-            await observerStore.addPendingChange(forKey: key, value: value)
-        }
-        
-        public func yieldAllPendingChanges() async {
-            await observerStore.yieldAllPendingChanges()
+        public func addPendingChange(key: ObservableKey, value: Any?) {
+            pendingChanges.append((key, value))
         }
         
         // MARK: - Config Message Handling
@@ -781,7 +718,7 @@ public extension LibSession {
         public func mergeConfigMessages(
             swarmPublicKey: String,
             messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-            afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
+            afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
         ) throws -> [MergeResult] {
             guard !messages.isEmpty else { return [] }
             guard !swarmPublicKey.isEmpty else { throw MessageReceiverError.noThread }
@@ -796,7 +733,7 @@ public extension LibSession {
                     let config: Config? = configStore[sessionId, variant]
                     
                     do {
-                        let oldState: [LibSession.ObservableKey: Any] = try {
+                        let oldState: [ObservableKey: Any] = try {
                             switch config {
                                 case .userProfile:
                                     return [
@@ -987,24 +924,6 @@ public extension LibSession {
     }
 }
 
-// MARK: - Convenience
-
-public extension LibSession {
-    static func handlePendingChanges(using dependencies: Dependencies) -> (([ObservingDatabase.Change]) async -> Void) {
-        return { changes in
-            guard !changes.isEmpty else { return }
-            
-            await dependencies.mutate(cache: .libSession) { cache in
-                for (key, value) in changes {
-                    await cache.addPendingChange(key: key, value: value)
-                }
-                
-                await cache.yieldAllPendingChanges()
-            }
-        }
-    }
-}
-
 // MARK: - SessionUtilCacheType
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
@@ -1067,16 +986,15 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func perform(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
-        change: @escaping (LibSession.Config?) async throws -> ()
-    ) async throws -> LibSession.Mutation
+        change: @escaping (LibSession.Config?) throws -> ()
+    ) throws -> LibSession.Mutation
     func pendingPushes(swarmPublicKey: String) throws -> LibSession.PendingPushes
     func createDumpMarkingAsPushed(
         data: [(pushData: LibSession.PendingPushes.PushData, hash: String?)],
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump]
-    func addPendingChange(key: LibSession.ObservableKey, value: Any?) async
-    func yieldAllPendingChanges() async
+    func addPendingChange(key: ObservableKey, value: Any?)
     
     // MARK: - Config Message Handling
     
@@ -1086,7 +1004,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
     ) throws -> [LibSession.MergeResult]
     func handleConfigMessages(
         _ db: ObservingDatabase,
@@ -1103,10 +1021,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws
     
-    // MARK: - State Observations
-    
-    func observe(_ key: LibSession.ObservableKey) -> AsyncStream<Any?>
-    
     // MARK: - SettingFetcher
     
     func has(_ key: Setting.BoolKey) -> Bool
@@ -1116,8 +1030,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Access
     
-    func set(_ key: Setting.BoolKey, _ value: Bool?) async
-    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async
+    func set(_ key: Setting.BoolKey, _ value: Bool?)
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
     @discardableResult func updateProfile(
@@ -1234,32 +1148,32 @@ public extension LibSessionCacheType {
     
     func perform(
         for variant: ConfigDump.Variant,
-        change: @escaping (LibSession.Config?) async throws -> ()
-    ) async throws -> LibSession.Mutation {
+        change: @escaping (LibSession.Config?) throws -> ()
+    ) throws -> LibSession.Mutation {
         guard ConfigDump.Variant.userVariants.contains(variant) else { throw LibSessionError.invalidConfigAccess }
         
-        return try await perform(for: variant, sessionId: userSessionId, change: change)
+        return try perform(for: variant, sessionId: userSessionId, change: change)
     }
     
     func perform(
         for variant: ConfigDump.Variant,
-        change: @escaping () async throws -> ()
-    ) async throws -> LibSession.Mutation {
+        change: @escaping () throws -> ()
+    ) throws -> LibSession.Mutation {
         guard ConfigDump.Variant.userVariants.contains(variant) else { throw LibSessionError.invalidConfigAccess }
         
-        return try await perform(for: variant, sessionId: userSessionId, change: { _ in try await change() })
+        return try perform(for: variant, sessionId: userSessionId, change: { _ in try change() })
     }
     
     func loadState(_ db: ObservingDatabase) {
         loadState(db, requestId: nil)
     }
     
-    func addPendingChange(key: Setting.BoolKey, value: Any?) async {
-        await addPendingChange(key: .setting(key), value: value)
+    func addPendingChange(key: Setting.BoolKey, value: Any?) {
+        addPendingChange(key: .setting(key), value: value)
     }
     
-    func addPendingChange(key: Setting.EnumKey, value: Any?) async {
-        await addPendingChange(key: .setting(key), value: value)
+    func addPendingChange(key: Setting.EnumKey, value: Any?) {
+        addPendingChange(key: .setting(key), value: value)
     }
     
     @discardableResult func updateProfile(displayName: String) throws -> Profile? {
@@ -1327,12 +1241,13 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     func perform(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
-        change: (LibSession.Config?) async throws -> ()
-    ) async throws -> LibSession.Mutation {
+        change: (LibSession.Config?) throws -> ()
+    ) throws -> LibSession.Mutation {
         return try LibSession.Mutation(
             config: nil,
             sessionId: .invalid,
             skipAutomaticConfigSync: false,
+            pendingChanges: [],
             cache: self,
             using: dependencies
         )
@@ -1349,8 +1264,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     ) throws -> [ConfigDump] {
         return []
     }
-    func addPendingChange(key: LibSession.ObservableKey, value: Any?) async {}
-    func yieldAllPendingChanges() async {}
+    func addPendingChange(key: ObservableKey, value: Any?) {}
     
     // MARK: - Config Message Handling
     
@@ -1359,7 +1273,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [LibSession.ObservableKey: Any]) throws -> ConfigDump?
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
     ) throws -> [LibSession.MergeResult] { return [] }
     func handleConfigMessages(
         _ db: ObservingDatabase,
@@ -1370,12 +1284,6 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {}
-    
-    // MARK: - State Observation
-    
-    func observe(_ key: LibSession.ObservableKey) -> AsyncStream<Any?> {
-        return AsyncStream { _ in }
-    }
     
     // MARK: - SettingFetcher
     
@@ -1388,8 +1296,8 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     var displayName: String? { return nil }
     
-    func set(_ key: Setting.BoolKey, _ value: Bool?) async {}
-    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {}
+    func set(_ key: Setting.BoolKey, _ value: Bool?) {}
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
     @discardableResult func updateProfile(
         displayName: String,
         displayPictureUrl: String?,

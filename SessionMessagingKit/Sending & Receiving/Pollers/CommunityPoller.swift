@@ -93,9 +93,11 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     
     // MARK: - Abstract Methods
 
-    public func nextPollDelay() -> TimeInterval {
+    public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
         // Arbitrary backoff factor...
-        return min(CommunityPoller.maxPollInterval, CommunityPoller.minPollInterval + pow(2, Double(failureCount)))
+        return Just(min(CommunityPoller.maxPollInterval, CommunityPoller.minPollInterval + pow(2, Double(failureCount))))
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
     
     public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
@@ -118,10 +120,91 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 }
                 return .continuePolling
         }
+        //[pollerName, pollerDestination, failureCount, dependencies]
+        func handleError(_ error: Error) throws -> AnyPublisher<Void, Error> {
+            /// Log the error first
+            Log.error(.poller, "\(pollerName) failed to update capabilities due to error: \(error).")
+            
+            /// If the polling has failed 10+ times then try to prune any invalid rooms that
+            /// aren't visible (they would have been added via config messages and will
+            /// likely always fail but the user has no way to delete them)
+            guard (failureCount + 1) > CommunityPoller.maxHiddenRoomFailureCount else {
+                /// Save the updated failure count to the database
+                dependencies[singleton: .storage].writeAsync { [pollerDestination, failureCount] db in
+                    try OpenGroup
+                        .filter(OpenGroup.Columns.server == pollerDestination.target)
+                        .updateAll(
+                            db,
+                            OpenGroup.Columns.pollFailureCount.set(to: failureCount + 1)
+                        )
+                }
+                
+                throw error
+            }
+            
+            return dependencies[singleton: .storage]
+                .writePublisher { [pollerDestination, failureCount, dependencies] db -> [String] in
+                    /// Save the updated failure count to the database
+                    try OpenGroup
+                        .filter(OpenGroup.Columns.server == pollerDestination.target)
+                        .updateAll(
+                            db,
+                            OpenGroup.Columns.pollFailureCount.set(to: failureCount + 1)
+                        )
+                    
+                    /// Prune any hidden rooms
+                    let roomIds: Set<String> = try OpenGroup
+                        .filter(
+                            OpenGroup.Columns.server == pollerDestination.target &&
+                            OpenGroup.Columns.isActive == true
+                        )
+                        .select(.roomToken)
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+                        .map { OpenGroup.idFor(roomToken: $0, server: pollerDestination.target) }
+                        .asSet()
+                    let hiddenRoomIds: Set<String> = try SessionThread
+                        .select(.id)
+                        .filter(ids: roomIds)
+                        .filter(
+                            SessionThread.Columns.shouldBeVisible == false ||
+                            SessionThread.Columns.pinnedPriority == LibSession.hiddenPriority
+                        )
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+
+                    try hiddenRoomIds.forEach { id in
+                        try dependencies[singleton: .openGroupManager].delete(
+                            db,
+                            openGroupId: id,
+                            /// **Note:** We pass `skipLibSessionUpdate` as `true`
+                            /// here because we want to avoid syncing this deletion as the room might
+                            /// not be in an invalid state on other devices - one of the other devices
+                            /// will eventually trigger a new config update which will re-add this room
+                            /// and hopefully at that time it'll work again
+                            skipLibSessionUpdate: true
+                        )
+                    }
+
+                    return Array(hiddenRoomIds)
+                }
+                .handleEvents(
+                    receiveOutput: { [pollerName, pollerDestination] hiddenRoomIds in
+                        guard !hiddenRoomIds.isEmpty else { return }
+                        
+                        // Add a note to the logs that this happened
+                        let rooms: String = hiddenRoomIds
+                            .sorted()
+                            .compactMap { $0.components(separatedBy: pollerDestination.target).last }
+                            .joined(separator: ", ")
+                        Log.error(.poller, "\(pollerName) failure count surpassed \(CommunityPoller.maxHiddenRoomFailureCount), removed hidden rooms [\(rooms)].")
+                    }
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+        }
         
         /// Since we have gotten here we should update the SOGS capabilities before triggering the next poll
-        let fallbackPollDelay: TimeInterval = self.nextPollDelay()
-        
         cancellable = dependencies[singleton: .storage]
             .readPublisher { [pollerDestination, dependencies] db -> AuthenticationMethod in
                 try Authentication.with(
@@ -133,14 +216,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             }
             .subscribe(on: pollerQueue, using: dependencies)
             .receive(on: pollerQueue, using: dependencies)
-            .tryFlatMap { [dependencies] authMethod in
-                try OpenGroupAPI
-                    .preparedCapabilities(
-                        authMethod: authMethod,
-                        using: dependencies
-                    )
-                    .send(using: dependencies)
+            .tryMap { [dependencies] authMethod in
+                try OpenGroupAPI.preparedCapabilities(
+                    authMethod: authMethod,
+                    using: dependencies
+                )
             }
+            .flatMap { [dependencies] in $0.send(using: dependencies) }
             .flatMapStorageWritePublisher(using: dependencies) { [pollerDestination] (db: ObservingDatabase, response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)) in
                 OpenGroupManager.handleCapabilities(
                     db,
@@ -148,97 +230,20 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     on: pollerDestination.target
                 )
             }
-            .tryCatch { [pollerName, pollerDestination, failureCount, dependencies] error -> AnyPublisher<Void, Error> in
-                /// Log the error first
-                Log.error(.poller, "\(pollerName) failed to update capabilities due to error: \(error).")
-                
-                /// If the polling has failed 10+ times then try to prune any invalid rooms that
-                /// aren't visible (they would have been added via config messages and will
-                /// likely always fail but the user has no way to delete them)
-                guard (failureCount + 1) > CommunityPoller.maxHiddenRoomFailureCount else {
-                    /// Save the updated failure count to the database
-                    dependencies[singleton: .storage].writeAsync { db in
-                        try OpenGroup
-                            .filter(OpenGroup.Columns.server == pollerDestination.target)
-                            .updateAll(
-                                db,
-                                OpenGroup.Columns.pollFailureCount.set(to: failureCount + 1)
-                            )
-                    }
-                    
-                    throw error
-                }
-                
-                return dependencies[singleton: .storage]
-                    .writePublisher { db -> [String] in
-                        /// Save the updated failure count to the database
-                        try OpenGroup
-                            .filter(OpenGroup.Columns.server == pollerDestination.target)
-                            .updateAll(
-                                db,
-                                OpenGroup.Columns.pollFailureCount.set(to: failureCount + 1)
-                            )
-                        
-                        /// Prune any hidden rooms
-                        let roomIds: Set<String> = try OpenGroup
-                            .filter(
-                                OpenGroup.Columns.server == pollerDestination.target &&
-                                OpenGroup.Columns.isActive == true
-                            )
-                            .select(.roomToken)
-                            .asRequest(of: String.self)
-                            .fetchSet(db)
-                            .map { OpenGroup.idFor(roomToken: $0, server: pollerDestination.target) }
-                            .asSet()
-                        let hiddenRoomIds: Set<String> = try SessionThread
-                            .select(.id)
-                            .filter(ids: roomIds)
-                            .filter(
-                                SessionThread.Columns.shouldBeVisible == false ||
-                                SessionThread.Columns.pinnedPriority == LibSession.hiddenPriority
-                            )
-                            .asRequest(of: String.self)
-                            .fetchSet(db)
-
-                        try hiddenRoomIds.forEach { id in
-                            try dependencies[singleton: .openGroupManager].delete(
-                                db,
-                                openGroupId: id,
-                                /// **Note:** We pass `skipLibSessionUpdate` as `true`
-                                /// here because we want to avoid syncing this deletion as the room might
-                                /// not be in an invalid state on other devices - one of the other devices
-                                /// will eventually trigger a new config update which will re-add this room
-                                /// and hopefully at that time it'll work again
-                                skipLibSessionUpdate: true
-                            )
-                        }
-
-                        return Array(hiddenRoomIds)
-                    }
-                    .handleEvents(
-                        receiveOutput: { hiddenRoomIds in
-                            guard !hiddenRoomIds.isEmpty else { return }
-                            
-                            // Add a note to the logs that this happened
-                            let rooms: String = hiddenRoomIds
-                                .sorted()
-                                .compactMap { $0.components(separatedBy: pollerDestination.target).last }
-                                .joined(separator: ", ")
-                            Log.error(.poller, "\(pollerName) failure count surpassed \(CommunityPoller.maxHiddenRoomFailureCount), removed hidden rooms [\(rooms)].")
-                        }
-                    )
-                    .map { _ in () }
-                    .eraseToAnyPublisher()
-            }
+            .tryCatch { try handleError($0) }
             .asResult()
-            .sink(receiveValue: { [weak self, pollerQueue, dependencies] _ in
-                let nextPollInterval: TimeUnit = .seconds((self?.nextPollDelay()).defaulting(to: fallbackPollDelay))
-                
-                // Schedule the next poll
-                pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(nextPollInterval.timeInterval * 1000)), qos: .default, using: dependencies) {
-                    self?.pollRecursively(error)
+            .flatMapOptional { [weak self] _ in self?.nextPollDelay() }
+            .sink(
+                receiveCompletion: { _ in },    // Never called
+                receiveValue: { [weak self, pollerQueue, dependencies] nextPollDelay in
+                    let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
+                    
+                    // Schedule the next poll
+                    pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(nextPollInterval.timeInterval * 1000)), qos: .default, using: dependencies) {
+                        self?.pollRecursively(error)
+                    }
                 }
-            })
+            )
         
             /// Stop polling at this point (we will resume once the above publisher completes
             return .stopPolling

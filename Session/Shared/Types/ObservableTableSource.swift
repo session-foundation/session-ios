@@ -323,7 +323,7 @@ public enum ObservationBuilder {
     static func libSessionObservation<S: ObservableTableSource, T: Equatable>(
         _ source: S,
         debounceInterval: DispatchTimeInterval = .milliseconds(10),
-        fetch: @escaping (KeyCollector) throws -> T
+        fetch: @escaping (ObservationCollector) throws -> T
     ) -> TableObservation<T> {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<T?, Error> = CurrentValueSubject(nil)
@@ -364,22 +364,22 @@ public enum ObservationBuilder {
     static func libSessionObservation<T: Equatable>(
         _ dependencies: Dependencies,
         debounceInterval: DispatchTimeInterval = .milliseconds(10),
-        fetch: @escaping (KeyCollector) throws -> T
+        fetch: @escaping (ObservationCollector) throws -> T
     ) -> AsyncThrowingStream<T, Error> {
         return AsyncThrowingStream<T, Error> { continuation in
             let debouncer: DebounceTaskManager<T> = DebounceTaskManager(debounceInterval: debounceInterval)
             let taskManager: MultiTaskManager<Void> = MultiTaskManager()
             
             let mainObservationTask = Task(priority: .userInitiated) {
-                let initialInfo: (initialValue: T, streams: [AsyncStream<Any?>])
+                let initialInfo: (initialValue: T, keys: Set<ObservableKey>)
                 
                 do {
                     /// Retrieve the initial value and they keys to observe
                     initialInfo = try dependencies.mutate(cache: .libSession) { cache in
-                        let collector: KeyCollector = KeyCollector(store: cache)
+                        let collector: ObservationCollector = ObservationCollector(store: cache)
                         let value: T = try fetch(collector)
                         
-                        return (value, collector.collectedKeys.map { cache.observe($0) })
+                        return (value, collector.collectedKeys)
                     }
                     guard !Task.isCancelled else { throw CancellationError() }
                     continuation.yield(initialInfo.initialValue)
@@ -395,7 +395,7 @@ public enum ObservationBuilder {
                 /// After debouncing we want to re-fetch the data
                 await debouncer.setAction { continuation in
                     let newValue: T = try dependencies.mutate(cache: .libSession) { cache in
-                        try fetch(KeyCollector(store: cache))
+                        try fetch(ObservationCollector(store: cache))
                     }
                     
                     guard !Task.isCancelled else { throw CancellationError() }
@@ -403,7 +403,13 @@ public enum ObservationBuilder {
                 }
                 
                 /// Start observing the streams for updates
-                for stream in initialInfo.streams {
+                var streams: [AsyncStream<Any?>] = []
+                
+                for key in initialInfo.keys {
+                    streams.append(await dependencies[singleton: .observationManager].observe(key))
+                }
+                
+                for stream in streams {
                     guard !Task.isCancelled else { break }
                     
                     let keyTask = Task {
@@ -490,11 +496,11 @@ public extension Publisher {
     }
 }
 
-// MARK: - KeyCollector
+// MARK: - ObservationCollector
 
-public class KeyCollector: ValueFetcher {
+public class ObservationCollector: ValueFetcher {
     private let store: ValueFetcher
-    private(set) var collectedKeys: Set<LibSession.ObservableKey> = []
+    private(set) var collectedKeys: Set<ObservableKey> = []
     
     public var userSessionId: SessionId { store.userSessionId }
     
@@ -502,7 +508,7 @@ public class KeyCollector: ValueFetcher {
         self.store = store
     }
     
-    func register(_ key: LibSession.ObservableKey) {
+    func register(_ key: ObservableKey) {
         collectedKeys.insert(key)
     }
     

@@ -136,26 +136,6 @@ public class TestDependencies: Dependencies {
         return try mutation(value)
     }
     
-    @discardableResult public override func mutate<M, I, R>(
-        cache: CacheConfig<M, I>,
-        _ mutation: (M) async -> R
-    ) async -> R {
-        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
-        let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-        _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
-        return await mutation(value)
-    }
-    
-    @discardableResult public override func mutate<M, I, R>(
-        cache: CacheConfig<M, I>,
-        _ mutation: (M) async throws -> R
-    ) async throws -> R {
-        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
-        let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-        _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
-        return try await mutation(value)
-    }
-    
     public func stepForwardInTime() {
         let targetTime: Int = ((cachedFixedTime ?? 0) + 1)
         cachedFixedTime = targetTime

@@ -653,7 +653,9 @@ open class Storage {
                 )
                 
                 /// Trigger the observations
-                Task { await SNUtilitiesKit.observationNotifier.notify(output.changes) }
+                Task(priority: .medium) { [dependencies] in
+                    await dependencies[singleton: .observationManager].notify(output.changes)
+                }
                 
                 return output.result
             }
@@ -945,6 +947,16 @@ open class Storage {
             case .failure: return nil
             case .success(let result): return result
         }
+    }
+    
+    public func readAsync<T>(
+        fileName file: String = #fileID,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
+        retrieve: @escaping (ObservingDatabase) throws -> T,
+        completion: @escaping (Result<T, Error>) -> Void
+    ) {
+        performOperation(CallInfo(self, file, funcN, line, .asyncRead), dependencies, retrieve, completion)
     }
     
     @discardableResult public func readAsync<T>(

@@ -71,13 +71,13 @@ enum _027_MoveSettingsToLibSession: Migration {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         Task {
             do {
-                mutation = try await cache.perform(for: .local) {
+                mutation = try cache.perform(for: .local) {
                     /// Move bool settings across
                     for key in boolSettings {
                         guard let data: Data = settings[key.rawValue] else { continue }
                         
                         let boolValue: Bool = data.withUnsafeBytes { $0.loadUnaligned(as: Bool.self) }
-                        await cache.set(key, boolValue)
+                        cache.set(key, boolValue)
                         keysToDrop.append(key.rawValue)
                     }
                     
@@ -88,7 +88,7 @@ enum _027_MoveSettingsToLibSession: Migration {
                             rawValue: data.withUnsafeBytes { $0.loadUnaligned(as: Int.self) }
                         )
                     {
-                        await cache.set(.preferencesNotificationPreviewType, enumValue)
+                        cache.set(.preferencesNotificationPreviewType, enumValue)
                         keysToDrop.append(Setting.EnumKey.preferencesNotificationPreviewType.rawValue)
                     }
                     
@@ -98,7 +98,7 @@ enum _027_MoveSettingsToLibSession: Migration {
                             rawValue: data.withUnsafeBytes { $0.loadUnaligned(as: Int.self) }
                         )
                     {
-                        await cache.set(.defaultNotificationSound, enumValue)
+                        cache.set(.defaultNotificationSound, enumValue)
                         keysToDrop.append(Setting.EnumKey.defaultNotificationSound.rawValue)
                     }
                     
@@ -108,7 +108,7 @@ enum _027_MoveSettingsToLibSession: Migration {
                         let stringValue: String = String(data: data, encoding: .utf8),
                         let enumValue: Theme = Theme(legacyStringKey: stringValue)
                     {
-                        await cache.set(.theme, enumValue)
+                        cache.set(.theme, enumValue)
                         keysToDrop.append(Setting.EnumKey.theme.rawValue)
                     }
                     
@@ -118,7 +118,7 @@ enum _027_MoveSettingsToLibSession: Migration {
                         let stringValue: String = String(data: data, encoding: .utf8),
                         let enumValue: Theme.PrimaryColor = Theme.PrimaryColor(legacyStringKey: stringValue)
                     {
-                        await cache.set(.themePrimaryColor, enumValue)
+                        cache.set(.themePrimaryColor, enumValue)
                         keysToDrop.append(Setting.EnumKey.themePrimaryColor.rawValue)
                     }
                 }

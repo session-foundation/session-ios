@@ -156,7 +156,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                     viewModel.tableData.first?.elements.last?.onTap?()
                     
                     await expect(mockLibSessionCache).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        await $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
+                        $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
                     })
                 }
                 

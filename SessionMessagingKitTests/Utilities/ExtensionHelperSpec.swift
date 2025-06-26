@@ -11,7 +11,7 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class ExtensionHelperSpec: QuickSpec {
+class ExtensionHelperSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -1385,60 +1385,38 @@ class ExtensionHelperSpec: QuickSpec {
             context("when waiting for messages to be loaded") {
                 // MARK: ---- stops waiting once messages are loaded
                 it("stops waiting once messages are loaded") {
-                    var loadCompleted: Bool?
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
                     Task {
-                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(150))
-                        semaphore.signal()
+                        try? await Task.sleep(for: .milliseconds(10))
+                        try? await extensionHelper.loadMessages()
                     }
-                    Task {
-                        try await extensionHelper.loadMessages()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    expect(loadCompleted).to(beTrue())
+                    await expect {
+                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(150))
+                    }.to(beTrue())
                 }
                 
                 // MARK: ---- times out if it takes longer than the timeout specified
                 it("times out if it takes longer than the timeout specified") {
-                    var loadCompleted: Bool?
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    expect(loadCompleted).to(beFalse())
+                    await expect {
+                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
+                    }.to(beFalse())
                 }
                 
                 // MARK: ---- does not wait if messages have already been loaded
                 it("does not wait if messages have already been loaded") {
-                    var loadCompleted: Bool?
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try? await extensionHelper.loadMessages()
-                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(50))
-                    expect(result).to(equal(.success))
-                    expect(loadCompleted).to(beTrue())
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect {
+                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
+                    }.to(beTrue())
                 }
                 
                 // MARK: ---- waits if messages have already been loaded but we indicate we will load them again
                 it("waits if messages have already been loaded but we indicate we will load them again") {
-                    var loadCompleted: Bool?
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try? await extensionHelper.loadMessages()
-                        extensionHelper.willLoadMessages()
-                        loadCompleted = await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    expect(loadCompleted).to(beFalse())
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    
+                    extensionHelper.willLoadMessages()
+                    await expect {
+                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
+                    }.to(beFalse())
                 }
             }
             
@@ -1494,7 +1472,6 @@ class ExtensionHelperSpec: QuickSpec {
                                 )
                         )
                     
-                    
                     let content = SNProtoContent.builder()
                     let dataMessage = SNProtoDataMessage.builder()
                     dataMessage.setBody("Test")
@@ -1506,13 +1483,7 @@ class ExtensionHelperSpec: QuickSpec {
                 
                 // MARK: ---- successfully loads messages
                 it("successfully loads messages") {
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     
                     let interactions: [Interaction]? = mockStorage.read { try Interaction.fetchAll($0) }
                     expect(interactions?.count).to(equal(1))
@@ -1529,14 +1500,7 @@ class ExtensionHelperSpec: QuickSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.contentsOfDirectory(
                             atPath: "/test/extensionCache/conversations/0000550000/config"
@@ -1556,13 +1520,7 @@ class ExtensionHelperSpec: QuickSpec {
                 
                 // MARK: ---- loads config messages before other messages
                 it("loads config messages before other messages") {
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     
                     let key: FunctionConsumer.Key = FunctionConsumer.Key(
                         name: "contentsOfDirectory(atPath:)",
@@ -1651,14 +1609,7 @@ class ExtensionHelperSpec: QuickSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.removeItem(
                             atPath: "/test/extensionCache/conversations/0000550000/config"
@@ -1691,14 +1642,7 @@ class ExtensionHelperSpec: QuickSpec {
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
                     
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockLogger.logs).to(contain(
                         MockLogger.LogOutput(
                             level: .info,
@@ -1735,14 +1679,7 @@ class ExtensionHelperSpec: QuickSpec {
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockLogger.logs).to(contain(
                         MockLogger.LogOutput(
                             level: .error,
@@ -1795,14 +1732,7 @@ class ExtensionHelperSpec: QuickSpec {
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockLogger.logs).to(contain(
                         MockLogger.LogOutput(
                             level: .error,
@@ -1860,14 +1790,7 @@ class ExtensionHelperSpec: QuickSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        try await extensionHelper.loadMessages()
-                        semaphore.signal()
-                    }
-                    let result = semaphore.wait(timeout: .now() + .milliseconds(100))
-                    expect(result).to(equal(.success))
-                    
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockLogger.logs).to(contain(
                         MockLogger.LogOutput(
                             level: .info,

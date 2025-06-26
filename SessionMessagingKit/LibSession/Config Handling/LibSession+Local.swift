@@ -5,45 +5,6 @@ import SessionUtil
 import SessionUIKit
 import SessionUtilitiesKit
 
-// MARK: - State Observation
-
-public extension LibSession.Cache {
-    func observe(_ key: LibSession.ObservableKey) -> AsyncStream<Any?> {
-        let id: UUID = UUID()
-        
-        return AsyncStream { [weak observerStore] continuation in
-            Task {
-                await observerStore?.addContinuation(continuation, for: key, id: id)
-            }
-            continuation.onTermination = { [weak observerStore] _ in
-                Task { await observerStore?.removeContinuation(for: key, id: id) }
-            }
-        }
-    }
-}
-
-public extension LibSessionCacheType {
-    private func observe<T>(_ key: LibSession.ObservableKey, defaultValue: T) -> AsyncMapSequence<AsyncStream<Any?>, T> {
-        return observe(key).map { newValue in
-            let newTypedValue: T? = (newValue as? T)
-            
-            if newValue != nil && newTypedValue == nil {
-                Log.warn(.libSession, "Failed to cast new value for key \(key) to \(T.self), using default: \(defaultValue)")
-            }
-            
-            return (newTypedValue ?? defaultValue)
-        }
-    }
-    
-    func observe(_ key: Setting.BoolKey) -> AsyncMapSequence<AsyncStream<Any?>, Bool> {
-        return observe(.setting(key), defaultValue: false)
-    }
-    
-    func observe<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, defaultValue: T) -> AsyncMapSequence<AsyncStream<Any?>, T> {
-        return observe(.setting(key), defaultValue: defaultValue)
-    }
-}
-
 // MARK: - State Access
 
 public extension LibSession.Cache {
@@ -133,7 +94,7 @@ public extension LibSession.Cache {
         }
     }
     
-    func set(_ key: Setting.BoolKey, _ value: Bool?) async {
+    func set(_ key: Setting.BoolKey, _ value: Bool?) {
         let valueAsInt: Int32 = {
             switch value {
                 case .none: return -1
@@ -159,10 +120,10 @@ public extension LibSession.Cache {
         }
         
         /// Add a pending observation to notify any observers of the change once it's committed
-        await addPendingChange(key: key, value: value)
+        addPendingChange(key: key, value: value)
     }
     
-    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {
         guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
             return Log.critical(.libSession, "Failed to set \(key) because there is no Local config")
         }
@@ -202,7 +163,7 @@ public extension LibSession.Cache {
         }
         
         /// Add a pending observation to notify any observers of the change once it's committed
-        await addPendingChange(key: key, value: value)
+        addPendingChange(key: key, value: value)
     }
 }
 

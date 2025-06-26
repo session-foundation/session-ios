@@ -86,40 +86,6 @@ public class Dependencies {
         }
     }
     
-    @discardableResult public func mutate<M, I, R>(
-        cache: CacheConfig<M, I>,
-        _ mutation: (M) async -> R
-    ) async -> R {
-        return await getOrCreate(cache).performMap { erasedValue in
-            guard let value: M = (erasedValue as? M) else {
-                /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
-                /// a nullable type or force-casting this is how we need to do things)
-                Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
-                let fallbackValue: M = cache.createInstance(self)
-                return await mutation(fallbackValue)
-            }
-            
-            return await mutation(value)
-        }
-    }
-    
-    @discardableResult public func mutate<M, I, R>(
-        cache: CacheConfig<M, I>,
-        _ mutation: (M) async throws -> R
-    ) async throws -> R {
-        return try await getOrCreate(cache).performMap { erasedValue in
-            guard let value: M = (erasedValue as? M) else {
-                /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
-                /// a nullable type or force-casting this is how we need to do things)
-                Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
-                let fallbackValue: M = cache.createInstance(self)
-                return try await mutation(fallbackValue)
-            }
-            
-            return try await mutation(value)
-        }
-    }
-    
     // MARK: - Random
     
     public func randomUUID() -> UUID {

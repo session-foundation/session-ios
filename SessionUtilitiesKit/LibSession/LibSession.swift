@@ -11,15 +11,6 @@ public enum LibSession {
     public static var version: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
 }
 
-// MARK: - LibSession.ObservableKey
-
-public extension LibSession {
-    struct ObservableKey: Setting.Key {
-        public let rawValue: String
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-    }
-}
-
 // MARK: - Log.Category
 
 public extension Log.Category {

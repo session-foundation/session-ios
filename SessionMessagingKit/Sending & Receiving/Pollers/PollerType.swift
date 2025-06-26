@@ -77,7 +77,7 @@ public protocol PollerType: AnyObject {
     
     func pollerDidStart()
     func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error>
-    func nextPollDelay() -> TimeInterval
+    func nextPollDelay() -> AnyPublisher<TimeInterval, Error>
     func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse
 }
 
@@ -139,21 +139,21 @@ public extension PollerType {
         }
         
         self.lastPollStart = dependencies.dateNow.timeIntervalSince1970
-        let fallbackPollDelay: TimeInterval = self.nextPollDelay()
         
         cancellable = poll(forceSynchronousProcessing: false)
             .subscribe(on: pollerQueue, using: dependencies)
             .receive(on: pollerQueue, using: dependencies)
             .asResult()
+            .flatMapOptional { [weak self] value in self?.nextPollDelay().map { (value, $0) } }
             .sink(
                 receiveCompletion: { _ in },    // Never called
-                receiveValue: { [weak self, pollerName, pollerQueue, lastPollStart, failureCount, dependencies] result in
+                receiveValue: { [weak self, pollerName, pollerQueue, lastPollStart, failureCount, dependencies] result, nextPollDelay in
                     // If the polling has been cancelled then don't continue
                     guard self?.isPolling == true else { return }
                     
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - lastPollStart)
-                    let nextPollInterval: TimeUnit = .seconds((self?.nextPollDelay()).defaulting(to: fallbackPollDelay))
+                    let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
                     var errorFromPoll: Error?
                     
                     // Log information about the poll

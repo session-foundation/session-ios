@@ -77,6 +77,6 @@ class MockPoller: Mock<PollerType>, PollerType {
     
     func pollerDidStart() { mockNoReturn() }
     func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> { mock(args: [forceSynchronousProcessing]) }
-    func nextPollDelay() -> TimeInterval { mock() }
+    func nextPollDelay() -> AnyPublisher<TimeInterval, Error> { mock() }
     func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse { mock(args: [error, lastError]) }
 }

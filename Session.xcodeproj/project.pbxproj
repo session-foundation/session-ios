@@ -990,6 +990,10 @@
 		FDE521942E050B1100061B8E /* DismissCallbackAVPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521932E050B0800061B8E /* DismissCallbackAVPlayerViewController.swift */; };
 		FDE5219A2E08DBB800061B8E /* ImageLoading+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */; };
 		FDE5219C2E08E76C00061B8E /* SessionImageView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE5219B2E08E76600061B8E /* SessionImageView_SwiftUI.swift */; };
+		FDE5219E2E0D0B9B00061B8E /* AsyncAccessible.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE5219D2E0D0B9800061B8E /* AsyncAccessible.swift */; };
+		FDE521A02E0D230000061B8E /* ObservationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */; };
+		FDE521A22E0D23AB00061B8E /* ObservableKey+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */; };
+		FDE521A52E0D288A00061B8E /* Dependencies+Observation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521A32E0D283E00061B8E /* Dependencies+Observation.swift */; };
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
 		FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */; };
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
@@ -2223,6 +2227,10 @@
 		FDE521932E050B0800061B8E /* DismissCallbackAVPlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissCallbackAVPlayerViewController.swift; sourceTree = "<group>"; };
 		FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageLoading+Convenience.swift"; sourceTree = "<group>"; };
 		FDE5219B2E08E76600061B8E /* SessionImageView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionImageView_SwiftUI.swift; sourceTree = "<group>"; };
+		FDE5219D2E0D0B9800061B8E /* AsyncAccessible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncAccessible.swift; sourceTree = "<group>"; };
+		FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationManager.swift; sourceTree = "<group>"; };
+		FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionMessagingKit.swift"; sourceTree = "<group>"; };
+		FDE521A32E0D283E00061B8E /* Dependencies+Observation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Dependencies+Observation.swift"; sourceTree = "<group>"; };
 		FDE6E99729F8E63A00F93C5D /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
@@ -3529,8 +3537,10 @@
 			children = (
 				FD428B1E2B4B758B006D0888 /* AppReadiness.swift */,
 				FDE5218D2E03A06700061B8E /* AttachmentManager.swift */,
+				FDE5219D2E0D0B9800061B8E /* AsyncAccessible.swift */,
 				FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */,
 				FD859EF127BF6BA200510D0C /* Data+Utilities.swift */,
+				FDE521A32E0D283E00061B8E /* Dependencies+Observation.swift */,
 				C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */,
 				FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */,
 				FD2273072C353109004D8A6C /* DisplayPictureManager.swift */,
@@ -3538,6 +3548,7 @@
 				C3BBE0C62554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift */,
 				FDB11A622DD5BDDD00BEF49F /* ImageDataManager+Singleton.swift */,
 				C3A71D0A2558989C0043A11F /* MessageWrapper.swift */,
+				FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */,
 				C38EF2F5255B6DBC007E1867 /* OWSAudioPlayer.h */,
 				C38EF2F7255B6DBC007E1867 /* OWSAudioPlayer.m */,
 				C38EF281255B6D84007E1867 /* OWSAudioSession.swift */,
@@ -4070,6 +4081,7 @@
 				FD3FAB682AF1ADCA00DC5421 /* FileManager.swift */,
 				FD6A38F02C2A66B100762359 /* KeychainStorage.swift */,
 				FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */,
+				FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */,
 				FD2272E92C351CA7004D8A6C /* Threading.swift */,
 				FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */,
 			);
@@ -6152,6 +6164,7 @@
 				FD2272F02C352200004D8A6C /* General.swift in Sources */,
 				FD2272EC2C352155004D8A6C /* Feature.swift in Sources */,
 				FD2272EE2C3521D6004D8A6C /* FeatureConfig.swift in Sources */,
+				FDE521A02E0D230000061B8E /* ObservationManager.swift in Sources */,
 				FDE754DF2C9BAF8A002A2623 /* KeyPair.swift in Sources */,
 				FD2272D12C34EBD6004D8A6C /* JSONDecoder+Utilities.swift in Sources */,
 				FD6A38F12C2A66B100762359 /* KeychainStorage.swift in Sources */,
@@ -6303,10 +6316,12 @@
 				FD09B7E7288670FD00ED0B66 /* Reaction.swift in Sources */,
 				FD245C5A2850660100B966DD /* LinkPreviewDraft.swift in Sources */,
 				FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */,
+				FDE5219E2E0D0B9B00061B8E /* AsyncAccessible.swift in Sources */,
 				FDF0B75C2807F41D004C14C5 /* MessageSender+Convenience.swift in Sources */,
 				FD22726D2C32911C004D8A6C /* CheckForAppUpdatesJob.swift in Sources */,
 				7B81682A28B6F1420069F315 /* ReactionResponse.swift in Sources */,
 				FD2273082C353109004D8A6C /* DisplayPictureManager.swift in Sources */,
+				FDE521A22E0D23AB00061B8E /* ObservableKey+SessionMessagingKit.swift in Sources */,
 				FD2273022C352D8E004D8A6C /* LibSession+GroupInfo.swift in Sources */,
 				FDDD554E2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift in Sources */,
 				FD09798927FD1C5A00936362 /* OpenGroup.swift in Sources */,
@@ -6384,6 +6399,7 @@
 				C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */,
 				FDF0B7422804EA4F004C14C5 /* _002_SetupStandardJobs.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
+				FDE521A52E0D288A00061B8E /* Dependencies+Observation.swift in Sources */,
 				FDF8487F29405994007DCAE5 /* HTTPHeader+OpenGroup.swift in Sources */,
 				FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */,
 				FD17D7A227F40F0500122BE0 /* _001_InitialSetupMigration.swift in Sources */,

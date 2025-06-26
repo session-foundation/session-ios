@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 
 public class ObservingDatabase {
-    public typealias Change = (key: LibSession.ObservableKey, value: Any?)
+    public typealias Change = (key: ObservableKey, value: Any?)
     
     private let dependencies: Dependencies
     internal let originalDb: Database
@@ -20,14 +20,14 @@ public class ObservingDatabase {
     
     // MARK: - Functions
     
-    public func addChange(_ value: Any?, forKey key: LibSession.ObservableKey) {
+    public func addChange(_ value: Any?, forKey key: ObservableKey) {
         /// If this is the first
         if changes.isEmpty {
-            afterNextTransactionNested(using: dependencies) { [weak self] _ in
+            afterNextTransactionNested(using: dependencies) { [weak self, dependencies] _ in
                 guard let changes: [Change] = self?.changes, !changes.isEmpty else { return }
                 
                 Task(priority: .medium) {
-                    await SNUtilitiesKit.observationNotifier.notify(changes)
+                    await dependencies[singleton: .observationManager].notify(changes)                    
                 }
             }
         }
@@ -37,7 +37,7 @@ public class ObservingDatabase {
 }
 
 public extension ObservingDatabase {
-    func addChangeIfNotNull(_ value: Any?, forKey key: LibSession.ObservableKey) {
+    func addChangeIfNotNull(_ value: Any?, forKey key: ObservableKey) {
         guard let value: Any = value else { return }
         
         addChange(value, forKey: key)
