@@ -1290,23 +1290,26 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     .filter(GroupMember.Columns.groupId == threadId)
                     .group(GroupMember.Columns.profileId),
                 onTap: .callback { _, memberInfo in
-                    dependencies[singleton: .storage].write { db in
-                        try SessionThread.upsert(
-                            db,
-                            id: memberInfo.profileId,
-                            variant: .contact,
-                            values: SessionThread.TargetValues(
-                                creationDateTimestamp: .useExistingOrSetTo(
-                                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                    dependencies[singleton: .storage].writeAsync(
+                        updates: { db in
+                            try SessionThread.upsert(
+                                db,
+                                id: memberInfo.profileId,
+                                variant: .contact,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .useExistingOrSetTo(
+                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                    ),
+                                    shouldBeVisible: .useExisting,
+                                    isDraft: .useExistingOrSetTo(true)
                                 ),
-                                shouldBeVisible: .useExisting,
-                                isDraft: .useExistingOrSetTo(true)
-                            ),
-                            using: dependencies
-                        )
-                    }
-                    
-                    transitionToConversation(memberInfo.profileId)
+                                using: dependencies
+                            )
+                        },
+                        completion: { _ in
+                            transitionToConversation(memberInfo.profileId)
+                        }
+                    )
                 },
                 using: dependencies
             )
@@ -1506,29 +1509,37 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 }
                 
                 /// Update the nickname
-                dependencies[singleton: .storage].write { db in
-                    try Profile
-                        .filter(id: threadId)
-                        .updateAllAndConfig(
-                            db,
-                            Profile.Columns.nickname.set(to: finalNickname),
-                            using: dependencies
-                        )
-                }
-                modal.dismiss(animated: true)
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        try Profile
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                Profile.Columns.nickname.set(to: finalNickname),
+                                using: dependencies
+                            )
+                    },
+                    completion: { _ in
+                        modal.dismiss(animated: true)
+                    }
+                )
             },
             onCancel: { [dependencies, threadId] modal in
                 /// Remove the nickname
-                dependencies[singleton: .storage].write { db in
-                    try Profile
-                        .filter(id: threadId)
-                        .updateAllAndConfig(
-                            db,
-                            Profile.Columns.nickname.set(to: nil),
-                            using: dependencies
-                        )
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        try Profile
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                Profile.Columns.nickname.set(to: nil),
+                                using: dependencies
+                            ),
+                    },
+                    completion: { _ in
+                        modal.dismiss(animated: true)
+                    }
                 }
-                modal.dismiss(animated: true)
             }
         )
     }
