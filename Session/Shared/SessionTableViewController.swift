@@ -700,7 +700,15 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     }
                 )
         )
-        present(confirmationModal, animated: true, completion: nil)
+        
+        // If the viewModel is a NavigatableStateHolder then navigate using that (for testing
+        // purposes), otherwise fallback to standard navigation
+        if let navStateHolder: NavigatableStateHolder = viewModel as? NavigatableStateHolder {
+            navStateHolder.transitionToScreen(confirmationModal, transitionType: .present)
+        }
+        else {
+            present(confirmationModal, animated: true, completion: nil)
+        }
     }
     
     private func manuallyReload(

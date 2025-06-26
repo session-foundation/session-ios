@@ -247,38 +247,19 @@ extension GroupMember: ProfileAssociated {
         /// • Current user
         /// • Admin, sorted as NameSortingOrder
         /// • Member, sorted as NameSortingOrder
-        
         let userSessionId: SessionId = lhs.currentUserSessionId
-        /// Current user at the top
-        if let currentUserIndex: Int = [lhs.profileId, rhs.profileId].firstIndex(of: userSessionId.hexString)  {
-            return (currentUserIndex == 0)
-        }
-
-        let desiredStatusOrder: [RoleStatus] = [
-            .failed, .notSentYet, .sending, .pending, .unknown, .pendingRemoval
-        ]
         
-        /// If the role and status match then we want to sort by no-name members by id, then by name
-        guard lhs.value.role != rhs.value.role || lhs.value.roleStatus != rhs.value.roleStatus else {
-            switch (lhs.profile?.name, rhs.profile?.name) {
-                case (.none, .some): return true
-                case (.some, .none): return false
-                case (.none, .none): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
-                case (.some, .some): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
-            }
-        }
-        
-        switch (lhs.value.role, lhs.value.roleStatus, rhs.value.role, rhs.value.roleStatus) {
-            /// admin before standard
-            case (.admin, _, .standard, _): return true
-            case (.standard, _ , .admin, _): return false
+        switch (lhs.profileId, rhs.profileId, lhs.value.role, rhs.value.role) {
+            /// Current user first
+            case (userSessionId.hexString, _, _, _): return true
+            case (_, userSessionId.hexString, _, _): return false
                 
-            /// Otherwise we should order based on the status position in `desiredStatusOrder`
-            default:
-                let lhsIndex = desiredStatusOrder.firstIndex(of: lhs.value.roleStatus)
-                let rhsIndex = desiredStatusOrder.firstIndex(of: rhs.value.roleStatus)
+            /// Admin before standard
+            case (_, _, .admin, .standard): return true
+            case (_, _, .standard, .admin): return false
                 
-                return ((lhsIndex ?? desiredStatusOrder.endIndex) < rhsIndex ?? desiredStatusOrder.endIndex)
+            /// Otherwise we should sort by NameSortingOrder
+            default: return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
         }
     }
 }
