@@ -66,7 +66,6 @@ class LibSessionGroupMembersSpec: QuickSpec {
                     name: "TestGroup",
                     description: nil,
                     displayPictureUrl: nil,
-                    displayPictureFilename: nil,
                     displayPictureEncryptionKey: nil,
                     members: [],
                     using: dependencies

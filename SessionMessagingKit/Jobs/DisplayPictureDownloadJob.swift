@@ -141,7 +141,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     }
                     
                     /// Kick off a task to load the image into the cache (assuming we want to render it soon)
-                    Task.detached(priority: .userInitiated) {
+                    Task(priority: .userInitiated) {
                         await dependencies[singleton: .imageDataManager].load(
                             .url(URL(fileURLWithPath: filePath))
                         )

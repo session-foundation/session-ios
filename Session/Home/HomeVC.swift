@@ -417,7 +417,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     runAndClearInitialChangeCallback = nil
                 }
                 
-                dataChangeTask = Task.detached(priority: .userInitiated) { [weak self, stream = viewModel.createStateStream()] in
+                dataChangeTask = Task(priority: .userInitiated) { [weak self, stream = viewModel.createStateStream()] in
                     do {
                         for try await state in stream {
                             await MainActor.run { [weak self] in

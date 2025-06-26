@@ -133,6 +133,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                 crypto
                     .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
                     .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
+                crypto
+                    .when { $0.generate(.hash(message: .any)) }
+                    .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
             }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
@@ -238,6 +241,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                 cache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
                 cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
             }
+        )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
@@ -354,9 +360,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     expect(dbValue?.name).to(equal("TestGroupName"))
                     expect(dbValue?.formationTimestamp).to(equal(1234567890))
                     expect(dbValue?.displayPictureUrl).to(beNil())
-                    expect(dbValue?.displayPictureFilename).to(beNil())
                     expect(dbValue?.displayPictureEncryptionKey).to(beNil())
-                    expect(dbValue?.lastDisplayPictureUpdate).to(equal(1234567890))
                     expect(dbValue?.groupIdentityPrivateKey?.toHexString()).to(equal(groupSecretKey.toHexString()))
                     expect(dbValue?.authData).to(beNil())
                     expect(dbValue?.invited).to(beFalse())
@@ -674,8 +678,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         
                         expect(groups?.first?.displayPictureUrl).to(equal("http://filev2.getsession.org/file/1"))
-                        expect(groups?.first?.displayPictureFilename)
-                            .to(equal("00000000-0000-0000-0000-000000000000.jpg"))
                         expect(groups?.first?.displayPictureEncryptionKey)
                             .to(equal(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 })))
                     }

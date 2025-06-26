@@ -112,6 +112,11 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
         functionConsumer.reset()
     }
     
+    internal func removeMocksFor<R>(_ callBlock: @escaping (inout T) throws -> R) {
+        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
+        functionConsumer.removeBuilder(builder.build)
+    }
+    
     internal func when<R>(_ callBlock: @escaping (inout T) throws -> R) -> MockFunctionBuilder<T, R> {
         let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
         functionConsumer.addBuilder(builder.build)
@@ -926,6 +931,29 @@ internal class FunctionConsumer: MockFunctionHandler {
     
     fileprivate func addBuilder(_ build: @escaping () throws -> MockFunction) {
         _functionBuilders.performUpdate { $0.appending(build) }
+    }
+    
+    fileprivate func removeBuilder(_ build: @escaping () throws -> MockFunction) {
+        let oldTrackCalls: Bool = trackCalls
+        trackCalls = false
+        
+        guard let builtFunction: MockFunction = try? build() else {
+            trackCalls = oldTrackCalls
+            return
+        }
+        
+        _functionBuilders.performUpdate {
+            $0.filter { existingBuild in
+                guard let existingFunction: MockFunction = try? existingBuild() else { return true }
+                
+                /// If the function name and number of parameters match then assume it's the same function and remove it
+                return (
+                    builtFunction.name != existingFunction.name ||
+                    builtFunction.parameterCount != existingFunction.parameterCount
+                )
+            }
+        }
+        trackCalls = oldTrackCalls
     }
     
     fileprivate func reset() {

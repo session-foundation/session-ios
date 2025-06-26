@@ -77,7 +77,6 @@ class LibSessionSpec: QuickSpec {
                     name: "TestGroup",
                     description: nil,
                     displayPictureUrl: nil,
-                    displayPictureFilename: nil,
                     displayPictureEncryptionKey: nil,
                     members: [],
                     using: dependencies
@@ -335,7 +334,6 @@ class LibSessionSpec: QuickSpec {
                                 name: "Testname",
                                 description: nil,
                                 displayPictureUrl: nil,
-                                displayPictureFilename: nil,
                                 displayPictureEncryptionKey: nil,
                                 members: [],
                                 using: dependencies
@@ -360,7 +358,6 @@ class LibSessionSpec: QuickSpec {
                                 name: "Testname",
                                 description: nil,
                                 displayPictureUrl: nil,
-                                displayPictureFilename: nil,
                                 displayPictureEncryptionKey: nil,
                                 members: [],
                                 using: dependencies
@@ -383,7 +380,6 @@ class LibSessionSpec: QuickSpec {
                                 name: "Testname",
                                 description: nil,
                                 displayPictureUrl: nil,
-                                displayPictureFilename: nil,
                                 displayPictureEncryptionKey: nil,
                                 members: [(
                                     id: "123456",
@@ -410,7 +406,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [],
                             using: dependencies
@@ -434,7 +429,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: "TestUrl",
-                            displayPictureFilename: "TestFilename",
                             displayPictureEncryptionKey: Data([1, 2, 3]),
                             members: [],
                             using: dependencies
@@ -450,7 +444,6 @@ class LibSessionSpec: QuickSpec {
                         ))
                     expect(createGroupOutput.group.name).to(equal("Testname"))
                     expect(createGroupOutput.group.displayPictureUrl).to(equal("TestUrl"))
-                    expect(createGroupOutput.group.displayPictureFilename).to(equal("TestFilename"))
                     expect(createGroupOutput.group.displayPictureEncryptionKey).to(equal(Data([1, 2, 3])))
                     expect(createGroupOutput.group.formationTimestamp).to(equal(1234567890))
                     expect(createGroupOutput.group.invited).to(beFalse())
@@ -464,15 +457,14 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: Profile(
                                     id: "051111111111111111111111111111111111111111111111111111111111111111",
                                     name: "TestName",
-                                    profilePictureUrl: "testUrl",
-                                    profileEncryptionKey: Data([1, 2, 3])
+                                    displayPictureUrl: "testUrl",
+                                    displayPictureEncryptionKey: Data([1, 2, 3])
                                 )
                             )],
                             using: dependencies
@@ -510,7 +502,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
@@ -538,7 +529,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
@@ -564,7 +554,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
@@ -640,7 +629,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
@@ -681,7 +669,6 @@ class LibSessionSpec: QuickSpec {
                             name: "Testname",
                             description: nil,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",

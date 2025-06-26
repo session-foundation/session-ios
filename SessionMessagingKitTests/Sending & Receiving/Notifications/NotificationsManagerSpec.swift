@@ -257,8 +257,7 @@ class NotificationsManagerSpec: QuickSpec {
                         quote: VisibleMessage.VMQuote(
                             timestamp: 1234567880,
                             authorId: "05\(TestConstants.publicKey)",
-                            text: "TestQuote",
-                            attachmentId: nil
+                            text: "TestQuote"
                         )
                     )
                     
@@ -1071,7 +1070,7 @@ class NotificationsManagerSpec: QuickSpec {
                         displayNameRetriever: { _ in "TestMention" },
                         using: dependencies
                     )
-                }.to(equal("Hey TestMention"))
+                }.to(equal("Hey @TestMention"))
             }
             
             // MARK: -- returns a generic message if no interaction variant is provided
@@ -1301,8 +1300,9 @@ class NotificationsManagerSpec: QuickSpec {
                 })
             }
             
-            // MARK: -- checks for a dedupe record if the conversation is a message request
-            it("checks for a dedupe record if the conversation is a message request") {
+            // MARK: -- checks whether it should show for messages requests if the message is a message request
+            it("checks whether it should show for messages requests if the message is a message request") {
+                var didCallShouldShowForMessageRequest: Bool = false
                 mockLibSessionCache
                     .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                     .thenReturn(true)
@@ -1321,12 +1321,13 @@ class NotificationsManagerSpec: QuickSpec {
                         currentUserSessionIds: [],
                         displayNameRetriever: { _ in nil },
                         groupNameRetriever: { _, _ in nil },
-                        shouldShowForMessageRequest: { false }
+                        shouldShowForMessageRequest: {
+                            didCallShouldShowForMessageRequest = true
+                            return false
+                        }
                     )
-                }.toNot(throwError())
-                expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.hasAtLeastOneDedupeRecord(threadId: "05\(TestConstants.publicKey)")
-                })
+                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage("05\(TestConstants.publicKey)")))
+                expect(didCallShouldShowForMessageRequest).to(beTrue())
             }
             
             // MARK: -- adds the notification request

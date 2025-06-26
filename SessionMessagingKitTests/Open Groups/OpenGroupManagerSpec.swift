@@ -253,22 +253,7 @@ class OpenGroupManagerSpec: QuickSpec {
             }
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { fileManager in
-                fileManager.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
-                fileManager
-                    .when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }
-                    .thenReturn(())
-                fileManager
-                    .when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }
-                    .thenReturn(())
-                fileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
-                fileManager.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
-                fileManager.when { try $0.removeItem(atPath: .any) }.thenReturn(())
-                fileManager
-                    .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                    .thenReturn(true)
-                fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
         @TestState var userGroupsInitResult: Int32! = {

@@ -333,7 +333,7 @@ public enum ObservationBuilder {
                 fetch: fetch
             )
             
-            let mainObservationTask = Task.detached(priority: .userInitiated) {
+            let mainObservationTask = Task(priority: .userInitiated) {
                 do {
                     for try await value in stream {
                         if Task.isCancelled { break }
@@ -370,7 +370,7 @@ public enum ObservationBuilder {
             let debouncer: DebounceTaskManager<T> = DebounceTaskManager(debounceInterval: debounceInterval)
             let taskManager: MultiTaskManager<Void> = MultiTaskManager()
             
-            let mainObservationTask = Task.detached(priority: .userInitiated) {
+            let mainObservationTask = Task(priority: .userInitiated) {
                 let initialInfo: (initialValue: T, streams: [AsyncStream<Any?>])
                 
                 do {

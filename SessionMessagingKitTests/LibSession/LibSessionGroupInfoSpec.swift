@@ -68,7 +68,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     name: "TestGroup",
                     description: nil,
                     displayPictureUrl: nil,
-                    displayPictureFilename: nil,
                     displayPictureEncryptionKey: nil,
                     members: [],
                     using: dependencies
@@ -260,8 +259,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 .updateAll(
                                     db,
                                     ClosedGroup.Columns.displayPictureUrl.set(to: "TestUrl"),
-                                    ClosedGroup.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3])),
-                                    ClosedGroup.Columns.displayPictureFilename.set(to: "TestFilename")
+                                    ClosedGroup.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3]))
                                 )
                         }
                         
@@ -279,8 +277,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         }
                         expect(latestGroup?.displayPictureUrl).to(beNil())
                         expect(latestGroup?.displayPictureEncryptionKey).to(beNil())
-                        expect(latestGroup?.displayPictureFilename).to(beNil())
-                        expect(latestGroup?.lastDisplayPictureUpdate).to(equal(1234567891))
                     }
                     
                     // MARK: ------ schedules a display picture download job if there is a new one

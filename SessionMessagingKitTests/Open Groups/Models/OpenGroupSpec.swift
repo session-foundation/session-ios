@@ -95,8 +95,7 @@ class OpenGroupSpec: QuickSpec {
                             outboxLatestMessageId: 0,
                             pollFailureCount: 0,
                             permissions: ---,
-                            displayPictureFilename: null,
-                            lastDisplayPictureUpdate: 0.0
+                            displayPictureOriginalUrl: null
                         )
                         """))
                 }

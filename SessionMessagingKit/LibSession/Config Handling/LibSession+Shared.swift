@@ -935,7 +935,7 @@ public extension LibSession.Cache {
 
 public extension Dependencies {
     func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (() -> Void)? = nil) {
-        Task.detached(priority: .userInitiated) { [dependencies = self] in
+        Task(priority: .userInitiated) { [dependencies = self] in
             let targetVariant: ConfigDump.Variant
             
             switch key {
@@ -958,7 +958,7 @@ public extension Dependencies {
     }
     
     func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
-        Task.detached(priority: .userInitiated) { [dependencies = self] in
+        Task(priority: .userInitiated) { [dependencies = self] in
             let mutation: LibSession.Mutation? = try? await dependencies.mutate(cache: .libSession) { cache in
                 try await cache.perform(for: .local) {
                     await cache.set(key, value)
@@ -974,7 +974,7 @@ public extension Dependencies {
     }
     
     func notifyAsync(_ key: LibSession.ObservableKey) {
-        Task.detached(priority: .userInitiated) { [dependencies = self] in
+        Task(priority: .userInitiated) { [dependencies = self] in
             await dependencies.mutate(cache: .libSession) { cache in
                 await cache.addPendingChange(key: key, value: nil)
                 await cache.yieldAllPendingChanges()

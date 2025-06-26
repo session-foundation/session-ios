@@ -319,8 +319,8 @@ class MessageDeduplicationSpec: QuickSpec {
                     })
                 }
                 
-                // MARK: ---- creates a record with no expiration for a config ProcessedMessage
-                it("creates a record with no expiration for a config ProcessedMessage") {
+                // MARK: ---- does not create records for config ProcessedMessages
+                it("does not create records for config ProcessedMessages") {
                     mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
@@ -341,11 +341,8 @@ class MessageDeduplicationSpec: QuickSpec {
                     
                     let records: [MessageDeduplication]? = mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records?.first?.threadId).to(equal("testThreadId"))
-                    expect(records?.first?.uniqueIdentifier).to(equal("testId"))
-                    expect(records?.first?.expirationTimestampSeconds).to(beNil())
-                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    expect(records).to(beEmpty())
+                    expect(mockExtensionHelper).toNot(call {
                         try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
                     })
                 }

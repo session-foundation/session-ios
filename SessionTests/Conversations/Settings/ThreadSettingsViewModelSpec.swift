@@ -283,7 +283,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 // MARK: ---- has an edit icon
                 it("has an edit icon") {
                     let item: Item? = item(section: .conversationInfo, id: .displayName)
-                    expect(item?.leadingAccessory).toNot(beNil())
+                    expect(item?.trailingAccessory).toNot(beNil())
                 }
                 
                 // MARK: ---- presents a confirmation modal when tapped
@@ -396,9 +396,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             groupDescription: nil,
                             formationTimestamp: 1234567890,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
-                            lastDisplayPictureUpdate: nil,
                             shouldPoll: false,
                             groupIdentityPrivateKey: nil,
                             authData: nil,
@@ -480,7 +478,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     // MARK: ---- has an edit icon
                     it("has an edit icon") {
                         let item: Item? = item(section: .conversationInfo, id: .displayName)
-                        expect(item?.leadingAccessory).toNot(beNil())
+                        expect(item?.trailingAccessory).toNot(beNil())
                     }
                     
                     // MARK: ---- presents a confirmation modal when tapped
@@ -509,9 +507,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             groupDescription: nil,
                             formationTimestamp: 1234567890,
                             displayPictureUrl: nil,
-                            displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
-                            lastDisplayPictureUpdate: nil,
                             shouldPoll: false,
                             groupIdentityPrivateKey: nil,
                             authData: nil,
@@ -598,7 +594,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     // MARK: ---- has an edit icon
                     it("has an edit icon") {
                         let item: Item? = item(section: .conversationInfo, id: .displayName)
-                        expect(item?.leadingAccessory).toNot(beNil())
+                        expect(item?.trailingAccessory).toNot(beNil())
                     }
                     
                     // MARK: ---- presents a confirmation modal when tapped

@@ -39,26 +39,7 @@ class ExtensionHelperSpec: QuickSpec {
             }
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { fileManager in
-                fileManager.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
-                fileManager
-                    .when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }
-                    .thenReturn(())
-                fileManager
-                    .when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }
-                    .thenReturn(())
-                fileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                fileManager.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
-                fileManager.when { try $0.removeItem(atPath: .any) }.thenReturn(())
-                fileManager
-                    .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                    .thenReturn(true)
-                fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
-                fileManager.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
-                fileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                fileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
-                fileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
             initialSetup: { keychain in
@@ -387,6 +368,8 @@ class ExtensionHelperSpec: QuickSpec {
             context("when checking for dedupe records") {
                 // MARK: ---- returns true when a record exists
                 it("returns true when a record exists") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
                     expect(extensionHelper.dedupeRecordExists(
                         threadId: "threadId",
                         uniqueIdentifier: "uniqueId"
@@ -818,6 +801,7 @@ class ExtensionHelperSpec: QuickSpec {
                 // MARK: ---- does nothing if the existing replicated dump was newer than the fetched one
                 it("does nothing if the existing replicated dump was newer than the fetched one") {
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567891)])
@@ -1230,6 +1214,8 @@ class ExtensionHelperSpec: QuickSpec {
                 
                 // MARK: ---- returns null if retrieving the conversation hashes throws
                 it("returns null if retrieving the conversation hashes throws") {
+                    mockFileManager.removeMocksFor { try $0.contentsOfDirectory(atPath: .any) }
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])

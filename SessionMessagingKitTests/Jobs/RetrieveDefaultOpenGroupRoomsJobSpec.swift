@@ -460,8 +460,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         name: "TestExisting",
                         imageId: "10",
                         userCount: 0,
-                        infoUpdates: 10,
-                        displayPictureFilename: "TestFilename"
+                        infoUpdates: 10
                     )
                     .insert(db)
                 }
@@ -550,7 +549,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         imageId: "12",
                         userCount: 0,
                         infoUpdates: 12,
-                        displayPictureFilename: "TestFilename"
+                        displayPictureOriginalUrl: "TestUrl"
                     )
                     .insert(db)
                 }
@@ -569,7 +568,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             }
             
             // MARK: -- updates the cache with the default rooms
-            it("does not schedule a display picture download if the imageId matches and the image has already been downloaded") {
+            it("updates the cache with the default rooms") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
                     scheduler: DispatchQueue.main,
@@ -612,8 +611,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                                     name: "TestRoomName2",
                                     imageId: "12",
                                     userCount: 0,
-                                    infoUpdates: 12,
-                                    displayPictureFilename: nil
+                                    infoUpdates: 12
                                 )
                             )
                         ])

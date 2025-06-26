@@ -26,7 +26,7 @@ public class ObservingDatabase {
             afterNextTransactionNested(using: dependencies) { [weak self] _ in
                 guard let changes: [Change] = self?.changes, !changes.isEmpty else { return }
                 
-                Task.detached(priority: .medium) {
+                Task(priority: .medium) {
                     await SNUtilitiesKit.observationNotifier.notify(changes)
                 }
             }
@@ -57,6 +57,12 @@ public extension FetchableRecord where Self: TableRecord {
     
     static func fetchCount(_ db: ObservingDatabase) throws -> Int {
         return try self.fetchCount(db.originalDb)
+    }
+}
+
+public extension FetchableRecord where Self: TableRecord, Self: Hashable {
+    static func fetchSet(_ db: ObservingDatabase) throws -> Set<Self> {
+        return try self.fetchSet(db.originalDb)
     }
 }
 
@@ -376,7 +382,7 @@ public extension ObservingDatabase {
     ) {
         self.originalDb.afterNextTransaction(
             onCommit: { [dependencies] db in onCommit(ObservingDatabase(db, using: dependencies)) },
-            onRollback: { [dependencies] db in onRollback(ObservingDatabase(db, using: dependencies)) },
+            onRollback: { [dependencies] db in onRollback(ObservingDatabase(db, using: dependencies)) }
         )
     }
     

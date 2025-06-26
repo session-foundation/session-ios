@@ -316,7 +316,7 @@ public class DisplayPictureManager {
             }
             .map { [dependencies] downloadUrl, finalFilePath, newEncryptionKey -> UploadResult in
                 /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
-                Task.detached(priority: .userInitiated) {
+                Task(priority: .userInitiated) {
                     await dependencies[singleton: .imageDataManager].load(
                         .url(URL(fileURLWithPath: finalFilePath))
                     )

@@ -465,5 +465,8 @@ extension Mock where T == LibSessionCacheType {
         self.when { await $0.set(.themePrimaryColor, Theme.PrimaryColor.mock) }.thenReturn(())
         self.when { await $0.addPendingChange(key: .any, value: anyAny()) }.thenReturn(())
         self.when { await $0.yieldAllPendingChanges() }.thenReturn(())
+        self
+            .when { $0.displayPictureUrl(threadId: .any, threadVariant: .any) }
+            .thenReturn(nil)
     }
 }

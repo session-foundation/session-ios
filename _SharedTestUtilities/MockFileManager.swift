@@ -86,3 +86,31 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
         try mockThrowingNoReturn(args: [attributes, path])
     }
 }
+
+// MARK: - Convenience
+
+extension Mock where T == FileManagerType {
+    func defaultInitialSetup() {
+        self.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
+        self.when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }.thenReturn(())
+        self.when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }.thenReturn(())
+        self.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+        self.when { $0.fileExists(atPath: .any, isDirectory: .any) }.thenReturn(false)
+        self.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
+        self.when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }.thenReturn(true)
+        self.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
+        self.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
+        self.when { try $0.removeItem(atPath: .any) }.thenReturn(())
+        self.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+        self.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
+        self.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
+        self.when {
+            try $0.createDirectory(
+                atPath: .any,
+                withIntermediateDirectories: .any,
+                attributes: .any
+            )
+        }.thenReturn(())
+        self.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
+    }
+}
