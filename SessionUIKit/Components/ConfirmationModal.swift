@@ -100,7 +100,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var textFieldErrorLabel: UILabel = {
+    internal lazy var textFieldErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .danger
@@ -162,7 +162,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var textViewErrorLabel: UILabel = {
+    internal lazy var textViewErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .danger
