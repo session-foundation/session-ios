@@ -148,26 +148,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             return []
         }
         
+        let isGroup: Bool = (
+            threadViewModel.threadVariant == .legacyGroup ||
+            threadViewModel.threadVariant == .group
+        )
         let currentUserKickedFromGroup: Bool = (
-            (
-                threadViewModel.threadVariant == .legacyGroup ||
-                threadViewModel.threadVariant == .group
-            ) &&
+            isGroup &&
             threadViewModel.currentUserIsClosedGroupMember != true
         )
         
         let currentUserIsClosedGroupMember: Bool = (
-            (
-                threadViewModel.threadVariant == .legacyGroup ||
-                threadViewModel.threadVariant == .group
-            ) &&
+            isGroup &&
             threadViewModel.currentUserIsClosedGroupMember == true
         )
         let currentUserIsClosedGroupAdmin: Bool = (
-            (
-                threadViewModel.threadVariant == .legacyGroup ||
-                threadViewModel.threadVariant == .group
-            ) &&
+            isGroup &&
             threadViewModel.currentUserIsClosedGroupAdmin == true
         )
         let canEditDisplayName: Bool = (
@@ -1534,12 +1529,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 db,
                                 Profile.Columns.nickname.set(to: nil),
                                 using: dependencies
-                            ),
+                            )
                     },
                     completion: { _ in
                         modal.dismiss(animated: true)
                     }
-                }
+                )
             }
         )
     }
