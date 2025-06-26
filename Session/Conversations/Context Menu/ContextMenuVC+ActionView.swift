@@ -18,8 +18,8 @@ extension ContextMenuVC {
         
         // MARK: - UI
         
-        private lazy var iconContainerView: UIImageView = {
-            let result: UIImageView = UIImageView()
+        private lazy var iconContainerView: UIView = {
+            let result: UIView = UIView()
             result.themeTintColor = action.themeColor
             result.set(.width, to: ActionView.iconImageViewSize)
             result.set(.height, to: ActionView.iconImageViewSize)
