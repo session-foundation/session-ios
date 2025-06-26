@@ -265,10 +265,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         identifier: "Username",
                         label: threadViewModel.displayName
                     ),
-                    confirmationInfo: self.updateDisplayNameModal(
-                        threadViewModel: threadViewModel,
-                        currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                    )
+                    onTap: { [weak self] in
+                        guard
+                            let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
+                                threadViewModel: threadViewModel,
+                                currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                            )
+                        else { return }
+                        
+                        self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                    }
                 ),
                 
                 (threadViewModel.displayName == threadViewModel.contactDisplayName ? nil :

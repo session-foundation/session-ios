@@ -263,7 +263,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- has the correct content
+                    // MARK: ------ has the correct content
                     it("has the correct content") {
                         expect(modal?.info.title).to(equal("nicknameSet".localized()))
                         expect(modal?.info.body).to(equal(
@@ -283,7 +283,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         expect(modal?.info.cancelTitle).to(equal("remove".localized()))
                     }
                     
-                    // MARK: ---- does nothing if the name contains only white space
+                    // MARK: ------ does nothing if the name contains only white space
                     it("does nothing if the name contains only white space") {
                         onChange?("   ")
                         modal?.confirmationPressed()
@@ -291,23 +291,17 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         expect(screenTransitions.count).to(equal(1))
                     }
                     
-                    // MARK: ---- shows an error modal when the updated nickname is too long
+                    // MARK: ------ shows an error modal when the updated nickname is too long
                     it("shows an error modal when the updated nickname is too long") {
                         onChange?([String](Array(repeating: "1", count: 101)).joined())
                         modal?.confirmationPressed()
                         
-                        expect(screenTransitions.count).to(equal(2))
-                        expect(screenTransitions.last?.destination).to(beAKindOf(ConfirmationModal.self))
-                        expect(screenTransitions.last?.transition).to(equal(TransitionType.present))
-                        
-                        let modal2: ConfirmationModal? = (screenTransitions.last?.destination as? ConfirmationModal)
-                        expect(modal2?.info.title).to(equal("theError".localized()))
-                        expect(modal2?.info.body).to(equal(.text("nicknameErrorShorter".localized())))
-                        expect(modal2?.info.confirmTitle).to(beNil())
-                        expect(modal2?.info.cancelTitle).to(equal("okay".localized()))
+                        expect(screenTransitions.count).to(equal(1))
+                        expect(modal?.textFieldErrorLabel.text)
+                            .to(equal("nicknameErrorShorter".localized()))
                     }
                     
-                    // MARK: ---- updates the contacts nickname when valid
+                    // MARK: ------ updates the contacts nickname when valid
                     it("updates the contacts nickname when valid") {
                         onChange?("TestNickname")
                         modal?.confirmationPressed()
@@ -316,7 +310,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         expect(profiles?.map { $0.nickname }.asSet()).to(equal([nil, "TestNickname"]))
                     }
                     
-                    // MARK: ---- removes the nickname when cancel is pressed
+                    // MARK: ------ removes the nickname when cancel is pressed
                     it("removes the nickname when cancel is pressed") {
                         mockStorage.write { db in
                             try Profile
@@ -392,13 +386,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 // MARK: ---- when the user is a standard member
                 context("when the user is a standard member") {
-                    // MARK: ---- has no edit icon
+                    // MARK: ------ has no edit icon
                     it("has no edit icon") {
                         let item: Item? = item(section: .conversationInfo, id: .displayName)
                         expect(item?.leadingAccessory).to(beNil())
                     }
                     
-                    // MARK: ---- does nothing when tapped
+                    // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
                         item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions).to(beEmpty())
@@ -431,13 +425,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         setupTestSubscriptions()
                     }
                     
-                    // MARK: ---- has an edit icon
+                    // MARK: ------ has an edit icon
                     it("has an edit icon") {
                         let item: Item? = item(section: .conversationInfo, id: .displayName)
                         expect(item?.trailingAccessory).toNot(beNil())
                     }
                     
-                    // MARK: ---- presents a confirmation modal when tapped
+                    // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
                         item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions.first?.destination).to(beAKindOf(ConfirmationModal.self))
@@ -503,13 +497,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 // MARK: ---- when the user is a standard member
                 context("when the user is a standard member") {
-                    // MARK: ---- has no edit icon
+                    // MARK: ------ has no edit icon
                     it("has no edit icon") {
                         let item: Item? = item(section: .conversationInfo, id: .displayName)
                         expect(item?.leadingAccessory).to(beNil())
                     }
                     
-                    // MARK: ---- does nothing when tapped
+                    // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
                         item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions).to(beEmpty())
@@ -547,361 +541,197 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         setupTestSubscriptions()
                     }
                     
-                    // MARK: ---- has an edit icon
+                    // MARK: ------ has an edit icon
                     it("has an edit icon") {
                         let item: Item? = item(section: .conversationInfo, id: .displayName)
                         expect(item?.trailingAccessory).toNot(beNil())
                     }
                     
-                    // MARK: ---- presents a confirmation modal when tapped
+                    // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
                         item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions.first?.destination).to(beAKindOf(ConfirmationModal.self))
                         expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
                     }
                     
-                    // MARK: ---- when updating the group info
+                    // MARK: ------ when updating the group info
                     context("when updating the group info") {
                         @TestState var onChange: ((String) -> ())?
                         @TestState var onChange2: ((String, String) -> ())?
                         @TestState var modal: ConfirmationModal?
                         
-                        // MARK: ------ and editing the group description is enabled
-                        context("and editing the group description is enabled") {
-                            beforeEach {
-                                dependencies[feature: .updatedGroupsAllowDescriptionEditing] = true
-                                viewModel = ThreadSettingsViewModel(
-                                    threadId: groupPubkey,
-                                    threadVariant: .group,
-                                    didTriggerSearch: {
-                                        didTriggerSearchCallbackTriggered = true
-                                    },
-                                    using: dependencies
-                                )
-                                setupTestSubscriptions()
-                                
-                                item(section: .conversationInfo, id: .displayName)?.onTap?()
-                                modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                                switch modal?.info.body {
-                                    case .input(_, _, let onChange_): onChange = onChange_
-                                    case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
-                                    default: break
-                                }
-                            }
+                        beforeEach {
+                            dependencies[feature: .updatedGroupsAllowDescriptionEditing] = true
+                            viewModel = ThreadSettingsViewModel(
+                                threadId: groupPubkey,
+                                threadVariant: .group,
+                                didTriggerSearch: {
+                                    didTriggerSearchCallbackTriggered = true
+                                },
+                                using: dependencies
+                            )
+                            setupTestSubscriptions()
                             
-                            // MARK: ---- has the correct content
-                            it("has the correct content") {
-                                expect(modal?.info.title).to(equal("groupInformationSet".localized()))
-                                expect(modal?.info.body).to(equal(
-                                    .dualInput(
-                                        explanation: ThemedAttributedString(string: "Group name and description are visible to all group members."),
-                                        firstInfo: ConfirmationModal.Info.Body.InputInfo(
-                                            placeholder: "groupNameEnter".localized(),
-                                            initialValue: "TestGroup",
-                                            accessibility: Accessibility(identifier: "Group name text field")
-                                        ),
-                                        secondInfo: ConfirmationModal.Info.Body.InputInfo(
-                                            placeholder: "groupDescriptionEnter".localized(),
-                                            initialValue: nil,
-                                            accessibility: Accessibility(identifier: "Group description text field")
-                                        ),
-                                        onChange: { _, _ in }
-                                    )
-                                ))
-                                expect(modal?.info.confirmTitle).to(equal("save".localized()))
-                                expect(modal?.info.cancelTitle).to(equal("cancel".localized()))
-                            }
-                            
-                            // MARK: ---- does nothing if the name contains only white space
-                            it("does nothing if the name contains only white space") {
-                                onChange2?("   ", "Test")
-                                modal?.confirmationPressed()
-                                
-                                expect(screenTransitions.count).to(equal(1))
-                            }
-                            
-                            // MARK: ---- shows an error modal when the updated name is too long
-                            it("shows an error modal when the updated name is too long") {
-                                onChange2?([String](Array(repeating: "1", count: 101)).joined(), "Test")
-                                modal?.confirmationPressed()
-                                
-                                expect(screenTransitions.count).to(equal(2))
-                                expect(screenTransitions.last?.destination).to(beAKindOf(ConfirmationModal.self))
-                                expect(screenTransitions.last?.transition).to(equal(TransitionType.present))
-                                
-                                let modal2: ConfirmationModal? = (screenTransitions.last?.destination as? ConfirmationModal)
-                                expect(modal2?.info.title).to(equal("theError".localized()))
-                                expect(modal2?.info.body).to(equal(.text("groupNameEnterShorter".localized())))
-                                expect(modal2?.info.confirmTitle).to(beNil())
-                                expect(modal2?.info.cancelTitle).to(equal("okay".localized()))
-                            }
-                            
-                            // MARK: ---- shows an error modal when the updated description is too long
-                            it("shows an error modal when the updated description is too long") {
-                                onChange2?("Test", [String](Array(repeating: "1", count: 2001)).joined())
-                                modal?.confirmationPressed()
-                                
-                                expect(screenTransitions.count).to(equal(2))
-                                expect(screenTransitions.last?.destination).to(beAKindOf(ConfirmationModal.self))
-                                expect(screenTransitions.last?.transition).to(equal(TransitionType.present))
-                                
-                                let modal2: ConfirmationModal? = (screenTransitions.last?.destination as? ConfirmationModal)
-                                expect(modal2?.info.title).to(equal("theError".localized()))
-                                expect(modal2?.info.body).to(equal(.text("Please enter a shorter group description.")))
-                                expect(modal2?.info.confirmTitle).to(beNil())
-                                expect(modal2?.info.cancelTitle).to(equal("okay".localized()))
-                            }
-                            
-                            // MARK: ---- updates the group name when valid
-                            it("updates the group name when valid") {
-                                onChange2?("TestNewGroupName", "Test")
-                                modal?.confirmationPressed()
-                                
-                                let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                                expect(groups?.map { $0.name }.asSet()).to(equal(["TestNewGroupName"]))
-                            }
-                            
-                            // MARK: ---- updates the group description when valid
-                            it("updates the group description when valid") {
-                                onChange2?("Test", "TestNewGroupDescription")
-                                modal?.confirmationPressed()
-                                
-                                let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                                expect(groups?.map { $0.groupDescription }.asSet()).to(equal(["TestNewGroupDescription"]))
-                            }
-                            
-                            // MARK: ---- inserts a control message
-                            it("inserts a control message") {
-                                onChange2?("TestNewGroupName", "")
-                                modal?.confirmationPressed()
-                                
-                                let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                                expect(interactions?.first?.variant).to(equal(.infoGroupInfoUpdated))
-                                expect(interactions?.first?.body)
-                                    .to(equal(
-                                        ClosedGroup.MessageInfo
-                                            .updatedName("TestNewGroupName")
-                                            .infoString(using: dependencies)
-                                    ))
-                            }
-                            
-                            // MARK: ---- schedules a control message to be sent
-                            it("schedules a control message to be sent") {
-                                onChange2?("TestNewGroupName", "")
-                                modal?.confirmationPressed()
-                                
-                                expect(mockJobRunner)
-                                    .to(call(matchingParameters: .all) {
-                                        $0.add(
-                                            .any,
-                                            job: Job(
-                                                variant: .messageSend,
-                                                behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
-                                                threadId: groupPubkey,
-                                                interactionId: nil,
-                                                details: MessageSendJob.Details(
-                                                    destination: .closedGroup(groupPublicKey: groupPubkey),
-                                                    message: try GroupUpdateInfoChangeMessage(
-                                                        changeType: .name,
-                                                        updatedName: "TestNewGroupName",
-                                                        sentTimestampMs: UInt64(1234567890002),
-                                                        authMethod: Authentication.groupAdmin(
-                                                            groupSessionId: SessionId(.group, hex: groupPubkey),
-                                                            ed25519SecretKey: [1, 2, 3]
-                                                        ),
-                                                        using: dependencies
-                                                    ),
-                                                    requiredConfigSyncVariant: .groupInfo
-                                                )
-                                            ),
-                                            dependantJob: nil,
-                                            canStartJob: false
-                                        )
-                                    })
-                            }
-                            
-                            // MARK: ---- triggers a libSession change
-                            it("triggers a libSession change") {
-                                mockLibSessionCache
-                                    .when { $0.isAdmin(groupSessionId: .any) }
-                                    .thenReturn(true)
-                                
-                                onChange2?("Test", "TestNewGroupDescription")
-                                modal?.confirmationPressed()
-                                
-                                expect(mockLibSessionCache)
-                                    .to(call(matchingParameters: .all) {
-                                        try $0.performAndPushChange(
-                                            .any,
-                                            for: .userGroups,
-                                            sessionId: SessionId(.standard, hex: userPubkey),
-                                            change: { _ in }
-                                        )
-                                    })
-                                expect(mockLibSessionCache)
-                                    .to(call(matchingParameters: .all) {
-                                        try $0.performAndPushChange(
-                                            .any,
-                                            for: .groupInfo,
-                                            sessionId: SessionId(.group, hex: groupPubkey),
-                                            change: { _ in }
-                                        )
-                                    })
+                            item(section: .conversationInfo, id: .displayName)?.onTap?()
+                            modal = (screenTransitions.first?.destination as? ConfirmationModal)
+                            switch modal?.info.body {
+                                case .input(_, _, let onChange_): onChange = onChange_
+                                case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
+                                default: break
                             }
                         }
                         
-                        // MARK: ------ and editing the group description is disabled
-                        context("and editing the group description is disabled") {
-                            beforeEach {
-                                dependencies[feature: .updatedGroupsAllowDescriptionEditing] = false
-                                viewModel = ThreadSettingsViewModel(
-                                    threadId: groupPubkey,
-                                    threadVariant: .group,
-                                    didTriggerSearch: {
-                                        didTriggerSearchCallbackTriggered = true
-                                    },
-                                    using: dependencies
+                        // MARK: -------- has the correct content
+                        it("has the correct content") {
+                            expect(modal?.info.title).to(equal("updateGroupInformation".localized()))
+                            expect(modal?.info.body).to(equal(
+                                .dualInput(
+                                    explanation: "updateGroupInformationDescription"
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                                    firstInfo: ConfirmationModal.Info.Body.InputInfo(
+                                        placeholder: "groupNameEnter".localized(),
+                                        initialValue: "TestGroup",
+                                        clearButton: true,
+                                        accessibility: Accessibility(identifier: "Group name text field"),
+                                        inputChecker: { _ in nil }
+                                    ),
+                                    secondInfo: ConfirmationModal.Info.Body.InputInfo(
+                                        placeholder: "groupDescriptionEnter".localized(),
+                                        initialValue: nil,
+                                        clearButton: true,
+                                        accessibility: Accessibility(identifier: "Group description text field"),
+                                        inputChecker: { _ in nil }
+                                    ),
+                                    onChange: { _, _ in }
                                 )
-                                setupTestSubscriptions()
-                                
-                                item(section: .conversationInfo, id: .displayName)?.onTap?()
-                                modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                                switch modal?.info.body {
-                                    case .input(_, _, let onChange_): onChange = onChange_
-                                    default: break
-                                }
-                            }
+                            ))
+                            expect(modal?.info.confirmTitle).to(equal("save".localized()))
+                            expect(modal?.info.cancelTitle).to(equal("cancel".localized()))
+                        }
+                        
+                        // MARK: -------- does nothing if the name contains only white space
+                        it("does nothing if the name contains only white space") {
+                            onChange2?("   ", "Test")
+                            modal?.confirmationPressed()
                             
-                            // MARK: ---- has the correct content
-                            it("has the correct content") {
-                                expect(modal?.info.title).to(equal("groupInformationSet".localized()))
-                                expect(modal?.info.body).to(equal(
-                                    .input(
-                                        explanation: ThemedAttributedString(string: "groupNameVisible".localized()),
-                                        info: ConfirmationModal.Info.Body.InputInfo(
-                                            placeholder: "groupNameEnter".localized(),
-                                            initialValue: "TestGroup",
-                                            accessibility: Accessibility(identifier: "Group name text field")
-                                        ),
-                                        onChange: { _ in }
-                                    )
+                            expect(screenTransitions.count).to(equal(1))
+                        }
+                        
+                        // MARK: -------- updates the modal with an error when the updated name is too long
+                        it("updates the modal with an error when the updated name is too long") {
+                            onChange2?([String](Array(repeating: "1", count: 101)).joined(), "Test")
+                            modal?.confirmationPressed()
+                            
+                            expect(screenTransitions.count).to(equal(1))
+                            expect(modal?.textFieldErrorLabel.text)
+                                .to(equal("groupNameEnterShorter".localized()))
+                        }
+                        
+                        // MARK: -------- updates the modal with an error when the updated description is too long
+                        it("updates the modal with an error when the updated description is too long") {
+                            onChange2?("Test", [String](Array(repeating: "1", count: 2001)).joined())
+                            modal?.confirmationPressed()
+                            
+                            expect(screenTransitions.count).to(equal(1))
+                            expect(modal?.textViewErrorLabel.text)
+                                .to(equal("updateGroupInformationEnterShorterDescription".localized()))
+                        }
+                        
+                        // MARK: -------- updates the group name when valid
+                        it("updates the group name when valid") {
+                            onChange2?("TestNewGroupName", "Test")
+                            modal?.confirmationPressed()
+                            
+                            let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                            expect(groups?.map { $0.name }.asSet()).to(equal(["TestNewGroupName"]))
+                        }
+                        
+                        // MARK: -------- updates the group description when valid
+                        it("updates the group description when valid") {
+                            onChange2?("Test", "TestNewGroupDescription")
+                            modal?.confirmationPressed()
+                            
+                            let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                            expect(groups?.map { $0.groupDescription }.asSet()).to(equal(["TestNewGroupDescription"]))
+                        }
+                        
+                        // MARK: -------- inserts a control message
+                        it("inserts a control message") {
+                            onChange2?("TestNewGroupName", "")
+                            modal?.confirmationPressed()
+                            
+                            let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                            expect(interactions?.first?.variant).to(equal(.infoGroupInfoUpdated))
+                            expect(interactions?.first?.body)
+                                .to(equal(
+                                    ClosedGroup.MessageInfo
+                                        .updatedName("TestNewGroupName")
+                                        .infoString(using: dependencies)
                                 ))
-                                
-                                expect(modal?.info.confirmTitle).to(equal("save".localized()))
-                                expect(modal?.info.cancelTitle).to(equal("cancel".localized()))
-                            }
+                        }
+                        
+                        // MARK: -------- schedules a control message to be sent
+                        it("schedules a control message to be sent") {
+                            onChange2?("TestNewGroupName", "")
+                            modal?.confirmationPressed()
                             
-                            // MARK: ---- does nothing if the name contains only white space
-                            it("does nothing if the name contains only white space") {
-                                onChange?("   ")
-                                modal?.confirmationPressed()
-                                
-                                expect(screenTransitions.count).to(equal(1))
-                            }
-                            
-                            // MARK: ---- shows an error modal when the updated name is too long
-                            it("shows an error modal when the updated name is too long") {
-                                onChange?([String](Array(repeating: "1", count: 101)).joined())
-                                modal?.confirmationPressed()
-                                
-                                expect(screenTransitions.count).to(equal(2))
-                                expect(screenTransitions.last?.destination).to(beAKindOf(ConfirmationModal.self))
-                                expect(screenTransitions.last?.transition).to(equal(TransitionType.present))
-                                
-                                let modal2: ConfirmationModal? = (screenTransitions.last?.destination as? ConfirmationModal)
-                                expect(modal2?.info.title).to(equal("theError".localized()))
-                                expect(modal2?.info.body).to(equal(.text("groupNameEnterShorter".localized())))
-                                expect(modal2?.info.confirmTitle).to(beNil())
-                                expect(modal2?.info.cancelTitle).to(equal("okay".localized()))
-                            }
-                            
-                            // MARK: ---- updates the group name when valid
-                            it("updates the group name when valid") {
-                                onChange?("TestNewGroupName")
-                                modal?.confirmationPressed()
-                                
-                                let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                                expect(groups?.map { $0.name }.asSet()).to(equal(["TestNewGroupName"]))
-                            }
-                            
-                            // MARK: ---- inserts a control message
-                            it("inserts a control message") {
-                                onChange?("TestNewGroupName")
-                                modal?.confirmationPressed()
-                                
-                                let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                                expect(interactions?.first?.variant).to(equal(.infoGroupInfoUpdated))
-                                expect(interactions?.first?.body)
-                                    .to(equal(
-                                        ClosedGroup.MessageInfo
-                                            .updatedName("TestNewGroupName")
-                                            .infoString(using: dependencies)
-                                    ))
-                            }
-                            
-                            // MARK: ---- schedules a control message to be sent
-                            it("schedules a control message to be sent") {
-                                onChange?("TestNewGroupName")
-                                modal?.confirmationPressed()
-                                
-                                expect(mockJobRunner)
-                                    .to(call(matchingParameters: .all) {
-                                        $0.add(
-                                            .any,
-                                            job: Job(
-                                                variant: .messageSend,
-                                                behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
-                                                threadId: groupPubkey,
-                                                interactionId: nil,
-                                                details: MessageSendJob.Details(
-                                                    destination: .closedGroup(groupPublicKey: groupPubkey),
-                                                    message: try GroupUpdateInfoChangeMessage(
-                                                        changeType: .name,
-                                                        updatedName: "TestNewGroupName",
-                                                        sentTimestampMs: UInt64(1234567890002),
-                                                        authMethod: Authentication.groupAdmin(
-                                                            groupSessionId: SessionId(.group, hex: groupPubkey),
-                                                            ed25519SecretKey: [1, 2, 3]
-                                                        ),
-                                                        using: dependencies
+                            expect(mockJobRunner)
+                                .to(call(matchingParameters: .all) {
+                                    $0.add(
+                                        .any,
+                                        job: Job(
+                                            variant: .messageSend,
+                                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                                            threadId: groupPubkey,
+                                            interactionId: nil,
+                                            details: MessageSendJob.Details(
+                                                destination: .closedGroup(groupPublicKey: groupPubkey),
+                                                message: try GroupUpdateInfoChangeMessage(
+                                                    changeType: .name,
+                                                    updatedName: "TestNewGroupName",
+                                                    sentTimestampMs: UInt64(1234567890002),
+                                                    authMethod: Authentication.groupAdmin(
+                                                        groupSessionId: SessionId(.group, hex: groupPubkey),
+                                                        ed25519SecretKey: [1, 2, 3]
                                                     ),
-                                                    requiredConfigSyncVariant: .groupInfo
-                                                )
-                                            ),
-                                            dependantJob: nil,
-                                            canStartJob: false
-                                        )
-                                    })
-                            }
+                                                    using: dependencies
+                                                ),
+                                                requiredConfigSyncVariant: .groupInfo
+                                            )
+                                        ),
+                                        dependantJob: nil,
+                                        canStartJob: false
+                                    )
+                                })
+                        }
+                        
+                        // MARK: -------- triggers a libSession change
+                        it("triggers a libSession change") {
+                            mockLibSessionCache
+                                .when { $0.isAdmin(groupSessionId: .any) }
+                                .thenReturn(true)
                             
-                            // MARK: ---- triggers a libSession change
-                            it("triggers a libSession change") {
-                                mockLibSessionCache
-                                    .when { $0.isAdmin(groupSessionId: .any) }
-                                    .thenReturn(true)
-                                
-                                onChange?("TestNewGroupName")
-                                modal?.confirmationPressed()
-                                
-                                expect(mockLibSessionCache)
-                                    .to(call(matchingParameters: .all) {
-                                        try $0.performAndPushChange(
-                                            .any,
-                                            for: .userGroups,
-                                            sessionId: SessionId(.standard, hex: userPubkey),
-                                            change: { _ in }
-                                        )
-                                    })
-                                expect(mockLibSessionCache)
-                                    .to(call(matchingParameters: .all) {
-                                        try $0.performAndPushChange(
-                                            .any,
-                                            for: .groupInfo,
-                                            sessionId: SessionId(.group, hex: groupPubkey),
-                                            change: { _ in }
-                                        )
-                                    })
-                            }
+                            onChange2?("Test", "TestNewGroupDescription")
+                            modal?.confirmationPressed()
+                            
+                            expect(mockLibSessionCache)
+                                .to(call(matchingParameters: .all) {
+                                    try $0.performAndPushChange(
+                                        .any,
+                                        for: .userGroups,
+                                        sessionId: SessionId(.standard, hex: userPubkey),
+                                        change: { _ in }
+                                    )
+                                })
+                            expect(mockLibSessionCache)
+                                .to(call(matchingParameters: .all) {
+                                    try $0.performAndPushChange(
+                                        .any,
+                                        for: .groupInfo,
+                                        sessionId: SessionId(.group, hex: groupPubkey),
+                                        change: { _ in }
+                                    )
+                                })
                         }
                     }
                 }

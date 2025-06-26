@@ -209,8 +209,8 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                     )
             }
             
-            // MARK: -- has no footer button
-            it("has no footer button") {
+            // MARK: -- has a disabled footer button
+            it("has a disabled footer button") {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
@@ -222,11 +222,25 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                         )
                 )
                 
-                expect(footerButtonInfo).to(beNil())
+                expect(footerButtonInfo).to(equal(
+                    SessionButton.Info(
+                        style: .bordered,
+                        title: "set".localized(),
+                        isEnabled: false,
+                        accessibility: Accessibility(
+                            identifier: "Set button",
+                            label: "Set button"
+                        ),
+                        minWidth: 110,
+                        onTap: {}
+                    )
+                ))
             }
             
             // MARK: -- can change to another setting and change back
             it("can change to another setting and change back") {
+                var footerButtonInfo: SessionButton.Info?
+                
                 // Test settings: Mute
                 mockStorage.write { db in
                     try SessionThread
@@ -255,6 +269,31 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 
                 // Change to another setting
                 viewModel.tableData.first?.elements.first?.onTap?()
+                
+                cancellables.append(
+                    viewModel.footerButtonInfo
+                        .receive(on: ImmediateScheduler.shared)
+                        .sink(
+                            receiveCompletion: { _ in },
+                            receiveValue: { info in footerButtonInfo = info }
+                        )
+                )
+                
+                // Gets enabled
+                expect(footerButtonInfo).to(equal(
+                    SessionButton.Info(
+                        style: .bordered,
+                        title: "set".localized(),
+                        isEnabled: true,
+                        accessibility: Accessibility(
+                            identifier: "Set button",
+                            label: "Set button"
+                        ),
+                        minWidth: 110,
+                        onTap: {}
+                    )
+                ))
+                
                 // Change back
                 viewModel.tableData.first?.elements.last?.onTap?()
                 
@@ -280,8 +319,6 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                         )
                     )
                 
-                var footerButtonInfo: SessionButton.Info?
-                
                 cancellables.append(
                     viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
@@ -291,7 +328,20 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                         )
                 )
                 
-                expect(footerButtonInfo).to(beNil())
+                // Disabled again
+                expect(footerButtonInfo).to(equal(
+                    SessionButton.Info(
+                        style: .bordered,
+                        title: "set".localized(),
+                        isEnabled: false,
+                        accessibility: Accessibility(
+                            identifier: "Set button",
+                            label: "Set button"
+                        ),
+                        minWidth: 110,
+                        onTap: {}
+                    )
+                ))
             }
             
             // MARK: -- when changed from the previous setting
