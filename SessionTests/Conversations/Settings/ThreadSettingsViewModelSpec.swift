@@ -153,45 +153,6 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     expect(didTriggerSearchCallbackTriggered).to(beTrue())
                 }
-                
-                // MARK: ---- mutes a conversation
-                it("mutes a conversation") {
-                    item(section: .content, id: .notificationMute)?.onTap?()
-                    
-                    expect(
-                        mockStorage
-                            .read { db in try SessionThread.fetchOne(db, id: user2Pubkey) }?
-                            .mutedUntilTimestamp
-                    )
-                    .toNot(beNil())
-                }
-                
-                // MARK: ---- unmutes a conversation
-                it("unmutes a conversation") {
-                    mockStorage.write { db in
-                        try SessionThread
-                            .updateAll(
-                                db,
-                                SessionThread.Columns.mutedUntilTimestamp.set(to: 1234567890)
-                            )
-                    }
-                    
-                    expect(
-                        mockStorage
-                            .read { db in try SessionThread.fetchOne(db, id: user2Pubkey) }?
-                            .mutedUntilTimestamp
-                    )
-                    .toNot(beNil())
-                    
-                    item(section: .content, id: .notificationMute)?.onTap?()
-                
-                    expect(
-                        mockStorage
-                            .read { db in try SessionThread.fetchOne(db, id: user2Pubkey) }?
-                            .mutedUntilTimestamp
-                    )
-                    .to(beNil())
-                }
             }
             
             // MARK: -- with a note-to-self conversation
@@ -238,11 +199,6 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 it("does nothing when tapped") {
                     item(section: .conversationInfo, id: .displayName)?.onTap?()
                     expect(screenTransitions).to(beEmpty())
-                }
-                
-                // MARK: ---- has no mute button
-                it("has no mute button") {
-                    expect(item(section: .content, id: .notificationMute)).to(beNil())
                 }
             }
             

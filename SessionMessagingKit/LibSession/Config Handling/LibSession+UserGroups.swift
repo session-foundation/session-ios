@@ -19,7 +19,7 @@ public extension LibSession {
     static var sizeGroupAuthDataBytes: Int { 100 }
     
     static func isTooLong(groupName: String) -> Bool {
-        return (groupName.utf8CString.count > LibSession.sizeMaxGroupNameBytes)
+        return (groupName.bytes.count > LibSession.sizeMaxGroupNameBytes)
     }
 }
 

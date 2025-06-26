@@ -196,7 +196,7 @@ public extension DisappearingMessagesConfiguration {
     }
     
     var durationString: String {
-        floor(durationSeconds).formatted(format: .long)
+        floor(durationSeconds).formatted(format: .short)
     }
     
     func messageInfoString(

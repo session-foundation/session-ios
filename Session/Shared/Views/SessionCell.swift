@@ -134,6 +134,20 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
+    private let expandableDescriptionLabel: ExpandableLabel = {
+        let result:ExpandableLabel = ExpandableLabel()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.font = .systemFont(ofSize: 12)
+        result.themeTextColor = .textPrimary
+        result.numberOfLines = 0
+        result.maxNumberOfLines = 3
+        result.isHidden = true
+        result.setContentHugging(to: .defaultLow)
+        result.setCompressionResistance(to: .defaultLow)
+        
+        return result
+    }()
+    
     public let trailingAccessoryView: AccessoryView = {
         let result: AccessoryView = AccessoryView()
         result.isHidden = true
@@ -175,6 +189,7 @@ public class SessionCell: UITableViewCell {
         
         contentStackView.addArrangedSubview(leadingAccessoryView)
         contentStackView.addArrangedSubview(titleStackView)
+        contentStackView.addArrangedSubview(expandableDescriptionLabel)
         contentStackView.addArrangedSubview(trailingAccessoryView)
         
         titleStackView.addArrangedSubview(titleLabel)
@@ -220,6 +235,7 @@ public class SessionCell: UITableViewCell {
         self.contentStackView.layoutIfNeeded()
         repositionExtraView(titleExtraView, for: titleLabel)
         repositionExtraView(subtitleExtraView, for: subtitleLabel)
+        self.titleStackView.layoutIfNeeded()
     }
     
     private func repositionExtraView(_ targetView: UIView?, for label: UILabel) {
@@ -311,6 +327,8 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isUserInteractionEnabled = false
         subtitleLabel.attributedText = nil
         subtitleLabel.themeTextColor = .textPrimary
+        expandableDescriptionLabel.themeAttributedText = nil
+        expandableDescriptionLabel.themeTextColor = .textPrimary
         trailingAccessoryView.prepareForReuse()
         trailingAccessoryView.alpha = 1
         trailingAccessoryFillConstraint.isActive = false
@@ -318,6 +336,7 @@ public class SessionCell: UITableViewCell {
         
         topSeparator.isHidden = true
         subtitleLabel.isHidden = true
+        expandableDescriptionLabel.isHidden = true
         botSeparator.isHidden = true
     }
     
@@ -325,6 +344,7 @@ public class SessionCell: UITableViewCell {
         with info: Info<ID>,
         tableSize: CGSize,
         isManualReload: Bool = false,
+        onToggleExpansion: (() -> Void)? = nil,
         using dependencies: Dependencies
     ) {
         /// Need to do this here as `prepareForReuse` doesn't always seem to get called
@@ -562,6 +582,16 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.accessibilityIdentifier = info.subtitle?.accessibility?.identifier
         subtitleLabel.accessibilityLabel = info.subtitle?.accessibility?.label
         subtitleLabel.isHidden = (info.subtitle == nil)
+        expandableDescriptionLabel.font = info.description?.font ?? .systemFont(ofSize: 12)
+        expandableDescriptionLabel.themeAttributedText = info.description.map { description -> ThemedAttributedString? in
+            ThemedAttributedString(stringWithHTMLTags: description.text, font: description.font)
+        }
+        expandableDescriptionLabel.themeTextColor = info.styling.descriptionTintColor
+        expandableDescriptionLabel.textAlignment = (info.description?.textAlignment ?? .left)
+        expandableDescriptionLabel.accessibilityIdentifier = info.description?.accessibility?.identifier
+        expandableDescriptionLabel.accessibilityLabel = info.description?.accessibility?.label
+        expandableDescriptionLabel.isHidden = (info.description == nil)
+        expandableDescriptionLabel.onToggleExpansion = (info.description?.interaction == .expandable ? onToggleExpansion : nil)
         trailingAccessoryView.update(
             with: info.trailingAccessory,
             tintColor: info.styling.tintColor,

@@ -23,7 +23,7 @@ protocol SessionViewModelAccessible {
 
 // MARK: - SessionTableViewController
 
-class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITableViewDelegate, SessionViewModelAccessible where ViewModel: (SessionTableViewModel & ObservableTableSource) {
+class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate, SessionViewModelAccessible where ViewModel: (SessionTableViewModel & ObservableTableSource) {
     typealias Section = ViewModel.Section
     typealias TableItem = ViewModel.TableItem
     typealias SectionModel = ViewModel.SectionModel
@@ -40,6 +40,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     
     public var viewModelType: AnyObject.Type { return type(of: viewModel) }
     
+    private var searchText: String = ""
+    private var filteredTableData: [SectionModel]
+    private var tableData: [SectionModel] {
+        return viewModel.searchable ? filteredTableData : viewModel.tableData
+    }
+    
     // MARK: - Components
     
     private lazy var titleView: SessionTableViewTitleView = SessionTableViewTitleView()
@@ -47,6 +53,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     private lazy var contentStackView: UIStackView = {
         let result: UIStackView = UIStackView(arrangedSubviews: [
             infoBanner,
+            searchBar,
             tableView
         ])
         result.axis = .vertical
@@ -60,6 +67,17 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         let result: InfoBanner = InfoBanner(info: .empty)
         result.isHidden = true
         
+        return result
+    }()
+    
+    private lazy var searchBar: ContactsSearchBar = {
+        let result = ContactsSearchBar(searchBarThemeBackgroundColor: .backgroundSecondary)
+        result.themeTintColor = .textPrimary
+        result.themeBackgroundColor = .clear
+        result.delegate = self
+        result.searchTextField.accessibilityIdentifier = "Search contacts field"
+        result.set(.height, to: (36 + (Values.mediumSpacing * 2)))
+
         return result
     }()
     
@@ -136,6 +154,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     
     init(viewModel: ViewModel) {
         self.viewModel = viewModel
+        self.filteredTableData = viewModel.tableData
         
         (viewModel as? (any PagedObservationSource))?.didInit(using: viewModel.dependencies)
         
@@ -164,6 +183,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         view.addSubview(emptyStateLabel)
         view.addSubview(fadeView)
         view.addSubview(footerButton)
+        
+        searchBar.isHidden = !viewModel.searchable
         
         setupLayout()
         setupBinding()
@@ -278,6 +299,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             
             // Update the content
             viewModel.updateTableData(updatedData)
+            filteredTableData = filterTableDataIfNeeded()
             tableView.reloadData()
             hasLoadedInitialTableData = true
             
@@ -432,21 +454,31 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     // MARK: - UITableViewDataSource
     
     func numberOfSections(in tableView: UITableView) -> Int {
-        return self.viewModel.tableData.count
+        return tableData.count
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.viewModel.tableData[section].elements.count
+        return tableData[section].elements.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let section: SectionModel = viewModel.tableData[indexPath.section]
+        let section: SectionModel = tableData[indexPath.section]
         let info: SessionCell.Info<TableItem> = section.elements[indexPath.row]
         let cell: UITableViewCell = tableView.dequeue(type: viewModel.cellType.viewType.self, for: indexPath)
         
         switch (cell, info) {
             case (let cell as SessionCell, _):
-                cell.update(with: info, tableSize: tableView.bounds.size, using: viewModel.dependencies)
+                cell.update(
+                    with: info,
+                    tableSize: tableView.bounds.size,
+                    onToggleExpansion: {
+                        cell.setNeedsLayout()
+                        cell.layoutIfNeeded()
+                        tableView.beginUpdates()
+                        tableView.endUpdates()
+                    },
+                    using: viewModel.dependencies
+                )
                 cell.update(
                     isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
                     becomeFirstResponder: false,
@@ -476,7 +508,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let section: SectionModel = viewModel.tableData[section]
+        let section: SectionModel = tableData[section]
         let result: SessionHeaderView = tableView.dequeueHeaderFooterView(type: SessionHeaderView.self)
         result.update(
             title: section.model.title,
@@ -487,7 +519,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
-        let section: SectionModel = viewModel.tableData[section]
+        let section: SectionModel = tableData[section]
         
         if let footerString = section.model.footer {
             let result: SessionFooterView = tableView.dequeueHeaderFooterView(type: SessionFooterView.self)
@@ -502,11 +534,11 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     // MARK: - UITableViewDelegate
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return viewModel.tableData[section].model.style.height
+        return tableData[section].model.style.height
     }
     
     func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
-        let section: SectionModel = viewModel.tableData[section]
+        let section: SectionModel = tableData[section]
         
         return (section.model.footer == nil ? 0 : UITableView.automaticDimension)
     }
@@ -559,7 +591,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let section: SectionModel = self.viewModel.tableData[indexPath.section]
+        let section: SectionModel = tableData[indexPath.section]
         let info: SessionCell.Info<TableItem> = section.elements[indexPath.row]
         
         // Do nothing if the item is disabled
@@ -651,6 +683,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     onConfirm: { modal in
                         confirmationInfo.onConfirm?(modal)
                         performAction()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) {
+                            UIView.performWithoutAnimation {
+                                tableView.beginUpdates()
+                                tableView.endUpdates()
+                            }
+                        }
                     }
                 )
         )
@@ -675,4 +713,53 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             tableView.reloadRows(at: [indexPath], with: .none)
         }
     }
+    
+    // MARK: - Search Bar delegate
+    func filterTableDataIfNeeded() -> [SectionModel] {
+        return viewModel.tableData.map {
+            SectionModel(
+                model: $0.model,
+                elements: (
+                    searchText.isEmpty ? $0.elements : $0.elements.filter { $0.title?.text?.range(of: searchText, options: [.caseInsensitive]) != nil }
+                )
+            )
+        }
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        self.searchText = searchText
+        
+        let changeset: StagedChangeset<[SectionModel]> = StagedChangeset(
+            source: filteredTableData,
+            target: filterTableDataIfNeeded()
+        )
+        
+        self.tableView.reload(
+            using: changeset,
+            deleteSectionsAnimation: .none,
+            insertSectionsAnimation: .none,
+            reloadSectionsAnimation: .none,
+            deleteRowsAnimation: .none,
+            insertRowsAnimation: .none,
+            reloadRowsAnimation: .none,
+            interrupt: { $0.changeCount > 100 }
+        ) { [weak self] filteredTableData in
+            self?.filteredTableData = filteredTableData
+        }
+    }
+    
+    func searchBarShouldBeginEditing(_ searchBar: UISearchBar) -> Bool {
+        searchBar.setShowsCancelButton(true, animated: true)
+        return true
+    }
+    
+    func searchBarShouldEndEditing(_ searchBar: UISearchBar) -> Bool {
+        searchBar.setShowsCancelButton(false, animated: true)
+        return true
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
 }
+

@@ -496,6 +496,7 @@ public extension LibSession.Cache {
             closedGroupName: finalClosedGroupName,
             openGroupName: finalOpenGroupName,
             isNoteToSelf: (threadId == userSessionId.hexString),
+            ignoringNickname: false,
             profile: finalProfile
         )
     }

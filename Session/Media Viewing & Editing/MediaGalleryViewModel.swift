@@ -628,6 +628,7 @@ public class MediaGalleryViewModel {
     public static func createAllMediaViewController(
         threadId: String,
         threadVariant: SessionThread.Variant,
+        threadTitle: String? = nil,
         focusedAttachmentId: String?,
         performInitialQuerySync: Bool = false,
         using dependencies: Dependencies
@@ -649,6 +650,7 @@ public class MediaGalleryViewModel {
         )
         
         return AllMediaViewController(
+            threadTitle: threadTitle,
             mediaTitleViewController: mediaTitleViewController,
             documentTitleViewController: documentTitleViewController,
             using: dependencies

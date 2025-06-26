@@ -29,7 +29,7 @@ public extension UIContextualAction {
     convenience init(
         title: String? = nil,
         icon: UIImage? = nil,
-        iconHeight: CGFloat = Values.mediumFontSize,
+        iconHeight: CGFloat = Values.largeFontSize,
         themeTintColor: ThemeValue = .white,
         themeBackgroundColor: ThemeValue,
         accessibility: Accessibility? = nil,
@@ -75,8 +75,9 @@ public extension UIContextualAction {
         
         if let icon: UIImage = icon {
             let aspectRatio: CGFloat = (icon.size.width / icon.size.height)
-            let imageView: UIImageView = UIImageView(image: icon)
-            imageView.frame = CGRect(x: 0, y: 0, width: (iconHeight * aspectRatio), height: iconHeight)
+            let imageView: UIImageView = UIImageView(image: icon.withRenderingMode(.alwaysTemplate))
+            imageView.set(.width, to: (iconHeight * aspectRatio))
+            imageView.set(.height, to: iconHeight)
             imageView.contentMode = .scaleAspectFit
             imageView.themeTintColor = themeTintColor
             stackView.addArrangedSubview(imageView)

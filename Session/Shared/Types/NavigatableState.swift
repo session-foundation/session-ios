@@ -21,8 +21,8 @@ public extension NavigatableStateHolder {
         navigatableState._showToast.send((text, backgroundColor, inset))
     }
     
-    func dismissScreen(type: DismissType = .auto) {
-        navigatableState._dismissScreen.send(type)
+    func dismissScreen(type: DismissType = .auto, completion: (() -> Void)? = nil) {
+        navigatableState._dismissScreen.send((type, completion))
     }
     
     func transitionToScreen(_ viewController: UIViewController, transitionType: TransitionType = .push) {
@@ -35,13 +35,13 @@ public extension NavigatableStateHolder {
 public struct NavigatableState {
     let showToast: AnyPublisher<(ThemedAttributedString, ThemeValue, CGFloat), Never>
     let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
-    let dismissScreen: AnyPublisher<DismissType, Never>
+    let dismissScreen: AnyPublisher<(DismissType, (() -> Void)?), Never>
     
     // MARK: - Internal Variables
     
     fileprivate let _showToast: PassthroughSubject<(ThemedAttributedString, ThemeValue, CGFloat), Never> = PassthroughSubject()
     fileprivate let _transitionToScreen: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
-    fileprivate let _dismissScreen: PassthroughSubject<DismissType, Never> = PassthroughSubject()
+    fileprivate let _dismissScreen: PassthroughSubject<(DismissType, (() -> Void)?), Never> = PassthroughSubject()
     
     // MARK: - Initialization
     
@@ -92,7 +92,7 @@ public struct NavigatableState {
         
         self.dismissScreen
             .receive(on: DispatchQueue.main)
-            .sink { [weak viewController] dismissType in
+            .sink { [weak viewController] dismissType, completion in
                 switch dismissType {
                     case .auto:
                         guard
@@ -101,15 +101,15 @@ public struct NavigatableState {
                                 .firstIndex(of: viewController))
                                 .defaulting(to: 0) > 0
                         else {
-                            viewController?.dismiss(animated: true)
+                            viewController?.dismiss(animated: true, completion: completion)
                             return
                         }
                         
-                        viewController.navigationController?.popViewController(animated: true)
+                        viewController.navigationController?.popViewController(animated: true, completion: completion)
                         
-                    case .dismiss: viewController?.dismiss(animated: true)
-                    case .pop: viewController?.navigationController?.popViewController(animated: true)
-                    case .popToRoot: viewController?.navigationController?.popToRootViewController(animated: true)
+                    case .dismiss: viewController?.dismiss(animated: true, completion: completion)
+                    case .pop: viewController?.navigationController?.popViewController(animated: true, completion: completion)
+                    case .popToRoot: viewController?.navigationController?.popToRootViewController(animated: true, completion: completion)
                 }
             }
             .store(in: &disposables)

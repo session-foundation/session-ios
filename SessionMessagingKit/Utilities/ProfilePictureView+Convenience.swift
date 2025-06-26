@@ -120,14 +120,14 @@ public extension ProfilePictureView {
                         }
                         .defaulting(
                             to: Info(
-                                source: .image("person.fill", UIImage(systemName: "person.fill")),
+                                source: .image("ic_user_round_fill", UIImage(systemName: "ic_user_round_fill")),
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
-                                    top: 3,
-                                    left: 0,
-                                    bottom: -5,
-                                    right: 0
+                                    top: 4,
+                                    left: 4,
+                                    bottom: -6,
+                                    right: 4
                                 ),
                                 icon: additionalProfileIcon
                             )

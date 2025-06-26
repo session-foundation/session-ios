@@ -262,7 +262,6 @@ public extension UIContextualAction {
                                 UIImage(systemName: "speaker.slash") :
                                 UIImage(systemName: "speaker")
                             ),
-                            iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(
@@ -341,8 +340,7 @@ public extension UIContextualAction {
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
-                            icon: Lucide.image(icon: .ban, size: 24),
-                            iconHeight: Values.mediumFontSize,
+                            icon: UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Block button"),
@@ -477,7 +475,6 @@ public extension UIContextualAction {
                         return UIContextualAction(
                             title: "leave".localized(),
                             icon: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
-                            iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Leave button"),

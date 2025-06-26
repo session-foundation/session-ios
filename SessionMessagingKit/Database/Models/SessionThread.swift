@@ -697,6 +697,7 @@ public extension SessionThread {
         closedGroupName: String?,
         openGroupName: String?,
         isNoteToSelf: Bool,
+        ignoringNickname: Bool,
         profile: Profile?
     ) -> String {
         switch variant {
@@ -708,7 +709,7 @@ public extension SessionThread {
                     return Profile.truncated(id: threadId, truncating: .middle)
                 }
                 
-                return profile.displayName()
+                return profile.displayName(ignoringNickname: ignoringNickname)
         }
     }
     

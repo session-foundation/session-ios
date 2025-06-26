@@ -182,14 +182,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     ),
                     trailingAccessory: .icon(
                         .pencil,
-                        size: .medium,
+                        size: .small,
                         customTint: .textSecondary
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: IconSize.medium.size,
+                            leading: IconSize.small.size,
                             bottom: Values.mediumSpacing,
                             interItem: 0
                         ),
@@ -199,7 +199,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         identifier: "Username",
                         label: state.profile.displayName()
                     ),
-                    onTap: { [weak self] in self?.updateDisplayName(current: state.profile.displayName()) }
+                    confirmationInfo: self.updateDisplayName(
+                        current: state.profile.displayName()
+                    )
                 )
             ]
         )
@@ -486,64 +488,57 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     // MARK: - Functions
     
-    private func updateDisplayName(current: String) {
+    private func updateDisplayName(current: String) -> ConfirmationModal.Info {
         /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
         /// about retrieving them in the confirmation closure
         self.updatedName = current
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "displayNameSet".localized(),
-                    body: .input(
-                        explanation: ThemedAttributedString(string: "displayNameVisible".localized()),
-                        info: ConfirmationModal.Info.Body.InputInfo(
-                            placeholder: "displayNameEnter".localized(),
-                            initialValue: current,
-                            accessibility: Accessibility(
-                                identifier: "Username input"
-                            )
-                        ),
-                        onChange: { [weak self] updatedName in self?.updatedName = updatedName }
+        return ConfirmationModal.Info(
+            title: "displayNameSet".localized(),
+            body: .input(
+                explanation: ThemedAttributedString(string: "displayNameVisible".localized()),
+                info: ConfirmationModal.Info.Body.InputInfo(
+                    placeholder: "displayNameEnter".localized(),
+                    initialValue: current,
+                    accessibility: Accessibility(
+                        identifier: "Username input"
                     ),
-                    confirmTitle: "save".localized(),
-                    confirmEnabled: .afterChange { [weak self] _ in
-                        self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-                        self?.updatedName != current
-                    },
-                    cancelStyle: .alert_text,
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
-                        guard
-                            let finalDisplayName: String = (self?.updatedName ?? "")
-                                .trimmingCharacters(in: .whitespacesAndNewlines)
-                                .nullIfEmpty
-                        else { return }
+                    inputChecker: { text in
+                        let displayName: String = text.trimmingCharacters(in: .whitespacesAndNewlines)
                         
-                        /// Check if the data violates the size constraints
-                        guard !Profile.isTooLong(profileName: finalDisplayName) else {
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "theError".localized(),
-                                        body: .text("displayNameErrorDescriptionShorter".localized()),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text,
-                                        dismissType: .single
-                                    )
-                                ),
-                                transitionType: .present
-                            )
-                            return
+                        guard !Profile.isTooLong(profileName: displayName) else {
+                            return "displayNameErrorDescriptionShorter".localized()
                         }
                         
-                        /// Update the nickname
-                        self?.updateProfile(displayNameUpdate: .currentUserUpdate(finalDisplayName)) {
-                            modal.dismiss(animated: true)
-                        }
+                        return nil
                     }
-                )
+                ),
+                onChange: { [weak self] updatedName in self?.updatedName = updatedName }
             ),
-            transitionType: .present
+            confirmTitle: "save".localized(),
+            confirmEnabled: .afterChange { [weak self] _ in
+                self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+                self?.updatedName != current
+            },
+            cancelStyle: .alert_text,
+            dismissOnConfirm: false,
+            onConfirm: { [weak self] modal in
+                guard
+                    let finalDisplayName: String = (self?.updatedName ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .nullIfEmpty
+                else { return }
+                
+                /// Check if the data violates the size constraints
+                guard !Profile.isTooLong(profileName: finalDisplayName) else {
+                    modal.updateContent(withError: "displayNameErrorDescriptionShorter".localized())
+                    return
+                }
+                
+                /// Update the nickname
+                self?.updateProfile(displayNameUpdate: .currentUserUpdate(finalDisplayName)) {
+                    modal.dismiss(animated: true)
+                }
+            }
         )
     }
     

@@ -59,7 +59,17 @@ struct DisplayNameScreen: View {
                     accessibility: Accessibility(
                         identifier: "Enter display name",
                         label: "Enter display name"
-                    )
+                    ),
+                    inputChecker: { text in
+                        let displayName = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                        guard !displayName.isEmpty else {
+                            return "displayNameErrorDescription".localized()
+                        }
+                        guard !Profile.isTooLong(profileName: displayName) else {
+                            return "displayNameErrorDescriptionShorter".localized()
+                        }
+                        return nil
+                    }
                 )
                 
                 Spacer(minLength: 0)
@@ -103,11 +113,15 @@ struct DisplayNameScreen: View {
     }
     
     private func register() {
+        guard error.defaulting(to: "").isEmpty else { return }
+        
         let displayName = self.displayName.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        
         guard !displayName.isEmpty else {
             error = "displayNameErrorDescription".localized()
             return
         }
+        
         guard !Profile.isTooLong(profileName: displayName) else {
             error = "displayNameErrorDescriptionShorter".localized()
             return
