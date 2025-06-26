@@ -18,11 +18,6 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
     
-    private var isSessionPro: Bool {
-        dependencies[cache: .libSession].isSessionPro ||
-        dependencies[feature: .mockCurrentUserSessionPro] == true
-    }
-    
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
@@ -301,7 +296,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: isSessionPro
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
         )
         characterLimitLabel.text = "\(numberOfCharactersLeft)"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary

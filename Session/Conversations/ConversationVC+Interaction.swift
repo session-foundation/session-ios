@@ -1613,14 +1613,6 @@ extension ConversationVC:
     }
     
     func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel) {
-        guard
-            let messageSectionIndex: Int = self.viewModel.interactionData
-                .firstIndex(where: { $0.model == .messages }),
-            let targetMessageIndex = self.viewModel.interactionData[messageSectionIndex]
-                .elements
-                .firstIndex(where: { $0.id == cellViewModel.id })
-        else { return }
-        
         self.viewModel.expandMessage(for: cellViewModel.id)
         
         UIView.setAnimationsEnabled(false)

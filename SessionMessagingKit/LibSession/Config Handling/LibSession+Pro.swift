@@ -19,5 +19,9 @@ public extension LibSession {
 // MARK: - Session Pro
 
 public extension LibSessionCacheType {
-    var isSessionPro: Bool { return false }
+    var isSessionPro: Bool { return dependencies[feature: .mockCurrentUserSessionPro] }
+    
+    func validateProProof(_ proProof: String = "") -> Bool {
+        return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+    }
 }

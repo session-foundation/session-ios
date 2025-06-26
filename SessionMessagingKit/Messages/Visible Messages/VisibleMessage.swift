@@ -261,9 +261,6 @@ public extension VisibleMessage {
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
         
-        visibleMessage.expiresInSeconds = interaction.expiresInSeconds
-        visibleMessage.expiresStartedAtMs = interaction.expiresStartedAtMs
-        
         return visibleMessage
     }
 }

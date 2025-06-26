@@ -70,6 +70,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case state
         case recipientReadTimestampMs
         case mostRecentFailureText
+        
+        // Session Pro
+        case isProMessage
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
@@ -220,6 +223,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// The reason why the most recent attempt to send this message failed
     public private(set) var mostRecentFailureText: String?
     
+    /// A flag indicating if the message sender is a Session Pro user when the message is sent
+    public let isProMessage: Bool
+    
     // MARK: - Internal Values Used During Creation
     
     /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
@@ -288,6 +294,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         state: State,
         recipientReadTimestampMs: Int64?,
         mostRecentFailureText: String?,
+        isProMessage: Bool,
         transientDependencies: EquatableIgnoring<Dependencies>?
     ) {
         self.id = id
@@ -311,6 +318,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.state = (variant.isLocalOnly ? .localOnly : state)
         self.recipientReadTimestampMs = recipientReadTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
+        self.isProMessage = isProMessage
         self.transientDependencies = transientDependencies
     }
     
@@ -333,6 +341,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil,
         state: Interaction.State? = nil,
+        isProMessage: Bool = false,
         using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
@@ -369,6 +378,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
+        self.isProMessage = isProMessage
         self.transientDependencies = EquatableIgnoring(value: dependencies)
     }
     
@@ -434,6 +444,7 @@ public extension Interaction {
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
             mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
+            isProMessage: try container.decode(Bool.self, forKey: .isProMessage),
             transientDependencies: decoder.dependencies.map { EquatableIgnoring(value: $0) }
         )
     }
@@ -478,6 +489,7 @@ public extension Interaction {
             state: (state ?? self.state),
             recipientReadTimestampMs: (recipientReadTimestampMs ?? self.recipientReadTimestampMs),
             mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
+            isProMessage: self.isProMessage,
             transientDependencies: self.transientDependencies
         )
     }
