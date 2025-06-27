@@ -140,7 +140,9 @@ final class ProCTAModal: Modal {
     }()
     
     private lazy var animatedAvatarImageView: SessionImageView = {
-        let result: SessionImageView = SessionImageView()
+        let result: SessionImageView = SessionImageView(
+            dataManager: dependencies[singleton: .imageDataManager]
+        )
         result.contentMode = .scaleAspectFill
         
         return result
@@ -241,7 +243,7 @@ final class ProCTAModal: Modal {
     private lazy var upgradeButton: UIButton = {
         let result: UIButton = UIButton()
         result.titleLabel?.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.setTitle("Upgrade", for: .normal) // TODO: Localization
+        result.setTitle("theContinue".localized(), for: .normal)
         result.setThemeTitleColor(.sessionButton_primaryFilledText, for: .normal)
         result.setThemeBackgroundColor(.sessionButton_primaryFilledBackground, for: .normal)
         result.set(.height, to: Values.largeButtonHeight)
