@@ -10,6 +10,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 public class AllMediaViewController: UIViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+    private let threadTitle: String?
     private let dependencies: Dependencies
     private let pageVC = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
     private var pages: [UIViewController] = []
@@ -46,7 +47,13 @@ public class AllMediaViewController: UIViewController, UIPageViewControllerDataS
     private var mediaTitleViewController: MediaTileViewController
     private var documentTitleViewController: DocumentTileViewController
     
-    init(mediaTitleViewController: MediaTileViewController, documentTitleViewController: DocumentTileViewController, using dependencies: Dependencies) {
+    init(
+        threadTitle: String?,
+        mediaTitleViewController: MediaTileViewController,
+        documentTitleViewController: DocumentTileViewController,
+        using dependencies: Dependencies
+    ) {
+        self.threadTitle = threadTitle
         self.dependencies = dependencies
         self.mediaTitleViewController = mediaTitleViewController
         self.documentTitleViewController = documentTitleViewController
@@ -78,7 +85,7 @@ public class AllMediaViewController: UIViewController, UIPageViewControllerDataS
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: "conversationsSettingsAllMedia".localized(),
+            title: (self.threadTitle ?? "conversationsSettingsAllMedia".localized()),
             hasCustomBackButton: false
         )
         

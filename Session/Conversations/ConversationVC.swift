@@ -790,7 +790,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked ||
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
-            viewModel.threadData.profile != updatedThreadData.profile
+            viewModel.threadData.profile != updatedThreadData.profile ||
+            viewModel.threadData.additionalProfile != updatedThreadData.additionalProfile ||
+            viewModel.threadData.displayPictureFilename != updatedThreadData.displayPictureFilename
         {
             updateNavBarButtons(
                 threadData: updatedThreadData,
@@ -1344,8 +1346,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         else {
             let shouldHaveCallButton: Bool = (
                 (threadData?.threadVariant ?? initialVariant) == .contact &&
-                (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false &&
-                (threadData?.threadIsBlocked ?? initialIsBlocked) == false
+                (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false
             )
             
             guard
@@ -1375,51 +1376,41 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 return
             }
             
-            switch threadData.threadVariant {
-                case .contact:
-                    let profilePictureView = ProfilePictureView(
-                        size: .navigation,
-                        dataManager: viewModel.dependencies[singleton: .imageDataManager]
-                    )
-                    profilePictureView.update(
-                        publicKey: threadData.threadId,  // Contact thread uses the contactId
-                        threadVariant: threadData.threadVariant,
-                        displayPictureFilename: nil,
-                        profile: threadData.profile,
-                        additionalProfile: nil,
-                        using: viewModel.dependencies
-                    )
-                    profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
+            let profilePictureView = ProfilePictureView(
+                size: .navigation,
+                dataManager: viewModel.dependencies[singleton: .imageDataManager]
+            )
+            profilePictureView.update(
+                publicKey: threadData.threadId,  // Contact thread uses the contactId
+                threadVariant: threadData.threadVariant,
+                displayPictureFilename: threadData.displayPictureFilename,
+                profile: threadData.profile,
+                additionalProfile: threadData.additionalProfile,
+                using: viewModel.dependencies
+            )
+            profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
 
-                    let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
-                    profilePictureView.addGestureRecognizer(tapGestureRecognizer)
+            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
+            profilePictureView.addGestureRecognizer(tapGestureRecognizer)
 
-                    let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureView)
-                    settingsButtonItem.accessibilityLabel = "More options"
-                    settingsButtonItem.isAccessibilityElement = true
-                    
-                    if shouldHaveCallButton {
-                        let callButton = UIBarButtonItem(
-                            image: UIImage(named: "Phone"),
-                            style: .plain,
-                            target: self,
-                            action: #selector(startCall)
-                        )
-                        callButton.accessibilityLabel = "Call"
-                        callButton.isAccessibilityElement = true
-                        
-                        navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
-                    }
-                    else {
-                        navigationItem.rightBarButtonItems = [settingsButtonItem]
-                    }
-                    
-                default:
-                    let rightBarButtonItem: UIBarButtonItem = UIBarButtonItem(image: UIImage(named: "Gear"), style: .plain, target: self, action: #selector(openSettings))
-                    rightBarButtonItem.accessibilityLabel = "More options"
-                    rightBarButtonItem.isAccessibilityElement = true
-
-                    navigationItem.rightBarButtonItems = [rightBarButtonItem]
+            let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureView)
+            settingsButtonItem.accessibilityLabel = "More options"
+            settingsButtonItem.isAccessibilityElement = true
+            
+            if shouldHaveCallButton {
+                let callButton = UIBarButtonItem(
+                    image: UIImage(named: "Phone"),
+                    style: .plain,
+                    target: self,
+                    action: #selector(startCall)
+                )
+                callButton.accessibilityLabel = "Call"
+                callButton.isAccessibilityElement = true
+                
+                navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
+            }
+            else {
+                navigationItem.rightBarButtonItems = [settingsButtonItem]
             }
         }
     }

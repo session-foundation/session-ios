@@ -258,7 +258,7 @@ final class ConversationTitleView: UIView {
                         .appending(
                             string: (config.type ?? .unknown)
                                 .localizedState(
-                                    durationString: floor(config.durationSeconds).formatted(format: .short)
+                                    durationString: config.durationString
                                 )
                         ),
                     accessibility: Accessibility(

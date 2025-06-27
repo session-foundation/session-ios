@@ -861,9 +861,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     }
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
-                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .hide
-                        case (.group, _, true), (.community, _, _): return .leave
+                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, threadViewModel.currentUserIsClosedGroupAdmin) {
+                        case (.contact, true, _, _): return .hide
+                        case (.group, _, true, false), (.community, _, _, _): return .leave
                         default: return .delete
                     }
                 }()

@@ -12,6 +12,7 @@ public extension SessionCell {
             case editable
             case copy
             case alwaysEditing
+            case expandable
         }
         
         let text: String?
@@ -68,6 +69,7 @@ public extension SessionCell {
     struct StyleInfo: Equatable, Hashable {
         let tintColor: ThemeValue
         let subtitleTintColor: ThemeValue
+        let descriptionTintColor: ThemeValue
         let alignment: SessionCell.Alignment
         let allowedSeparators: Separators
         let customPadding: Padding?
@@ -76,6 +78,7 @@ public extension SessionCell {
         public init(
             tintColor: ThemeValue = .textPrimary,
             subtitleTintColor: ThemeValue? = nil,
+            descriptionTintColor: ThemeValue? = nil,
             alignment: SessionCell.Alignment = .leading,
             allowedSeparators: Separators = [.top, .bottom],
             customPadding: Padding? = nil,
@@ -83,6 +86,7 @@ public extension SessionCell {
         ) {
             self.tintColor = tintColor
             self.subtitleTintColor = (subtitleTintColor ?? tintColor)
+            self.descriptionTintColor = (descriptionTintColor ?? tintColor)
             self.alignment = alignment
             self.allowedSeparators = allowedSeparators
             self.customPadding = customPadding
