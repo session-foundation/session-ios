@@ -228,26 +228,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             }
         )
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { notificationsManager in
-                notificationsManager
-                    .when { $0.notificationUserInfo(threadId: .any, threadVariant: .any) }
-                    .thenReturn([:])
-                notificationsManager
-                    .when { $0.notificationShouldPlaySound(applicationState: .any) }
-                    .thenReturn(false)
-                notificationsManager
-                    .when {
-                        $0.addNotificationRequest(
-                            content: .any,
-                            notificationSettings: .any,
-                            extensionBaseUnreadCount: .any
-                        )
-                    }
-                    .thenReturn(())
-                notificationsManager
-                    .when { $0.cancelNotifications(identifiers: .any) }
-                    .thenReturn(())
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState(singleton: .appContext, in: dependencies) var mockAppContext: MockAppContext! = MockAppContext(
             initialSetup: { appContext in
@@ -670,9 +651,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         applicationState: .active
                                     ),
                                     notificationSettings: Preferences.NotificationSettings(
-                                        mode: .all,
                                         previewType: .nameAndPreview,
                                         sound: .defaultNotificationSound,
+                                        mentionsOnly: false,
                                         mutedUntil: nil
                                     ),
                                     extensionBaseUnreadCount: nil

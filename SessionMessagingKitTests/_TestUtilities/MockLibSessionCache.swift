@@ -422,9 +422,6 @@ extension Mock where T == LibSessionCacheType {
         self
             .when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
             .thenReturn(nil)
-        self
-            .when { $0.notificationSettings(threadId: .any, threadVariant: .any, openGroupUrlInfo: .any) }
-            .thenReturn(.defaultFor(.contact))
         self.when { $0.isContactBlocked(contactId: .any) }.thenReturn(false)
         self
             .when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }

@@ -36,20 +36,7 @@ class NotificationsManagerSpec: QuickSpec {
             }
         )
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { notificationsManager in
-                notificationsManager
-                    .when { $0.notificationUserInfo(threadId: .any, threadVariant: .any) }
-                    .thenReturn([:])
-                notificationsManager
-                    .when {
-                        $0.addNotificationRequest(
-                            content: .any,
-                            notificationSettings: .any,
-                            extensionBaseUnreadCount: .any
-                        )
-                    }
-                    .thenReturn(())
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState var message: Message! = VisibleMessage(
             sender: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
@@ -58,9 +45,9 @@ class NotificationsManagerSpec: QuickSpec {
         )
         @TestState var threadId: String! = "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))"
         @TestState var notificationSettings: Preferences.NotificationSettings! = Preferences.NotificationSettings(
-            mode: .all,
             previewType: .nameAndPreview,
             sound: .defaultNotificationSound,
+            mentionsOnly: false,
             mutedUntil: nil
         )
         
@@ -131,29 +118,6 @@ class NotificationsManagerSpec: QuickSpec {
                 }.to(throwError(MessageReceiverError.selfSend))
             }
             
-            // MARK: -- throws if notifications are disabled
-            it("throws if notifications are disabled") {
-                expect {
-                    try mockNotificationsManager.ensureWeShouldShowNotification(
-                        message: message,
-                        threadId: threadId,
-                        threadVariant: .contact,
-                        interactionVariant: .standardIncoming,
-                        isMessageRequest: false,
-                        notificationSettings: Preferences.NotificationSettings(
-                            mode: .none,
-                            previewType: .nameAndPreview,
-                            sound: .defaultNotificationSound,
-                            mutedUntil: nil
-                        ),
-                        openGroupUrlInfo: nil,
-                        currentUserSessionIds: ["05\(TestConstants.publicKey)"],
-                        shouldShowForMessageRequest: { true },
-                        using: dependencies
-                    )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
-            }
-            
             // MARK: -- throws if notifications are muted
             it("throws if notifications are muted") {
                 expect {
@@ -164,9 +128,9 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         isMessageRequest: false,
                         notificationSettings: Preferences.NotificationSettings(
-                            mode: .all,
                             previewType: .nameAndPreview,
                             sound: .defaultNotificationSound,
+                            mentionsOnly: false,
                             mutedUntil: Date(timeIntervalSince1970: 1234567891).timeIntervalSince1970
                         ),
                         openGroupUrlInfo: nil,
@@ -199,9 +163,9 @@ class NotificationsManagerSpec: QuickSpec {
             context("for mentions only") {
                 beforeEach {
                     notificationSettings = Preferences.NotificationSettings(
-                        mode: .mentionsOnly,
                         previewType: .nameAndPreview,
                         sound: .defaultNotificationSound,
+                        mentionsOnly: true,
                         mutedUntil: nil
                     )
                 }
@@ -304,9 +268,9 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: .standardIncoming,
                             isMessageRequest: false,
                             notificationSettings: Preferences.NotificationSettings(
-                                mode: .all,
                                 previewType: .nameAndPreview,
                                 sound: .defaultNotificationSound,
+                                mentionsOnly: false,
                                 mutedUntil: nil
                             ),
                             openGroupUrlInfo: nil,
@@ -323,9 +287,9 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: .standardIncoming,
                             isMessageRequest: false,
                             notificationSettings: Preferences.NotificationSettings(
-                                mode: .all,
                                 previewType: .nameAndPreview,
                                 sound: .defaultNotificationSound,
+                                mentionsOnly: false,
                                 mutedUntil: nil
                             ),
                             openGroupUrlInfo: nil,
@@ -342,9 +306,9 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: .standardIncoming,
                             isMessageRequest: false,
                             notificationSettings: Preferences.NotificationSettings(
-                                mode: .all,
                                 previewType: .nameAndPreview,
                                 sound: .defaultNotificationSound,
+                                mentionsOnly: false,
                                 mutedUntil: nil
                             ),
                             openGroupUrlInfo: nil,
@@ -361,9 +325,9 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: .standardIncoming,
                             isMessageRequest: false,
                             notificationSettings: Preferences.NotificationSettings(
-                                mode: .all,
                                 previewType: .nameAndPreview,
                                 sound: .defaultNotificationSound,
+                                mentionsOnly: false,
                                 mutedUntil: nil
                             ),
                             openGroupUrlInfo: nil,
@@ -754,9 +718,9 @@ class NotificationsManagerSpec: QuickSpec {
             // MARK: -- returns the app name if we should not show a name
             it("returns the app name if we should not show a name") {
                 notificationSettings = Preferences.NotificationSettings(
-                    mode: .all,
                     previewType: .noNameNoPreview,
                     sound: .defaultNotificationSound,
+                    mentionsOnly: false,
                     mutedUntil: nil
                 )
                 
@@ -973,9 +937,9 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: false,
                         notificationSettings: Preferences.NotificationSettings(
-                            mode: .all,
                             previewType: .nameNoPreview,
                             sound: .defaultNotificationSound,
+                            mentionsOnly: false,
                             mutedUntil: nil
                         ),
                         interactionVariant: .standardIncoming,
@@ -991,9 +955,9 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: false,
                         notificationSettings: Preferences.NotificationSettings(
-                            mode: .all,
                             previewType: .noNameNoPreview,
                             sound: .defaultNotificationSound,
+                            mentionsOnly: false,
                             mutedUntil: nil
                         ),
                         interactionVariant: .standardIncoming,
@@ -1272,8 +1236,8 @@ class NotificationsManagerSpec: QuickSpec {
                 })
             }
             
-            // MARK: -- retrieves notification settings from libSession
-            it("retrieves notification settings from libSession") {
+            // MARK: -- retrieves notification settings from the notification maanager
+            it("retrieves notification settings from the notification maanager") {
                 expect {
                     try mockNotificationsManager.notifyUser(
                         message: message,
@@ -1291,12 +1255,8 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false }
                     )
                 }.toNot(throwError())
-                expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.notificationSettings(
-                        threadId: "05\(TestConstants.publicKey)",
-                        threadVariant: .contact,
-                        openGroupUrlInfo: nil
-                    )
+                expect(mockNotificationsManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    $0.settings(threadId: "05\(TestConstants.publicKey)", threadVariant: .contact)
                 })
             }
             
@@ -1362,9 +1322,9 @@ class NotificationsManagerSpec: QuickSpec {
                             applicationState: .background
                         ),
                         notificationSettings: Preferences.NotificationSettings(
-                            mode: .all,
                             previewType: .nameAndPreview,
                             sound: .defaultNotificationSound,
+                            mentionsOnly: false,
                             mutedUntil: nil
                         ),
                         extensionBaseUnreadCount: 1
@@ -1419,9 +1379,9 @@ class NotificationsManagerSpec: QuickSpec {
                             applicationState: .background
                         ),
                         notificationSettings: Preferences.NotificationSettings(
-                            mode: .all,
                             previewType: .nameAndPreview,
                             sound: .defaultNotificationSound,
+                            mentionsOnly: false,
                             mutedUntil: nil
                         ),
                         extensionBaseUnreadCount: 1

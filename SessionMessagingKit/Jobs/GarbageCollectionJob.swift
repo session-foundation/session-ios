@@ -398,7 +398,10 @@ public enum GarbageCollectionJob: JobExecutor {
                 
                 if finalTypesToCollect.contains(.pruneExpiredDeduplicationRecords) {
                     messageDedupeRecords = try MessageDeduplication
-                        .filter(MessageDeduplication.Columns.expirationTimestampSeconds < timestampNow)
+                        .filter(
+                            MessageDeduplication.Columns.expirationTimestampSeconds != nil &&
+                            MessageDeduplication.Columns.expirationTimestampSeconds < timestampNow
+                        )
                         .fetchAll(db)
                 }
                 
@@ -483,6 +486,8 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch CocoaError.fileNoSuchFile {}  /// No need to do anything if the file doesn't eixst
                             catch { deletionErrors.append(error) }
                         }
+                        
+                        Log.info(.cat, "Dedupe records removed: \(fileInfo.messageDedupeRecords.count)")
                     }
                     
                     /// Report a single file deletion as a job failure (even if other content was successfully removed)

@@ -90,7 +90,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
 
     /// User notification settings must be registered *before* AppDelegate will return any requested push tokens.
     public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
-        return dependencies[singleton: .notificationsManager].registerNotificationSettings()
+        return dependencies[singleton: .notificationsManager].registerSystemNotificationSettings()
     }
 
     /**

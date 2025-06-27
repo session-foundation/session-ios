@@ -128,9 +128,7 @@ internal extension LibSession {
                                                 return thread.pinnedPriority
                                                     .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
                                                     .defaulting(to: LibSession.visiblePriority)
-                                            }(),
-                                            onlyNotifyForMentions: thread.onlyNotifyForMentions,
-                                            mutedUntilTimestamp: thread.mutedUntilTimestamp
+                                            }()
                                         )
                                     },
                                 in: config,
@@ -150,9 +148,7 @@ internal extension LibSession {
                                                 urlInfo: urlInfo,
                                                 priority: thread.pinnedPriority
                                                     .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                                    .defaulting(to: LibSession.visiblePriority),
-                                                onlyNotifyForMentions: thread.onlyNotifyForMentions,
-                                                mutedUntilTimestamp: thread.mutedUntilTimestamp
+                                                    .defaulting(to: LibSession.visiblePriority)
                                             )
                                         }
                                     },
@@ -189,9 +185,7 @@ internal extension LibSession {
                                             groupSessionId: thread.id,
                                             priority: thread.pinnedPriority
                                                 .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                                .defaulting(to: LibSession.visiblePriority),
-                                            onlyNotifyForMentions: thread.onlyNotifyForMentions,
-                                            mutedUntilTimestamp: thread.mutedUntilTimestamp
+                                                .defaulting(to: LibSession.visiblePriority)
                                         )
                                     },
                                 in: config,
@@ -617,96 +611,6 @@ public extension LibSession.Cache {
         }
     }
     
-    func notificationSettings(
-        threadId: String?,
-        threadVariant: SessionThread.Variant,
-        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
-    ) -> Preferences.NotificationSettings {
-        guard var cThreadId: [CChar] = threadId?.cString(using: .utf8) else {
-            return .defaultFor(threadVariant)
-        }
-        
-        let sound: Preferences.Sound = get(.defaultNotificationSound)
-            .defaulting(to: .defaultNotificationSound)
-        let previewType: Preferences.NotificationPreviewType = get(.preferencesNotificationPreviewType)
-            .defaulting(to: .defaultPreviewType)
-        
-        switch threadVariant {
-            case .legacyGroup: return .defaultFor(threadVariant)
-            case .contact where threadId == userSessionId.hexString: return .defaultFor(.contact)
-            case .contact:
-                var contact: contacts_contact = contacts_contact()
-                
-                guard case .contacts(let conf) = config(for: .contacts, sessionId: userSessionId) else {
-                    return .defaultFor(threadVariant)
-                }
-                guard contacts_get(conf, &contact, &cThreadId) else {
-                    LibSessionError.clear(conf)
-                    return .defaultFor(threadVariant)
-                }
-                
-                return Preferences.NotificationSettings(
-                    mode: Preferences.NotificationMode(
-                        libSessionValue: contact.notifications,
-                        threadVariant: threadVariant
-                    ),
-                    previewType: previewType,
-                    sound: sound,
-                    mutedUntil: (contact.mute_until > 0 ?
-                        TimeInterval(contact.mute_until) :
-                        nil
-                    )
-                )
-            
-            case .community:
-                guard
-                    let urlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo,
-                    var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
-                    var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8),
-                    case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId)
-                else { return .defaultFor(threadVariant) }
-                
-                var community: ugroups_community_info = ugroups_community_info()
-                _ = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
-                LibSessionError.clear(conf)
-                
-                return Preferences.NotificationSettings(
-                    mode: Preferences.NotificationMode(
-                        libSessionValue: community.notifications,
-                        threadVariant: threadVariant
-                    ),
-                    previewType: previewType,
-                    sound: sound,
-                    mutedUntil: (community.mute_until > 0 ?
-                        TimeInterval(community.mute_until) :
-                        nil
-                    )
-                )
-            
-            case .group:
-                guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else {
-                    return .defaultFor(threadVariant)
-                }
-                
-                var group: ugroups_group_info = ugroups_group_info()
-                _ = user_groups_get_group(conf, &group, &cThreadId)
-                LibSessionError.clear(conf)
-                
-                return Preferences.NotificationSettings(
-                    mode: Preferences.NotificationMode(
-                        libSessionValue: group.notifications,
-                        threadVariant: threadVariant
-                    ),
-                    previewType: previewType,
-                    sound: sound,
-                    mutedUntil: (group.mute_until > 0 ?
-                        TimeInterval(group.mute_until) :
-                        nil
-                    )
-                )
-        }
-    }
-    
     func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
@@ -1031,30 +935,4 @@ public extension LibSessionRespondingViewController {
     
     func isConversation(in threadIds: [String]) -> Bool { return false }
     func forceRefreshIfNeeded() {}
-}
-
-// MARK: - Preferences.NotificationMode
-
-extension Preferences.NotificationMode {
-    public typealias LibSessionType = CONVO_NOTIFY_MODE
-    
-    public static var defaultLibSessionValue: LibSessionType { CONVO_NOTIFY_DEFAULT }
-    public var libSessionValue: LibSessionType {
-        switch self {
-            case .all: return CONVO_NOTIFY_ALL
-            case .none: return CONVO_NOTIFY_DISABLED
-            case .mentionsOnly: return CONVO_NOTIFY_MENTIONS_ONLY
-        }
-    }
-    
-    init(libSessionValue: CONVO_NOTIFY_MODE, threadVariant: SessionThread.Variant) {
-        switch libSessionValue {
-            case CONVO_NOTIFY_DEFAULT: self = .defaultMode(for: threadVariant)
-            case CONVO_NOTIFY_ALL: self = .all
-            case CONVO_NOTIFY_DISABLED: self = .none
-            case CONVO_NOTIFY_MENTIONS_ONLY: self = .mentionsOnly
-                
-            default: self = .defaultMode(for: threadVariant)
-        }
-    }
 }

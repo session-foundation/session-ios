@@ -22,8 +22,15 @@ public protocol NotificationsManagerType {
     init(using dependencies: Dependencies)
     
     func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?)
-    func registerNotificationSettings() -> AnyPublisher<Void, Never>
+    func registerSystemNotificationSettings() -> AnyPublisher<Void, Never>
     
+    func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings
+    func updateSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        mentionsOnly: Bool,
+        mutedUntil: TimeInterval?
+    )
     func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any]
     func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool
     
@@ -41,6 +48,12 @@ public protocol NotificationsManagerType {
     
     func cancelNotifications(identifiers: [String])
     func clearAllNotifications()
+}
+
+public extension NotificationsManagerType {
+    func settings(threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
+        return settings(threadId: nil, threadVariant: threadVariant)
+    }
 }
 
 public extension NotificationsManagerType {
@@ -64,10 +77,9 @@ public extension NotificationsManagerType {
         }
         
         /// Ensure that the thread isn't muted
-        guard
-            notificationSettings.mode != .none &&
-            dependencies.dateNow.timeIntervalSince1970 > (notificationSettings.mutedUntil ?? 0)
-        else { throw MessageReceiverError.ignorableMessage }
+        guard dependencies.dateNow.timeIntervalSince1970 > (notificationSettings.mutedUntil ?? 0) else {
+            throw MessageReceiverError.ignorableMessage
+        }
         
         switch message {
             /// For a `VisibleMessage` we should only notify if the notification mode is `all` or if `mentionsOnly` and the
@@ -75,13 +87,11 @@ public extension NotificationsManagerType {
             case let visibleMessage as VisibleMessage:
                 guard interactionVariant == .standardIncoming else { throw MessageReceiverError.ignorableMessage }
                 guard
-                    notificationSettings.mode == .all || (
-                        notificationSettings.mode == .mentionsOnly &&
-                        Interaction.isUserMentioned(
-                            publicKeysToCheck: currentUserSessionIds,
-                            body: visibleMessage.text,
-                            quoteAuthorId: visibleMessage.quote?.authorId
-                        )
+                    !notificationSettings.mentionsOnly ||
+                    Interaction.isUserMentioned(
+                        publicKeysToCheck: currentUserSessionIds,
+                        body: visibleMessage.text,
+                        quoteAuthorId: visibleMessage.quote?.authorId
                     )
                 else { throw MessageReceiverError.ignorableMessage }
                 
@@ -280,13 +290,10 @@ public extension NotificationsManagerType {
                 threadVariant: threadVariant
             )
         }
-        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
-            cache.notificationSettings(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                openGroupUrlInfo: openGroupUrlInfo
-            )
-        }
+        let settings: Preferences.NotificationSettings = settings(
+            threadId: threadId,
+            threadVariant: threadVariant
+        )
         
         /// Ensure we should be showing a notification for the thread
         try ensureWeShouldShowNotification(
@@ -295,7 +302,7 @@ public extension NotificationsManagerType {
             threadVariant: threadVariant,
             interactionVariant: interactionVariant,
             isMessageRequest: isMessageRequest,
-            notificationSettings: notificationSettings,
+            notificationSettings: settings,
             openGroupUrlInfo: openGroupUrlInfo,
             currentUserSessionIds: currentUserSessionIds,
             shouldShowForMessageRequest: shouldShowForMessageRequest,
@@ -324,7 +331,7 @@ public extension NotificationsManagerType {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     isMessageRequest: isMessageRequest,
-                    notificationSettings: notificationSettings,
+                    notificationSettings: settings,
                     displayNameRetriever: displayNameRetriever,
                     groupNameRetriever: groupNameRetriever,
                     using: dependencies
@@ -333,18 +340,18 @@ public extension NotificationsManagerType {
                     message: message,
                     threadVariant: threadVariant,
                     isMessageRequest: isMessageRequest,
-                    notificationSettings: notificationSettings,
+                    notificationSettings: settings,
                     interactionVariant: interactionVariant,
                     attachmentDescriptionInfo: attachmentDescriptionInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever,
                     using: dependencies
                 ),
-                sound: notificationSettings.sound,
+                sound: settings.sound,
                 userInfo: notificationUserInfo(threadId: threadId, threadVariant: threadVariant),
                 applicationState: applicationState
             ),
-            notificationSettings: notificationSettings,
+            notificationSettings: settings,
             extensionBaseUnreadCount: extensionBaseUnreadCount
         )
     }
@@ -361,8 +368,20 @@ public struct NoopNotificationsManager: NotificationsManagerType {
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
     
-    public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
         return Just(()).eraseToAnyPublisher()
+    }
+    
+    public func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
+        return Preferences.NotificationSettings(
+            previewType: .defaultPreviewType,
+            sound: .defaultNotificationSound,
+            mentionsOnly: false,
+            mutedUntil: nil
+        )
+    }
+    
+    public func updateSettings(threadId: String, threadVariant: SessionThread.Variant, mentionsOnly: Bool, mutedUntil: TimeInterval?) {
     }
     
     public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {

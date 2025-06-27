@@ -114,7 +114,12 @@ extension NotificationContent: Mocked {
 }
 
 extension Preferences.NotificationSettings: Mocked {
-    static var mock: Preferences.NotificationSettings = .defaultFor(.mock)
+    static var mock: Preferences.NotificationSettings = Preferences.NotificationSettings(
+        previewType: .mock,
+        sound: .mock,
+        mentionsOnly: false,
+        mutedUntil: nil
+    )
 }
 
 extension ImageDataManager.DataSource: Mocked {

@@ -33,6 +33,7 @@ public class ExtensionHelper: ExtensionHelperType {
     private lazy var cacheDirectoryPath: String = "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/extensionCache"
     private lazy var metadataPath: String = "\(cacheDirectoryPath)/metadata"
     private lazy var conversationsPath: String = "\(cacheDirectoryPath)/conversations"
+    private lazy var notificationSettingsPath: String = "\(cacheDirectoryPath)/notificationSettings"
     private let conversationConfigDir: String = "config"
     private let conversationReadDir: String = "read"
     private let conversationUnreadDir: String = "unread"
@@ -375,6 +376,62 @@ public class ExtensionHelper: ExtensionHelperType {
                     )
                 )
             }
+    }
+    
+    // MARK: - Notification Settings
+    
+    private struct NotificationSettings: Codable {
+        let threadId: String
+        let mentionsOnly: Bool
+        let mutedUntil: TimeInterval?
+    }
+    
+    public func replicate(settings: [String: Preferences.NotificationSettings], replaceExisting: Bool) throws {
+        /// Only continue if we want to replace an existing file, or one doesn't exist
+        guard
+            replaceExisting ||
+            !dependencies[singleton: .fileManager].fileExists(atPath: notificationSettingsPath)
+        else { return }
+        
+        /// Generate the data (we can exclude anything which has default settings as that would just be redudant data)
+        let allSettings: [NotificationSettings] = settings
+            .filter { _, value in
+                value.mentionsOnly ||
+                value.mutedUntil != nil
+            }
+            .map { key, value in
+                NotificationSettings(
+                    threadId: key,
+                    mentionsOnly: value.mentionsOnly,
+                    mutedUntil: value.mutedUntil
+                )
+            }
+        
+        guard let settingsAsData: Data = try? JSONEncoder(using: dependencies).encode(allSettings) else {
+            return
+        }
+        
+        try write(data: settingsAsData, to: notificationSettingsPath)
+    }
+    
+    public func loadNotificationSettings(
+        previewType: Preferences.NotificationPreviewType,
+        sound: Preferences.Sound
+    ) -> [String: Preferences.NotificationSettings]? {
+        guard
+            let plaintext: Data = try? read(from: notificationSettingsPath),
+            let allSettings: [NotificationSettings] = try? JSONDecoder(using: dependencies)
+                .decode([NotificationSettings].self, from: plaintext)
+        else { return nil }
+        
+        return allSettings.reduce(into: [:]) { result, settings in
+            result[settings.threadId] = Preferences.NotificationSettings(
+                previewType: previewType,
+                sound: sound,
+                mentionsOnly: settings.mentionsOnly,
+                mutedUntil: settings.mutedUntil
+            )
+        }
     }
     
     // MARK: - Messages
@@ -728,6 +785,14 @@ public protocol ExtensionHelperType {
         swarmPublicKey: String,
         userEd25519SecretKey: [UInt8]
     ) throws
+    
+    // MARK: - Notification Settings
+    
+    func replicate(settings: [String: Preferences.NotificationSettings], replaceExisting: Bool) throws
+    func loadNotificationSettings(
+        previewType: Preferences.NotificationPreviewType,
+        sound: Preferences.Sound
+    ) -> [String: Preferences.NotificationSettings]?
     
     // MARK: - Messages
     

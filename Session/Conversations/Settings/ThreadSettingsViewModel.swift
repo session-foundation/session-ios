@@ -546,6 +546,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 SessionTableViewController(
                                     viewModel: ThreadNotificationSettingsViewModel(
                                         threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
                                         threadNotificationSettings: .init(
                                             threadOnlyNotifyForMentions: threadViewModel.threadOnlyNotifyForMentions,
                                             threadMutedUntilTimestamp: threadViewModel.threadMutedUntilTimestamp

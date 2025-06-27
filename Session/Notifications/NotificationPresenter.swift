@@ -18,11 +18,70 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     private let notificationCenter: UNUserNotificationCenter = UNUserNotificationCenter.current()
     @ThreadSafeObject private var notifications: [String: UNNotificationRequest] = [:]
     @ThreadSafeObject private var mostRecentNotifications: TruncatedList<UInt64> = TruncatedList<UInt64>(maxLength: NotificationPresenter.audioNotificationsThrottleCount)
+    @ThreadSafeObject private var settingsStorage: [String: Preferences.NotificationSettings] = [:]
+    @ThreadSafe private var notificationSound: Preferences.Sound = .defaultNotificationSound
+    @ThreadSafe private var notificationPreviewType: Preferences.NotificationPreviewType = .defaultPreviewType
     
     // MARK: - Initialization
     
     required public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        
+        super.init()
+        
+        /// Populate the notification settings from `libSession` and the database
+        Task.detached(priority: .high) { [weak self] in
+            typealias GlobalSettings = (
+                sound: Preferences.Sound,
+                previewType: Preferences.NotificationPreviewType
+            )
+            struct ThreadSettings: Codable, FetchableRecord {
+                let id: String
+                let variant: SessionThread.Variant
+                let mutedUntilTimestamp: TimeInterval?
+                let onlyNotifyForMentions: Bool
+            }
+            
+            let prefs: GlobalSettings = dependencies.mutate(cache: .libSession) {
+                (
+                    $0.get(.defaultNotificationSound).defaulting(to: .defaultNotificationSound),
+                    $0.get(.preferencesNotificationPreviewType).defaulting(to: .defaultPreviewType)
+                )
+            }
+            let allSettings: [ThreadSettings] = (try? await dependencies[singleton: .storage]
+                .readAsync { db in
+                    try SessionThread
+                        .select(.id, .variant, .mutedUntilTimestamp, .onlyNotifyForMentions)
+                        .asRequest(of: ThreadSettings.self)
+                        .fetchAll(db)
+                })
+                .defaulting(to: [])
+            let notificationSettings: [String: Preferences.NotificationSettings] = allSettings
+                .reduce(into: [:]) { result, setting in
+                    result[setting.id] = Preferences.NotificationSettings(
+                        previewType: prefs.previewType,
+                        sound: prefs.sound,
+                        mentionsOnly: setting.onlyNotifyForMentions,
+                        mutedUntil: setting.mutedUntilTimestamp
+                    )
+                }
+            
+            /// Store the settings in memory
+            self?.notificationSound = prefs.sound
+            self?.notificationPreviewType = prefs.previewType
+            self?._settingsStorage.set(to: notificationSettings)
+            
+            /// Replicate the settings for the PN extension if needed
+            do {
+                try dependencies[singleton: .extensionHelper].replicate(
+                    settings: notificationSettings,
+                    replaceExisting: false
+                )
+            }
+            catch {
+                Log.error("[NotificationPresenter] Failed to replicate settings due to error: \(error)")
+            }
+        }
     }
     
     // MARK: - Registration
@@ -31,7 +90,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         notificationCenter.delegate = delegate
     }
     
-    public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
         return Deferred { [notificationCenter] in
             Future { resolver in
                 notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
@@ -53,6 +112,72 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     }
     
     // MARK: - Unique Logic
+    
+    public func settings(threadId: String? = nil, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
+        return settingsStorage[threadId].defaulting(
+            to: Preferences.NotificationSettings(
+                previewType: notificationPreviewType,
+                sound: notificationSound,
+                mentionsOnly: false,
+                mutedUntil: nil
+            )
+        )
+    }
+    
+    public func updateSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        mentionsOnly: Bool,
+        mutedUntil: TimeInterval?
+    ) {
+        /// Update the in-memory cache first
+        var oldMentionsOnly: Bool?
+        var oldMutedUntil: TimeInterval?
+        
+        _settingsStorage.performUpdate { settings in
+            oldMentionsOnly = settings[threadId]?.mentionsOnly
+            oldMutedUntil = settings[threadId]?.mutedUntil
+            
+            return settings.setting(
+                threadId,
+                Preferences.NotificationSettings(
+                    previewType: notificationPreviewType,
+                    sound: notificationSound,
+                    mentionsOnly: mentionsOnly,
+                    mutedUntil: mutedUntil
+                )
+            )
+        }
+        
+        /// Update the database with the changes
+        let changes: [ConfigColumnAssignment] = [
+            (mentionsOnly == oldMentionsOnly ? nil :
+                SessionThread.Columns.onlyNotifyForMentions.set(to: mentionsOnly)
+            ),
+            (mutedUntil == oldMutedUntil ? nil :
+                SessionThread.Columns.mutedUntilTimestamp.set(to: mutedUntil)
+            )
+        ].compactMap { $0 }
+        
+        if !changes.isEmpty {
+            dependencies[singleton: .storage].writeAsync { db in
+                try SessionThread
+                    .filter(id: threadId)
+                    .updateAll(db, changes)
+            }
+        }
+        
+        /// Replicate the settings across to the PN extension
+        do {
+            try dependencies[singleton: .extensionHelper].replicate(
+                settings: settingsStorage,
+                replaceExisting: true
+            )
+        }
+        catch {
+            Log.error("[NotificationPresenter] Failed to replicate settings due to error: \(error)")
+        }
+    }
     
     public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
         return [
@@ -85,14 +210,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
     ) {
-        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
-            cache.notificationSettings(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                openGroupUrlInfo: nil  /// Communities current don't support PNs
-            )
-        }
-        
+        let notificationSettings: Preferences.NotificationSettings = settings(threadId: threadId, threadVariant: threadVariant)
         var content: NotificationContent = NotificationContent(
             threadId: threadId,
             threadVariant: threadVariant,
@@ -156,13 +274,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             dependencies[defaults: .standard, key: .isSessionNetworkPageNotificationScheduled] != true
         else { return }
         
-        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
-            cache.notificationSettings(
-                threadId: nil,
-                threadVariant: .contact,
-                openGroupUrlInfo: nil
-            )
-        }
+        let notificationSettings: Preferences.NotificationSettings = settings(threadVariant: .contact)
         let identifier: String = "sessionNetworkPageLocalNotifcation_\(UUID().uuidString)" // stringlint:disable
         
         // Schedule the notification after 1 hour

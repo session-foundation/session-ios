@@ -880,6 +880,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             case (NotificationError.processingError(let result, let errorMetadata), _, _):
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorProcessing(result))
+            
+            case (MessageReceiverError.selfSend, _, _):
+                self.completeSilenty(info, .ignoreDueToSelfSend)
                 
             case (MessageReceiverError.noGroupKeyPair, _, _):
                 self.completeSilenty(info, .errorLegacyPushNotification)
@@ -1068,13 +1071,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     ) {
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
         let targetThreadVariant: SessionThread.Variant = (threadVariant ?? .contact) /// Fallback to `contact`
-        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
-            cache.notificationSettings(
-                threadId: info.metadata.accountId,
-                threadVariant: targetThreadVariant,
-                openGroupUrlInfo: nil  /// Communities current don't support PNs
-            )
-        }
+        let notificationSettings: Preferences.NotificationSettings = dependencies[singleton: .notificationsManager].settings(
+            threadId: info.metadata.accountId,
+            threadVariant: targetThreadVariant
+        )
         Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message for message from namespace: \(info.metadata.namespace), requestId: \(info.requestId).")
         
         /// Now we are done with the database, we should suspend it

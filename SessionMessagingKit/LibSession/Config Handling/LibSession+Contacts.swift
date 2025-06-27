@@ -181,9 +181,7 @@ internal extension LibSessionCacheType {
                                 disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
                                     .setTo(data.config) :
                                     .useExisting
-                                ),
-                                mutedUntilTimestamp: .setTo(data.mutedUntilTimestamp),
-                                onlyNotifyForMentions: .setTo(data.onlyNotifyForMentions)
+                                )
                             ),
                             using: dependencies
                         )
@@ -372,19 +370,8 @@ public extension LibSession {
                 )
                 
                 /// Store the updated contact (can't be sure if we made any changes above)
-                let targetNotificationMode: Preferences.NotificationMode? = info.onlyNotifyForMentions
-                    .map { ($0 ? .mentionsOnly : .all) }
-                
                 contact.blocked = (info.isBlocked ?? contact.blocked)
                 contact.priority = (info.priority ?? contact.priority)
-                contact.notifications = (
-                    targetNotificationMode?.libSessionValue ??
-                    contact.notifications
-                )
-                contact.mute_until = (
-                    info.mutedUntilTimestamp.map { Int64($0 ?? 0) } ??
-                    contact.mute_until
-                )
                 contacts_set(conf, &contact)
                 try LibSessionError.throwIfNeeded(conf)
             }
@@ -717,8 +704,6 @@ extension LibSession {
         
         let disappearingMessagesInfo: DisappearingMessageInfo?
         let priority: Int32?
-        let onlyNotifyForMentions: Bool?
-        let mutedUntilTimestamp: TimeInterval??
         let created: TimeInterval?
         
         fileprivate var profile: Profile? {
@@ -739,8 +724,6 @@ extension LibSession {
             profile: Profile? = nil,
             disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
             priority: Int32? = nil,
-            onlyNotifyForMentions: Bool? = nil,
-            mutedUntilTimestamp: TimeInterval?? = nil,
             created: TimeInterval? = nil
         ) {
             self.init(
@@ -761,8 +744,6 @@ extension LibSession {
                     )
                 },
                 priority: priority,
-                onlyNotifyForMentions: onlyNotifyForMentions,
-                mutedUntilTimestamp: mutedUntilTimestamp,
                 created: created
             )
         }
@@ -779,8 +760,6 @@ extension LibSession {
             displayPictureEncryptionKey: Data? = nil,
             disappearingMessagesInfo: DisappearingMessageInfo? = nil,
             priority: Int32? = nil,
-            onlyNotifyForMentions: Bool? = nil,
-            mutedUntilTimestamp: TimeInterval?? = nil,
             created: TimeInterval? = nil
         ) {
             self.id = id
@@ -794,8 +773,6 @@ extension LibSession {
             self.displayPictureEncryptionKey = displayPictureEncryptionKey
             self.disappearingMessagesInfo = disappearingMessagesInfo
             self.priority = priority
-            self.onlyNotifyForMentions = onlyNotifyForMentions
-            self.mutedUntilTimestamp = mutedUntilTimestamp
             self.created = created
         }
     }
@@ -827,8 +804,6 @@ internal struct ContactData {
     internal let profile: Profile
     internal let config: DisappearingMessagesConfiguration
     internal let priority: Int32
-    internal let onlyNotifyForMentions: Bool
-    internal let mutedUntilTimestamp: TimeInterval?
     internal let created: TimeInterval
 }
 
@@ -878,14 +853,6 @@ internal extension LibSession {
                 profile: profileResult,
                 config: configResult,
                 priority: contact.priority,
-                onlyNotifyForMentions: (Preferences.NotificationMode(
-                    libSessionValue: contact.notifications,
-                    threadVariant: .contact
-                ) == .mentionsOnly),
-                mutedUntilTimestamp: (contact.mute_until > 0 ?
-                    TimeInterval(contact.mute_until) :
-                    nil
-                ),
                 created: TimeInterval(contact.created)
             )
             contacts_iterator_advance(contactIterator)

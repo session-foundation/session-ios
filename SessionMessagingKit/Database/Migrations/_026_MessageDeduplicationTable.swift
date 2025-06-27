@@ -93,6 +93,10 @@ enum _026_MessageDeduplicationTable: Migration {
                 timestampMs,
                 serverExpirationTimestamp
             FROM controlMessageProcessRecord
+            WHERE (
+                serverExpirationTimestamp IS NULL OR
+                serverExpirationTimestamp > \(timestampNowInSec)
+            )  
         """)
         
         /// Put the known hashes into a temporary table (if we got interactions with hashes
@@ -247,6 +251,7 @@ enum _026_MessageDeduplicationTable: Migration {
         controlMessageProcessRecords.forEach { row in
             guard
                 let threadId: String = row["threadId"],
+                let threadVariant: SessionThread.Variant = threadVariants[threadId],
                 let rawVariant: Int = row["variant"],
                 let variant: ControlMessageProcessRecordVariant = ControlMessageProcessRecordVariant(rawValue: rawVariant),
                 let timestampMs: Int64 = row["timestampMs"]
@@ -259,6 +264,9 @@ enum _026_MessageDeduplicationTable: Migration {
             guard !processedKeys.contains("\(threadId):\(identifier)") else { return }
             
             let expirationTimestampSeconds: Int64? = {
+                /// Messages in a community conversation don't expire
+                guard threadVariant != .community else { return nil }
+                
                 /// If we have a server expiration for the hash then we should use that value as the priority
                 if let serverExpirationTimestamp: TimeInterval = row["serverExpirationTimestamp"] {
                     return Int64(serverExpirationTimestamp)

@@ -241,8 +241,8 @@ public extension SessionThread {
             pinnedPriority: Value<Int32> = .useLibSession,
             isDraft: Value<Bool> = .useExisting,
             disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession,
-            mutedUntilTimestamp: Value<TimeInterval?> = .useLibSession,
-            onlyNotifyForMentions: Value<Bool> = .useLibSession
+            mutedUntilTimestamp: Value<TimeInterval?> = .useExisting,
+            onlyNotifyForMentions: Value<Bool> = .useExisting
         ) {
             self.creationDateTimestamp = creationDateTimestamp
             self.shouldBeVisible = shouldBeVisible
@@ -310,40 +310,14 @@ public extension SessionThread {
                     disappearingMessagesConfig = .setTo(config)
                 }
                 
-                /// Sort out the notification settings
-                var mutedUntilTimestamp: Value<TimeInterval?> = self.mutedUntilTimestamp
-                var onlyNotifyForMentions: Value<Bool> = self.onlyNotifyForMentions
-                
-                if mutedUntilTimestamp.shouldUseLibSession || onlyNotifyForMentions.shouldUseLibSession {
-                    let notificationSettings: Preferences.NotificationSettings = cache.notificationSettings(
-                        threadId: id,
-                        threadVariant: variant,
-                        openGroupUrlInfo: openGroupUrlInfo
-                    )
-                    
-                    switch (mutedUntilTimestamp, onlyNotifyForMentions) {
-                        case (.useLibSession, .useLibSession):
-                            mutedUntilTimestamp = .setTo(notificationSettings.mutedUntil)
-                            onlyNotifyForMentions = .setTo(notificationSettings.mode == .mentionsOnly)
-                            
-                        case (.useLibSession, _):
-                            mutedUntilTimestamp = .setTo(notificationSettings.mutedUntil)
-                            
-                        case (_, .useLibSession):
-                            onlyNotifyForMentions = .setTo(notificationSettings.mode == .mentionsOnly)
-                            
-                        default: break
-                    }
-                }
-                
                 return TargetValues(
                     creationDateTimestamp: self.creationDateTimestamp,
                     shouldBeVisible: shouldBeVisible,
                     pinnedPriority: pinnedPriority,
                     isDraft: self.isDraft,
                     disappearingMessagesConfig: disappearingMessagesConfig,
-                    mutedUntilTimestamp: mutedUntilTimestamp,
-                    onlyNotifyForMentions: onlyNotifyForMentions
+                    mutedUntilTimestamp: self.mutedUntilTimestamp,
+                    onlyNotifyForMentions: self.onlyNotifyForMentions
                 )
             }
         }
@@ -365,22 +339,15 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let info: (priority: Int32, settings: Preferences.NotificationSettings) = dependencies.mutate(cache: .libSession) { cache in
+                let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
                     let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
                         try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
                     )
                     
-                    return (
-                        cache.pinnedPriority(
-                            threadId: id,
-                            threadVariant: variant,
-                            openGroupUrlInfo: openGroupUrlInfo
-                        ),
-                        cache.notificationSettings(
-                            threadId: id,
-                            threadVariant: variant,
-                            openGroupUrlInfo: openGroupUrlInfo
-                        )
+                    return cache.pinnedPriority(
+                        threadId: id,
+                        threadVariant: variant,
+                        openGroupUrlInfo: openGroupUrlInfo
                     )
                 }
                 
@@ -391,10 +358,10 @@ public extension SessionThread {
                         values.creationDateTimestamp.valueOrNull ??
                         (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     ),
-                    shouldBeVisible: LibSession.shouldBeVisible(priority: info.priority),
-                    mutedUntilTimestamp: info.settings.mutedUntil,
-                    onlyNotifyForMentions: (info.settings.mode == .mentionsOnly),
-                    pinnedPriority: info.priority,
+                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
+                    mutedUntilTimestamp: nil,
+                    onlyNotifyForMentions: false,
+                    pinnedPriority: targetPriority,
                     isDraft: (values.isDraft.valueOrNull == true),
                     using: dependencies
                 ).upserted(db)

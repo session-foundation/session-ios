@@ -1091,6 +1091,224 @@ class ExtensionHelperSpec: AsyncSpec {
             }
         }
         
+        // MARK: - an ExtensionHelper - Notification Settings
+        describe("an ExtensionHelper") {
+            struct NotificationSettings: Codable {
+                let threadId: String
+                let mentionsOnly: Bool
+                let mutedUntil: TimeInterval?
+            }
+            
+            // MARK: -- when replicating notification settings
+            context("when replicating notification settings") {
+                beforeEach {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
+                    mockCrypto
+                        .when { $0.generate(.hash(message: .any)) }
+                        .thenReturn([0, 1, 2])
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
+                }
+                
+                // MARK: ---- replicates successfully
+                it("replicates successfully") {
+                    try? extensionHelper.replicate(
+                        settings: [
+                            "Test1": Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .note,
+                                mentionsOnly: false,
+                                mutedUntil: nil
+                            )
+                        ],
+                        replaceExisting: true
+                    )
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/notificationSettings"
+                        )
+                    })
+                }
+                
+                // MARK: ---- excludes values with default settings
+                it("excludes values with default settings") {
+                    let expectedResult: [NotificationSettings] = [
+                        NotificationSettings(
+                            threadId: "Test2",
+                            mentionsOnly: false,
+                            mutedUntil: 1234
+                        )
+                    ]
+                    
+                    try? extensionHelper.replicate(
+                        settings: [
+                            "Test1": Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .note,
+                                mentionsOnly: false,
+                                mutedUntil: nil
+                            ),
+                            "Test2": Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .note,
+                                mentionsOnly: false,
+                                mutedUntil: 1234
+                            )
+                        ],
+                        replaceExisting: true
+                    )
+                    expect(mockCrypto).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.generate(
+                            .ciphertextWithXChaCha20(
+                                plaintext: try JSONEncoder(using: dependencies)
+                                    .encode(expectedResult),
+                                encKey: [1, 2, 3]
+                            )
+                        )
+                    })
+                }
+                
+                // MARK: ---- does nothing if the settings already exist and we do not want to replace existing
+                it("does nothing if the settings already exist and we do not want to replace existing") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    
+                    try? extensionHelper.replicate(
+                        settings: [
+                            "Test1": Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .note,
+                                mentionsOnly: false,
+                                mutedUntil: nil
+                            )
+                        ],
+                        replaceExisting: false
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- does nothing if it fails to replicate
+                it("does nothing if it fails to replicate") {
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
+                        .thenThrow(TestError.mock)
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
+                        .thenThrow(TestError.mock)
+                    
+                    try? extensionHelper.replicate(
+                        settings: [
+                            "Test1": Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .note,
+                                mentionsOnly: false,
+                                mutedUntil: nil
+                            )
+                        ],
+                        replaceExisting: true
+                    )
+                    
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+            }
+            
+            // MARK: -- when loading notification settings
+            context("when loading notification settings") {
+                // MARK: ---- loads the data correctly
+                it("loads the data correctly") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(
+                            try! JSONEncoder(using: dependencies)
+                                .encode(
+                                    [
+                                        NotificationSettings(
+                                            threadId: "Test1",
+                                            mentionsOnly: false,
+                                            mutedUntil: nil
+                                        ),
+                                        NotificationSettings(
+                                            threadId: "Test2",
+                                            mentionsOnly: true,
+                                            mutedUntil: 12345
+                                        )
+                                    ]
+                                )
+                        )
+                    
+                    let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
+                        previewType: .nameAndPreview,
+                        sound: .note
+                    )
+                    
+                    try require(result).toNot(beNil())
+                    try require(result?["Test1"]).toNot(beNil())
+                    try require(result?["Test2"]).toNot(beNil())
+                    expect(result?["Test1"]?.previewType).to(equal(.nameAndPreview))
+                    expect(result?["Test1"]?.sound).to(equal(.note))
+                    expect(result?["Test1"]?.mentionsOnly).to(beFalse())
+                    expect(result?["Test1"]?.mutedUntil).to(beNil())
+                    expect(result?["Test2"]?.previewType).to(equal(.nameAndPreview))
+                    expect(result?["Test2"]?.sound).to(equal(.note))
+                    expect(result?["Test2"]?.mentionsOnly).to(beTrue())
+                    expect(result?["Test2"]?.mutedUntil).to(equal(12345))
+                }
+                
+                // MARK: ---- returns null if there is no file
+                it("returns null if there is no file") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    
+                    let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
+                        previewType: .nameAndPreview,
+                        sound: .note
+                    )
+                    
+                    expect(result).to(beNil())
+                }
+                
+                // MARK: ---- returns null if it fails to decrypt the file
+                it("returns null if it fails to decrypt the file") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(nil)
+                    
+                    let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
+                        previewType: .nameAndPreview,
+                        sound: .note
+                    )
+                    
+                    expect(result).to(beNil())
+                }
+                
+                // MARK: ---- returns null if it fails to decode the data
+                it("returns null if it fails to decode the data") {
+                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(Data([1, 2, 3]))
+                    
+                    let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
+                        previewType: .nameAndPreview,
+                        sound: .note
+                    )
+                    
+                    expect(result).to(beNil())
+                }
+            }
+        }
+        
         // MARK: - an ExtensionHelper - Messages
         describe("an ExtensionHelper") {
             beforeEach {

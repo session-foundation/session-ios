@@ -14,6 +14,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToMainAppRunning
     case ignoreDueToNoContentFromApple
     case ignoreDueToNonLegacyGroupLegacyNotification
+    case ignoreDueToSelfSend
     case ignoreDueToOutdatedMessage
     case ignoreDueToRequiresNoNotification
     case ignoreDueToMessageRequest(String)
@@ -40,6 +41,7 @@ enum NotificationResolution: CustomStringConvertible {
             case .ignoreDueToMainAppRunning: return "Ignored: Main app running"
             case .ignoreDueToNoContentFromApple: return "Ignored: No content"
             case .ignoreDueToNonLegacyGroupLegacyNotification: return "Ignored: Non-group legacy notification"
+            case .ignoreDueToSelfSend: return "Ignored: Self send"
             case .ignoreDueToOutdatedMessage: return "Ignored: Already seen message"
             case .ignoreDueToRequiresNoNotification: return "Ignored: Message requires no notification"
             case .ignoreDueToMessageRequest(let threadId):
@@ -71,9 +73,10 @@ enum NotificationResolution: CustomStringConvertible {
     public var logLevel: Log.Level {
         switch self {
             case .success, .successCall, .ignoreDueToMainAppRunning, .ignoreDueToNoContentFromApple,
-                .ignoreDueToNonLegacyGroupLegacyNotification, .ignoreDueToOutdatedMessage,
-                .ignoreDueToRequiresNoNotification, .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage,
-                .ignoreDueToDuplicateCall, .ignoreDueToContentSize:
+                .ignoreDueToSelfSend, .ignoreDueToNonLegacyGroupLegacyNotification,
+                .ignoreDueToOutdatedMessage, .ignoreDueToRequiresNoNotification,
+                .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage, .ignoreDueToDuplicateCall,
+                .ignoreDueToContentSize:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:

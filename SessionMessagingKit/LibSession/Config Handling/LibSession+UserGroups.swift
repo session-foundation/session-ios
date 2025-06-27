@@ -102,14 +102,6 @@ internal extension LibSessionCacheType {
                     [
                         (existingInfo.pinnedPriority == community.priority ? nil :
                             SessionThread.Columns.pinnedPriority.set(to: community.priority)
-                        ),
-                        (existingInfo.onlyNotifyForMentions == community.onlyNotifyForMentions ? nil :
-                            SessionThread.Columns.onlyNotifyForMentions.set(
-                                to: community.onlyNotifyForMentions
-                            )
-                        ),
-                        (existingInfo.mutedUntilTimestamp == community.mutedUntilTimestamp ? nil :
-                            SessionThread.Columns.mutedUntilTimestamp.set(to: community.mutedUntilTimestamp)
                         )
                     ].compactMap { $0 },
                     using: dependencies
@@ -399,14 +391,6 @@ internal extension LibSessionCacheType {
                     [
                         (existingInfo.pinnedPriority == group.priority ? nil :
                             SessionThread.Columns.pinnedPriority.set(to: group.priority)
-                        ),
-                        (existingInfo.onlyNotifyForMentions == group.onlyNotifyForMentions ? nil :
-                            SessionThread.Columns.onlyNotifyForMentions.set(
-                                to: group.onlyNotifyForMentions
-                            )
-                        ),
-                        (existingInfo.mutedUntilTimestamp == group.mutedUntilTimestamp ? nil :
-                            SessionThread.Columns.mutedUntilTimestamp.set(to: group.mutedUntilTimestamp)
                         )
                     ].compactMap { $0 },
                     using: dependencies
@@ -612,20 +596,9 @@ public extension LibSession {
                 }
 
                 // Store the updated group (can't be sure if we made any changes above)
-                let targetNotificationMode: Preferences.NotificationMode? = group.onlyNotifyForMentions
-                    .map { ($0 ? .mentionsOnly : .all) }
-                
                 userGroup.invited = (group.invited ?? userGroup.invited)
                 userGroup.joined_at = (group.joinedAt.map { Int64($0) } ?? userGroup.joined_at)
                 userGroup.priority = (group.priority ?? userGroup.priority)
-                userGroup.notifications = (
-                    targetNotificationMode?.libSessionValue ??
-                    userGroup.notifications
-                )
-                userGroup.mute_until = (
-                    group.mutedUntilTimestamp.map { Int64($0 ?? 0) } ??
-                    userGroup.mute_until
-                )
                 user_groups_set_group(conf, &userGroup)
             }
     }
@@ -660,19 +633,7 @@ public extension LibSession {
                     )
                 }
                 
-                
-                let targetNotificationMode: Preferences.NotificationMode? = community.onlyNotifyForMentions
-                    .map { ($0 ? .mentionsOnly : .all) }
-                
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
-                userCommunity.notifications = (
-                    targetNotificationMode?.libSessionValue ??
-                    userCommunity.notifications
-                )
-                userCommunity.mute_until = (
-                    community.mutedUntilTimestamp.map { Int64($0 ?? 0) } ??
-                    userCommunity.mute_until
-                )
                 user_groups_set_community(conf, &userCommunity)
             }
     }
@@ -1067,15 +1028,7 @@ public extension LibSession {
                         server: server,
                         roomToken: roomToken,
                         publicKey: community.getHex(\.pubkey),
-                        priority: community.priority,
-                        onlyNotifyForMentions: (Preferences.NotificationMode(
-                            libSessionValue: community.notifications,
-                            threadVariant: .community
-                        ) == .mentionsOnly),
-                        mutedUntilTimestamp: (community.mute_until > 0 ?
-                            TimeInterval(community.mute_until) :
-                            nil
-                        )
+                        priority: community.priority
                     )
                 )
             }
@@ -1119,15 +1072,7 @@ public extension LibSession {
                         joinedAt: TimeInterval(group.joined_at),
                         invited: group.invited,
                         wasKickedFromGroup: ugroups_group_is_kicked(&group),
-                        wasGroupDestroyed: ugroups_group_is_destroyed(&group),
-                        onlyNotifyForMentions: (Preferences.NotificationMode(
-                            libSessionValue: group.notifications,
-                            threadVariant: .group
-                        ) == .mentionsOnly),
-                        mutedUntilTimestamp: (group.mute_until > 0 ?
-                            TimeInterval(group.mute_until) :
-                            nil
-                        )
+                        wasGroupDestroyed: ugroups_group_is_destroyed(&group)
                     )
                 )
             }
@@ -1152,8 +1097,6 @@ public extension LibSession {
         let roomToken: String
         let publicKey: String
         let priority: Int32
-        let onlyNotifyForMentions: Bool
-        let mutedUntilTimestamp: TimeInterval?
     }
 }
 
@@ -1204,8 +1147,6 @@ public extension LibSession {
         let invited: Bool
         let wasKickedFromGroup: Bool
         let wasGroupDestroyed: Bool
-        let onlyNotifyForMentions: Bool
-        let mutedUntilTimestamp: TimeInterval?
     }
     
     struct GroupUpdateInfo {
@@ -1218,8 +1159,6 @@ public extension LibSession {
         let invited: Bool?
         let wasKickedFromGroup: Bool?
         let wasGroupDestroyed: Bool?
-        let onlyNotifyForMentions: Bool?
-        let mutedUntilTimestamp: TimeInterval??
         
         public init(
             groupSessionId: String,
@@ -1230,9 +1169,7 @@ public extension LibSession {
             joinedAt: TimeInterval? = nil,
             invited: Bool? = nil,
             wasKickedFromGroup: Bool? = nil,
-            wasGroupDestroyed: Bool? = nil,
-            onlyNotifyForMentions: Bool? = nil,
-            mutedUntilTimestamp: TimeInterval?? = nil
+            wasGroupDestroyed: Bool? = nil
         ) {
             self.groupSessionId = groupSessionId
             self.groupIdentityPrivateKey = groupIdentityPrivateKey
@@ -1243,8 +1180,6 @@ public extension LibSession {
             self.invited = invited
             self.wasKickedFromGroup = wasKickedFromGroup
             self.wasGroupDestroyed = wasGroupDestroyed
-            self.onlyNotifyForMentions = onlyNotifyForMentions
-            self.mutedUntilTimestamp = mutedUntilTimestamp
         }
     }
 }
@@ -1255,19 +1190,13 @@ public extension LibSession {
     struct CommunityUpdateInfo {
         let urlInfo: OpenGroupUrlInfo
         let priority: Int32?
-        let onlyNotifyForMentions: Bool?
-        let mutedUntilTimestamp: TimeInterval??
         
         init(
             urlInfo: OpenGroupUrlInfo,
-            priority: Int32? = nil,
-            onlyNotifyForMentions: Bool? = nil,
-            mutedUntilTimestamp: TimeInterval?? = nil
+            priority: Int32? = nil
         ) {
             self.urlInfo = urlInfo
             self.priority = priority
-            self.onlyNotifyForMentions = onlyNotifyForMentions
-            self.mutedUntilTimestamp = mutedUntilTimestamp
         }
     }
 }

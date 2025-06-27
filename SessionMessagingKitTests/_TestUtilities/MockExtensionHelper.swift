@@ -77,6 +77,19 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         mockNoReturn(args: [cache, swarmPublicKey, userEd25519SecretKey])
     }
     
+    // MARK: - Notification Settings
+    
+    func replicate(settings: [String: Preferences.NotificationSettings], replaceExisting: Bool) throws {
+        try mockThrowingNoReturn(args: [settings, replaceExisting])
+    }
+    
+    func loadNotificationSettings(
+        previewType: Preferences.NotificationPreviewType,
+        sound: Preferences.Sound
+    ) -> [String: Preferences.NotificationSettings]? {
+        return mock(args: [previewType, sound])
+    }
+    
     // MARK: - Messages
     
     func unreadMessageCount() -> Int? {

@@ -304,7 +304,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
             context("when initialised with a 2D C array") {
                 // MARK: ---- returns the correct array
                 it("returns the correct array") {
-                    var test: [String] = ["Test1", "Test2", "Test3AndExtra"]
+                    let test: [String] = ["Test1", "Test2", "Test3AndExtra"]
                     
                     let result = try! test.withUnsafeCStrArray { ptr in
                         return [String](cStringArray: ptr.baseAddress, count: 3)
@@ -314,7 +314,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- returns an empty array if given one
                 it("returns an empty array if given one") {
-                    var test: [String] = []
+                    let test: [String] = []
                     
                     let result = try! test.withUnsafeCStrArray { ptr in
                         return [String](cStringArray: ptr.baseAddress, count: 0)
@@ -324,7 +324,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
 
                 // MARK: ---- handles empty strings without issues
                 it("handles empty strings without issues") {
-                    var test: [String] = ["Test1", "", "Test2"]
+                    let test: [String] = ["Test1", "", "Test2"]
                     
                     let result = try! test.withUnsafeCStrArray { ptr in
                         return [String](cStringArray: ptr.baseAddress, count: 3)
@@ -342,7 +342,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- returns null when given a null count
                 it("returns null when given a null count") {
-                    var test: [String] = ["Test1"]
+                    let test: [String] = ["Test1"]
                     
                     let result = try! test.withUnsafeCStrArray { ptr in
                         return [String](cStringArray: ptr.baseAddress, count: nil)

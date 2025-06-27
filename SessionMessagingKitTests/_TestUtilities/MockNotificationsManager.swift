@@ -21,8 +21,21 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         mockNoReturn(args: [delegate])
     }
     
-    public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
         return mock()
+    }
+    
+    public func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
+        return mock(args: [threadId, threadVariant])
+    }
+    
+    public func updateSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        mentionsOnly: Bool,
+        mutedUntil: TimeInterval?
+    ) {
+        return mock(args: [threadId, threadVariant, mentionsOnly, mutedUntil])
     }
     
     public func notificationUserInfo(
@@ -62,5 +75,50 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
     
     public func clearAllNotifications() {
         mockNoReturn()
+    }
+}
+
+// MARK: - Convenience
+
+extension Mock where T == NotificationsManagerType {
+    func defaultInitialSetup() {
+        self
+            .when { $0.notificationUserInfo(threadId: .any, threadVariant: .any) }
+            .thenReturn([:])
+        self
+            .when { $0.notificationShouldPlaySound(applicationState: .any) }
+            .thenReturn(false)
+        self
+            .when {
+                $0.addNotificationRequest(
+                    content: .any,
+                    notificationSettings: .any,
+                    extensionBaseUnreadCount: .any
+                )
+            }
+            .thenReturn(())
+        self
+            .when { $0.cancelNotifications(identifiers: .any) }
+            .thenReturn(())
+        self
+            .when { $0.settings(threadId: .any, threadVariant: .any) }
+            .thenReturn(
+                Preferences.NotificationSettings(
+                    previewType: .nameAndPreview,
+                    sound: .note,
+                    mentionsOnly: false,
+                    mutedUntil: nil
+                )
+            )
+        self
+            .when {
+                $0.updateSettings(
+                    threadId: .any,
+                    threadVariant: .any,
+                    mentionsOnly: .any,
+                    mutedUntil: .any
+                )
+            }
+            .thenReturn(())
     }
 }

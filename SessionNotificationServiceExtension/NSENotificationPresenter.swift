@@ -8,22 +8,58 @@ import SessionUtilitiesKit
 public class NSENotificationPresenter: NotificationsManagerType {
     public let dependencies: Dependencies
     private var notifications: [String: UNNotificationRequest] = [:]
+    @ThreadSafeObject private var settingsStorage: [String: Preferences.NotificationSettings] = [:]
+    @ThreadSafe private var notificationSound: Preferences.Sound = .defaultNotificationSound
+    @ThreadSafe private var notificationPreviewType: Preferences.NotificationPreviewType = .defaultPreviewType
     
     // MARK: - Initialization
     
     required public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        
+        dependencies.mutate(cache: .libSession) {
+            notificationPreviewType = $0.get(.preferencesNotificationPreviewType)
+                .defaulting(to: .defaultPreviewType)
+            notificationSound = $0.get(.defaultNotificationSound)
+                .defaulting(to: .defaultNotificationSound)
+        }
+        _settingsStorage.set(
+            to: dependencies[singleton: .extensionHelper]
+                .loadNotificationSettings(
+                    previewType: notificationPreviewType,
+                    sound: notificationSound
+                )
+                .defaulting(to: [:])
+        )
     }
     
     // MARK: - Registration
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
     
-    public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
         return Just(()).eraseToAnyPublisher()
     }
     
     // MARK: - Unique Logic
+    
+    public func settings(threadId: String? = nil, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
+        return settingsStorage[threadId].defaulting(
+            to: Preferences.NotificationSettings(
+                previewType: notificationPreviewType,
+                sound: notificationSound,
+                mentionsOnly: false,
+                mutedUntil: nil
+            )
+        )
+    }
+    
+    public func updateSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        mentionsOnly: Bool,
+        mutedUntil: TimeInterval?
+    ) {}
     
     public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
         return [

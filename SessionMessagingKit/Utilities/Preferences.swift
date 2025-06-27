@@ -105,19 +105,22 @@ public extension KeyValueStore.IntKey {
 
 public enum Preferences {
     public struct NotificationSettings {
-        public static func defaultFor(_ threadVariant: SessionThread.Variant) -> NotificationSettings {
-            return NotificationSettings(
-                mode: .defaultMode(for: threadVariant),
-                previewType: .defaultPreviewType,
-                sound: .defaultNotificationSound,
-                mutedUntil: nil
-            )
-        }
-        
-        public let mode: NotificationMode
         public let previewType: Preferences.NotificationPreviewType
         public let sound: Preferences.Sound
+        public let mentionsOnly: Bool
         public let mutedUntil: TimeInterval?
+        
+        public init(
+            previewType: Preferences.NotificationPreviewType,
+            sound: Preferences.Sound,
+            mentionsOnly: Bool,
+            mutedUntil: TimeInterval?
+        ) {
+            self.previewType = previewType
+            self.sound = sound
+            self.mentionsOnly = mentionsOnly
+            self.mutedUntil = mutedUntil
+        }
     }
     
     // stringlint:ignore_contents

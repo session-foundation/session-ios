@@ -1077,11 +1077,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int32
-    func notificationSettings(
-        threadId: String?,
-        threadVariant: SessionThread.Variant,
-        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
-    ) -> Preferences.NotificationSettings
     func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
@@ -1338,11 +1333,6 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int32 { return LibSession.defaultNewThreadPriority }
-    func notificationSettings(
-        threadId: String?,
-        threadVariant: SessionThread.Variant,
-        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
-    ) -> Preferences.NotificationSettings { return .defaultFor(threadVariant) }
     func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
