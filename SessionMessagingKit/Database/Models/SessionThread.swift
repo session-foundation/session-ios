@@ -210,6 +210,13 @@ public extension SessionThread {
                     default: return nil
                 }
             }
+            
+            var shouldUseLibSession: Bool {
+                switch self {
+                    case .useLibSession: return true
+                    default: return false
+                }
+            }
         }
         
         let creationDateTimestamp: Value<TimeInterval>
@@ -217,6 +224,8 @@ public extension SessionThread {
         let pinnedPriority: Value<Int32>
         let isDraft: Value<Bool>
         let disappearingMessagesConfig: Value<DisappearingMessagesConfiguration>
+        let mutedUntilTimestamp: Value<TimeInterval?>
+        let onlyNotifyForMentions: Value<Bool>
         
         // MARK: - Convenience
         
@@ -231,13 +240,112 @@ public extension SessionThread {
             shouldBeVisible: Value<Bool>,
             pinnedPriority: Value<Int32> = .useLibSession,
             isDraft: Value<Bool> = .useExisting,
-            disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession
+            disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession,
+            mutedUntilTimestamp: Value<TimeInterval?> = .useLibSession,
+            onlyNotifyForMentions: Value<Bool> = .useLibSession
         ) {
             self.creationDateTimestamp = creationDateTimestamp
             self.shouldBeVisible = shouldBeVisible
             self.pinnedPriority = pinnedPriority
             self.isDraft = isDraft
             self.disappearingMessagesConfig = disappearingMessagesConfig
+            self.mutedUntilTimestamp = mutedUntilTimestamp
+            self.onlyNotifyForMentions = onlyNotifyForMentions
+        }
+        
+        // MARK: - Functions
+        
+        func resolveLibSessionValues(
+            _ db: ObservingDatabase,
+            id: ID,
+            variant: Variant,
+            using dependencies: Dependencies
+        ) -> TargetValues {
+            guard
+                creationDateTimestamp.shouldUseLibSession ||
+                shouldBeVisible.shouldUseLibSession ||
+                pinnedPriority.shouldUseLibSession ||
+                isDraft.shouldUseLibSession ||
+                disappearingMessagesConfig.shouldUseLibSession ||
+                mutedUntilTimestamp.shouldUseLibSession ||
+                onlyNotifyForMentions.shouldUseLibSession
+            else { return self }
+            
+            let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
+                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+            )
+            
+            return dependencies.mutate(cache: .libSession) { cache in
+                var shouldBeVisible: Value<Bool> = self.shouldBeVisible
+                var pinnedPriority: Value<Int32> = self.pinnedPriority
+                
+                /// The `shouldBeVisible` flag is based on `pinnedPriority` so we need to check these two together if they
+                /// should both be sourced from `libSession`
+                switch (self.pinnedPriority, self.shouldBeVisible) {
+                    case (.useLibSession, .useLibSession):
+                        let targetPriority: Int32 = cache.pinnedPriority(
+                            threadId: id,
+                            threadVariant: variant,
+                            openGroupUrlInfo: openGroupUrlInfo
+                        )
+                        let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
+                        
+                        shouldBeVisible = .setTo(LibSession.shouldBeVisible(priority: targetPriority))
+                        pinnedPriority = .setTo(targetPriority)
+                        
+                    default: break
+                }
+                
+                /// Sort out the disappearing message conifg setting
+                var disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = self.disappearingMessagesConfig
+                
+                if
+                    variant != .community,
+                    disappearingMessagesConfig.shouldUseLibSession,
+                    let config: DisappearingMessagesConfiguration = cache.disappearingMessagesConfig(
+                        threadId: id,
+                        threadVariant: variant
+                    )
+                {
+                    disappearingMessagesConfig = .setTo(config)
+                }
+                
+                /// Sort out the notification settings
+                var mutedUntilTimestamp: Value<TimeInterval?> = self.mutedUntilTimestamp
+                var onlyNotifyForMentions: Value<Bool> = self.onlyNotifyForMentions
+                
+                if mutedUntilTimestamp.shouldUseLibSession || onlyNotifyForMentions.shouldUseLibSession {
+                    let notificationSettings: Preferences.NotificationSettings = cache.notificationSettings(
+                        threadId: id,
+                        threadVariant: variant,
+                        openGroupUrlInfo: openGroupUrlInfo
+                    )
+                    
+                    switch (mutedUntilTimestamp, onlyNotifyForMentions) {
+                        case (.useLibSession, .useLibSession):
+                            mutedUntilTimestamp = .setTo(notificationSettings.mutedUntil)
+                            onlyNotifyForMentions = .setTo(notificationSettings.mode == .mentionsOnly)
+                            
+                        case (.useLibSession, _):
+                            mutedUntilTimestamp = .setTo(notificationSettings.mutedUntil)
+                            
+                        case (_, .useLibSession):
+                            onlyNotifyForMentions = .setTo(notificationSettings.mode == .mentionsOnly)
+                            
+                        default: break
+                    }
+                }
+                
+                return TargetValues(
+                    creationDateTimestamp: self.creationDateTimestamp,
+                    shouldBeVisible: shouldBeVisible,
+                    pinnedPriority: pinnedPriority,
+                    isDraft: self.isDraft,
+                    disappearingMessagesConfig: disappearingMessagesConfig,
+                    mutedUntilTimestamp: mutedUntilTimestamp,
+                    onlyNotifyForMentions: onlyNotifyForMentions
+                )
+            }
         }
     }
     
@@ -257,15 +365,25 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
-                    cache.pinnedPriority(
-                        threadId: id,
-                        threadVariant: variant,
-                        openGroupUrlInfo: (variant != .community ? nil :
-                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+                let info: (priority: Int32, settings: Preferences.NotificationSettings) = dependencies.mutate(cache: .libSession) { cache in
+                    let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
+                        try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+                    )
+                    
+                    return (
+                        cache.pinnedPriority(
+                            threadId: id,
+                            threadVariant: variant,
+                            openGroupUrlInfo: openGroupUrlInfo
+                        ),
+                        cache.notificationSettings(
+                            threadId: id,
+                            threadVariant: variant,
+                            openGroupUrlInfo: openGroupUrlInfo
                         )
                     )
                 }
+                
                 result = try SessionThread(
                     id: id,
                     variant: variant,
@@ -273,15 +391,34 @@ public extension SessionThread {
                         values.creationDateTimestamp.valueOrNull ??
                         (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     ),
-                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
-                    pinnedPriority: targetPriority,
+                    shouldBeVisible: LibSession.shouldBeVisible(priority: info.priority),
+                    mutedUntilTimestamp: info.settings.mutedUntil,
+                    onlyNotifyForMentions: (info.settings.mode == .mentionsOnly),
+                    pinnedPriority: info.priority,
                     isDraft: (values.isDraft.valueOrNull == true),
                     using: dependencies
                 ).upserted(db)
         }
         
+        /// Apply any changes if the provided `values` don't match the current or default settings
+        var requiredChanges: [ConfigColumnAssignment] = []
+        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
+        var finalShouldBeVisible: Bool = result.shouldBeVisible
+        var finalPinnedPriority: Int32? = result.pinnedPriority
+        var finalIsDraft: Bool? = result.isDraft
+        var finalMutedUntilTimestamp: TimeInterval? = result.mutedUntilTimestamp
+        var finalOnlyNotifyForMentions: Bool = result.onlyNotifyForMentions
+        
+        /// Resolve any settings which should be sourced from `libSession`
+        let resolvedValues: TargetValues = values.resolveLibSessionValues(
+            db,
+            id: id,
+            variant: variant,
+            using: dependencies
+        )
+        
         /// Setup the `DisappearingMessagesConfiguration` as specified
-        switch (variant, values.disappearingMessagesConfig) {
+        switch (variant, resolvedValues.disappearingMessagesConfig) {
             case (.community, _), (_, .useExisting): break      // No need to do anything
             case (_, .setTo(let config)):                       // Save the explicit config
                 try config
@@ -303,64 +440,13 @@ public extension SessionThread {
                         using: dependencies
                     )
             
-            case (_, .useLibSession):                           // Create and save the config from libSession
-                let disappearingConfig: DisappearingMessagesConfiguration? = dependencies.mutate(cache: .libSession) { cache in
-                    cache.disappearingMessagesConfig(threadId: id, threadVariant: variant)
-                }
-                
-                try disappearingConfig?
-                    .upserted(db)
-                    .clearUnrelatedControlMessages(
-                        db,
-                        threadVariant: variant,
-                        using: dependencies
-                    )
+            case (_, .useLibSession): break                     // Shouldn't happen
         }
         
-        /// Apply any changes if the provided `values` don't match the current or default settings
-        var requiredChanges: [ConfigColumnAssignment] = []
-        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
-        var finalShouldBeVisible: Bool = result.shouldBeVisible
-        var finalPinnedPriority: Int32? = result.pinnedPriority
-        var finalIsDraft: Bool? = result.isDraft
-        
-        /// The `shouldBeVisible` flag is based on `pinnedPriority` so we need to check these two together if they
-        /// should both be sourced from `libSession`
-        switch (values.pinnedPriority, values.shouldBeVisible) {
-            case (.useLibSession, .useLibSession):
-                let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
-                    cache.pinnedPriority(
-                        threadId: id,
-                        threadVariant: variant,
-                        openGroupUrlInfo: (variant != .community ? nil :
-                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
-                        )
-                    )
-                }
-                let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
-                
-                if targetPriority != result.pinnedPriority {
-                    requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: targetPriority))
-                    finalPinnedPriority = targetPriority
-                }
-                
-                if libSessionShouldBeVisible != result.shouldBeVisible {
-                    requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: libSessionShouldBeVisible))
-                    finalShouldBeVisible = libSessionShouldBeVisible
-                }
-                
-            default: break
-        }
-        
-        /// Otherwise we can just handle the explicit `setTo` cases for these
+        /// And update any explicit `setTo` cases
         if case .setTo(let value) = values.creationDateTimestamp, value != result.creationDateTimestamp {
             requiredChanges.append(SessionThread.Columns.creationDateTimestamp.set(to: value))
             finalCreationDateTimestamp = value
-        }
-        
-        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
-            requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
-            finalPinnedPriority = value
         }
         
         if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
@@ -368,9 +454,24 @@ public extension SessionThread {
             finalShouldBeVisible = value
         }
         
+        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
+            requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
+            finalPinnedPriority = value
+        }
+        
         if case .setTo(let value) = values.isDraft, value != result.isDraft {
             requiredChanges.append(SessionThread.Columns.isDraft.set(to: value))
             finalIsDraft = value
+        }
+        
+        if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
+            requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
+            finalMutedUntilTimestamp = value
+        }
+        
+        if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
+            requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
+            finalOnlyNotifyForMentions = value
         }
         
         /// If no changes were needed we can just return the existing/default thread
@@ -397,6 +498,8 @@ public extension SessionThread {
                     variant: variant,
                     creationDateTimestamp: finalCreationDateTimestamp,
                     shouldBeVisible: finalShouldBeVisible,
+                    mutedUntilTimestamp: finalMutedUntilTimestamp,
+                    onlyNotifyForMentions: finalOnlyNotifyForMentions,
                     pinnedPriority: finalPinnedPriority,
                     isDraft: finalIsDraft,
                     using: dependencies

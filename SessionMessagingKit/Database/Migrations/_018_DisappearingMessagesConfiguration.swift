@@ -115,7 +115,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
                     $0["variant"] == SessionThread.Variant.contact.rawValue
                 }
                 .map {
-                    LibSession.SyncedContactInfo(
+                    LibSession.ContactUpdateInfo(
                         id: $0["id"],
                         disappearingMessagesConfig: DisappearingMessagesConfiguration(
                             threadId: $0["id"],

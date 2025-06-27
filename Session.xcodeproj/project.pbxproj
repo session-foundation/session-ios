@@ -883,7 +883,7 @@
 		FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */; };
 		FDAA167F2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */; };
 		FDB11A4C2DCC527D00BEF49F /* NotificationContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */; };
-		FDB11A502DCC6ADE00BEF49F /* PriorityVisibilityInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4F2DCC6ADD00BEF49F /* PriorityVisibilityInfo.swift */; };
+		FDB11A502DCC6ADE00BEF49F /* ThreadUpdateInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */; };
 		FDB11A522DCC6B0000BEF49F /* OpenGroupUrlInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */; };
 		FDB11A542DCD7A7F00BEF49F /* Task+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */; };
 		FDB11A562DD17C3300BEF49F /* MockLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A552DD17C3000BEF49F /* MockLogger.swift */; };
@@ -2128,7 +2128,7 @@
 		FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+Sound.swift"; sourceTree = "<group>"; };
 		FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+NotificationPreviewType.swift"; sourceTree = "<group>"; };
 		FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContent.swift; sourceTree = "<group>"; };
-		FDB11A4F2DCC6ADD00BEF49F /* PriorityVisibilityInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriorityVisibilityInfo.swift; sourceTree = "<group>"; };
+		FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadUpdateInfo.swift; sourceTree = "<group>"; };
 		FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupUrlInfo.swift; sourceTree = "<group>"; };
 		FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Task+Utilities.swift"; sourceTree = "<group>"; };
 		FDB11A552DD17C3000BEF49F /* MockLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLogger.swift; sourceTree = "<group>"; };
@@ -4666,7 +4666,7 @@
 				FDC1BD652CFD6C4E002CDC71 /* Config.swift */,
 				FD78E9F52DDD43AB00D55B50 /* Mutation.swift */,
 				FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */,
-				FDB11A4F2DCC6ADD00BEF49F /* PriorityVisibilityInfo.swift */,
+				FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */,
 				FD78E9FE2DDDA1AF00D55B50 /* ValueFetcher.swift */,
 			);
 			path = Types;
@@ -6443,7 +6443,7 @@
 				FDB5DAE62A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift in Sources */,
 				7B5233C6290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift in Sources */,
 				FD5C72FD284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift in Sources */,
-				FDB11A502DCC6ADE00BEF49F /* PriorityVisibilityInfo.swift in Sources */,
+				FDB11A502DCC6ADE00BEF49F /* ThreadUpdateInfo.swift in Sources */,
 				B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */,
 				FDC1BD662CFD6C4F002CDC71 /* Config.swift in Sources */,
 				FD245C53285065DB00B966DD /* ProximityMonitoringManager.swift in Sources */,

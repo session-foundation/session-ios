@@ -247,7 +247,6 @@ fileprivate extension LibSessionUtilSpec {
                 expect(contact2.notifications).to(equal(CONVO_NOTIFY_ALL))
                 expect(contact2.mute_until).to(equal(Int64(nowTs + 1800)))
                 
-                
                 // Since we've made changes, we should need to push new config to the swarm, *and* should need
                 // to dump the updated state:
                 expect(config_needs_push(conf)).to(beTrue())

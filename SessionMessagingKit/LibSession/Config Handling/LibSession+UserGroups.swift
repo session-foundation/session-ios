@@ -52,8 +52,8 @@ internal extension LibSessionCacheType {
         )
         
         // Extract all community/legacyGroup/group thread priorities
-        let existingThreadInfo: [String: LibSession.PriorityVisibilityInfo] = (try? SessionThread
-            .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
+        let existingThreadInfo: [String: LibSession.ThreadUpdateInfo] = (try? SessionThread
+            .select(LibSession.ThreadUpdateInfo.threadColumns)
             .filter(
                 [
                     SessionThread.Variant.community,
@@ -61,7 +61,7 @@ internal extension LibSessionCacheType {
                     SessionThread.Variant.group
                 ].contains(SessionThread.Columns.variant)
             )
-            .asRequest(of: LibSession.PriorityVisibilityInfo.self)
+            .asRequest(of: LibSession.ThreadUpdateInfo.self)
             .fetchAll(db))
             .defaulting(to: [])
             .reduce(into: [:]) { result, next in result[next.id] = next }
@@ -72,9 +72,9 @@ internal extension LibSessionCacheType {
         extractedUserGroups.communities.forEach { community in
             let successfullyAddedGroup: Bool = dependencies[singleton: .openGroupManager].add(
                 db,
-                roomToken: community.data.roomToken,
-                server: community.data.server,
-                publicKey: community.data.publicKey,
+                roomToken: community.roomToken,
+                server: community.server,
+                publicKey: community.publicKey,
                 forceVisible: true
             )
             
@@ -83,25 +83,37 @@ internal extension LibSessionCacheType {
                     dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
-                        roomToken: community.data.roomToken,
-                        server: community.data.server,
-                        publicKey: community.data.publicKey
+                        roomToken: community.roomToken,
+                        server: community.server,
+                        publicKey: community.publicKey
                     )
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .sinkUntilComplete()
                 }
             }
             
-            // Set the priority if it's changed (new communities will have already been inserted at
-            // this stage)
-            if existingThreadInfo[community.data.threadId]?.pinnedPriority != community.priority {
-                _ = try? SessionThread
-                    .filter(id: community.data.threadId)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: community.priority),
-                        using: dependencies
-                    )
+            // Update any thread settings which have changed (new communities will have already been
+            // inserted at this stage)
+            if let existingInfo: LibSession.ThreadUpdateInfo = existingThreadInfo[community.threadId] {
+            _ = try? SessionThread
+                .filter(id: community.threadId)
+                .updateAllAndConfig(
+                    db,
+                    [
+                        (existingInfo.pinnedPriority == community.priority ? nil :
+                            SessionThread.Columns.pinnedPriority.set(to: community.priority)
+                        ),
+                        (existingInfo.onlyNotifyForMentions == community.onlyNotifyForMentions ? nil :
+                            SessionThread.Columns.onlyNotifyForMentions.set(
+                                to: community.onlyNotifyForMentions
+                            )
+                        ),
+                        (existingInfo.mutedUntilTimestamp == community.mutedUntilTimestamp ? nil :
+                            SessionThread.Columns.mutedUntilTimestamp.set(to: community.mutedUntilTimestamp)
+                        )
+                    ].compactMap { $0 },
+                    using: dependencies
+                )
             }
         }
         
@@ -109,7 +121,7 @@ internal extension LibSessionCacheType {
         let communityIdsToRemove: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .community }
             .keys)
-            .subtracting(extractedUserGroups.communities.map { $0.data.threadId })
+            .subtracting(extractedUserGroups.communities.map { $0.threadId })
         
         if !communityIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove), using: dependencies)
@@ -377,16 +389,28 @@ internal extension LibSessionCacheType {
                         }
                     }
             }
-
-            // Make any thread-specific changes if needed
-            if existingThreadInfo[group.groupSessionId]?.pinnedPriority != group.priority {
-                _ = try? SessionThread
-                    .filter(id: group.groupSessionId)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: group.priority),
-                        using: dependencies
-                    )
+            
+            // Update any thread settings which have changed
+            if let existingInfo: LibSession.ThreadUpdateInfo = existingThreadInfo[group.groupSessionId] {
+            _ = try? SessionThread
+                .filter(id: group.groupSessionId)
+                .updateAllAndConfig(
+                    db,
+                    [
+                        (existingInfo.pinnedPriority == group.priority ? nil :
+                            SessionThread.Columns.pinnedPriority.set(to: group.priority)
+                        ),
+                        (existingInfo.onlyNotifyForMentions == group.onlyNotifyForMentions ? nil :
+                            SessionThread.Columns.onlyNotifyForMentions.set(
+                                to: group.onlyNotifyForMentions
+                            )
+                        ),
+                        (existingInfo.mutedUntilTimestamp == group.mutedUntilTimestamp ? nil :
+                            SessionThread.Columns.mutedUntilTimestamp.set(to: group.mutedUntilTimestamp)
+                        )
+                    ].compactMap { $0 },
+                    using: dependencies
+                )
             }
         }
         
@@ -588,15 +612,26 @@ public extension LibSession {
                 }
 
                 // Store the updated group (can't be sure if we made any changes above)
+                let targetNotificationMode: Preferences.NotificationMode? = group.onlyNotifyForMentions
+                    .map { ($0 ? .mentionsOnly : .all) }
+                
                 userGroup.invited = (group.invited ?? userGroup.invited)
                 userGroup.joined_at = (group.joinedAt.map { Int64($0) } ?? userGroup.joined_at)
                 userGroup.priority = (group.priority ?? userGroup.priority)
+                userGroup.notifications = (
+                    targetNotificationMode?.libSessionValue ??
+                    userGroup.notifications
+                )
+                userGroup.mute_until = (
+                    group.mutedUntilTimestamp.map { Int64($0 ?? 0) } ??
+                    userGroup.mute_until
+                )
                 user_groups_set_group(conf, &userGroup)
             }
     }
     
     static func upsert(
-        communities: [CommunityInfo],
+        communities: [CommunityUpdateInfo],
         in config: Config?
     ) throws {
         guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
@@ -625,7 +660,19 @@ public extension LibSession {
                     )
                 }
                 
+                
+                let targetNotificationMode: Preferences.NotificationMode? = community.onlyNotifyForMentions
+                    .map { ($0 ? .mentionsOnly : .all) }
+                
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
+                userCommunity.notifications = (
+                    targetNotificationMode?.libSessionValue ??
+                    userCommunity.notifications
+                )
+                userCommunity.mute_until = (
+                    community.mutedUntilTimestamp.map { Int64($0 ?? 0) } ??
+                    userCommunity.mute_until
+                )
                 user_groups_set_community(conf, &userCommunity)
             }
     }
@@ -703,7 +750,7 @@ public extension LibSession {
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
                 try LibSession.upsert(
                     communities: [
-                        CommunityInfo(
+                        CommunityUpdateInfo(
                             urlInfo: OpenGroupUrlInfo(
                                 threadId: OpenGroup.idFor(roomToken: rootToken, server: server),
                                 server: server,
@@ -989,7 +1036,7 @@ public extension LibSession.Cache {
 
 public extension LibSession {
     typealias ExtractedUserGroups = (
-        communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>],
+        communities: [CommunityInfo],
         legacyGroups: [LibSession.LegacyGroupInfo],
         groups: [LibSession.GroupInfo]
     )
@@ -999,7 +1046,7 @@ public extension LibSession {
         using dependencies: Dependencies
     ) throws -> ExtractedUserGroups {
         var infiniteLoopGuard: Int = 0
-        var communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>] = []
+        var communities: [CommunityInfo] = []
         var legacyGroups: [LibSession.LegacyGroupInfo] = []
         var groups: [LibSession.GroupInfo] = []
         var community: ugroups_community_info = ugroups_community_info()
@@ -1015,14 +1062,20 @@ public extension LibSession {
                 let roomToken: String = community.get(\.room)
                 
                 communities.append(
-                    PrioritisedData(
-                        data: LibSession.OpenGroupUrlInfo(
-                            threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            server: server,
-                            roomToken: roomToken,
-                            publicKey: community.getHex(\.pubkey)
-                        ),
-                        priority: community.priority
+                    CommunityInfo(
+                        threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                        server: server,
+                        roomToken: roomToken,
+                        publicKey: community.getHex(\.pubkey),
+                        priority: community.priority,
+                        onlyNotifyForMentions: (Preferences.NotificationMode(
+                            libSessionValue: community.notifications,
+                            threadVariant: .community
+                        ) == .mentionsOnly),
+                        mutedUntilTimestamp: (community.mute_until > 0 ?
+                            TimeInterval(community.mute_until) :
+                            nil
+                        )
                     )
                 )
             }
@@ -1066,7 +1119,15 @@ public extension LibSession {
                         joinedAt: TimeInterval(group.joined_at),
                         invited: group.invited,
                         wasKickedFromGroup: ugroups_group_is_kicked(&group),
-                        wasGroupDestroyed: ugroups_group_is_destroyed(&group)
+                        wasGroupDestroyed: ugroups_group_is_destroyed(&group),
+                        onlyNotifyForMentions: (Preferences.NotificationMode(
+                            libSessionValue: group.notifications,
+                            threadVariant: .group
+                        ) == .mentionsOnly),
+                        mutedUntilTimestamp: (group.mute_until > 0 ?
+                            TimeInterval(group.mute_until) :
+                            nil
+                        )
                     )
                 )
             }
@@ -1079,6 +1140,20 @@ public extension LibSession {
         user_groups_iterator_free(groupsIterator) // Need to free the iterator
         
         return (communities, legacyGroups, groups)
+    }
+}
+
+// MARK: - CommunityInfo
+
+public extension LibSession {
+    struct CommunityInfo {
+        let threadId: String
+        let server: String
+        let roomToken: String
+        let publicKey: String
+        let priority: Int32
+        let onlyNotifyForMentions: Bool
+        let mutedUntilTimestamp: TimeInterval?
     }
 }
 
@@ -1129,6 +1204,8 @@ public extension LibSession {
         let invited: Bool
         let wasKickedFromGroup: Bool
         let wasGroupDestroyed: Bool
+        let onlyNotifyForMentions: Bool
+        let mutedUntilTimestamp: TimeInterval?
     }
     
     struct GroupUpdateInfo {
@@ -1141,6 +1218,8 @@ public extension LibSession {
         let invited: Bool?
         let wasKickedFromGroup: Bool?
         let wasGroupDestroyed: Bool?
+        let onlyNotifyForMentions: Bool?
+        let mutedUntilTimestamp: TimeInterval??
         
         public init(
             groupSessionId: String,
@@ -1151,7 +1230,9 @@ public extension LibSession {
             joinedAt: TimeInterval? = nil,
             invited: Bool? = nil,
             wasKickedFromGroup: Bool? = nil,
-            wasGroupDestroyed: Bool? = nil
+            wasGroupDestroyed: Bool? = nil,
+            onlyNotifyForMentions: Bool? = nil,
+            mutedUntilTimestamp: TimeInterval?? = nil
         ) {
             self.groupSessionId = groupSessionId
             self.groupIdentityPrivateKey = groupIdentityPrivateKey
@@ -1162,6 +1243,8 @@ public extension LibSession {
             self.invited = invited
             self.wasKickedFromGroup = wasKickedFromGroup
             self.wasGroupDestroyed = wasGroupDestroyed
+            self.onlyNotifyForMentions = onlyNotifyForMentions
+            self.mutedUntilTimestamp = mutedUntilTimestamp
         }
     }
 }
@@ -1169,25 +1252,24 @@ public extension LibSession {
 // MARK: - CommunityInfo
 
 public extension LibSession {
-    struct CommunityInfo {
+    struct CommunityUpdateInfo {
         let urlInfo: OpenGroupUrlInfo
         let priority: Int32?
+        let onlyNotifyForMentions: Bool?
+        let mutedUntilTimestamp: TimeInterval??
         
         init(
             urlInfo: OpenGroupUrlInfo,
-            priority: Int32? = nil
+            priority: Int32? = nil,
+            onlyNotifyForMentions: Bool? = nil,
+            mutedUntilTimestamp: TimeInterval?? = nil
         ) {
             self.urlInfo = urlInfo
             self.priority = priority
+            self.onlyNotifyForMentions = onlyNotifyForMentions
+            self.mutedUntilTimestamp = mutedUntilTimestamp
         }
     }
-}
-
-// MARK: - PrioritisedData
-
-public struct PrioritisedData<T> {
-    let data: T
-    let priority: Int32
 }
 
 // MARK: - C Conformance

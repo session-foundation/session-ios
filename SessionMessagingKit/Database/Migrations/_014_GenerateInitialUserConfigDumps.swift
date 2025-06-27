@@ -143,7 +143,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 .map { row in
                     let contactId: String = row["id"]
                     
-                    return LibSession.SyncedContactInfo(
+                    return LibSession.ContactUpdateInfo(
                         id: contactId,
                         isApproved: row["isApproved"],
                         isBlocked: row["isBlocked"],
@@ -166,7 +166,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 .appending(
                     contentsOf: threadIdsNeedingContacts
                         .map { contactId in
-                            LibSession.SyncedContactInfo(
+                            LibSession.ContactUpdateInfo(
                                 id: contactId,
                                 isApproved: false,
                                 isBlocked: false,
@@ -364,7 +364,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 let threadId: String = info["threadId"]
                 let pinnedPriority: Int32? = allThreads[threadId]?["pinnedPriority"]
                 
-                return LibSession.CommunityInfo(
+                return LibSession.CommunityUpdateInfo(
                     urlInfo: LibSession.OpenGroupUrlInfo(
                         threadId: threadId,
                         server: info["server"],

@@ -73,15 +73,15 @@ internal extension LibSessionCacheType {
         )
         
         // Update the 'Note to Self' visibility and priority
-        let threadInfo: LibSession.PriorityVisibilityInfo? = try? SessionThread
+        let threadInfo: LibSession.ThreadUpdateInfo? = try? SessionThread
             .filter(id: userSessionId.hexString)
-            .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
-            .asRequest(of: LibSession.PriorityVisibilityInfo.self)
+            .select(LibSession.ThreadUpdateInfo.threadColumns)
+            .asRequest(of: LibSession.ThreadUpdateInfo.self)
             .fetchOne(db)
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
         
         // Create the 'Note to Self' thread if it doesn't exist
-        if let threadInfo: LibSession.PriorityVisibilityInfo = threadInfo {
+        if let threadInfo: LibSession.ThreadUpdateInfo = threadInfo {
             let threadChanges: [ConfigColumnAssignment] = [
                 ((threadInfo.shouldBeVisible == LibSession.shouldBeVisible(priority: targetPriority)) ? nil :
                     SessionThread.Columns.shouldBeVisible.set(to: LibSession.shouldBeVisible(priority: targetPriority))

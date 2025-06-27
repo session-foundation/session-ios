@@ -33,7 +33,9 @@ internal extension LibSession {
     
     static let columnsRelatedToThreads: [ColumnExpression] = [
         SessionThread.Columns.pinnedPriority,
-        SessionThread.Columns.shouldBeVisible
+        SessionThread.Columns.shouldBeVisible,
+        SessionThread.Columns.onlyNotifyForMentions,
+        SessionThread.Columns.mutedUntilTimestamp
     ]
     
     static func assignmentsRequireConfigUpdate(_ assignments: [ConfigColumnAssignment]) -> Bool {
@@ -118,7 +120,7 @@ internal extension LibSession {
                             try LibSession.upsert(
                                 contactData: remainingThreads
                                     .map { thread in
-                                        SyncedContactInfo(
+                                        ContactUpdateInfo(
                                             id: thread.id,
                                             priority: {
                                                 guard thread.shouldBeVisible else { return LibSession.hiddenPriority }
@@ -126,7 +128,9 @@ internal extension LibSession {
                                                 return thread.pinnedPriority
                                                     .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
                                                     .defaulting(to: LibSession.visiblePriority)
-                                            }()
+                                            }(),
+                                            onlyNotifyForMentions: thread.onlyNotifyForMentions,
+                                            mutedUntilTimestamp: thread.mutedUntilTimestamp
                                         )
                                     },
                                 in: config,
@@ -140,13 +144,15 @@ internal extension LibSession {
                         try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
                             try LibSession.upsert(
                                 communities: threads
-                                    .compactMap { thread -> CommunityInfo? in
+                                    .compactMap { thread -> CommunityUpdateInfo? in
                                         urlInfo[thread.id].map { urlInfo in
-                                            CommunityInfo(
+                                            CommunityUpdateInfo(
                                                 urlInfo: urlInfo,
                                                 priority: thread.pinnedPriority
                                                     .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                                    .defaulting(to: LibSession.visiblePriority)
+                                                    .defaulting(to: LibSession.visiblePriority),
+                                                onlyNotifyForMentions: thread.onlyNotifyForMentions,
+                                                mutedUntilTimestamp: thread.mutedUntilTimestamp
                                             )
                                         }
                                     },
@@ -183,7 +189,9 @@ internal extension LibSession {
                                             groupSessionId: thread.id,
                                             priority: thread.pinnedPriority
                                                 .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                                .defaulting(to: LibSession.visiblePriority)
+                                                .defaulting(to: LibSession.visiblePriority),
+                                            onlyNotifyForMentions: thread.onlyNotifyForMentions,
+                                            mutedUntilTimestamp: thread.mutedUntilTimestamp
                                         )
                                     },
                                 in: config,
@@ -644,7 +652,10 @@ public extension LibSession.Cache {
                     ),
                     previewType: previewType,
                     sound: sound,
-                    mutedUntil: (contact.mute_until > 0 ? TimeInterval(contact.mute_until) : nil)
+                    mutedUntil: (contact.mute_until > 0 ?
+                        TimeInterval(contact.mute_until) :
+                        nil
+                    )
                 )
             
             case .community:
@@ -666,7 +677,10 @@ public extension LibSession.Cache {
                     ),
                     previewType: previewType,
                     sound: sound,
-                    mutedUntil: (community.mute_until > 0 ? TimeInterval(community.mute_until) : nil)
+                    mutedUntil: (community.mute_until > 0 ?
+                        TimeInterval(community.mute_until) :
+                        nil
+                    )
                 )
             
             case .group:
@@ -685,7 +699,10 @@ public extension LibSession.Cache {
                     ),
                     previewType: previewType,
                     sound: sound,
-                    mutedUntil: (group.mute_until > 0 ? TimeInterval(group.mute_until) : nil)
+                    mutedUntil: (group.mute_until > 0 ?
+                        TimeInterval(group.mute_until) :
+                        nil
+                    )
                 )
         }
     }
@@ -1018,7 +1035,18 @@ public extension LibSessionRespondingViewController {
 
 // MARK: - Preferences.NotificationMode
 
-private extension Preferences.NotificationMode {
+extension Preferences.NotificationMode {
+    public typealias LibSessionType = CONVO_NOTIFY_MODE
+    
+    public static var defaultLibSessionValue: LibSessionType { CONVO_NOTIFY_DEFAULT }
+    public var libSessionValue: LibSessionType {
+        switch self {
+            case .all: return CONVO_NOTIFY_ALL
+            case .none: return CONVO_NOTIFY_DISABLED
+            case .mentionsOnly: return CONVO_NOTIFY_MENTIONS_ONLY
+        }
+    }
+    
     init(libSessionValue: CONVO_NOTIFY_MODE, threadVariant: SessionThread.Variant) {
         switch libSessionValue {
             case CONVO_NOTIFY_DEFAULT: self = .defaultMode(for: threadVariant)
