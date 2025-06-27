@@ -12,7 +12,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static let minExpectedRunDuration: TimeInterval = 4.0
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
         guard
             MigrationHelper.userExists(db),
@@ -53,6 +53,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .userProfile, sessionId: userSessionId, to: userProfileConfig)
+        
         let userProfile: Row? = try? Row.fetchOne(
             db,
             sql: """
@@ -62,13 +64,10 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             """,
             arguments: [userSessionId.hexString]
         )
-        try LibSession.update(
-            profileInfo: LibSession.ProfileInfo(
-                name: (userProfile?["name"] ?? ""),
-                profilePictureUrl: userProfile?["profilePictureUrl"],
-                profileEncryptionKey: userProfile?["profileEncryptionKey"]
-            ),
-            in: userProfileConfig
+        try cache.updateProfile(
+            displayName: (userProfile?["name"] ?? ""),
+            displayPictureUrl: userProfile?["profilePictureUrl"],
+            displayPictureEncryptionKey: userProfile?["profileEncryptionKey"]
         )
         
         try LibSession.updateNoteToSelf(
@@ -106,6 +105,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .contacts, sessionId: userSessionId, to: contactsConfig)
+        
         let validContactIds: [String] = allThreads
             .values
             .filter { thread in
@@ -142,15 +143,15 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 .map { row in
                     let contactId: String = row["id"]
                     
-                    return LibSession.SyncedContactInfo(
+                    return LibSession.ContactUpdateInfo(
                         id: contactId,
                         isApproved: row["isApproved"],
                         isBlocked: row["isBlocked"],
                         didApproveMe: row["didApproveMe"],
                         name: row["name"],
                         nickname: row["nickname"],
-                        profilePictureUrl: row["profilePictureUrl"],
-                        profileEncryptionKey: row["profileEncryptionKey"],
+                        displayPictureUrl: row["profilePictureUrl"],
+                        displayPictureEncryptionKey: row["profileEncryptionKey"],
                         priority: {
                             guard allThreads[contactId]?["shouldBeVisible"] == true else {
                                 return -1 // Hidden priority
@@ -165,7 +166,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 .appending(
                     contentsOf: threadIdsNeedingContacts
                         .map { contactId in
-                            LibSession.SyncedContactInfo(
+                            LibSession.ContactUpdateInfo(
                                 id: contactId,
                                 isApproved: false,
                                 isBlocked: false,
@@ -199,6 +200,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .convoInfoVolatile, sessionId: userSessionId, to: convoInfoVolatileConfig)
+        
         let volatileThreadInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT
                 thread.id,
@@ -287,6 +290,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             groupEd25519SecretKey: nil,
             cachedData: nil
         )
+        cache.setConfig(for: .userGroups, sessionId: userSessionId, to: userGroupsConfig)
+        
         let legacyGroupInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT
                 closedGroup.threadId,
@@ -359,7 +364,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 let threadId: String = info["threadId"]
                 let pinnedPriority: Int32? = allThreads[threadId]?["pinnedPriority"]
                 
-                return LibSession.CommunityInfo(
+                return LibSession.CommunityUpdateInfo(
                     urlInfo: LibSession.OpenGroupUrlInfo(
                         threadId: threadId,
                         server: info["server"],

@@ -73,7 +73,7 @@ public extension SnodeReceivedMessageInfo {
 public extension SnodeReceivedMessageInfo {
     /// This method fetches the last non-expired hash from the database for message retrieval
     static func fetchLastNotExpired(
-        _ db: Database,
+        _ db: ObservingDatabase,
         for snode: LibSession.Snode,
         namespace: SnodeAPI.Namespace,
         swarmPublicKey: String,
@@ -100,7 +100,7 @@ public extension SnodeReceivedMessageInfo {
     /// solely duplicate messages (for the specific service node - if even one message in a response is new for that service node then this shouldn't
     /// be called if if the message has already been received and processed by a separate service node)
     static func handlePotentialDeletedOrInvalidHash(
-        _ db: Database,
+        _ db: ObservingDatabase,
         potentiallyInvalidHashes: [String],
         otherKnownValidHashes: [String] = []
     ) throws {
@@ -124,5 +124,13 @@ public extension SnodeReceivedMessageInfo {
                     SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: false)
                 )
         }
+    }
+    
+    func storeUpdatedLastHash(_ db: ObservingDatabase) -> Bool {
+        do {
+            _ = try self.inserted(db)
+            return true
+        }
+        catch { return false }
     }
 }

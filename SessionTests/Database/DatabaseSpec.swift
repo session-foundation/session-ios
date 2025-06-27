@@ -245,7 +245,7 @@ private class MigrationTest {
         if let error: Error = generationError { throw error }
     }
     
-    private static func generateDummyData(_ db: Database, nullsWherePossible: Bool) throws {
+    private static func generateDummyData(_ db: ObservingDatabase, nullsWherePossible: Bool) throws {
         // Fetch table schema information
         let disallowedPrefixes: Set<String> = DatabaseSpec.ignoredTables
             .filter { $0.hasPrefix("*") && !$0.hasSuffix("*") }
@@ -389,7 +389,7 @@ enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }
 
 enum TestRequiresLibSessionStateMigration: Migration {
@@ -398,7 +398,7 @@ enum TestRequiresLibSessionStateMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }
 
 enum TestRequiresSessionIdCachedMigration: Migration {
@@ -407,5 +407,5 @@ enum TestRequiresSessionIdCachedMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }

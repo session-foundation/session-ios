@@ -253,27 +253,24 @@ public extension Data {
             let height: CGFloat = properties[kCGImagePropertyPixelHeight as String] as? CGFloat
         else { return .zero }
         
-        guard let orientation: UIImage.Orientation = (properties[kCGImagePropertyOrientation as String] as? Int).map({ UIImage.Orientation(exif: $0) }) else {
+        guard
+            let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation] as? UInt32,
+            let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+        else {
             return CGSize(width: width, height: height)
         }
         
-        return apply(orientation: orientation, to: CGSize(width: width, height: height))
+        return apply(
+            orientation: UIImage.Orientation(cgOrientation),
+            to: CGSize(width: width, height: height)
+        )
     }
                      
     private static func apply(orientation: UIImage.Orientation, to imageSize: CGSize) -> CGSize {
         switch orientation {
-            case .up,               // EXIF = 1
-                .upMirrored,        // EXIF = 2
-                .down,              // EXIF = 3
-                .downMirrored:      // EXIF = 4
-                return imageSize
-                
-            case .leftMirrored,     // EXIF = 5
-                .left,              // EXIF = 6
-                .rightMirrored,     // EXIF = 7
-                .right:             // EXIF = 8
+            case .up, .upMirrored, .down, .downMirrored: return imageSize
+            case .leftMirrored, .left, .rightMirrored, .right:
                 return CGSize(width: imageSize.height, height: imageSize.width)
-                
                 
             @unknown default: return imageSize
         }
@@ -309,17 +306,16 @@ public extension Data {
 }
 
 private extension UIImage.Orientation {
-    init?(exif: Int) {
-        switch exif {
-            case 1: self = .up
-            case 2: self = .upMirrored
-            case 3: self = .down
-            case 4: self = .downMirrored
-            case 5: self = .leftMirrored
-            case 6: self = .left
-            case 7: self = .rightMirrored
-            case 8: self = .right
-            default: return nil
+    init(_ cgOrientation: CGImagePropertyOrientation) {
+        switch cgOrientation {
+            case .up: self = .up
+            case .upMirrored: self = .upMirrored
+            case .down: self = .down
+            case .downMirrored: self = .downMirrored
+            case .left: self = .left
+            case .leftMirrored: self = .leftMirrored
+            case .right: self = .right
+            case .rightMirrored: self = .rightMirrored
         }
     }
 }

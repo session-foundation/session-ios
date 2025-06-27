@@ -132,11 +132,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     let title: String = "sessionSettings".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [weak self, dependencies] db -> State in
+        .libSessionObservation(self) { cache -> State in
             State(
-                profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
-                developerModeEnabled: db[.developerModeEnabled],
-                hideRecoveryPasswordPermanently: db[.hideRecoveryPasswordPermanently]
+                profile: cache.profile,
+                developerModeEnabled: cache.get(.developerModeEnabled),
+                hideRecoveryPasswordPermanently: cache.get(.hideRecoveryPasswordPermanently)
             )
         }
         .compactMap { [weak self] state -> [SectionModel]? in self?.content(state) }
@@ -169,7 +169,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         label: "Profile picture"
                     ),
                     onTap: { [weak self] in
-                        self?.updateProfilePicture(currentFileName: state.profile.profilePictureFileName)
+                        self?.updateProfilePicture(currentUrl: state.profile.displayPictureUrl)
                     }
                 ),
                 SessionCell.Info(
@@ -182,15 +182,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     ),
                     trailingAccessory: .icon(
                         .pencil,
-                        size: .mediumAspectFill,
-                        customTint: .textSecondary,
-                        shouldFill: true
+                        size: .small,
+                        customTint: .textSecondary
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            bottom: Values.mediumSpacing
+                            leading: IconSize.small.size,
+                            bottom: Values.mediumSpacing,
+                            interItem: 0
                         ),
                         backgroundStyle: .noBackground
                     ),
@@ -479,11 +480,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         logoTapCallback: { [weak self] in self?.openTokenUrl() },
         versionTapCallback: { [dependencies] in
             /// Do nothing if developer mode is already enabled
-            guard !dependencies[singleton: .storage, key: .developerModeEnabled] else { return }
+            guard !dependencies.mutate(cache: .libSession, { $0.get(.developerModeEnabled) }) else { return }
             
-            dependencies[singleton: .storage].write { db in
-                db[.developerModeEnabled] = true
-            }
+            dependencies.setAsync(.developerModeEnabled, true)
         }
     )).eraseToAnyPublisher()
     
@@ -543,7 +542,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private func updateProfilePicture(currentFileName: String?) {
+    private func updateProfilePicture(currentUrl: String?) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         
         self.transitionToScreen(
@@ -551,9 +550,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 info: ConfirmationModal.Info(
                     title: "profileDisplayPictureSet".localized(),
                     body: .image(
-                        identifier: (currentFileName ?? iconName),
-                        source: currentFileName
-                            .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                        source: currentUrl
+                            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                             .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
                         placeholder: UIImage(named: iconName).map {
                             ImageDataManager.DataSource.image(iconName, $0)
@@ -573,17 +571,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(currentFileName != nil),
+                    cancelEnabled: .bool(currentUrl != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateProfile(

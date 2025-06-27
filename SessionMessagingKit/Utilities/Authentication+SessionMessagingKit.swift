@@ -8,28 +8,30 @@ import SessionUtilitiesKit
 // MARK: - Authentication Types
 
 public extension Authentication {
-    /// Used for when interacting as the current user
+    /// Used when interacting as the current user
     struct standard: AuthenticationMethod {
         public let sessionId: SessionId
-        public let ed25519KeyPair: KeyPair
+        public let ed25519PublicKey: [UInt8]
+        public let ed25519SecretKey: [UInt8]
         
-        public var info: Info { .standard(sessionId: sessionId, ed25519KeyPair: ed25519KeyPair) }
+        public var info: Info { .standard(sessionId: sessionId, ed25519PublicKey: ed25519PublicKey) }
         
-        public init(sessionId: SessionId, ed25519KeyPair: KeyPair) {
+        public init(sessionId: SessionId, ed25519PublicKey: [UInt8], ed25519SecretKey: [UInt8]) {
             self.sessionId = sessionId
-            self.ed25519KeyPair = ed25519KeyPair
+            self.ed25519PublicKey = ed25519PublicKey
+            self.ed25519SecretKey = ed25519SecretKey
         }
         
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
             return try dependencies[singleton: .crypto].tryGenerate(
-                .signature(message: verificationBytes, ed25519SecretKey: ed25519KeyPair.secretKey)
+                .signature(message: verificationBytes, ed25519SecretKey: ed25519SecretKey)
             )
         }
     }
     
-    /// Used for when interacting as a group admin
+    /// Used when interacting as a group admin
     struct groupAdmin: AuthenticationMethod {
         public let groupSessionId: SessionId
         public let ed25519SecretKey: [UInt8]
@@ -50,7 +52,7 @@ public extension Authentication {
         }
     }
 
-    /// Used for when interacting as a group member
+    /// Used when interacting as a group member
     struct groupMember: AuthenticationMethod {
         public let groupSessionId: SessionId
         public let authData: Data
@@ -76,6 +78,38 @@ public extension Authentication {
             }
         }
     }
+    
+    /// Used when interacting with a community
+    struct community: AuthenticationMethod {
+        public let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo
+        public let forceBlinded: Bool
+        
+        public var server: String { openGroupCapabilityInfo.server }
+        public var publicKey: String { openGroupCapabilityInfo.publicKey }
+        public var hasCapabilities: Bool { !openGroupCapabilityInfo.capabilities.isEmpty }
+        public var supportsBlinding: Bool { openGroupCapabilityInfo.capabilities.contains(.blind) }
+        
+        public var info: Info {
+            .community(
+                server: server,
+                publicKey: publicKey,
+                hasCapabilities: hasCapabilities,
+                supportsBlinding: supportsBlinding,
+                forceBlinded: forceBlinded
+            )
+        }
+        
+        public init(info: LibSession.OpenGroupCapabilityInfo, forceBlinded: Bool = false) {
+            self.openGroupCapabilityInfo = info
+            self.forceBlinded = forceBlinded
+        }
+        
+        // MARK: - SignatureGenerator
+        
+        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
+            throw CryptoError.signatureGenerationFailed
+        }
+    }
 }
 
 // MARK: - Convenience
@@ -87,17 +121,69 @@ fileprivate struct GroupAuthData: Codable, FetchableRecord {
 
 public extension Authentication {
     static func with(
-        _ db: Database,
+        _ db: ObservingDatabase,
+        server: String,
+        activeOnly: Bool = true,
+        forceBlinded: Bool = false,
+        using dependencies: Dependencies
+    ) throws -> AuthenticationMethod {
+        guard
+            // TODO: [Database Relocation] Store capability info locally in libSession so we don't need the db here
+            let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                .fetchOne(db, server: server, activeOnly: activeOnly)
+        else { throw CryptoError.invalidAuthentication }
+        
+        return Authentication.community(info: info, forceBlinded: forceBlinded)
+    }
+    
+    static func with(
+        _ db: ObservingDatabase,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        forceBlinded: Bool = false,
+        using dependencies: Dependencies
+    ) throws -> AuthenticationMethod {
+        switch (threadVariant, try? SessionId.Prefix(from: threadId)) {
+            case (.community, _):
+                guard
+                    // TODO: [Database Relocation] Store capability info locally in libSession so we don't need the db here
+                    let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                        .fetchOne(db, id: threadId)
+                else { throw CryptoError.invalidAuthentication }
+                
+                return Authentication.community(info: info, forceBlinded: forceBlinded)
+                
+            case (.contact, .blinded15), (.contact, .blinded25):
+                guard
+                    let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId),
+                    let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                        .fetchOne(db, server: lookup.openGroupServer)
+                else { throw CryptoError.invalidAuthentication }
+                
+                return Authentication.community(info: info, forceBlinded: forceBlinded)
+                
+            default: return try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+        }
+    }
+    
+    static func with(
+        _ db: ObservingDatabase,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {
         switch try? SessionId(from: swarmPublicKey) {
             case .some(let sessionId) where sessionId.prefix == .standard:
-                guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    throw SnodeAPIError.noKeyPair
-                }
+                guard
+                    let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+                    )
+                else { throw SnodeAPIError.noKeyPair }
                 
-                return Authentication.standard(sessionId: sessionId, ed25519KeyPair: keyPair)
+                return Authentication.standard(
+                    sessionId: sessionId,
+                    ed25519PublicKey: userEdKeyPair.publicKey,
+                    ed25519SecretKey: userEdKeyPair.secretKey
+                )
                 
             case .some(let sessionId) where sessionId.prefix == .group:
                 let authData: GroupAuthData? = try? ClosedGroup
@@ -119,10 +205,10 @@ public extension Authentication {
                             authData: authData
                         )
                         
-                    default: throw SnodeAPIError.invalidAuthentication
+                    default: throw CryptoError.invalidAuthentication
                 }
                 
-            default: throw SnodeAPIError.invalidAuthentication
+            default: throw CryptoError.invalidAuthentication
         }
     }
 }

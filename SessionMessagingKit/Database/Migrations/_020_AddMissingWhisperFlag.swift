@@ -10,7 +10,7 @@ enum _020_AddMissingWhisperFlag: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         /// We should have had this column from the very beginning but it was missed, so add it in now for when we eventually
         /// support whispers in Community conversations
         try db.alter(table: "interaction") { t in

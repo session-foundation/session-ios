@@ -7,20 +7,20 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleExpirationTimerUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         proto: SNProtoContent,
         using dependencies: Dependencies
-    ) throws {
-        guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
+    ) throws -> InsertedInteractionInfo? {
+        guard proto.hasExpirationType || proto.hasExpirationTimer else { throw MessageReceiverError.invalidMessage }
         guard
             threadVariant == .contact,    // Groups are handled via the GROUP_INFO config instead
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestampMs
-        else { return }
+        else { throw MessageReceiverError.invalidMessage }
         
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: threadId)
@@ -42,10 +42,10 @@ extension MessageReceiver {
         // If the updated config from this message is different from local config,
         // this control message should already be removed.
         if threadId == dependencies[cache: .general].sessionId.hexString && updatedConfig != localConfig {
-            return
+            throw MessageReceiverError.ignorableMessage
         }
         
-        _ = try updatedConfig.insertControlMessage(
+        return try updatedConfig.insertControlMessage(
             db,
             threadVariant: threadVariant,
             authorId: sender,
@@ -57,7 +57,7 @@ extension MessageReceiver {
     }
     
     public static func updateContactDisappearingMessagesVersionIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         messageVariant: Message.Variant?,
         contactId: String?,
         version: FeatureVersion?,

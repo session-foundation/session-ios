@@ -10,8 +10,8 @@ import SessionUtilitiesKit
 internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
         Profile.Columns.name,
-        Profile.Columns.profilePictureUrl,
-        Profile.Columns.profileEncryptionKey
+        Profile.Columns.displayPictureUrl,
+        Profile.Columns.displayPictureEncryptionKey
     ]
     
     static let syncedSettings: [String] = [
@@ -19,25 +19,13 @@ internal extension LibSession {
     ]
 }
 
-// MARK: - LibSessionCacheType
-
-public extension LibSessionCacheType {
-    var userProfileDisplayName: String {
-        guard
-            case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
-            let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
-        else { return "" }
-        
-        return String(cString: profileNamePtr)
-    }
-}
-
 // MARK: - Incoming Changes
 
 internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
+        oldState: [ObservableKey: Any],
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
@@ -46,10 +34,21 @@ internal extension LibSessionCacheType {
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let profileName: String = String(cString: profileNamePtr)
-        let profilePic: user_profile_pic = user_profile_get_pic(conf)
-        let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
+        let displayPic: user_profile_pic = user_profile_get_pic(conf)
+        let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
+        let updatedProfile: Profile = Profile(
+            id: userSessionId.hexString,
+            name: profileName,
+            displayPictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.displayPictureUrl
+        )
+        
+        if
+            let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile,
+            profile != updatedProfile
+        {
+            db.addChange(updatedProfile, forKey: .profile(updatedProfile.id))
+        }
         
         // Handle user profile changes
         try Profile.updateIfNeeded(
@@ -57,12 +56,16 @@ internal extension LibSessionCacheType {
             publicKey: userSessionId.hexString,
             displayNameUpdate: .currentUserUpdate(profileName),
             displayPictureUpdate: {
-                guard let profilePictureUrl: String = profilePictureUrl else { return .currentUserRemove }
+                guard
+                    let displayPictureUrl: String = displayPictureUrl,
+                    let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: displayPictureUrl)
+                else { return .currentUserRemove }
                 
                 return .currentUserUpdateTo(
-                    url: profilePictureUrl,
-                    key: profilePic.get(\.key),
-                    fileName: nil
+                    url: displayPictureUrl,
+                    key: displayPic.get(\.key),
+                    filePath: filePath
                 )
             }(),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
@@ -70,15 +73,15 @@ internal extension LibSessionCacheType {
         )
         
         // Update the 'Note to Self' visibility and priority
-        let threadInfo: LibSession.PriorityVisibilityInfo? = try? SessionThread
+        let threadInfo: LibSession.ThreadUpdateInfo? = try? SessionThread
             .filter(id: userSessionId.hexString)
-            .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
-            .asRequest(of: LibSession.PriorityVisibilityInfo.self)
+            .select(LibSession.ThreadUpdateInfo.threadColumns)
+            .asRequest(of: LibSession.ThreadUpdateInfo.self)
             .fetchOne(db)
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
         
         // Create the 'Note to Self' thread if it doesn't exist
-        if let threadInfo: LibSession.PriorityVisibilityInfo = threadInfo {
+        if let threadInfo: LibSession.ThreadUpdateInfo = threadInfo {
             let threadChanges: [ConfigColumnAssignment] = [
                 ((threadInfo.shouldBeVisible == LibSession.shouldBeVisible(priority: targetPriority)) ? nil :
                     SessionThread.Columns.shouldBeVisible.set(to: LibSession.shouldBeVisible(priority: targetPriority))
@@ -146,16 +149,17 @@ internal extension LibSessionCacheType {
                     using: dependencies
                 )
         }
-
-        // Update settings if needed
-        let updatedAllowBlindedMessageRequests: Int32 = user_profile_get_blinded_msgreqs(conf)
-        let updatedAllowBlindedMessageRequestsBoolValue: Bool = (updatedAllowBlindedMessageRequests >= 1)
+        
+        // Notify of settings change if needed
+        let checkForCommunityMessageRequestsKey: ObservableKey = .setting(Setting.BoolKey.checkForCommunityMessageRequests)
+        let oldCheckForCommunityMessageRequests: Bool? = oldState[checkForCommunityMessageRequestsKey] as? Bool
+        let newCheckForCommunityMessageRequests: Bool = get(.checkForCommunityMessageRequests)
         
         if
-            updatedAllowBlindedMessageRequests >= 0 &&
-            updatedAllowBlindedMessageRequestsBoolValue != db[.checkForCommunityMessageRequests]
+            oldCheckForCommunityMessageRequests != nil &&
+            oldCheckForCommunityMessageRequests != newCheckForCommunityMessageRequests
         {
-            db[.checkForCommunityMessageRequests] = updatedAllowBlindedMessageRequestsBoolValue
+            db.addChange(newCheckForCommunityMessageRequests, forKey: checkForCommunityMessageRequestsKey)
         }
         
         // Create a contact for the current user if needed (also force-approve the current user
@@ -180,39 +184,6 @@ internal extension LibSessionCacheType {
 // MARK: - Outgoing Changes
 
 internal extension LibSession {
-    static func update(
-        profile: Profile,
-        in config: Config?
-    ) throws {
-        try update(
-            profileInfo: ProfileInfo(
-                name: profile.name,
-                profilePictureUrl: profile.profilePictureUrl,
-                profileEncryptionKey: profile.profileEncryptionKey
-            ),
-            in: config
-        )
-    }
-    
-    static func update(
-        profileInfo: ProfileInfo,
-        in config: Config?
-    ) throws {
-        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
-        
-        // Update the name
-        var cUpdatedName: [CChar] = try profileInfo.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-        user_profile_set_name(conf, &cUpdatedName)
-        try LibSessionError.throwIfNeeded(conf)
-        
-        // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
-        var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.set(\.url, to: profileInfo.profilePictureUrl)
-        profilePic.set(\.key, to: profileInfo.profileEncryptionKey)
-        user_profile_set_pic(conf, profilePic)
-        try LibSessionError.throwIfNeeded(conf)
-    }
-    
     static func updateNoteToSelf(
         priority: Int32? = nil,
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
@@ -245,7 +216,7 @@ internal extension LibSession {
 
 public extension LibSession {
     static func updateNoteToSelf(
-        _ db: Database,
+        _ db: ObservingDatabase,
         priority: Int32? = nil,
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         using dependencies: Dependencies
@@ -262,13 +233,56 @@ public extension LibSession {
     }
 }
 
-// MARK: - Direct Values
+// MARK: - State Access
 
-extension LibSession {
-    static func rawBlindedMessageRequestValue(in config: Config?) throws -> Int32 {
-        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
+public extension LibSession.Cache {
+    var displayName: String? {
+        guard
+            case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
+            let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
+        else { return nil }
+        
+        return String(cString: profileNamePtr)
+    }
     
-        return user_profile_get_blinded_msgreqs(conf)
+    @discardableResult func updateProfile(
+        displayName: String,
+        displayPictureUrl: String?,
+        displayPictureEncryptionKey: Data?
+    ) throws -> Profile? {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject
+        }
+        
+        // Get the old values to determine if something changed
+        let oldName: String? = user_profile_get_name(conf).map { String(cString: $0) }
+        let oldDisplayPic: user_profile_pic = user_profile_get_pic(conf)
+        let oldDisplayPictureUrl: String? = oldDisplayPic.get(\.url, nullIfEmpty: true)
+        
+        // Update the name
+        var cUpdatedName: [CChar] = try displayName.cString(using: .utf8) ?? {
+            throw LibSessionError.invalidCConversion
+        }()
+        user_profile_set_name(conf, &cUpdatedName)
+        try LibSessionError.throwIfNeeded(conf)
+        
+        // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
+        var profilePic: user_profile_pic = user_profile_pic()
+        profilePic.set(\.url, to: displayPictureUrl)
+        profilePic.set(\.key, to: displayPictureEncryptionKey)
+        user_profile_set_pic(conf, profilePic)
+        try LibSessionError.throwIfNeeded(conf)
+        
+        /// Add a pending observation to notify any observers of the change once it's committed
+        if displayName != oldName || displayPictureUrl != oldDisplayPictureUrl {
+            return Profile(
+                id: userSessionId.hexString,
+                name: displayName,
+                displayPictureUrl: displayPictureUrl
+            )
+        }
+        
+        return nil
     }
 }
 

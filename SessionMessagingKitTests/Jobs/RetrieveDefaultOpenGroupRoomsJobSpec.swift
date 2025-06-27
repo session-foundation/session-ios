@@ -86,6 +86,15 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
             }
         )
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                cache
+                    .when { $0.ed25519Seed }
+                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
+            }
+        )
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
         @TestState var permanentFailure: Bool! = false
@@ -245,8 +254,15 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 }
                 let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
                     try OpenGroupAPI.preparedCapabilitiesAndRooms(
-                        db,
-                        on: OpenGroupAPI.defaultServer,
+                        authMethod: Authentication.community(
+                            info: LibSession.OpenGroupCapabilityInfo(
+                                roomToken: "",
+                                server: OpenGroupAPI.defaultServer,
+                                publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                capabilities: []
+                            ),
+                            forceBlinded: false
+                        ),
                         using: dependencies
                     )
                 }
@@ -444,8 +460,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         name: "TestExisting",
                         imageId: "10",
                         userCount: 0,
-                        infoUpdates: 10,
-                        displayPictureFilename: "TestFilename"
+                        infoUpdates: 10
                     )
                     .insert(db)
                 }
@@ -534,7 +549,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         imageId: "12",
                         userCount: 0,
                         infoUpdates: 12,
-                        displayPictureFilename: "TestFilename"
+                        displayPictureOriginalUrl: "TestUrl"
                     )
                     .insert(db)
                 }
@@ -553,7 +568,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             }
             
             // MARK: -- updates the cache with the default rooms
-            it("does not schedule a display picture download if the imageId matches and the image has already been downloaded") {
+            it("updates the cache with the default rooms") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
                     scheduler: DispatchQueue.main,
@@ -596,8 +611,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                                     name: "TestRoomName2",
                                     imageId: "12",
                                     userCount: 0,
-                                    infoUpdates: 12,
-                                    displayPictureFilename: nil
+                                    infoUpdates: 12
                                 )
                             )
                         ])

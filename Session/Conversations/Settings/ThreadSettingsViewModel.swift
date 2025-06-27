@@ -148,26 +148,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             return []
         }
         
+        let isGroup: Bool = (
+            threadViewModel.threadVariant == .legacyGroup ||
+            threadViewModel.threadVariant == .group
+        )
         let currentUserKickedFromGroup: Bool = (
-            (
-                threadViewModel.threadVariant == .legacyGroup ||
-                threadViewModel.threadVariant == .group
-            ) &&
+            isGroup &&
             threadViewModel.currentUserIsClosedGroupMember != true
         )
         
         let currentUserIsClosedGroupMember: Bool = (
-            (
-                threadViewModel.threadVariant == .legacyGroup ||
-                threadViewModel.threadVariant == .group
-            ) &&
+            isGroup &&
             threadViewModel.currentUserIsClosedGroupMember == true
         )
         let currentUserIsClosedGroupAdmin: Bool = (
-            (
-                threadViewModel.threadVariant == .legacyGroup ||
-                threadViewModel.threadVariant == .group
-            ) &&
+            isGroup &&
             threadViewModel.currentUserIsClosedGroupAdmin == true
         )
         let canEditDisplayName: Bool = (
@@ -190,7 +185,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         id: threadViewModel.id,
                         size: .hero,
                         threadVariant: threadViewModel.threadVariant,
-                        displayPictureFilename: threadViewModel.displayPictureFilename,
+                        displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
                         profile: threadViewModel.profile,
                         profileIcon: {
                             guard
@@ -200,7 +195,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             else { return .none }
                             
                             // If we already have a display picture then the main profile gets the icon
-                            return (threadViewModel.displayPictureFilename != nil ? .rightPlus : .none)
+                            return (threadViewModel.threadDisplayPictureUrl != nil ? .rightPlus : .none)
                         }(),
                         additionalProfile: threadViewModel.additionalProfile,
                         additionalProfileIcon: {
@@ -221,10 +216,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         backgroundStyle: .noBackground
                     ),
                     onTap: { [weak self] in
-                        switch (threadViewModel.threadVariant, threadViewModel.displayPictureFilename, currentUserIsClosedGroupAdmin) {
+                        switch (threadViewModel.threadVariant, threadViewModel.threadDisplayPictureUrl, currentUserIsClosedGroupAdmin) {
                             case (.contact, _, _): self?.viewDisplayPicture(threadViewModel: threadViewModel)
                             case (.group, _, true):
-                                self?.updateGroupDisplayPicture(currentFileName: threadViewModel.displayPictureFilename)
+                                self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
                             
                             case (_, .some, _): self?.viewDisplayPicture(threadViewModel: threadViewModel)
                             default: break
@@ -242,25 +237,22 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     trailingAccessory: (!canEditDisplayName ? nil :
                         .icon(
                             .pencil,
-                            size: .smallAspectFill,
-                            customTint: .textSecondary,
-                            shouldFill: true
+                            size: .small,
+                            customTint: .textSecondary
                         )
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            trailing: (!canEditDisplayName ? nil :
-                                ((IconSize.small.size - (Values.smallSpacing * 2)) / 2)
-                            ),
+                            leading: (!canEditDisplayName ? nil : IconSize.small.size),
                             bottom: {
                                 guard threadViewModel.threadVariant != .contact else { return Values.smallSpacing }
                                 guard threadViewModel.threadDescription == nil else { return Values.smallSpacing }
                                 
                                 return Values.largeSpacing
                             }(),
-                            interItem: Values.smallSpacing
+                            interItem: 0
                         ),
                         backgroundStyle: .noBackground
                     ),
@@ -554,6 +546,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 SessionTableViewController(
                                     viewModel: ThreadNotificationSettingsViewModel(
                                         threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
                                         threadNotificationSettings: .init(
                                             threadOnlyNotifyForMentions: threadViewModel.threadOnlyNotifyForMentions,
                                             threadMutedUntilTimestamp: threadViewModel.threadMutedUntilTimestamp
@@ -1139,13 +1132,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     
     private func viewDisplayPicture(threadViewModel: SessionThreadViewModel) {
         guard
-            let fileName: String = threadViewModel.displayPictureFilename,
-            let path: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName)
+            let fileUrl: String = threadViewModel.threadDisplayPictureUrl,
+            let path: String = try? dependencies[singleton: .displayPictureManager].path(for: fileUrl)
         else { return }
         
         let navController: UINavigationController = StyledNavigationController(
             rootViewController: ProfilePictureVC(
-                imageIdentifier: fileName,
                 imageSource: .url(URL(fileURLWithPath: path)),
                 title: threadViewModel.displayName,
                 using: dependencies
@@ -1157,8 +1149,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     }
     
     private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
-        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         guard
             let name: String = threadViewModel.openGroupName,
             let communityUrl: String = LibSession.communityUrlFor(
@@ -1167,6 +1157,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 publicKey: threadViewModel.openGroupPublicKey
             )
         else { return }
+        
+        let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
+        let currentUserIds: String = (threadViewModel.currentUserSessionIds ?? [])
+            .map { "\($0)" }
+            .joined(separator: ", ")
         
         self.transitionToScreen(
             SessionTableViewController(
@@ -1186,7 +1182,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             \(contact[.isApproved]) = TRUE AND
                             \(contact[.didApproveMe]) = TRUE AND
                             \(contact[.isBlocked]) = FALSE AND
-                            \(contact[.id]) != \(threadViewModel.currentUserSessionId)
+                            \(contact[.id]) IS NOT IN (\(currentUserIds))
                         )
                     """),
                     footerTitle: "membersInviteTitle".localized(),
@@ -1290,23 +1286,26 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     .filter(GroupMember.Columns.groupId == threadId)
                     .group(GroupMember.Columns.profileId),
                 onTap: .callback { _, memberInfo in
-                    dependencies[singleton: .storage].write { db in
-                        try SessionThread.upsert(
-                            db,
-                            id: memberInfo.profileId,
-                            variant: .contact,
-                            values: SessionThread.TargetValues(
-                                creationDateTimestamp: .useExistingOrSetTo(
-                                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                    dependencies[singleton: .storage].writeAsync(
+                        updates: { db in
+                            try SessionThread.upsert(
+                                db,
+                                id: memberInfo.profileId,
+                                variant: .contact,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .useExistingOrSetTo(
+                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                    ),
+                                    shouldBeVisible: .useExisting,
+                                    isDraft: .useExistingOrSetTo(true)
                                 ),
-                                shouldBeVisible: .useExisting,
-                                isDraft: .useExistingOrSetTo(true)
-                            ),
-                            using: dependencies
-                        )
-                    }
-                    
-                    transitionToConversation(memberInfo.profileId)
+                                using: dependencies
+                            )
+                        },
+                        completion: { _ in
+                            transitionToConversation(memberInfo.profileId)
+                        }
+                    )
                 },
                 using: dependencies
             )
@@ -1506,29 +1505,37 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 }
                 
                 /// Update the nickname
-                dependencies[singleton: .storage].write { db in
-                    try Profile
-                        .filter(id: threadId)
-                        .updateAllAndConfig(
-                            db,
-                            Profile.Columns.nickname.set(to: finalNickname),
-                            using: dependencies
-                        )
-                }
-                modal.dismiss(animated: true)
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        try Profile
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                Profile.Columns.nickname.set(to: finalNickname),
+                                using: dependencies
+                            )
+                    },
+                    completion: { _ in
+                        modal.dismiss(animated: true)
+                    }
+                )
             },
             onCancel: { [dependencies, threadId] modal in
                 /// Remove the nickname
-                dependencies[singleton: .storage].write { db in
-                    try Profile
-                        .filter(id: threadId)
-                        .updateAllAndConfig(
-                            db,
-                            Profile.Columns.nickname.set(to: nil),
-                            using: dependencies
-                        )
-                }
-                modal.dismiss(animated: true)
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        try Profile
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                Profile.Columns.nickname.set(to: nil),
+                                using: dependencies
+                            )
+                    },
+                    completion: { _ in
+                        modal.dismiss(animated: true)
+                    }
+                )
             }
         )
     }
@@ -1631,7 +1638,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         )
     }
     
-    private func updateGroupDisplayPicture(currentFileName: String?) {
+    private func updateGroupDisplayPicture(currentUrl: String?) {
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
         let iconName: String = "profile_placeholder" // stringlint:ignore
@@ -1641,9 +1648,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 info: ConfirmationModal.Info(
                     title: "groupSetDisplayPicture".localized(),
                     body: .image(
-                        identifier: (currentFileName ?? iconName),
-                        source: currentFileName
-                            .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                        source: currentUrl
+                            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                             .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
                         placeholder: UIImage(named: iconName).map {
                             ImageDataManager.DataSource.image(iconName, $0)
@@ -1663,22 +1669,24 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(currentFileName != nil),
+                    cancelEnabled: .bool(currentUrl != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateGroupDisplayPicture(
                                     displayPictureUpdate: .groupUploadImageData(imageData),
-                                    onUploadComplete: { [weak modal] in modal?.close() }
+                                    onUploadComplete: { [weak modal] in
+                                        Task { @MainActor in modal?.close() }
+                                    }
                                 )
                                 
                             default: modal.close()
@@ -1687,7 +1695,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     onCancel: { [weak self] modal in
                         self?.updateGroupDisplayPicture(
                             displayPictureUpdate: .groupRemove,
-                            onUploadComplete: { [weak modal] in modal?.close() }
+                            onUploadComplete: { [weak modal] in
+                                Task { @MainActor in modal?.close() }
+                            }
                         )
                     }
                 )
@@ -1736,8 +1746,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         return dependencies[singleton: .displayPictureManager]
                             .prepareAndUploadDisplayPicture(imageData: data)
                             .showingBlockingLoading(in: self?.navigatableState)
-                            .map { url, fileName, key -> DisplayPictureManager.Update in
-                                .groupUpdateTo(url: url, key: key, fileName: fileName)
+                            .map { url, filePath, key -> DisplayPictureManager.Update in
+                                .groupUpdateTo(url: url, key: key, filePath: filePath)
                             }
                             .mapError { $0 as Error }
                             .handleEvents(
@@ -1779,29 +1789,34 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     displayPictureUpdate,
                     try? ClosedGroup
                         .filter(id: threadId)
-                        .select(.displayPictureFilename)
+                        .select(.displayPictureUrl)
                         .asRequest(of: String.self)
                         .fetchOne(db)
                 )
             }
-            .flatMap { [threadId, dependencies] displayPictureUpdate, existingFileName -> AnyPublisher<String?, Error> in
+            .flatMap { [threadId, dependencies] displayPictureUpdate, existingDownloadUrl -> AnyPublisher<String?, Error> in
                 MessageSender
                     .updateGroup(
                         groupSessionId: threadId,
                         displayPictureUpdate: displayPictureUpdate,
                         using: dependencies
                     )
-                    .map { _ in existingFileName }
+                    .map { _ in existingDownloadUrl }
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { [dependencies] existingFileName in
-                    // Remove any cached avatar image value
-                    if let existingFileName: String = existingFileName {
+                receiveOutput: { [dependencies] existingDownloadUrl in
+                    /// Remove any cached avatar image value
+                    if
+                        let existingDownloadUrl: String = existingDownloadUrl,
+                        let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: existingDownloadUrl)
+                    {
                         Task {
                             await dependencies[singleton: .imageDataManager].removeImage(
-                                identifier: existingFileName
+                                identifier: existingFilePath
                             )
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
                         }
                     }
                 }
@@ -1857,6 +1872,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     }
     
     // MARK: - Confirmation Modals
+    
     private func updateDisplayNameModal(
         threadViewModel: SessionThreadViewModel,
         currentUserIsClosedGroupAdmin: Bool

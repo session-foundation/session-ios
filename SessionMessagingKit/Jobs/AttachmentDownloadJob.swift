@@ -90,13 +90,23 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 return dependencies[singleton: .storage]
                     .readPublisher { db -> Network.PreparedRequest<Data> in
-                        switch try OpenGroup.fetchOne(db, id: threadId) {
-                            case .some(let openGroup):
+                        let maybeRoomToken: String? = try OpenGroup
+                            .select(.roomToken)
+                            .filter(id: threadId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                        switch maybeRoomToken {
+                            case .some(let roomToken):
                                 return try OpenGroupAPI.preparedDownload(
-                                    db,
                                     url: downloadUrl,
-                                    from: openGroup.roomToken,
-                                    on: openGroup.server,
+                                    roomToken: roomToken,
+                                    authMethod: try Authentication.with(
+                                        db,
+                                        threadId: threadId,
+                                        threadVariant: .community,
+                                        using: dependencies
+                                    ),
                                     using: dependencies
                                 )
                                 
@@ -159,13 +169,6 @@ public enum AttachmentDownloadJob: JobExecutor {
                                     .with(
                                         state: .downloaded,
                                         creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                        localRelativeFilePath: (
-                                            attachment.localRelativeFilePath ??
-                                            Attachment.localRelativeFilePath(
-                                                from: attachment.originalFilePath(using: dependencies),
-                                                using: dependencies
-                                            )
-                                        ),
                                         using: dependencies
                                     )
                                     .upserted(db)
@@ -204,14 +207,17 @@ public enum AttachmentDownloadJob: JobExecutor {
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies[singleton: .storage].write { db in
-                                _ = try Attachment
-                                    .filter(id: attachment.id)
-                                    .updateAll(db, Attachment.Columns.state.set(to: targetState))
-                            }
-                            
-                            /// Trigger the failure and provide the `permanentFailure` value defined above
-                            failure(job, error, permanentFailure)
+                            dependencies[singleton: .storage].writeAsync(
+                                updates: { db in
+                                    _ = try Attachment
+                                        .filter(id: attachment.id)
+                                        .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                                },
+                                completion: { _ in
+                                    /// Trigger the failure and provide the `permanentFailure` value defined above
+                                    failure(job, error, permanentFailure)
+                                }
+                            )
                     }
                 }
             )

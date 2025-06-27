@@ -23,8 +23,7 @@ final class ThemeMessagePreviewView: UIView {
                     interactionId: -1,
                     authorId: "",
                     timestampMs: 0,
-                    body: "appearancePreview1".localized(),
-                    attachmentId: nil
+                    body: "appearancePreview1".localized()
                 ),
                 cellType: .textOnlyMessage
             ),

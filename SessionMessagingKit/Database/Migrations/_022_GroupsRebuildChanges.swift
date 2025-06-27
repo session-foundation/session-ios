@@ -14,7 +14,7 @@ enum _022_GroupsRebuildChanges: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var createdTables: [(FetchableRecord & TableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "thread") { t in
             t.add(column: "isDraft", .boolean).defaults(to: false)
         }
@@ -145,7 +145,7 @@ enum _022_GroupsRebuildChanges: Migration {
                 
                 /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
                 if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    db.afterNextTransaction { db in
+                    db.afterNextTransactionNested(using: dependencies) { db in
                         try? PushNotificationAPI
                             .preparedSubscribe(
                                 db,
@@ -179,14 +179,10 @@ enum _022_GroupsRebuildChanges: Migration {
                 return
             }
             
-            let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename(
-                format: imageData.guessedImageFormat
-            )
-            
-            guard let filePath: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
-                Log.error("[GroupsRebuildChanges] Failed to generate community file path for current file name")
-                return
-            }
+            let filename: String = generateFilename(format: imageData.guessedImageFormat, using: dependencies)
+            let filePath: String = URL(fileURLWithPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath())
+                .appendingPathComponent(filename)
+                .path
             
             // Save the decrypted display picture to disk
             try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
@@ -201,7 +197,7 @@ enum _022_GroupsRebuildChanges: Migration {
                 UPDATE openGroup
                 SET
                     imageData = NULL,
-                    displayPictureFilename = '\(fileName)',
+                    displayPictureFilename = '\(filename)',
                     lastDisplayPictureUpdate = \(timestampMs)
                 WHERE threadId = '\(threadId)'
             """)
@@ -211,3 +207,12 @@ enum _022_GroupsRebuildChanges: Migration {
     }
 }
 
+private extension _022_GroupsRebuildChanges {
+    static func generateFilename(format: ImageFormat = .jpeg, using dependencies: Dependencies) -> String {
+        return dependencies[singleton: .crypto]
+            .generate(.uuid())
+            .defaulting(to: UUID())
+            .uuidString
+            .appendingFileExtension(format.fileExtension)
+    }
+}

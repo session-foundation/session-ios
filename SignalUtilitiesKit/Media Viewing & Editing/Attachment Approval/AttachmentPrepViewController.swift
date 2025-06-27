@@ -244,6 +244,9 @@ public class AttachmentPrepViewController: OWSViewController {
     @objc public func playButtonTapped() {
         guard let fileUrl: URL = attachment.dataUrl else { return Log.error(.media, "Missing video file") }
         
+        /// The `attachment` here is a `SignalAttachment` which is pointing to a file outside of the app (which would have a
+        /// proper file extension) so no need to create a temporary copy of the video, or clean it up by using our custom
+        /// `DismissCallbackAVPlayerViewController` callback logic
         let player: AVPlayer = AVPlayer(url: fileUrl)
         let viewController: AVPlayerViewController = AVPlayerViewController()
         viewController.player = player

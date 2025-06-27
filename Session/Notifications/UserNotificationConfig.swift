@@ -9,15 +9,15 @@ import SessionUtilitiesKit
 
 class UserNotificationConfig {
     class var allNotificationCategories: Set<UNNotificationCategory> {
-        let categories = AppNotificationCategory.allCases.map { notificationCategory($0) }
+        let categories = NotificationCategory.allCases.map { notificationCategory($0) }
         return Set(categories)
     }
 
-    class func notificationActions(for category: AppNotificationCategory) -> [UNNotificationAction] {
+    class func notificationActions(for category: NotificationCategory) -> [UNNotificationAction] {
         return category.actions.map { notificationAction($0) }
     }
 
-    class func notificationCategory(_ category: AppNotificationCategory) -> UNNotificationCategory {
+    class func notificationCategory(_ category: NotificationCategory) -> UNNotificationCategory {
         return UNNotificationCategory(
             identifier: category.identifier,
             actions: notificationActions(for: category),
