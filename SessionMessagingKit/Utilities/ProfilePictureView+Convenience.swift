@@ -135,14 +135,14 @@ public extension ProfilePictureView {
                         .defaulting(
                             to: Info(
                                 identifier: "GroupFallbackIcon",    // stringlint:ignore
-                                source: .image("person.fill", UIImage(systemName: "person.fill")),
+                                source: .image("person.fill", UIImage(named: "ic_user_round_fill")),
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
-                                    top: 3,
-                                    left: 0,
-                                    bottom: -5,
-                                    right: 0
+                                    top: 4,
+                                    left: 4,
+                                    bottom: -6,
+                                    right: 4
                                 ),
                                 icon: additionalProfileIcon
                             )

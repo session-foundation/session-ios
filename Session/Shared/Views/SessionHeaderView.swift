@@ -18,7 +18,7 @@ class SessionHeaderView: UITableViewHeaderFooterView {
     private let titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.font = .systemFont(ofSize: Values.mediumFontSize)
+        result.font = Fonts.Body.baseRegular
         result.themeTextColor = .textSecondary
         result.isHidden = true
         

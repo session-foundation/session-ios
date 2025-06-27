@@ -21,6 +21,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
     let font: Font
     let type: SessionTextFieldType
     let accessibility: Accessibility
+    let inputChecker: ((String) -> String?)?
     var isErrorMode: Bool { error?.isEmpty == false }
     
     let height: CGFloat
@@ -34,6 +35,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
         error: Binding<String?>,
         type: SessionTextFieldType = .normal,
         accessibility: Accessibility = Accessibility(identifier: "SessionTextField"),
+        inputChecker: ((String) -> String?)? = nil,
         @ViewBuilder explanationView: @escaping () -> ExplanationView = {
             EmptyView()
         }
@@ -44,6 +46,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
         self.type = type
         self.accessibility = accessibility
         self._error = error
+        self.inputChecker = inputChecker
         self.explanationView = explanationView
         switch self.type {
             case .thin:
@@ -115,7 +118,8 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
             )
             .onChange(of: text) { newText in
-                textThemeColor = (newText == lastErroredText ? .danger : .textPrimary)
+                error = inputChecker?(newText)
+                textThemeColor = ((newText == lastErroredText || error?.isEmpty == false) ? .danger : .textPrimary)
             }
             .onChange(of: error) { newError in
                 if newError != nil {
@@ -172,8 +176,8 @@ struct SessionTextField_Previews: PreviewProvider {
     @State static var emptyError: String? = nil
     static var previews: some View {
         VStack {
-            SessionTextField($text, placeholder: "Placeholder", error: $error) {}
-            SessionTextField($emptyText, placeholder: "Placeholder", error: $emptyError) {}
+            SessionTextField($text, placeholder: "Placeholder", error: $error, explanationView:  {})
+            SessionTextField($emptyText, placeholder: "Placeholder", error: $emptyError, explanationView:  {})
         }
         
     }

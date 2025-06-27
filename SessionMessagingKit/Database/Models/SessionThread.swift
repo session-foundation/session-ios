@@ -670,12 +670,7 @@ public extension SessionThread {
         // or the user was actually mentioned
         guard
             Date().timeIntervalSince1970 > (self.mutedUntilTimestamp ?? 0) &&
-            (
-                self.variant == .contact ||
-                self.variant == .group ||
-                !self.onlyNotifyForMentions ||
-                interaction.hasMention
-            )
+            (!self.onlyNotifyForMentions || interaction.hasMention)
         else { return false }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -719,6 +714,7 @@ public extension SessionThread {
         closedGroupName: String? = nil,
         openGroupName: String? = nil,
         isNoteToSelf: Bool = false,
+        ignoringNickname: Bool = false,
         profile: Profile? = nil
     ) -> String {
         switch variant {
@@ -730,7 +726,7 @@ public extension SessionThread {
                     return Profile.truncated(id: threadId, truncating: .middle)
                 }
                 
-                return profile.displayName()
+                return profile.displayName(ignoringNickname: ignoringNickname)
         }
     }
     

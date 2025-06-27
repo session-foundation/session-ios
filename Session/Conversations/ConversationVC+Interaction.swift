@@ -110,7 +110,10 @@ extension ConversationVC:
     // MARK: - Call
     
     @objc func startCall(_ sender: Any?) {
-        guard viewModel.threadData.threadIsBlocked == false else { return }
+        guard viewModel.threadData.threadIsBlocked != true else {
+            self.showBlockedModalIfNeeded()
+            return
+        }
         guard viewModel.dependencies[singleton: .storage, key: .areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -925,6 +928,11 @@ extension ConversationVC:
     // MARK: MessageCellDelegate
 
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
+        // Show the unblock modal if needed
+        guard self.viewModel.threadData.threadIsBlocked != true else {
+            self.showBlockedModalIfNeeded()
+            return
+        }
         // Show the context menu if applicable
         guard
             // FIXME: Need to update this when an appropriate replacement is added (see https://teng.pub/technical/2021/11/9/uiapplication-key-window-replacement)
@@ -2113,11 +2121,11 @@ extension ConversationVC:
                     explanation: ThemedAttributedString(string: deletionBehaviours.body),
                     warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
                     options: deletionBehaviours.actions.map { action in
-                        (
-                            action.title,
-                            action.state != .disabled,
-                            action.state == .enabledAndDefaultSelected,
-                            action.accessibility
+                        ConfirmationModal.Info.Body.RadioOptionInfo(
+                            title: action.title,
+                            enabled: action.state != .disabled,
+                            selected: action.state == .enabledAndDefaultSelected,
+                            accessibility: action.accessibility
                         )
                     }
                 ),

@@ -138,7 +138,7 @@ extension GroupMember: ProfileAssociated {
     public func itemDescription(using dependencies: Dependencies) -> String? { return statusDescription }
     public func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return statusDescriptionColor }
     
-    public static func compare(
+    public static func compareForManagement(
         lhs: WithProfile<GroupMember>,
         rhs: WithProfile<GroupMember>
     ) -> Bool {
@@ -218,6 +218,48 @@ extension GroupMember: ProfileAssociated {
                 let rhsIndex = desiredStatusOrder.firstIndex(of: rhs.value.roleStatus)
                 
                 return ((lhsIndex ?? desiredStatusOrder.endIndex) < rhsIndex ?? desiredStatusOrder.endIndex)
+        }
+    }
+    
+    public static func compare(
+        lhs: WithProfile<GroupMember>,
+        rhs: WithProfile<GroupMember>
+    ) -> Bool {
+        let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: lhs.value.groupId)) ?? .group) == .group)
+        let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
+            .defaulting(to: Profile.truncated(id: lhs.profileId, threadVariant: .contact))
+        let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
+            .defaulting(to: Profile.truncated(id: rhs.profileId, threadVariant: .contact))
+        
+        // Legacy groups have a different sorting behaviour
+        guard isUpdatedGroup else {
+            switch (lhs.value.role, rhs.value.role) {
+                case (.zombie, .standard), (.zombie, .moderator), (.zombie, .admin): return true
+                case (.standard, .zombie), (.moderator, .zombie), (.admin, .zombie): return false
+                default:
+                    guard lhs.value.role == rhs.value.role else { return lhs.value.role < rhs.value.role }
+                    
+                    return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
+            }
+        }
+        
+        /// We want to sort the member list so the most important info is at the top of the list, this means that we want to prioritise
+        /// • Current user
+        /// • Admin, sorted as NameSortingOrder
+        /// • Member, sorted as NameSortingOrder
+        let userSessionId: SessionId = lhs.currentUserSessionId
+        
+        switch (lhs.profileId, rhs.profileId, lhs.value.role, rhs.value.role) {
+            /// Current user first
+            case (userSessionId.hexString, _, _, _): return true
+            case (_, userSessionId.hexString, _, _): return false
+                
+            /// Admin before standard
+            case (_, _, .admin, .standard): return true
+            case (_, _, .standard, .admin): return false
+                
+            /// Otherwise we should sort by NameSortingOrder
+            default: return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
         }
     }
 }

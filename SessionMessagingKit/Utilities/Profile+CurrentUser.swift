@@ -25,7 +25,9 @@ public extension Profile {
         /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
         /// However in LibSession, the Contact C API supports 101 characters in order to account for
         /// the null terminator - char name[101]. So it is OK to use String.utf8.count
-        return (profileName.utf8CString.count > LibSession.sizeMaxNameBytes)
+        
+        /// Note: LibSession.sizeMaxNameBytes is 100 not 101
+        return (profileName.bytes.count > LibSession.sizeMaxNameBytes)
     }
     
     static func updateLocal(

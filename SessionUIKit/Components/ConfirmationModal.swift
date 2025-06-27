@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
@@ -90,16 +91,45 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var textFieldClearButton: UIButton = {
+        let result: UIButton = UIButton(type: .custom)
+        result.setImage(Lucide.image(icon: .x, size: 18)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.addTarget(self, action: #selector(textFieldClearButtonTapped), for: .touchUpInside)
+        result.themeTintColor = .textPrimary
+        result.isHidden = true
+        return result
+    }()
+    
+    internal lazy var textFieldErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .danger
+        result.textAlignment = .center
+        result.isHidden = true
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var textViewContainer: UIView = {
         let result: UIView = UIView()
         result.themeBorderColor = .borderSeparator
         result.layer.cornerRadius = 11
         result.layer.borderWidth = 1
         result.isHidden = true
-        result.set(.height, to: 75)
+        result.translatesAutoresizingMaskIntoConstraints = false
         
         return result
     }()
+    
+    private var textViewHeightConstraint: NSLayoutConstraint?
+    private var textViewMinHeight: CGFloat {
+        return 3 * (textView.font ?? .systemFont(ofSize: Values.smallFontSize)).lineHeight
+    }
+    private var textViewMaxHeight: CGFloat {
+        return 12 * (textView.font ?? .systemFont(ofSize: Values.smallFontSize)).lineHeight
+    }
     
     private lazy var textView: UITextView = {
         let result: UITextView = UITextView()
@@ -109,6 +139,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.textContainerInset = .zero
         result.textContainer.lineFragmentPadding = 0
         result.delegate = self
+        result.translatesAutoresizingMaskIntoConstraints = false
         
         return result
     }()
@@ -118,6 +149,27 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .textSecondary
         result.alpha = 0.5
+        
+        return result
+    }()
+    
+    private lazy var textViewClearButton: UIButton = {
+        let result: UIButton = UIButton(type: .custom)
+        result.setImage(Lucide.image(icon: .x, size: 18)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.addTarget(self, action: #selector(textViewClearButtonTapped), for: .touchUpInside)
+        result.themeTintColor = .textPrimary
+        result.isHidden = true
+        return result
+    }()
+    
+    internal lazy var textViewErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .danger
+        result.textAlignment = .center
+        result.isHidden = true
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
         
         return result
     }()
@@ -171,7 +223,19 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textToConfirmContainer, textViewContainer, imageViewContainer ])
+        let result = UIStackView(
+            arrangedSubviews: [
+                titleLabel,
+                explanationLabel,
+                warningLabel,
+                textFieldContainer,
+                textFieldErrorLabel,
+                textToConfirmContainer,
+                textViewContainer,
+                textViewErrorLabel,
+                imageViewContainer
+            ]
+        )
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -246,17 +310,34 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         contentView.addSubview(closeButton)
         
         textFieldContainer.addSubview(textField)
-        textField.pin(to: textFieldContainer, withInset: 12)
+        textFieldContainer.addSubview(textFieldClearButton)
+        textField.pin(.leading, to: .leading, of: textFieldContainer, withInset: 12)
+        textField.pin(.top, to: .top, of: textFieldContainer, withInset: 12)
+        textField.pin(.bottom, to: .bottom, of: textFieldContainer, withInset: -12)
+        textField.pin(.trailing, to: .trailing, of: textFieldContainer, withInset: (textFieldClearButton.isHidden ? -12 : -34))
+
+        textFieldClearButton.pin(.trailing, to: .trailing, of: textFieldContainer, withInset: -12)
+        textFieldClearButton.center(.vertical, in: textFieldContainer)
         
         textToConfirmContainer.addSubview(textToConfirmLabel)
         textToConfirmLabel.pin(to: textToConfirmContainer, withInset: 12)
         
         textViewContainer.addSubview(textView)
         textViewContainer.addSubview(textViewPlaceholder)
+        textViewContainer.addSubview(textViewClearButton)
         textView.pin(to: textViewContainer, withInset: 12)
-        textViewPlaceholder.pin(.top, to: .top, of: textViewContainer, withInset: 12)
-        textViewPlaceholder.pin(.leading, to: .leading, of: textViewContainer, withInset: 12)
-        textViewPlaceholder.pin(.trailing, to: .trailing, of: textViewContainer, withInset: -12)
+        textView.pin(.leading, to: .leading, of: textViewContainer, withInset: 12)
+        textView.pin(.top, to: .top, of: textViewContainer, withInset: 12)
+        textViewContainer.pin(.bottom, to: .bottom, of: textView, withInset: 12)
+        textView.pin(.trailing, to: .trailing, of: textViewContainer, withInset: (textViewClearButton.isHidden ? -12 : -34))
+        textViewHeightConstraint = textView.set(.height, to: textViewMinHeight)
+        
+        textViewPlaceholder.pin(.top, to: .top, of: textView)
+        textViewPlaceholder.pin(.leading, to: .leading, of: textView)
+        textViewPlaceholder.pin(.trailing, to: .trailing, of: textView)
+        
+        textViewClearButton.pin(.trailing, to: .trailing, of: textViewContainer, withInset: -12)
+        textViewClearButton.pin(.top, to: .top, of: textViewContainer, withInset: 12)
         
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
@@ -332,7 +413,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
-                textField.clearButtonMode = (inputInfo.clearButton ? .always : .never)
+                textFieldClearButton.isHidden = !inputInfo.clearButton
                 textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
@@ -342,7 +423,9 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     textField?.accessibilityLabel = text
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
+                    self.updateContent(withError: inputInfo.inputChecker?(text))
                 }
+                textFieldContainer.layoutIfNeeded()
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
@@ -350,12 +433,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
                 textField.text = (firstInputInfo.initialValue ?? "")
-                textField.clearButtonMode = (firstInputInfo.clearButton ? .always : .never)
+                textFieldClearButton.isHidden = !firstInputInfo.clearButton
                 textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = firstInputInfo.accessibility?.identifier
                 textField.accessibilityLabel = firstInputInfo.accessibility?.label
                 textFieldContainer.isHidden = false
                 textView.text = (secondInputInfo.initialValue ?? "")
+                textViewClearButton.isHidden = !secondInputInfo.clearButton
                 textView.isAccessibilityElement = true
                 textView.accessibilityIdentifier = secondInputInfo.accessibility?.identifier
                 textView.accessibilityLabel = secondInputInfo.accessibility?.label
@@ -368,6 +452,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     textView?.accessibilityLabel = secondText
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
+                    self.updateContent(
+                        withError:firstInputInfo.inputChecker?(firstText),
+                        additionalError: secondInputInfo.inputChecker?(secondText)
+                    )
                 }
                 
             case .radio(let explanation, let warning, let options):
@@ -395,11 +483,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     explanation: explanation,
                                     warning: warning,
                                     options: options.enumerated().map { otherIndex, otherInfo in
-                                        (
-                                            otherInfo.title,
-                                            otherInfo.enabled,
-                                            (index == otherIndex),
-                                            otherInfo.accessibility
+                                        Info.Body.RadioOptionInfo(
+                                            title: otherInfo.title,
+                                            enabled: otherInfo.enabled,
+                                            selected: (index == otherIndex),
+                                            accessibility: otherInfo.accessibility
                                         )
                                     }
                                 )
@@ -465,6 +553,33 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
+    // MARK: - Error Handling
+    
+    public func updateContent(withError error: String? = nil, additionalError: String? = nil) {
+        switch self.info.body {
+            case .input:
+                let hasError: Bool = (error?.isEmpty == false)
+                textFieldErrorLabel.text = error
+                textField.themeTextColor = hasError ? .danger : .textPrimary
+                textFieldContainer.themeBorderColor = hasError ? .danger : .borderSeparator
+                textFieldErrorLabel.isHidden = !hasError
+            case .dualInput:
+                let hasError: Bool = (error?.isEmpty == false)
+                textFieldErrorLabel.text = error
+                textField.themeTextColor = hasError ? .danger : .textPrimary
+                textFieldContainer.themeBorderColor = hasError ? .danger : .borderSeparator
+                textFieldErrorLabel.isHidden = !hasError
+            
+                let hasAdditionalError: Bool = (additionalError?.isEmpty == false)
+                textViewErrorLabel.text = additionalError
+                textView.themeTextColor = hasAdditionalError ? .danger : .textPrimary
+                textViewContainer.themeBorderColor = hasAdditionalError ? .danger : .borderSeparator
+                textViewErrorLabel.isHidden = !hasAdditionalError
+            default:
+                break
+        }
+    }
+    
     // MARK: - UITextFieldDelegate
         
     public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -492,6 +607,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     public func textViewDidChange(_ textView: UITextView) {
         textViewPlaceholder.isHidden = !textView.text.isEmpty
         internalOnTextChanged?((textField.text ?? ""), textView.text)
+        
+        let fixedWidth = textView.frame.width
+        let newSize = textView.sizeThatFits(CGSize(width: fixedWidth, height: CGFloat.greatestFiniteMagnitude))
+        
+        textViewHeightConstraint?.constant = min(textViewMaxHeight, max(newSize.height, textViewMinHeight))
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
     }
     
     // MARK: - Interaction
@@ -537,6 +660,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     override public func cancel() {
         internalOnCancel?(self)
+    }
+    
+    @objc internal func textFieldClearButtonTapped() {
+        self.textField.text = ""
+    }
+    
+    @objc internal func textViewClearButtonTapped() {
+        self.textView.text = ""
+        textViewHeightConstraint?.constant = textViewMinHeight
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
     }
     
     // MARK: - Keyboard Avoidance
@@ -793,22 +928,57 @@ public extension ConfirmationModal.Info {
             public let initialValue: String?
             public let clearButton: Bool
             public let accessibility: Accessibility?
+            public let inputChecker: ((String) -> String?)?
             
             public init(
                 placeholder: String,
                 initialValue: String? = nil,
                 clearButton: Bool = false,
-                accessibility: Accessibility? = nil
+                accessibility: Accessibility? = nil,
+                inputChecker: ((String) -> String?)? = nil
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
                 self.clearButton = clearButton
                 self.accessibility = accessibility
+                self.inputChecker = inputChecker
+            }
+            
+            public static func == (lhs: InputInfo, rhs: InputInfo) -> Bool {
+                lhs.placeholder == rhs.placeholder &&
+                lhs.initialValue == rhs.initialValue &&
+                lhs.clearButton == rhs.clearButton &&
+                lhs.accessibility == rhs.accessibility
+            }
+            
+            public func hash(into hasher: inout Hasher) {
+                placeholder.hash(into: &hasher)
+                initialValue?.hash(into: &hasher)
+                clearButton.hash(into: &hasher)
+                accessibility?.hash(into: &hasher)
             }
         }
         public enum ImageStyle: Equatable, Hashable {
             case inherit
             case circular
+        }
+        public struct RadioOptionInfo: Equatable, Hashable {
+            public let title: String
+            public let enabled: Bool
+            public let selected: Bool
+            public let accessibility: Accessibility?
+            
+            public init(
+                title: String,
+                enabled: Bool,
+                selected: Bool = false,
+                accessibility: Accessibility? = nil
+            ) {
+                self.title = title
+                self.enabled = enabled
+                self.selected = selected
+                self.accessibility = accessibility
+            }
         }
         
         case none
@@ -834,12 +1004,7 @@ public extension ConfirmationModal.Info {
         case radio(
             explanation: ThemedAttributedString?,
             warning: ThemedAttributedString?,
-            options: [(
-                title: String,
-                enabled: Bool,
-                selected: Bool,
-                accessibility: Accessibility?
-            )]
+            options: [RadioOptionInfo]
         )
         case image(
             identifier: String,
@@ -880,7 +1045,7 @@ public extension ConfirmationModal.Info {
                     return (
                         lhsExplanation == rhsExplanation &&
                         lhsWarning == rhsWarning &&
-                        lhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" } == rhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" }
+                        lhsOptions == rhsOptions
                     )
                     
                 case (.image(let lhsIdentifier, let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsIdentifier, let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
@@ -915,7 +1080,7 @@ public extension ConfirmationModal.Info {
                 case .radio(let explanation, let warning, let options):
                     explanation.hash(into: &hasher)
                     warning.hash(into: &hasher)
-                    options.map { "\($0.0)-\($0.1)-\($0.2)" }.hash(into: &hasher)
+                    options.hash(into: &hasher)
                 
                 case .image(let identifier, let source, let placeholder, let icon, let style, let accessibility, _, _):
                     identifier.hash(into: &hasher)

@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "user-filled-custom.pdf",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
