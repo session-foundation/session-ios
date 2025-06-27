@@ -23,7 +23,11 @@ extension MessageSender {
         
         send(
             db,
-            message: VisibleMessage.from(db, interaction: interaction),
+            message: VisibleMessage.from(
+                db,
+                interaction: interaction,
+                proProof: dependencies.mutate(cache: .libSession, { $0.getProProof() })
+            ),
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
@@ -107,7 +111,11 @@ extension MessageSender {
 
         return try MessageSender.preparedSend(
             db,
-            message: VisibleMessage.from(db, interaction: interaction),
+            message: VisibleMessage.from(
+                db,
+                interaction: interaction,
+                proProof: dependencies.mutate(cache: .libSession, { $0.getProProof() })
+            ),
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             namespace: try Message.Destination
                 .from(db, threadId: threadId, threadVariant: threadVariant)

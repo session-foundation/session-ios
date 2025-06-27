@@ -227,7 +227,7 @@ public final class VisibleMessage: Message {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage {
-    static func from(_ db: Database, interaction: Interaction) -> VisibleMessage {
+    static func from(_ db: Database, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
@@ -260,6 +260,7 @@ public extension VisibleMessage {
             expiresInSeconds: interaction.expiresInSeconds,
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
+        .with(proProof: proProof)
         
         return visibleMessage
     }

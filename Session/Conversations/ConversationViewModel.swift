@@ -734,6 +734,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 sentTimestampMs: Double(sentTimestampMs)
             ),
             linkPreviewUrl: linkPreviewDraft?.urlString,
+            isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies
         )
         let optimisticAttachments: [Attachment]? = attachments
