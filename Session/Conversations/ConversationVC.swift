@@ -594,8 +594,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         guard !isReplacingThread else { return }
         
         stopObservingChanges()
-        viewModel.updateDraft(to: snInputView.text)
-        inputAccessoryView?.resignFirstResponder()        
+        viewModel.updateDraft(to: replaceMentions(in: snInputView.text))
+        inputAccessoryView?.resignFirstResponder()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -888,7 +888,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // Only set the draft content on the initial load
         if initialLoad, let draft: String = updatedThreadData.threadMessageDraft, !draft.isEmpty {
-            snInputView.text = draft
+            let (string, mentions) = MentionUtilities.getMentions(
+                in: draft,
+                threadVariant: updatedThreadData.threadVariant,
+                currentUserSessionId: updatedThreadData.currentUserSessionId,
+                currentUserBlinded15SessionId: updatedThreadData.currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId: updatedThreadData.currentUserBlinded25SessionId,
+                using: viewModel.dependencies
+            )
+            snInputView.text = string
+            self.mentions = self.mentions.appending(contentsOf: mentions.map { $0.info })
+            snInputView.updateNumberOfCharactersLeft(draft)
         }
         
         // Now we have done all the needed diffs update the viewModel with the latest data

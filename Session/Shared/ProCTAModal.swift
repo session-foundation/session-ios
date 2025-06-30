@@ -48,7 +48,7 @@ final class ProCTAModal: Modal {
                 case .generic:
                     return "Want to use Session to its fullest potential? Upgrade to Session Pro to gain access to loads exclusive perks and features."
                 case .longerMessages:
-                    return "Want to send longer messages? Send more text and unlock premium features with Session Pro."
+                return "proCallToActionLongerMessages".localized()
                 case .animatedProfileImage:
                     return "Want to use gifs? Upgrade to Session Pro to upload animated display pictures and gain access to loads of other exclusive features."
                 case .largerFiles:
@@ -72,9 +72,9 @@ final class ProCTAModal: Modal {
                     ]
                 case .longerMessages:
                     return [
-                        "Messages up to 10,000 characters",
-                        "Larger group chats up to 300 members",
-                        "Plus loads more exclusive features"
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
                     ]
                 case .animatedProfileImage:
                     return [
@@ -171,7 +171,7 @@ final class ProCTAModal: Modal {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.largeFontSize)
         result.themeTextColor = .textPrimary
-        result.text = "Upgrade to" // TODO: Localization
+        result.text = "upgradeTo".localized()
         
         return result
     }()
