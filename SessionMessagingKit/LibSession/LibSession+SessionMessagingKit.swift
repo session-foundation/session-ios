@@ -195,7 +195,6 @@ public extension LibSession {
         public let dependencies: Dependencies
         public let userSessionId: SessionId
         public var isEmpty: Bool { configStore.isEmpty }
-        public var isSessionPro: Bool = false
         
         // MARK: - Initialization
         
@@ -902,7 +901,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
-    var isSessionPro: Bool { set get }
+    var isSessionPro: Bool { get }
     
     // MARK: - State Management
     

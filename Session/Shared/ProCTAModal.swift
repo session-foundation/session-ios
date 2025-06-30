@@ -320,7 +320,7 @@ final class ProCTAModal: Modal {
     
     @objc private func upgrade() {
         // TODO: To be implemented
-        dependencies.mutate(cache: .libSession) { $0.isSessionPro = true }
+        dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
         close()
     }
 }

@@ -245,6 +245,7 @@ extension ConversationVC:
             using: viewModel.dependencies,
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             }
         )
         present(sessionProModal, animated: true, completion: nil)

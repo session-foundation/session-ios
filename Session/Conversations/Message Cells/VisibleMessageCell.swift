@@ -1052,10 +1052,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             }
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
-            if !self.readMoreButton.isHidden {
-                self.bodayTappableLabelHeightConstraint?.constant = self.bodyTappableLabelHeight
-                self.bodyTappableLabel?.invalidateIntrinsicContentSize()
-                self.readMoreButton.isHidden = true
+            if !readMoreButton.isHidden && readMoreButton.bounds.contains(readMoreButton.convert(location, from: self)) {
+                bodayTappableLabelHeightConstraint?.constant = self.bodyTappableLabelHeight
+                bodyTappableLabel?.invalidateIntrinsicContentSize()
+                readMoreButton.isHidden = true
                 delegate?.handleReadMoreButtonTapped(self, for: cellViewModel)
             } else {
                 delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
