@@ -129,7 +129,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     private lazy var fadeView: GradientView = {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
-            .clear, // Want this to take up 20% (~25pt)
+            .value(.backgroundPrimary, alpha: 0), // Want this to take up 20% (~25pt)
             .backgroundPrimary,
             .backgroundPrimary,
             .backgroundPrimary,

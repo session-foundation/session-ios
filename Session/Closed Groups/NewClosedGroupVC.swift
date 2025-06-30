@@ -174,7 +174,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var fadeView: GradientView = {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
-            .clear, // Want this to take up 20% (~25pt)
+            .value(.newConversation_background, alpha: 0), // Want this to take up 20% (~25pt)
             .newConversation_background,
             .newConversation_background,
             .newConversation_background,

@@ -555,7 +555,6 @@ extension ConversationVC:
                 ),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
-                hasCloseButton: true,
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
                 }
@@ -631,7 +630,6 @@ extension ConversationVC:
                 ),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
-                hasCloseButton: true,
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
                 }
