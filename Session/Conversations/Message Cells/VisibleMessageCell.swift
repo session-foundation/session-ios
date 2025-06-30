@@ -19,6 +19,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     var bodyTappableLabel: TappableLabel?
     var bodyTappableLabelHeight: CGFloat = 0
     var bodayTappableLabelHeightConstraint: NSLayoutConstraint?
+    var bodyContainerStackView: UIStackView?
     var voiceMessageView: VoiceMessageView?
     var audioStateChanged: ((TimeInterval, Bool) -> ())?
     
@@ -606,6 +607,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 bubbleView.addSubview(stackView)
                 stackView.pin(to: bubbleView, withInset: inset)
                 stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
+                self.bodyContainerStackView = stackView
                 snContentView.addArrangedSubview(bubbleBackgroundView)
             }
             return
@@ -694,6 +696,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 bubbleView.addSubview(stackView)
                 stackView.pin(to: bubbleView, withInset: inset)
                 stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
+                self.bodyContainerStackView = stackView
                 snContentView.addArrangedSubview(bubbleBackgroundView)
                 
             /// Just body
@@ -730,6 +733,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 bubbleView.addSubview(stackView)
                 stackView.pin(to: bubbleView, withInset: inset)
                 stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
+                self.bodyContainerStackView = stackView
                 snContentView.addArrangedSubview(bubbleBackgroundView)
             
             /// Just quote
@@ -1056,6 +1060,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 bodayTappableLabelHeightConstraint?.constant = self.bodyTappableLabelHeight
                 bodyTappableLabel?.invalidateIntrinsicContentSize()
                 readMoreButton.isHidden = true
+                self.bodyContainerStackView?.removeArrangedSubview(readMoreButton)
                 delegate?.handleReadMoreButtonTapped(self, for: cellViewModel)
             } else {
                 delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
