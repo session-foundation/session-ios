@@ -304,7 +304,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         )
         characterLimitLabel.text = "\(numberOfCharactersLeft)"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
-        proStackView.alpha = (numberOfCharactersLeft < Self.thresholdForCharacterLimit) ? 1 : 0
+        proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
