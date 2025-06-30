@@ -293,7 +293,11 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         sendButton.isHidden = !hasText
         voiceMessageButtonContainer.isHidden = hasText
         autoGenerateLinkPreviewIfPossible()
-        
+
+        delegate?.inputTextViewDidChangeContent(inputTextView)
+    }
+    
+    func updateNumberOfCharactersLeft(_ text: String) {
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: text.trimmingCharacters(in: .whitespacesAndNewlines),
             isSessionPro: dependencies[cache: .libSession].isSessionPro
@@ -302,8 +306,6 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
         proStackView.alpha = (numberOfCharactersLeft < Self.thresholdForCharacterLimit) ? 1 : 0
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
-        
-        delegate?.inputTextViewDidChangeContent(inputTextView)
     }
 
     func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {

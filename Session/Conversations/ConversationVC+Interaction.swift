@@ -879,6 +879,9 @@ extension ConversationVC:
         }
         
         updateMentions(for: newText)
+        // Note: When calculating the number of characters left, we need to use the original mention
+        // text which contains the session id rather than display name.
+        snInputView.updateNumberOfCharactersLeft(replaceMentions(in: newText))
     }
     
     // MARK: --Attachments
