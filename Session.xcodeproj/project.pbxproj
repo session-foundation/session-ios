@@ -200,7 +200,7 @@
 		94CD95C12E0CBF430097754D /* _026_AddProMessageFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */; };
 		94CD95C42E0D0BFC0097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */; };
 		94CD95C62E0D290F0097754D /* GenericCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C52E0D290F0097754D /* GenericCTA.webp */; };
-		94CD95C82E0D299D0097754D /* GenericCTAAnimatedAvatar.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C72E0D299D0097754D /* GenericCTAAnimatedAvatar.webp */; };
+		94CD95CA2E1358B40097754D /* GenericCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1514,7 +1514,7 @@
 		94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _026_AddProMessageFlag.swift; sourceTree = "<group>"; };
 		94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = HigherCharLimitCTA.webp; sourceTree = "<group>"; };
 		94CD95C52E0D290F0097754D /* GenericCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTA.webp; sourceTree = "<group>"; };
-		94CD95C72E0D299D0097754D /* GenericCTAAnimatedAvatar.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTAAnimatedAvatar.webp; sourceTree = "<group>"; };
+		94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTAAnimation.webp; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -2756,9 +2756,9 @@
 		94CD95C22E0D0BDF0097754D /* WebPImages */ = {
 			isa = PBXGroup;
 			children = (
+				94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */,
 				94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */,
 				94CD95C52E0D290F0097754D /* GenericCTA.webp */,
-				94CD95C72E0D299D0097754D /* GenericCTAAnimatedAvatar.webp */,
 			);
 			path = WebPImages;
 			sourceTree = "<group>";
@@ -5468,6 +5468,7 @@
 			files = (
 				4C63CC00210A620B003AE45C /* SignalTSan.supp in Resources */,
 				4C6F527C20FFE8400097DEEE /* SignalUBSan.supp in Resources */,
+				94CD95CA2E1358B40097754D /* GenericCTAAnimation.webp in Resources */,
 				FD86FDA32BC5020600EC251B /* PrivacyInfo.xcprivacy in Resources */,
 				34CF078A203E6B78005C4D61 /* end_call_tone_cept.caf in Resources */,
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,
@@ -5480,7 +5481,6 @@
 				34C3C78D20409F320000134C /* Opening.m4r in Resources */,
 				C3CA3AB4255CDAE600F4C6D4 /* japanese.txt in Resources */,
 				B67EBF5D19194AC60084CCFD /* Settings.bundle in Resources */,
-				94CD95C82E0D299D0097754D /* GenericCTAAnimatedAvatar.webp in Resources */,
 				34CF0787203E6B78005C4D61 /* busy_tone_ansi.caf in Resources */,
 				45A2F005204473A3002E978A /* NewMessage.aifc in Resources */,
 				45B74A882044AAB600CD42F8 /* aurora.aifc in Resources */,

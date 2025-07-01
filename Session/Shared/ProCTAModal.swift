@@ -37,7 +37,7 @@ final class ProCTAModal: Modal {
         // stringlint:ignore_contents
         public var animatedAvatarImageName: String? {
             switch self {
-                case .generic: return "GenericCTAAnimatedAvatar"
+                case .generic: return "GenericCTAAnimation"
                 default: return nil
             }
         }

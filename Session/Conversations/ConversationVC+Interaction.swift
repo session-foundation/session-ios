@@ -910,9 +910,20 @@ extension ConversationVC:
         
         mentions.append(mentionInfo)
         
+        let currentUserSessionIds: Set<String> = [
+            self.viewModel.threadData.currentUserSessionId,
+            self.viewModel.threadData.currentUserBlinded15SessionId,
+            self.viewModel.threadData.currentUserBlinded25SessionId
+        ].compactMap { $0 }.asSet()
+        
+        let displayNameForMention: String = mentionInfo.profile.displayNameForMention(
+            for: self.viewModel.threadData.threadVariant,
+            currentUserSessionIds: currentUserSessionIds
+        )
+        
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:ignore
+            with: "@\(displayNameForMention) " // stringlint:ignore
         )
         
         snInputView.text = newText
@@ -920,7 +931,12 @@ extension ConversationVC:
         snInputView.hideMentionsUI()
         
         mentions = mentions.filter { mentionInfo -> Bool in
-            newText.contains(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant))
+            newText.contains(
+                mentionInfo.profile.displayNameForMention(
+                    for: self.viewModel.threadData.threadVariant,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+            )
         }
     }
     
@@ -983,8 +999,17 @@ extension ConversationVC:
     // stringlint:ignore_contents
     func replaceMentions(in text: String) -> String {
         var result = text
+        let currentUserSessionIds: Set<String> = [
+            self.viewModel.threadData.currentUserSessionId,
+            self.viewModel.threadData.currentUserBlinded15SessionId,
+            self.viewModel.threadData.currentUserBlinded25SessionId
+        ].compactMap { $0 }.asSet()
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
+            let displayNameForMention: String = mention.profile.displayNameForMention(
+                for: mention.threadVariant,
+                currentUserSessionIds: currentUserSessionIds
+            )
+            guard let range = result.range(of: "@\(displayNameForMention)") else { continue }
             result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
         }
         

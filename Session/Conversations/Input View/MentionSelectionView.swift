@@ -207,9 +207,9 @@ private extension MentionSelectionView {
                 currentUserBlinded15SessionId,
                 currentUserBlinded25SessionId
             ].compactMap { $0 }.asSet()
-            displayNameLabel.text = (currentUserSessionIds.contains(profile.id) ?
-                "you".localized() :
-                profile.displayName(for: threadVariant)
+            displayNameLabel.text = profile.displayNameForMention(
+                for: threadVariant,
+                currentUserSessionIds: currentUserSessionIds
             )
             profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
             profilePictureView.update(
