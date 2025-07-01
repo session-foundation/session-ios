@@ -67,6 +67,10 @@ extension ObservingDatabase: Mocked {
     }
 }
 
+extension UUID: Mocked {
+    static var mock: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+}
+
 extension URL: Mocked {
     static var mock: URL = URL(fileURLWithPath: "mock")
 }

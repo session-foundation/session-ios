@@ -1077,11 +1077,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         )
         Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message for message from namespace: \(info.metadata.namespace), requestId: \(info.requestId).")
         
-        /// Now we are done with the database, we should suspend it
-        if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
-            dependencies[singleton: .storage].suspendDatabaseAccess()
-        }
-        
         /// Clear the logger
         Log.flush()
         Log.reset()

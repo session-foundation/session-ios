@@ -219,15 +219,7 @@ class MessageSenderGroupsSpec: QuickSpec {
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
-            initialSetup: { cache in
-                cache.when { $0.hardfork }.thenReturn(0)
-                cache.when { $0.hardfork = .any }.thenReturn(())
-                cache.when { $0.softfork }.thenReturn(0)
-                cache.when { $0.softfork = .any }.thenReturn(())
-                cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache.when { $0.setClockOffsetMs(.any) }.thenReturn(())
-                cache.when { $0.currentOffsetTimestampMs() }.thenReturn(1234567890000)
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState var mockSwarmPoller: MockSwarmPoller! = MockSwarmPoller(
             initialSetup: { cache in

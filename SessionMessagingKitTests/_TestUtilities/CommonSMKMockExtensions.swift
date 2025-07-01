@@ -156,3 +156,12 @@ extension Theme: Mocked {
 extension Theme.PrimaryColor: Mocked {
     static var mock: Theme.PrimaryColor = .defaultPrimaryColor
 }
+
+extension ConfigDump: Mocked {
+    static var mock: ConfigDump = ConfigDump(
+        variant: .invalid,
+        sessionId: "",
+        data: Data(),
+        timestampMs: 1234567890
+    )
+}

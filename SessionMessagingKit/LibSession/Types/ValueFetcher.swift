@@ -23,7 +23,7 @@ public protocol ValueFetcher {
 public extension ValueFetcher {
     var profile: Profile {
         return profile(contactId: userSessionId.hexString, threadId: nil, threadVariant: nil, visibleMessage: nil)
-            .defaulting(to: Profile(id: userSessionId.hexString, name: "anonymous".localized()))
+            .defaulting(to: Profile.defaultFor(userSessionId.hexString))
     }
 
     func profile(contactId: String) -> Profile? {

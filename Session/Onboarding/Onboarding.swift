@@ -29,7 +29,8 @@ public extension Log.Category {
 public enum Onboarding {
     public enum State: CustomStringConvertible {
         case noUser
-        case noUserFailedIdentity
+        case noUserInvalidKeyPair
+        case noUserInvalidSeedGeneration
         case missingName
         case completed
         
@@ -37,14 +38,15 @@ public enum Onboarding {
         public var description: String {
             switch self {
                 case .noUser: return "No User"
-                case .noUserFailedIdentity: return "No User Failed Identity"
+                case .noUserInvalidKeyPair: return "No User Invalid Key Pair"
+                case .noUserInvalidSeedGeneration: return "No User Invalid Seed Generation"
                 case .missingName: return "Missing Name"
                 case .completed: return "Completed"
             }
         }
     }
     
-    public enum Flow {
+    public enum Flow: CaseIterable {
         case none
         case register
         case restore
@@ -69,7 +71,7 @@ public enum Onboarding {
 extension Onboarding {
     class Cache: OnboardingCacheType {
         private let dependencies: Dependencies
-        public let id: UUID = UUID()
+        public let id: UUID
         public let initialFlow: Onboarding.Flow
         public var state: State
         private let completionSubject: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
@@ -81,7 +83,7 @@ extension Onboarding {
         public var useAPNS: Bool
         
         public var displayName: String
-        public var _displayNamePublisher: AnyPublisher<String?, Error>?
+        private var _displayNamePublisher: AnyPublisher<String?, Error>?
         private var hasInitialDisplayName: Bool
         private var userProfileConfigMessage: ProcessedMessage?
         private var disposables: Set<AnyCancellable> = Set()
@@ -101,23 +103,14 @@ extension Onboarding {
         
         init(flow: Onboarding.Flow, using dependencies: Dependencies) {
             self.dependencies = dependencies
+            self.id = dependencies.randomUUID()
             self.initialFlow = flow
             
-            /// Try to load the users `ed25519KeyPair` from the database
+            /// Try to load the users `ed25519KeyPair` from the database and generate the `x25519KeyPair` from it
             let ed25519KeyPair: KeyPair = dependencies[singleton: .storage]
                 .read { db -> KeyPair? in Identity.fetchUserEd25519KeyPair(db) }
                 .defaulting(to: .empty)
-            
-            /// Retrieve the users `displayName` from `libSession` (the source of truth)
-            let displayName: String = dependencies.mutate(cache: .libSession) { $0.profile }.name
-            let hasInitialDisplayName: Bool = dependencies.mutate(cache: .libSession) {
-                $0.displayName?.nullIfEmpty != nil
-            }
-            
-            self.ed25519KeyPair = ed25519KeyPair
-            self.displayName = displayName
-            self.hasInitialDisplayName = hasInitialDisplayName
-            self.x25519KeyPair = {
+            let x25519KeyPair: KeyPair = {
                 guard
                     ed25519KeyPair != .empty,
                     let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
@@ -130,12 +123,22 @@ extension Onboarding {
                 
                 return KeyPair(publicKey: x25519PublicKey, secretKey: x25519SecretKey)
             }()
+            
+            /// Retrieve the users `displayName` from `libSession` (the source of truth)
+            let displayName: String = dependencies.mutate(cache: .libSession) { $0.profile }.name
+            let hasInitialDisplayName: Bool = !displayName.isEmpty
+            
+            self.ed25519KeyPair = ed25519KeyPair
+            self.displayName = displayName
+            self.hasInitialDisplayName = hasInitialDisplayName
+            self.x25519KeyPair = x25519KeyPair
             self.userSessionId = (x25519KeyPair != .empty ?
                 SessionId(.standard, publicKey: x25519KeyPair.publicKey) :
                 .invalid
             )
             self.state = {
                 guard ed25519KeyPair != .empty else { return .noUser }
+                guard x25519KeyPair != .empty else { return .noUserInvalidKeyPair }
                 guard hasInitialDisplayName else { return .missingName }
                 
                 return .completed
@@ -145,7 +148,7 @@ extension Onboarding {
             
             /// Update the cached values depending on the `initialState`
             switch state {
-                case .noUser, .noUserFailedIdentity:
+                case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
                     /// Remove the `LibSession.Cache` just in case (to ensure no previous state remains)
                     dependencies.remove(cache: .libSession)
                     
@@ -159,15 +162,17 @@ extension Onboarding {
                     else {
                         /// Seed or identity generation failed so leave the `Onboarding.Cache` in an invalid state for the UI to
                         /// recover somehow
-                        self.state = .noUserFailedIdentity
+                        self.state = .noUserInvalidSeedGeneration
                         return
                     }
                     
                     /// The identity data was successfully generated so store it for the onboarding process
+                    self.state = .noUserInvalidKeyPair
                     self.seed = finalSeedData
                     self.ed25519KeyPair = identity.ed25519KeyPair
                     self.x25519KeyPair = identity.x25519KeyPair
                     self.userSessionId = SessionId(.standard, publicKey: identity.x25519KeyPair.publicKey)
+                    self.displayName = ""
                     
                 case .missingName, .completed:
                     self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
@@ -187,6 +192,7 @@ extension Onboarding {
             using dependencies: Dependencies
         ) {
             self.dependencies = dependencies
+            self.id = dependencies.randomUUID()
             self.state = .completed
             self.initialFlow = .devSettings
             self.seed = Data()
@@ -244,7 +250,10 @@ extension Onboarding {
                     
                     /// In order to process the config message we need to create and load a `libSession` cache, but we don't want to load this into
                     /// memory at this stage in case the user cancels the onboarding process part way through
-                    let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
+                    let cache: LibSession.Cache = LibSession.Cache(
+                        userSessionId: userSessionId,
+                        using: dependencies
+                    )
                     cache.loadDefaultStateFor(
                         variant: .userProfile,
                         sessionId: userSessionId,
@@ -272,7 +281,11 @@ extension Onboarding {
                         /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
                         /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
                         /// config request running slow)
-                        if self?.hasInitialDisplayName != true, let displayName = result.displayName {
+                        if
+                            self?.hasInitialDisplayName != true,
+                            let displayName: String = result.displayName,
+                            !displayName.isEmpty
+                        {
                             self?.displayName = displayName
                         }
                         
@@ -297,7 +310,7 @@ extension Onboarding {
                 .store(in: &disposables)
         }
         
-        func setUserAPNS(_ useAPNS: Bool) {
+        func setUseAPNS(_ useAPNS: Bool) {
             self.useAPNS = useAPNS
         }
         
@@ -380,6 +393,9 @@ extension Onboarding {
                         /// step (we do this after handling the config message because we want the value provided during onboarding to
                         /// superseed any retrieved from the config)
                         try Profile
+                            .fetchOrCreate(db, id: userSessionId.hexString)
+                            .upsert(db)
+                        try Profile
                             .filter(id: userSessionId.hexString)
                             .updateAll(db, Profile.Columns.lastNameUpdate.set(to: nil))
                         try Profile.updateIfNeeded(
@@ -428,11 +444,6 @@ extension Onboarding {
                 /// Store whether the user wants to use APNS
                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS
                 
-                /// Set `hasSyncedInitialConfiguration` to true so that when we hit the home screen a configuration sync is
-                /// triggered (yes, the logic is a bit weird). This is needed so that if the user registers and immediately links a device,
-                /// there'll be a configuration in their swarm.
-                dependencies[defaults: .standard, key: .hasSyncedInitialConfiguration] = (initialFlow == .register)
-                
                 /// Send an event indicating that registration is complete
                 self?.completionSubject.send(true)
              
@@ -479,7 +490,7 @@ public protocol OnboardingCacheType: OnboardingImmutableCacheType, MutableCacheT
     var onboardingCompletePublisher: AnyPublisher<Void, Never> { get }
     
     func setSeedData(_ seedData: Data) throws
-    func setUserAPNS(_ useAPNS: Bool)
+    func setUseAPNS(_ useAPNS: Bool)
     func setDisplayName(_ displayName: String)
     
     /// Complete the registration process storing the created/updated user state in the database and creating

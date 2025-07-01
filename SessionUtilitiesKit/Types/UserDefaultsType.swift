@@ -77,9 +77,6 @@ public extension UserDefaults {
 // MARK: - UserDefault Values
 
 public extension UserDefaults.BoolKey {
-    /// Indicates whether the user has synced an initial config message from this device
-    static let hasSyncedInitialConfiguration: UserDefaults.BoolKey = "hasSyncedConfiguration"
-    
     /// Indicates whether the user has seen the suggestion to enable link previews
     static let hasSeenLinkPreviewSuggestion: UserDefaults.BoolKey = "hasSeenLinkPreviewSuggestion"
     

@@ -178,9 +178,10 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
             case .success = Result(try dataSource.write(to: uploadInfo.path))
         else { return nil }
         
-        let imageSize: CGSize? = Attachment.imageSize(
-            contentType: contentType,
-            path: uploadInfo.path,
+        let imageSize: CGSize? = Data.mediaSize(
+            for: uploadInfo.path,
+            type: UTType(sessionMimeType: contentType),
+            mimeType: contentType,
             sourceFilename: sourceFilename,
             using: dependencies
         )
@@ -405,7 +406,13 @@ extension Attachment {
                     .path(for: finalDownloadUrl)
             else { return nil }
             
-            return Attachment.imageSize(contentType: contentType, path: path, sourceFilename: sourceFilename, using: dependencies)
+            return Data.mediaSize(
+                for: path,
+                type: UTType(sessionMimeType: contentType),
+                mimeType: contentType,
+                sourceFilename: sourceFilename,
+                using: dependencies
+            )
         }()
         
         return Attachment(
@@ -620,48 +627,6 @@ extension Attachment {
                     \(SQL("\(attachment[.state]) = \(state)"))
                 )
         """
-    }
-}
-
-// MARK: - Convenience - Static
-
-extension Attachment {
-    private static let thumbnailDimensionSmall: UInt = 200
-    private static let thumbnailDimensionMedium: UInt = 450
-    
-    /// This size is large enough to render full screen
-    private static var thumbnailDimensionLarge: UInt = {
-        let screenSizePoints: CGSize = UIScreen.main.bounds.size
-        let minZoomFactor: CGFloat = UIScreen.main.scale
-        
-        return UInt(floor(max(screenSizePoints.width, screenSizePoints.height) * minZoomFactor))
-    }()
-    
-    internal static func imageSize(contentType: String, path: String, sourceFilename: String?, using dependencies: Dependencies) -> CGSize? {
-        let type: UTType? = UTType(sessionMimeType: contentType)
-        
-        guard type?.isVideo == true || type?.isImage == true || type?.isAnimated == true else { return nil }
-        
-        if type?.isVideo == true {
-            var result: CGSize = .zero
-            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-            dependencies[singleton: .imageDataManager].load(
-                .videoUrl(URL(fileURLWithPath: path), contentType, sourceFilename, dependencies[singleton: .attachmentManager]),
-                onComplete: { data in
-                    switch data?.type {
-                        case .staticImage(let image): result = image.size
-                        default: break
-                    }
-                    
-                    semaphore.signal()
-                }
-            )
-            
-            semaphore.wait()
-            return result
-        }
-        
-        return Data.imageSize(for: path, type: type, using: dependencies)
     }
 }
 

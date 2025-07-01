@@ -510,8 +510,14 @@ public extension LinkPreview {
             )
             .tryMap { asset, _ -> Data in
                 let type: UTType? = UTType(sessionMimeType: imageMimeType)
-                let imageSize = Data.imageSize(for: asset.filePath, type: type, using: dependencies)
-                
+                let imageSize = Data.mediaSize(
+                    for: asset.filePath,
+                    type: type,
+                    mimeType: imageMimeType,
+                    sourceFilename: nil,
+                    using: dependencies
+                )
+
                 guard imageSize.width > 0, imageSize.height > 0 else {
                     throw LinkPreviewError.invalidContent
                 }

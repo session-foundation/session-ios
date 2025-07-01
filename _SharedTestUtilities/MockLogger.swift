@@ -18,6 +18,18 @@ public class MockLogger: Logger {
     
     public var logs: [LogOutput] = []
     
+    public init(
+        primaryPrefix: String,
+        using dependencies: Dependencies
+    ) {
+        super.init(
+            primaryPrefix: primaryPrefix,
+            fileLogger: nil,    /// Don't setup the `fileLogger`
+            isSuspended: false,
+            using: dependencies
+        )
+    }
+    
     public override func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],

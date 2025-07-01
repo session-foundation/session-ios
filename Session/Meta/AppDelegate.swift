@@ -794,8 +794,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies.warmCache(cache: .onboarding)
         
         switch dependencies[cache: .onboarding].state {
-            case .noUser, .noUserFailedIdentity:
-                if dependencies[cache: .onboarding].state == .noUserFailedIdentity {
+            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
+                if dependencies[cache: .onboarding].state == .noUserInvalidKeyPair {
+                    Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
+                }
+                else if dependencies[cache: .onboarding].state == .noUserInvalidSeedGeneration {
                     Log.critical(.cat, "Failed to create an initial identity for a potentially new user.")
                 }
                 

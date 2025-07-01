@@ -162,6 +162,8 @@ public actor ImageDataManager: ImageDataManagerType {
                 ]
 
                 guard
+                    let format: SUIKImageFormat = dataSource.dataForGuessingImageFormat?.suiKitGuessedImageFormat,
+                    format != .unknown,
                     let imageSource: CGImageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
                     let thumbnail: CGImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary)
                 else { return nil }
@@ -384,6 +386,21 @@ public extension ImageDataManager {
                 case .urlThumbnail: return nil
                 case .closureThumbnail: return nil
                 case .placeholderIcon: return nil
+            }
+        }
+        
+        public var dataForGuessingImageFormat: Data? {
+            switch self {
+                case .url(let url), .urlThumbnail(let url, _, _):
+                    guard let fileHandle: FileHandle = try? FileHandle(forReadingFrom: url) else {
+                        return nil
+                    }
+                    
+                    defer { fileHandle.closeFile() }
+                    return fileHandle.readData(ofLength: 12)
+                    
+                case .data(_, let data): return data
+                case .image, .videoUrl, .closureThumbnail, .placeholderIcon: return nil
             }
         }
         

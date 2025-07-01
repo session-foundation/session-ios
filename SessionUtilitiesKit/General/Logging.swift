@@ -130,11 +130,10 @@ public enum Log {
     }
     
     public static func logFilePath(using dependencies: Dependencies) -> String? {
-        guard let logger: Logger = logger else { return nil }
-        
-        let logFiles: [String] = logger.fileLogger.logFileManager.sortedLogFilePaths
-        
-        guard !logFiles.isEmpty else { return nil }
+        guard
+            let logFiles: [String] = logger?.fileLogger?.logFileManager.sortedLogFilePaths,
+            !logFiles.isEmpty
+        else { return nil }
         
         /// If the latest log file is too short (ie. less that ~1MB) then we want to create a temporary file which contains the previous
         /// log file logs plus the logs from the newest file so we don't miss info that might be relevant for debugging
@@ -406,9 +405,21 @@ open class Logger {
     private let dependencies: Dependencies
     fileprivate let primaryPrefix: String
     @ThreadSafeObject private var systemLoggers: [String: SystemLoggerType] = [:]
-    fileprivate let fileLogger: DDFileLogger
+    fileprivate let fileLogger: DDFileLogger?
     @ThreadSafe fileprivate var isSuspended: Bool = true
     @ThreadSafeObject fileprivate var pendingLogsRetriever: (() -> [Log.LogInfo])? = nil
+    
+    internal init(
+        primaryPrefix: String,
+        fileLogger: DDFileLogger?,
+        isSuspended: Bool,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
+        self.primaryPrefix = primaryPrefix
+        self.fileLogger = fileLogger
+        self.isSuspended = isSuspended
+    }
     
     public init(
         primaryPrefix: String,
@@ -435,11 +446,15 @@ open class Logger {
         dateFormatter.timeZone = NSTimeZone.local
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss:SSSa ZZZZZ"
         
-        self.fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
-        self.fileLogger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
-        self.fileLogger.maximumFileSize = (1024 * 1024 * 5) // Max log file size of 5MB
-        self.fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
-        DDLog.add(self.fileLogger)
+        switch self.fileLogger {
+            case .none: break
+            case .some(let logger):
+                logger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
+                logger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
+                logger.maximumFileSize = (1024 * 1024 * 5) // Max log file size of 5MB
+                logger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+                DDLog.add(logger)
+        }
         
         // Now that we are setup we should load the extension logs which will then
         // complete the startup process when completed
@@ -449,7 +464,10 @@ open class Logger {
     deinit {
         // Need to ensure we remove the `fileLogger` from `DDLog` otherwise we will get duplicate
         // log entries
-        DDLog.remove(fileLogger)
+        switch fileLogger {
+            case .none: break
+            case .some(let logger): DDLog.remove(logger)
+        }
     }
     
     // MARK: - Functions
@@ -467,7 +485,7 @@ open class Logger {
         // logs from the shared directly and attempts to add them to the main app logs to make
         // debugging user issues in extensions easier
         DispatchQueue.global(qos: .utility).async(using: dependencies) { [weak self, dependencies] in
-            guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger.currentLogFileInfo else {
+            guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger?.currentLogFileInfo else {
                 self?.completeResumeLogging(error: "Unable to retrieve current log file.")
                 return
             }

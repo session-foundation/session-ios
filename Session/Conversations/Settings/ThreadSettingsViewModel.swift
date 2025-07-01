@@ -1151,6 +1151,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
         guard
             let name: String = threadViewModel.openGroupName,
+            let server: String = threadViewModel.openGroupServer,
+            let roomToken: String = threadViewModel.openGroupRoomToken,
+            let publicKey: String = threadViewModel.openGroupPublicKey,
             let communityUrl: String = LibSession.communityUrlFor(
                 server: threadViewModel.openGroupServer,
                 roomToken: threadViewModel.openGroupRoomToken,
@@ -1158,11 +1161,31 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             )
         else { return }
         
+        let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = LibSession.OpenGroupCapabilityInfo(
+            roomToken: roomToken,
+            server: server,
+            publicKey: publicKey,
+            capabilities: (threadViewModel.openGroupCapabilities ?? [])
+        )
+        let currentUserSessionIds: Set<String> = Set([
+            dependencies[cache: .general].sessionId.hexString,
+            SessionThread.getCurrentUserBlindedSessionId(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                blindingPrefix: .blinded15,
+                openGroupCapabilityInfo: openGroupCapabilityInfo,
+                using: dependencies
+            )?.hexString,
+            SessionThread.getCurrentUserBlindedSessionId(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                blindingPrefix: .blinded25,
+                openGroupCapabilityInfo: openGroupCapabilityInfo,
+                using: dependencies
+            )?.hexString
+        ].compactMap { $0 })
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
-        let currentUserIds: String = (threadViewModel.currentUserSessionIds ?? [])
-            .map { "\($0)" }
-            .joined(separator: ", ")
         
         self.transitionToScreen(
             SessionTableViewController(
@@ -1182,7 +1205,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             \(contact[.isApproved]) = TRUE AND
                             \(contact[.didApproveMe]) = TRUE AND
                             \(contact[.isBlocked]) = FALSE AND
-                            \(contact[.id]) IS NOT IN (\(currentUserIds))
+                            \(contact[.id]) NOT IN \(currentUserSessionIds)
                         )
                     """),
                     footerTitle: "membersInviteTitle".localized(),
@@ -1516,7 +1539,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                     },
                     completion: { _ in
-                        modal.dismiss(animated: true)
+                        DispatchQueue.main.async {
+                            modal.dismiss(animated: true)
+                        }
                     }
                 )
             },
@@ -1533,7 +1558,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                     },
                     completion: { _ in
-                        modal.dismiss(animated: true)
+                        DispatchQueue.main.async {
+                            modal.dismiss(animated: true)
+                        }
                     }
                 )
             }

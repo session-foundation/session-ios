@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 
-public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Identity: Codable, Equatable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "identity" }
     
     public typealias Columns = CodingKeys

@@ -684,6 +684,9 @@
 		FD4C53AF2CC1D62E003B10F4 /* _021_ReworkRecipientState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C53AE2CC1D61E003B10F4 /* _021_ReworkRecipientState.swift */; };
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
 		FD52090528B4915F006098F6 /* PrivacySettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */; };
+		FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */; };
+		FD52CB5B2E123FBC00A4DA70 /* CommonSSKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* CommonSSKMockExtensions.swift */; };
+		FD52CB5C2E12536400A4DA70 /* MockExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */; };
 		FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */; };
 		FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5931A62A8DA5DA0040147D /* SQLInterpolation+Utilities.swift */; };
 		FD5931AB2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5931AA2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift */; };
@@ -1973,6 +1976,7 @@
 		FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewModel.swift; sourceTree = "<group>"; };
 		FD52090628B49738006098F6 /* ConfirmationModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationModal.swift; sourceTree = "<group>"; };
 		FD52090828B59411006098F6 /* ScreenLockWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockWindow.swift; sourceTree = "<group>"; };
+		FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSpec.swift; sourceTree = "<group>"; };
 		FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+Utilities.swift"; sourceTree = "<group>"; };
 		FD5931A62A8DA5DA0040147D /* SQLInterpolation+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLInterpolation+Utilities.swift"; sourceTree = "<group>"; };
 		FD5931AA2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScopeAdapter+Utilities.swift"; sourceTree = "<group>"; };
@@ -4220,6 +4224,14 @@
 			path = Notifications;
 			sourceTree = "<group>";
 		};
+		FD52CB582E12166500A4DA70 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
 		FD61FCF62D308CAE005752DE /* Database */ = {
 			isa = PBXGroup;
 			children = (
@@ -4264,6 +4276,7 @@
 				FDC0F00B2C04100E002CBFB9 /* Session.xctestplan */,
 				FD71161228D00D5300B47552 /* Conversations */,
 				FD19363D2ACA66CF004BCF0F /* Database */,
+				FD52CB582E12166500A4DA70 /* Onboarding */,
 				FD71161828D00E0100B47552 /* Settings */,
 			);
 			path = SessionTests;
@@ -6782,6 +6795,7 @@
 			files = (
 				FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */,
 				FD481A9C2CB4D58300ECC4CF /* MockSnodeAPICache.swift in Sources */,
+				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
 				FD481A972CAE0AE000ECC4CF /* MockAppContext.swift in Sources */,
 				FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */,
@@ -6795,6 +6809,8 @@
 				FD23EA5D28ED00FA0058676E /* TestConstants.swift in Sources */,
 				FD71161A28D00E1100B47552 /* NotificationContentViewModelSpec.swift in Sources */,
 				FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */,
+				FD52CB5B2E123FBC00A4DA70 /* CommonSSKMockExtensions.swift in Sources */,
+				FD52CB5C2E12536400A4DA70 /* MockExtensionHelper.swift in Sources */,
 				9499E68B2DF92F4E00091434 /* ThreadNotificationSettingsViewModelSpec.swift in Sources */,
 				FD01504B2CA243CB005B08A1 /* Mock.swift in Sources */,
 				FD0969FA2A6A00B000C5C365 /* Mocked.swift in Sources */,
@@ -8020,7 +8036,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 607;
+				CURRENT_PROJECT_VERSION = 608;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8101,7 +8117,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 607;
+				CURRENT_PROJECT_VERSION = 608;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8594,7 +8610,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 607;
+				CURRENT_PROJECT_VERSION = 608;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9193,7 +9209,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 607;
+				CURRENT_PROJECT_VERSION = 608;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

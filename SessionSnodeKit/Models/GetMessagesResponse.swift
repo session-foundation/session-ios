@@ -39,6 +39,21 @@ public class GetMessagesResponse: SnodeResponse {
     
     // MARK: - Initialization
     
+    internal init(
+        messages: [RawMessage],
+        more: Bool,
+        hardForkVersion: [Int],
+        timeOffset: Int64
+    ) {
+        self.messages = messages
+        self.more = more
+        
+        super.init(
+            hardForkVersion: hardForkVersion,
+            timeOffset: timeOffset
+        )
+    }
+    
     required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         

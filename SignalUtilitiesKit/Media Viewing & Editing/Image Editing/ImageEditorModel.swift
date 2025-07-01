@@ -69,8 +69,14 @@ public class ImageEditorModel {
             Log.error("[ImageEditorModel] Invalid MIME type: \(type.preferredMIMEType ?? "unknown").")
             throw ImageEditorError.invalidInput
         }
-
-        let srcImageSizePixels = Data.imageSize(for: srcImagePath, type: type, using: dependencies)
+        
+        let srcImageSizePixels = Data.mediaSize(
+            for: srcImagePath,
+            type: type,
+            mimeType: nil,
+            sourceFilename: srcFileName,
+            using: dependencies
+        )
         guard srcImageSizePixels.width > 0, srcImageSizePixels.height > 0 else {
             Log.error("[ImageEditorModel] Couldn't determine image size.")
             throw ImageEditorError.invalidInput

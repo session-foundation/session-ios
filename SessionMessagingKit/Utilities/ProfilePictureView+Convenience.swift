@@ -80,43 +80,47 @@ public extension ProfilePictureView {
             case (_, true, _): return (nil, nil)
                 
             case (_, _, .legacyGroup), (_, _, .group):
-                let filePath: String? = try? dependencies[singleton: .displayPictureManager]
-                    .path(for: profile?.displayPictureUrl)
+                let source: ImageDataManager.DataSource = {
+                    guard
+                        let path: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: profile?.displayPictureUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        return .placeholderIcon(
+                            seed: (profile?.id ?? publicKey),
+                            text: (profile?.displayName(for: threadVariant))
+                                .defaulting(to: publicKey),
+                            size: (additionalProfile != nil ?
+                                size.multiImageSize :
+                                size.viewSize
+                            )
+                        )
+                    }
+                    
+                    return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                }()
                 
                 return (
-                    Info(
-                        source: (
-                            filePath.map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .placeholderIcon(
-                                seed: (profile?.id ?? publicKey),
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: (additionalProfile != nil ?
-                                    size.multiImageSize :
-                                    size.viewSize
-                                )
-                            )
-                        ),
-                        icon: profileIcon
-                    ),
+                    Info(source: source, icon: profileIcon),
                     additionalProfile
                         .map { other in
-                            let otherFilePath: String? = try? dependencies[singleton: .displayPictureManager]
-                                .path(for: other.displayPictureUrl)
-                            
-                            return Info(
-                                source: (
-                                    otherFilePath.map {
-                                        ImageDataManager.DataSource.url(URL(fileURLWithPath: $0))
-                                    } ??
-                                    .placeholderIcon(
+                            let source: ImageDataManager.DataSource = {
+                                guard
+                                    let path: String = try? dependencies[singleton: .displayPictureManager]
+                                        .path(for: other.displayPictureUrl),
+                                    dependencies[singleton: .fileManager].fileExists(atPath: path)
+                                else {
+                                    return .placeholderIcon(
                                         seed: other.id,
                                         text: other.displayName(for: threadVariant),
                                         size: size.multiImageSize
                                     )
-                                ),
-                                icon: additionalProfileIcon
-                            )
+                                }
+                                
+                                return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                            }()
+                            
+                            return Info(source: source, icon: additionalProfileIcon)
                         }
                         .defaulting(
                             to: Info(
@@ -135,24 +139,24 @@ public extension ProfilePictureView {
                 )
                 
             case (_, _, .contact):
-                let filePath: String? = try? dependencies[singleton: .displayPictureManager]
-                    .path(for: profile?.displayPictureUrl)
+                let source: ImageDataManager.DataSource = {
+                    guard
+                        let path: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: profile?.displayPictureUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        return .placeholderIcon(
+                            seed: publicKey,
+                            text: (profile?.displayName(for: threadVariant))
+                                .defaulting(to: publicKey),
+                            size: size.viewSize
+                        )
+                    }
+                    
+                    return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                }()
                 
-                return (
-                    Info(
-                        source: (
-                            filePath.map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .placeholderIcon(
-                                seed: publicKey,
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: size.viewSize
-                            )
-                        ),
-                        icon: profileIcon
-                    ),
-                    nil
-                )
+                return (Info(source: source, icon: profileIcon), nil)
         }
     }
 }

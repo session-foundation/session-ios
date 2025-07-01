@@ -678,7 +678,8 @@ public extension UIContextualAction {
                     case .deleteContact:
                         return UIContextualAction(
                             title: "contactDelete".localized(),
-                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
+                            icon: UIImage(named: "ic_user_round_trash")?
+                                .withRenderingMode(.alwaysTemplate),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Delete button"),
