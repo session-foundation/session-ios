@@ -201,6 +201,7 @@
 		94CD95C42E0D0BFC0097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */; };
 		94CD95C62E0D290F0097754D /* GenericCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C52E0D290F0097754D /* GenericCTA.webp */; };
 		94CD95CA2E1358B40097754D /* GenericCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */; };
+		94CD95CC2E13BD5C0097754D /* ShineButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95CB2E13BD560097754D /* ShineButton.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1515,6 +1516,7 @@
 		94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = HigherCharLimitCTA.webp; sourceTree = "<group>"; };
 		94CD95C52E0D290F0097754D /* GenericCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTA.webp; sourceTree = "<group>"; };
 		94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTAAnimation.webp; sourceTree = "<group>"; };
+		94CD95CB2E13BD560097754D /* ShineButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShineButton.swift; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -3200,6 +3202,7 @@
 			children = (
 				942256932C23F8DD00C0FDBF /* SwiftUI */,
 				B8B5BCEB2394D869003823C9 /* SessionButton.swift */,
+				94CD95CB2E13BD560097754D /* ShineButton.swift */,
 				94CD95BA2E08D9D40097754D /* SessionProBadge.swift */,
 				FD52090228B4680F006098F6 /* RadioButton.swift */,
 				B8BB82B02390C37000BA5194 /* SearchBar.swift */,
@@ -5880,6 +5883,7 @@
 				FD8A5B022DBEFF73004C689B /* SessionNetworkScreen+Models.swift in Sources */,
 				FD71165828E436E800B47552 /* Modal.swift in Sources */,
 				FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */,
+				94CD95CC2E13BD5C0097754D /* ShineButton.swift in Sources */,
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				FD8A5B102DBF2F17004C689B /* NavBarSessionIcon.swift in Sources */,
 				94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */,

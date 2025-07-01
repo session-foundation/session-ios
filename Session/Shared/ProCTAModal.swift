@@ -208,14 +208,27 @@ final class ProCTAModal: Modal {
     
     private lazy var benefitsStackView: UIStackView = {
         let result: UIStackView = UIStackView(
-            arrangedSubviews: self.touchPoint.benefits.map {
+            arrangedSubviews: self.touchPoint.benefits.enumerated().map { index, string in
                 let label: UILabel = UILabel()
                 label.font = .systemFont(ofSize: Values.smallFontSize)
                 label.themeTextColor = .textPrimary
-                label.text = $0
+                label.text = string
                 
-                let icon: UIImageView = UIImageView(image: Lucide.image(icon: .circleCheck, size: 17)?.withRenderingMode(.alwaysTemplate))
-                icon.themeTintColor = .primary
+                let icon: UIImageView = {
+                    guard index < (self.touchPoint.benefits.count - 1) else {
+                        return CyclicGradientImageView(
+                            image: Lucide.image(icon: .sparkles, size: 17)?
+                                .withRenderingMode(.alwaysTemplate)
+                        )
+                    }
+                    
+                    let result: UIImageView = UIImageView(
+                        image: Lucide.image(icon: .circleCheck, size: 17)?
+                            .withRenderingMode(.alwaysTemplate)
+                    )
+                    result.themeTintColor = .primary
+                    return result
+                }()
                 
                 let stackView: UIStackView = UIStackView(arrangedSubviews: [ icon, label ])
                 stackView.axis = .horizontal
@@ -240,8 +253,8 @@ final class ProCTAModal: Modal {
         return result
     }()
     
-    private lazy var upgradeButton: UIButton = {
-        let result: UIButton = UIButton()
+    private lazy var upgradeButton: ShineButton = {
+        let result: ShineButton = ShineButton()
         result.titleLabel?.font = .systemFont(ofSize: Values.mediumFontSize)
         result.setTitle("theContinue".localized(), for: .normal)
         result.setThemeTitleColor(.sessionButton_primaryFilledText, for: .normal)
