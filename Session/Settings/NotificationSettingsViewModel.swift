@@ -62,22 +62,17 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     let title: String = "sessionNotifications".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { db -> State in
-            State(
-                isUsingFullAPNs: false, // Set later the the data flow
-                notificationSound: db[.defaultNotificationSound]
-                    .defaulting(to: Preferences.Sound.defaultNotificationSound),
-                playNotificationSoundInForeground: db[.playNotificationSoundInForeground],
-                previewType: db[.preferencesNotificationPreviewType]
-                    .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
-            )
-        }
-        .map { [dependencies] dbState -> State in
-            State(
+        .libSessionObservation(self) { [dependencies] cache -> State in
+            /// Listen for `isUsingFullAPNs` changes
+            cache.register(.isUsingFullAPNs)
+            
+            return State(
                 isUsingFullAPNs: dependencies[defaults: .standard, key: .isUsingFullAPNs],
-                notificationSound: dbState.notificationSound,
-                playNotificationSoundInForeground: dbState.playNotificationSoundInForeground,
-                previewType: dbState.previewType
+                notificationSound: cache.get(.defaultNotificationSound)
+                    .defaulting(to: Preferences.Sound.defaultNotificationSound),
+                playNotificationSoundInForeground: cache.get(.playNotificationSoundInForeground),
+                previewType: cache.get(.preferencesNotificationPreviewType)
+                    .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
             )
         }
         .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
@@ -103,6 +98,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             // stringlint:ignore_contents
                             onTap: { [weak self] in
                                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
+                                dependencies.notifyAsync(.isUsingFullAPNs)
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob
@@ -152,9 +148,10 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 )
                             ),
                             onTap: {
-                                dependencies[singleton: .storage].write { db in
-                                    db[.playNotificationSoundInForeground] = !db[.playNotificationSoundInForeground]
-                                }
+                                dependencies.setAsync(
+                                    .playNotificationSoundInForeground,
+                                    !current.playNotificationSoundInForeground
+                                )
                             }
                         )
                     ]

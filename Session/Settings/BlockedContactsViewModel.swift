@@ -44,7 +44,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .id,
                         .name,
                         .nickname,
-                        .profilePictureFileName
+                        .displayPictureUrl
                     ],
                     joinToPagedType: {
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()

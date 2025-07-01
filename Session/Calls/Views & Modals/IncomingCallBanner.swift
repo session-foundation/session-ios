@@ -131,7 +131,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         profilePictureView.update(
             publicKey: call.sessionId,
             threadVariant: .contact,
-            displayPictureFilename: nil,
+            displayPictureUrl: nil,
             profile: dependencies[singleton: .storage].read { [sessionId = call.sessionId] db in
                 Profile.fetchOrCreate(db, id: sessionId)
             },

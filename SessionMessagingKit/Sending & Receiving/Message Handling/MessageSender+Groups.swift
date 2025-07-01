@@ -51,7 +51,6 @@ extension MessageSender {
                         name: name,
                         description: description,
                         displayPictureUrl: displayPictureInfo?.downloadUrl,
-                        displayPictureFilename: displayPictureInfo?.fileName,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
                         using: dependencies
@@ -375,8 +374,6 @@ extension MessageSender {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: nil),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: nil),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
                                         using: dependencies
                                     )
                                 
@@ -387,8 +384,6 @@ extension MessageSender {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: url),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
                                         using: dependencies
                                     )
                                 
@@ -594,7 +589,7 @@ extension MessageSender {
                             maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
-                                    data: supplementData.base64EncodedString(),
+                                    data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
                                     timestampMs: UInt64(changeTimestampMs)
                                 ),
@@ -857,7 +852,7 @@ extension MessageSender {
                             maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
-                                    data: supplementData.base64EncodedString(),
+                                    data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
                                     timestampMs: UInt64(changeTimestampMs)
                                 ),
@@ -1252,7 +1247,7 @@ extension MessageSender {
     /// This function also removes all encryption key pairs associated with the closed group and the group's public key, and
     /// unregisters from push notifications.
     public static func leave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies

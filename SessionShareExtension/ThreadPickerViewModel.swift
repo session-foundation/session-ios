@@ -11,9 +11,11 @@ public class ThreadPickerViewModel {
     // MARK: - Initialization
     
     public let dependencies: Dependencies
+    public let userMetadata: ExtensionHelper.UserMetadata?
     
-    init(using dependencies: Dependencies) {
+    init(userMetadata: ExtensionHelper.UserMetadata?, using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.userMetadata = userMetadata
     }
     
     // MARK: - Content
@@ -41,27 +43,24 @@ public class ThreadPickerViewModel {
                 .map { threadViewModel in
                     let wasKickedFromGroup: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
-                            using: dependencies
-                        )
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
+                        }
                     )
                     let groupIsDestroyed: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        LibSession.groupIsDestroyed(
-                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
-                            using: dependencies
-                        )
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
+                        }
                     )
                     
                     return threadViewModel.populatingPostQueryData(
-                        db,
-                        currentUserBlinded15SessionIdForThisThread: nil,
-                        currentUserBlinded25SessionIdForThisThread: nil,
+                        recentReactionEmoji: nil,
+                        openGroupCapabilities: nil,
+                        currentUserSessionIds: [userSessionId.hexString],
                         wasKickedFromGroup: wasKickedFromGroup,
                         groupIsDestroyed: groupIsDestroyed,
-                        threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies),
-                        using: dependencies
+                        threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies)
                     )
                 }
         }

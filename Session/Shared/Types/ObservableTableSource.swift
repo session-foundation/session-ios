@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Combine
 import DifferenceKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -174,7 +175,7 @@ public enum ObservationBuilder {
     
     /// The `ValueObserveration` will trigger whenever any of the data fetched in the closure is updated, please see the following link for tips
     /// to help optimise performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> T) -> TableObservation<T> {
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> T) -> TableObservation<T> {
         /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
         /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
         /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
@@ -206,7 +207,9 @@ public enum ObservationBuilder {
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
-                                            .trackingConstantRegion(fetch)
+                                            .trackingConstantRegion { db in
+                                                try fetch(ObservingDatabase(db, using: dependencies))
+                                            }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
@@ -233,7 +236,7 @@ public enum ObservationBuilder {
         }
     }
     
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> [T]) -> TableObservation<[T]> {
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> [T]) -> TableObservation<[T]> {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?
@@ -261,7 +264,9 @@ public enum ObservationBuilder {
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
-                                            .trackingConstantRegion(fetch)
+                                            .trackingConstantRegion { db in
+                                                try fetch(ObservingDatabase(db, using: dependencies))
+                                            }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
@@ -288,6 +293,23 @@ public enum ObservationBuilder {
         }
     }
     
+    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> AnyPublisher<T, Error> {
+        return ValueObservation
+            .trackingConstantRegion { db in
+                try fetch(ObservingDatabase(db, using: dependencies))
+            }
+            .removeDuplicates()
+            .publisher(in: dependencies[singleton: .storage], scheduling: .immediate)
+    }
+    
+    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<T>>> {
+        return ValueObservation
+            .trackingConstantRegion { db in
+                try fetch(ObservingDatabase(db, using: dependencies))
+            }
+            .removeDuplicates()
+    }
+    
     static func refreshableData<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping () -> T) -> TableObservation<T> {
         return TableObservation { viewModel, dependencies in
             source.observableState.forcedRequery
@@ -295,6 +317,119 @@ public enum ObservationBuilder {
                 .setFailureType(to: Error.self)
                 .map { _ in fetch() }
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
+        }
+    }
+    
+    static func libSessionObservation<S: ObservableTableSource, T: Equatable>(
+        _ source: S,
+        debounceInterval: DispatchTimeInterval = .milliseconds(10),
+        fetch: @escaping (ObservationCollector) throws -> T
+    ) -> TableObservation<T> {
+        return TableObservation { viewModel, dependencies in
+            let subject: CurrentValueSubject<T?, Error> = CurrentValueSubject(nil)
+            let stream: AsyncThrowingStream<T, Error> = ObservationBuilder.libSessionObservation(
+                dependencies,
+                debounceInterval: debounceInterval,
+                fetch: fetch
+            )
+            
+            let mainObservationTask = Task(priority: .userInitiated) {
+                do {
+                    for try await value in stream {
+                        if Task.isCancelled { break }
+                        subject.send(value)
+                    }
+                    
+                    if !Task.isCancelled {
+                        subject.send(completion: .finished)
+                    }
+                }
+                catch is CancellationError { subject.send(completion: .finished) }
+                catch { subject.send(completion: .failure(error)) }
+            }
+            
+            return subject
+                .compactMap { $0 }
+                .handleEvents(
+                    receiveCancel: {
+                        mainObservationTask.cancel()
+                    }
+                )
+                .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
+                .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
+                .eraseToAnyPublisher()
+        }
+    }
+    
+    static func libSessionObservation<T: Equatable>(
+        _ dependencies: Dependencies,
+        debounceInterval: DispatchTimeInterval = .milliseconds(10),
+        fetch: @escaping (ObservationCollector) throws -> T
+    ) -> AsyncThrowingStream<T, Error> {
+        return AsyncThrowingStream<T, Error> { continuation in
+            let debouncer: DebounceTaskManager<T> = DebounceTaskManager(debounceInterval: debounceInterval)
+            let taskManager: MultiTaskManager<Void> = MultiTaskManager()
+            
+            let mainObservationTask = Task(priority: .userInitiated) {
+                let initialInfo: (initialValue: T, keys: Set<ObservableKey>)
+                
+                do {
+                    /// Retrieve the initial value and they keys to observe
+                    initialInfo = try dependencies.mutate(cache: .libSession) { cache in
+                        let collector: ObservationCollector = ObservationCollector(store: cache)
+                        let value: T = try fetch(collector)
+                        
+                        return (value, collector.collectedKeys)
+                    }
+                    guard !Task.isCancelled else { throw CancellationError() }
+                    continuation.yield(initialInfo.initialValue)
+                    
+                }
+                catch {
+                    continuation.finish(throwing: error)
+                    await debouncer.reset()
+                    await taskManager.cancelAll()
+                    return
+                }
+                
+                /// After debouncing we want to re-fetch the data
+                await debouncer.setAction { continuation in
+                    let newValue: T = try dependencies.mutate(cache: .libSession) { cache in
+                        try fetch(ObservationCollector(store: cache))
+                    }
+                    
+                    guard !Task.isCancelled else { throw CancellationError() }
+                    continuation.yield(newValue)
+                }
+                
+                /// Start observing the streams for updates
+                var streams: [AsyncStream<Any?>] = []
+                
+                for key in initialInfo.keys {
+                    streams.append(await dependencies[singleton: .observationManager].observe(key))
+                }
+                
+                for stream in streams {
+                    guard !Task.isCancelled else { break }
+                    
+                    let keyTask = Task {
+                        for await _ in stream {
+                            guard !Task.isCancelled else { break }
+                            await debouncer.signal(continuation: continuation)
+                        }
+                    }
+                    await taskManager.add(keyTask)
+                }
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                mainObservationTask.cancel()
+                
+                Task {
+                    await debouncer.reset()
+                    await taskManager.cancelAll()
+                }
+            }
         }
     }
 }
@@ -358,5 +493,67 @@ public extension Publisher {
                 updatedData.mapToSessionTableViewData(for: source)
             }
             .eraseToAnyPublisher()
+    }
+}
+
+// MARK: - ObservationCollector
+
+public class ObservationCollector: ValueFetcher {
+    private let store: ValueFetcher
+    private(set) var collectedKeys: Set<ObservableKey> = []
+    
+    public var userSessionId: SessionId { store.userSessionId }
+    
+    init(store: ValueFetcher) {
+        self.store = store
+    }
+    
+    func register(_ key: ObservableKey) {
+        collectedKeys.insert(key)
+    }
+    
+    func register(_ key: Setting.BoolKey) {
+        collectedKeys.insert(.setting(key))
+    }
+    
+    func register(_ key: Setting.EnumKey) {
+        collectedKeys.insert(.setting(key))
+    }
+    
+    // MARK: - ValueFetcher
+    
+    public func has(_ key: Setting.BoolKey) -> Bool {
+        collectedKeys.insert(.setting(key))
+        return store.has(key)
+    }
+    
+    public func has(_ key: Setting.EnumKey) -> Bool {
+        collectedKeys.insert(.setting(key))
+        return store.has(key)
+    }
+    
+    public func get(_ key: Setting.BoolKey) -> Bool {
+        collectedKeys.insert(.setting(key))
+        return store.get(key)
+    }
+    
+    public func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T? {
+        collectedKeys.insert(.setting(key))
+        return store.get(key)
+    }
+    
+    public func profile(
+        contactId: String,
+        threadId: String?,
+        threadVariant: SessionThread.Variant?,
+        visibleMessage: VisibleMessage?
+    ) -> Profile? {
+        collectedKeys.insert(.profile(contactId))
+        return store.profile(
+            contactId: contactId,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            visibleMessage: visibleMessage
+        )
     }
 }

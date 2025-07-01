@@ -108,8 +108,18 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             
             var profileFront: Profile?
             var profileBack: Profile?
+            let hasDownloadedDisplayPicture: Bool = {
+                guard
+                    let displayPictureUrl: String = group.displayPictureUrl,
+                    let path: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: displayPictureUrl),
+                    dependencies[singleton: .fileManager].fileExists(atPath: path)
+                else { return false }
+                
+                return true
+            }()
             
-            if group.displayPictureFilename == nil {
+            if !hasDownloadedDisplayPicture {
                 let frontProfileId: String? = try GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.role == GroupMember.Role.standard)
@@ -192,7 +202,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             id: threadId,
                             size: .hero,
                             threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
-                            displayPictureFilename: state.group.displayPictureFilename,
+                            displayPictureUrl: state.group.displayPictureUrl,
                             profile: state.profile,
                             profileIcon: .none,
                             additionalProfile: state.additionalProfile,

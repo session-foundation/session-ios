@@ -9,7 +9,7 @@ enum _005_AddJobUniqueHash: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Add `uniqueHashValue` to the job table
         try db.alter(table: "job") { t in
             t.add(column: "uniqueHashValue", .integer)

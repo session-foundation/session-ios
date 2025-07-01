@@ -12,7 +12,6 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     case noKeyPair
     case signingFailed
     case signatureVerificationFailed
-    case invalidAuthentication
     case invalidIP
     case responseFailedValidation
     case unauthorised
@@ -46,7 +45,6 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .noKeyPair: return "Missing user key pair (SnodeAPIError.noKeyPair)."
             case .signingFailed: return "Couldn't sign message (SnodeAPIError.signingFailed)."
             case .signatureVerificationFailed: return "Failed to verify the signature (SnodeAPIError.signatureVerificationFailed)."
-            case .invalidAuthentication: return "Invalid Authentication (SnodeAPIError.invalidAuthentication)."
             case .invalidIP: return "Invalid IP (SnodeAPIError.invalidIP)."
             case .responseFailedValidation: return "Response failed validation (SnodeAPIError.responseFailedValidation)."
             case .unauthorised: return "Unauthorized (SnodeAPIError.unauthorised)."

@@ -21,6 +21,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private let threadNotificationSettings: ThreadNotificationSettings
     private var threadNotificationSettingsSubject: CurrentValueSubject<ThreadNotificationSettings, Never>
     
@@ -28,11 +29,13 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     
     init(
         threadId: String,
+        threadVariant: SessionThread.Variant,
         threadNotificationSettings: ThreadNotificationSettings,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
+        self.threadVariant = threadVariant
         self.threadNotificationSettings = threadNotificationSettings
         self.threadNotificationSettingsSubject = CurrentValueSubject(threadNotificationSettings)
     }
@@ -169,16 +172,11 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
         
         guard self.threadNotificationSettings != updatedThreadNotificationSettings else { return }
         
-        dependencies[singleton: .storage].writeAsync { [threadId] db in
-            try SessionThread
-                .filter(id: threadId)
-                .updateAll(
-                    db,
-                    SessionThread.Columns.onlyNotifyForMentions
-                        .set(to: updatedThreadNotificationSettings.threadOnlyNotifyForMentions),
-                    SessionThread.Columns.mutedUntilTimestamp
-                        .set(to: updatedThreadNotificationSettings.threadMutedUntilTimestamp)
-                )
-        }
+        dependencies[singleton: .notificationsManager].updateSettings(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            mentionsOnly: (updatedThreadNotificationSettings.threadOnlyNotifyForMentions == true),
+            mutedUntil: updatedThreadNotificationSettings.threadMutedUntilTimestamp
+        )
     }
 }

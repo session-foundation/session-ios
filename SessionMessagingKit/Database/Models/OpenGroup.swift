@@ -22,7 +22,6 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         case isActive
         case roomDescription = "description"
         case imageId
-        @available(*, deprecated, message: "use 'DisplayPictureManager' instead") case imageData
         case userCount
         case infoUpdates
         case sequenceNumber
@@ -31,8 +30,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         case pollFailureCount
         case permissions
         
-        case displayPictureFilename
-        case lastDisplayPictureUpdate
+        case displayPictureOriginalUrl
     }
     
     public struct Permissions: OptionSet, Codable, DatabaseValueConvertible, Hashable {
@@ -92,7 +90,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
     /// The public key for the group
     public let publicKey: String
     
-    /// Flag indicating whether this is an OpenGroup the user has actively joined (we store inactive
+    /// Flag indicating whether this is an `OpenGroup` the user has actively joined (we store inactive
     /// open groups so we can display them in the UI but they won't be polled for)
     public let isActive: Bool
     
@@ -104,10 +102,6 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
     
     /// The ID with which the image can be retrieved from the server
     public let imageId: String?
-    
-    /// The image for the group
-    @available(*, deprecated, message: "use 'DisplayPictureManager' instead")
-    public let imageData: Data? = nil
     
     /// The number of users in the group
     public let userCount: Int64
@@ -136,11 +130,12 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
     /// The permissions this room has for current user
     public let permissions: Permissions?
     
-    /// The file name of the groups's display picture on local storage.
-    public let displayPictureFilename: String?
-    
-    /// The timestamp (in seconds since epoch) that the display picture was last updated
-    public let lastDisplayPictureUpdate: TimeInterval?
+    /// The url that the the open groups's display picture was at the time it was downloaded
+    ///
+    /// **Note:** Since the filename is a hash of the download url we need to store this to ensure any API changes wouldn't result in
+    /// a different hash being generated for existing files - this value also won't be updated until the display picture has actually
+    /// been downloaded
+    public let displayPictureOriginalUrl: String?
 
     // MARK: - Relationships
     
@@ -175,8 +170,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         outboxLatestMessageId: Int64 = 0,
         pollFailureCount: Int64 = 0,
         permissions: Permissions? = nil,
-        displayPictureFilename: String? = nil,
-        lastDisplayPictureUpdate: TimeInterval? = nil
+        displayPictureOriginalUrl: String? = nil
     ) {
         self.threadId = OpenGroup.idFor(roomToken: roomToken, server: server)
         self.server = server.lowercased()
@@ -193,8 +187,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         self.outboxLatestMessageId = outboxLatestMessageId
         self.pollFailureCount = pollFailureCount
         self.permissions = permissions
-        self.displayPictureFilename = displayPictureFilename
-        self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
+        self.displayPictureOriginalUrl = displayPictureOriginalUrl
     }
 }
 
@@ -202,7 +195,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
 
 public extension OpenGroup {
     static func fetchOrCreate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         server: String,
         roomToken: String,
         publicKey: String
@@ -267,8 +260,7 @@ extension OpenGroup: CustomStringConvertible, CustomDebugStringConvertible {
             outboxLatestMessageId: \(outboxLatestMessageId),
             pollFailureCount: \(pollFailureCount),
             permissions: \(permissions?.toString() ?? "---"),
-            displayPictureFilename: \(displayPictureFilename.map { "\"\($0)\"" } ?? "null"),
-            lastDisplayPictureUpdate: \(lastDisplayPictureUpdate ?? 0)
+            displayPictureOriginalUrl: \(displayPictureOriginalUrl.map { "\"\($0)\"" } ?? "null")
         )
         """
     }

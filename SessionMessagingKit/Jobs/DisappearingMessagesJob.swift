@@ -27,7 +27,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
-        guard Identity.userExists(using: dependencies) else { return success(job, false) }
+        guard dependencies[cache: .general].userExists else { return success(job, false) }
         
         // The 'backgroundTask' gets captured and cleared within the 'completion' block
         let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
@@ -60,7 +60,7 @@ public enum DisappearingMessagesJob: JobExecutor {
 
 public extension DisappearingMessagesJob {
     static func cleanExpiredMessagesOnLaunch(using dependencies: Dependencies) {
-        guard Identity.userExists(using: dependencies) else { return }
+        guard dependencies[cache: .general].userExists else { return }
         
         let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         var numDeleted: Int = -1
@@ -80,7 +80,7 @@ public extension DisappearingMessagesJob {
 
 public extension DisappearingMessagesJob {
     @discardableResult static func updateNextRunIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         using dependencies: Dependencies
     ) -> Job? {
         // If there is another expiring message then update the job to run 1 second after it's meant to expire
@@ -112,7 +112,7 @@ public extension DisappearingMessagesJob {
     }
     
     static func updateNextRunIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         lastReadTimestampMs: Int64,
         threadId: String,
         using dependencies: Dependencies
@@ -156,7 +156,7 @@ public extension DisappearingMessagesJob {
     }
     
     @discardableResult static func updateNextRunIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionIds: [Int64],
         startedAtMs: Double,
         threadId: String,
@@ -220,7 +220,7 @@ public extension DisappearingMessagesJob {
     }
     
     @discardableResult static func updateNextRunIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interaction: Interaction,
         startedAtMs: Double,
         using dependencies: Dependencies

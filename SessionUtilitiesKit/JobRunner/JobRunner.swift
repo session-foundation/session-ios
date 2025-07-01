@@ -46,9 +46,9 @@ public protocol JobRunnerType: AnyObject {
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job?
-    @discardableResult func upsert(_ db: Database, job: Job?, canStartJob: Bool) -> Job?
-    @discardableResult func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)?
+    @discardableResult func add(_ db: ObservingDatabase, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job?
+    @discardableResult func upsert(_ db: ObservingDatabase, job: Job?, canStartJob: Bool) -> Job?
+    @discardableResult func insert(_ db: ObservingDatabase, job: Job?, before otherJob: Job) -> (Int64, Job)?
     func enqueueDependenciesIfNeeded(_ jobs: [Job])
     func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult)
     func afterJob(_ job: Job?, state: JobRunner.JobState) -> AnyPublisher<JobRunner.JobResult, Never>
@@ -111,7 +111,7 @@ public extension JobRunnerType {
     
     // MARK: -- Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool) -> Job? {
+    @discardableResult func add(_ db: ObservingDatabase, job: Job?, canStartJob: Bool) -> Job? {
         return add(db, job: job, dependantJob: nil, canStartJob: canStartJob)
     }
     
@@ -723,7 +723,7 @@ public final class JobRunner: JobRunnerType {
     // MARK: - Execution
     
     @discardableResult public func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job?,
         dependantJob: Job?,
         canStartJob: Bool
@@ -767,7 +767,7 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func upsert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job?,
         canStartJob: Bool
     ) -> Job? {
@@ -806,7 +806,7 @@ public final class JobRunner: JobRunnerType {
     }
     
     @discardableResult public func insert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job?,
         before otherJob: Job
     ) -> (Int64, Job)? {
@@ -961,7 +961,7 @@ public final class JobRunner: JobRunnerType {
         )
     }
     
-    private func validatedJob(_ db: Database, job: Job?, validation: Validation) -> Job? {
+    private func validatedJob(_ db: ObservingDatabase, job: Job?, validation: Validation) -> Job? {
         guard let job: Job = job else { return nil }
         
         switch (validation, job.uniqueHashValue) {
@@ -1194,7 +1194,7 @@ public final class JobQueue: Hashable {
     }
 
     fileprivate func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job,
         canStartJob: Bool
     ) {
@@ -1227,7 +1227,7 @@ public final class JobQueue: Hashable {
     /// **Note:** If the job has a `behaviour` of `runOnceNextLaunch` or the `nextRunTimestamp`
     /// is in the future then the job won't be started
     fileprivate func upsert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         job: Job,
         canStartJob: Bool
     ) -> Bool {
@@ -1689,80 +1689,81 @@ public final class JobQueue: Hashable {
 
     /// This function is called when a job succeeds
     fileprivate func handleJobSucceeded(_ job: Job, shouldStop: Bool) {
-        /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
-        /// removed so we need to retrieve these records before that happens)
-        let dependantJobs: [Job] = dependencies[singleton: .storage]
-            .read { db in try job.dependantJobs.fetchAll(db) }
-            .defaulting(to: [])
-        
-        switch job.behaviour {
-            case .runOnce, .runOnceNextLaunch, .runOnceAfterConfigSyncIgnoringPermanentFailure:
-                dependencies[singleton: .storage].write { db in
-                    /// Since this job has been completed we can update the dependencies so other job that were dependant
-                    /// on this one can be run
-                    _ = try JobDependencies
-                        .filter(JobDependencies.Columns.dependantId == job.id)
-                        .deleteAll(db)
+        dependencies[singleton: .storage].writeAsync(
+            updates: { [dependencies] db -> [Job] in
+                /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
+                /// removed so we need to retrieve these records before that happens)
+                let dependantJobs: [Job] = try job.dependantJobs.fetchAll(db)
+                
+                switch job.behaviour {
+                    case .runOnce, .runOnceNextLaunch, .runOnceAfterConfigSyncIgnoringPermanentFailure:
+                        /// Since this job has been completed we can update the dependencies so other job that were dependant
+                        /// on this one can be run
+                        _ = try JobDependencies
+                            .filter(JobDependencies.Columns.dependantId == job.id)
+                            .deleteAll(db)
+                        
+                        _ = try job.delete(db)
+                        
+                    case .recurring where shouldStop == true:
+                        /// Since this job has been completed we can update the dependencies so other job that were dependant
+                        /// on this one can be run
+                        _ = try JobDependencies
+                            .filter(JobDependencies.Columns.dependantId == job.id)
+                            .deleteAll(db)
+                        
+                        _ = try job.delete(db)
+                        
+                    /// For `recurring` jobs which have already run, they should automatically run again but we want at least 1 second
+                    /// to pass before doing so - the job itself should really update it's own `nextRunTimestamp` (this is just a safety net)
+                    case .recurring where job.nextRunTimestamp <= dependencies.dateNow.timeIntervalSince1970:
+                        guard let jobId: Int64 = job.id else { break }
+                        
+                        _ = try Job
+                            .filter(id: jobId)
+                            .updateAll(
+                                db,
+                                Job.Columns.failureCount.set(to: 0),
+                                Job.Columns.nextRunTimestamp.set(to: (dependencies.dateNow.timeIntervalSince1970 + 1))
+                            )
+                        
+                    /// For `recurringOnLaunch/Active` jobs which have already run but failed once, we need to clear their
+                    /// `failureCount` and `nextRunTimestamp` to prevent them from endlessly running over and over again
+                    case .recurringOnLaunch, .recurringOnActive:
+                        guard
+                            let jobId: Int64 = job.id,
+                            job.failureCount != 0 &&
+                            job.nextRunTimestamp > TimeInterval.leastNonzeroMagnitude
+                        else { break }
+                        
+                        _ = try Job
+                            .filter(id: jobId)
+                            .updateAll(
+                                db,
+                                Job.Columns.failureCount.set(to: 0),
+                                Job.Columns.nextRunTimestamp.set(to: 0)
+                            )
                     
-                    _ = try job.delete(db)
+                    default: break
                 }
                 
-            case .recurring where shouldStop == true:
-                dependencies[singleton: .storage].write { db in
-                    /// Since this job has been completed we can update the dependencies so other job that were dependant
-                    /// on this one can be run
-                    _ = try JobDependencies
-                        .filter(JobDependencies.Columns.dependantId == job.id)
-                        .deleteAll(db)
-                    
-                    _ = try job.delete(db)
+                return dependantJobs
+            },
+            completion: { [weak self, dependencies] result in
+                switch result {
+                    case .failure: break
+                    case .success(let dependantJobs):
+                        /// Now that the job has been completed we want to enqueue any jobs that were dependant on it
+                        dependencies[singleton: .jobRunner].enqueueDependenciesIfNeeded(dependantJobs)
                 }
                 
-            /// For `recurring` jobs which have already run, they should automatically run again but we want at least 1 second
-            /// to pass before doing so - the job itself should really update it's own `nextRunTimestamp` (this is just a safety net)
-            case .recurring where job.nextRunTimestamp <= dependencies.dateNow.timeIntervalSince1970:
-                guard let jobId: Int64 = job.id else { break }
-                
-                dependencies[singleton: .storage].write { [dependencies] db in
-                    _ = try Job
-                        .filter(id: jobId)
-                        .updateAll(
-                            db,
-                            Job.Columns.failureCount.set(to: 0),
-                            Job.Columns.nextRunTimestamp.set(to: (dependencies.dateNow.timeIntervalSince1970 + 1))
-                        )
+                /// Perform job cleanup and start the next job
+                self?.performCleanUp(for: job, result: .succeeded)
+                self?.internalQueue.async(using: dependencies) { [weak self] in
+                    self?.runNextJob()
                 }
-                
-            /// For `recurringOnLaunch/Active` jobs which have already run but failed once, we need to clear their
-            /// `failureCount` and `nextRunTimestamp` to prevent them from endlessly running over and over again
-            case .recurringOnLaunch, .recurringOnActive:
-                guard
-                    let jobId: Int64 = job.id,
-                    job.failureCount != 0 &&
-                    job.nextRunTimestamp > TimeInterval.leastNonzeroMagnitude
-                else { break }
-                
-                dependencies[singleton: .storage].write { db in
-                    _ = try Job
-                        .filter(id: jobId)
-                        .updateAll(
-                            db,
-                            Job.Columns.failureCount.set(to: 0),
-                            Job.Columns.nextRunTimestamp.set(to: 0)
-                        )
-                }
-            
-            default: break
-        }
-        
-        /// Now that the job has been completed we want to enqueue any jobs that were dependant on it
-        dependencies[singleton: .jobRunner].enqueueDependenciesIfNeeded(dependantJobs)
-        
-        // Perform job cleanup and start the next job
-        performCleanUp(for: job, result: .succeeded)
-        internalQueue.async(using: dependencies) { [weak self] in
-            self?.runNextJob()
-        }
+            }
+        )
     }
 
     /// This function is called when a job fails, if it's wasn't a permanent failure then the 'failureCount' for the job will be incremented and it'll

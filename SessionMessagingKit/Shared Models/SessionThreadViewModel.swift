@@ -16,6 +16,7 @@ fileprivate typealias ViewModel = SessionThreadViewModel
 ///
 /// **Note:** When updating the UI make sure to check the actual queries being run as some fields will have incorrect default values
 /// in order to optimise their queries to only include the required data
+// TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
 public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible, ThreadSafeType {
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -49,7 +50,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case disappearingMessagesConfiguration
         
         case contactLastKnownClientVersion
-        case displayPictureFilename
+        case threadDisplayPictureUrl
         case contactProfile
         case closedGroupProfileFront
         case closedGroupProfileBack
@@ -68,6 +69,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case openGroupPublicKey
         case openGroupUserCount
         case openGroupPermissions
+        case openGroupCapabilities
         
         // Interaction display info
         
@@ -85,8 +87,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadContactNameInternal
         case authorNameInternal
         case currentUserSessionId
-        case currentUserBlinded15SessionId
-        case currentUserBlinded25SessionId
+        case currentUserSessionIds
         case recentReactionEmoji
         case wasKickedFromGroup
         case groupIsDestroyed
@@ -152,7 +153,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     
     public let contactLastKnownClientVersion: FeatureVersion?
-    public let displayPictureFilename: String?
+    public let threadDisplayPictureUrl: String?
     private let contactProfile: Profile?
     private let closedGroupProfileFront: Profile?
     private let closedGroupProfileBack: Profile?
@@ -171,6 +172,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let openGroupPublicKey: String?
     private let openGroupUserCount: Int?
     private let openGroupPermissions: OpenGroup.Permissions?
+    public let openGroupCapabilities: Set<Capability.Variant>?
     
     // Interaction display info
     
@@ -188,8 +190,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let threadContactNameInternal: String?
     private let authorNameInternal: String?
     public let currentUserSessionId: String
-    public let currentUserBlinded15SessionId: String?
-    public let currentUserBlinded25SessionId: String?
+    public let currentUserSessionIds: Set<String>?
     public let recentReactionEmoji: [String]?
     public let wasKickedFromGroup: Bool?
     public let groupIsDestroyed: Bool?
@@ -203,6 +204,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             closedGroupName: closedGroupName,
             openGroupName: openGroupName,
             isNoteToSelf: threadIsNoteToSelf,
+            ignoringNickname: false,
             profile: profile
         )
     }
@@ -438,17 +440,12 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 guard wasKickedFromGroup != true else { return false }
                 guard threadIsMessageRequest == false else { return true }
                 
-                // Double check LibSession directly just in case we the view model hasn't been
-                // updated since they were changed
+                /// Double check `libSession` directly just in case we the view model hasn't been updated since they were changed
                 guard
-                    !LibSession.wasKickedFromGroup(
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        using: dependencies
-                    ) &&
-                    !LibSession.groupIsDestroyed(
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        using: dependencies
-                    )
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) &&
+                        !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                    })
                 else { return false }
                 
                 return interactionVariant?.isGroupLeavingStatus != true
@@ -515,7 +512,7 @@ public extension SessionThreadViewModel {
         self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactLastKnownClientVersion = nil
-        self.displayPictureFilename = nil
+        self.threadDisplayPictureUrl = nil
         self.contactProfile = contactProfile
         self.closedGroupProfileFront = nil
         self.closedGroupProfileBack = nil
@@ -534,6 +531,7 @@ public extension SessionThreadViewModel {
         self.openGroupPublicKey = nil
         self.openGroupUserCount = nil
         self.openGroupPermissions = openGroupPermissions
+        self.openGroupCapabilities = nil
         
         // Interaction display info
         
@@ -551,8 +549,7 @@ public extension SessionThreadViewModel {
         self.threadContactNameInternal = nil
         self.authorNameInternal = nil
         self.currentUserSessionId = dependencies[cache: .general].sessionId.hexString
-        self.currentUserBlinded15SessionId = nil
-        self.currentUserBlinded25SessionId = nil
+        self.currentUserSessionIds = [dependencies[cache: .general].sessionId.hexString]
         self.recentReactionEmoji = nil
         self.wasKickedFromGroup = false
         self.groupIsDestroyed = false
@@ -562,82 +559,13 @@ public extension SessionThreadViewModel {
 // MARK: - Mutation
 
 public extension SessionThreadViewModel {
-    func with(
-        recentReactionEmoji: [String]? = nil
-    ) -> SessionThreadViewModel {
-        return SessionThreadViewModel(
-            rowId: self.rowId,
-            threadId: self.threadId,
-            threadVariant: self.threadVariant,
-            threadCreationDateTimestamp: self.threadCreationDateTimestamp,
-            threadMemberNames: self.threadMemberNames,
-            threadIsNoteToSelf: self.threadIsNoteToSelf,
-            outdatedMemberId: self.outdatedMemberId,
-            threadIsMessageRequest: self.threadIsMessageRequest,
-            threadRequiresApproval: self.threadRequiresApproval,
-            threadShouldBeVisible: self.threadShouldBeVisible,
-            threadPinnedPriority: self.threadPinnedPriority,
-            threadIsBlocked: self.threadIsBlocked,
-            threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
-            threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
-            threadMessageDraft: self.threadMessageDraft,
-            threadIsDraft: self.threadIsDraft,
-            threadContactIsTyping: self.threadContactIsTyping,
-            threadWasMarkedUnread: self.threadWasMarkedUnread,
-            threadUnreadCount: self.threadUnreadCount,
-            threadUnreadMentionCount: self.threadUnreadMentionCount,
-            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
-            threadCanWrite: self.threadCanWrite,
-            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
-            contactLastKnownClientVersion: self.contactLastKnownClientVersion,
-            displayPictureFilename: self.displayPictureFilename,
-            contactProfile: self.contactProfile,
-            closedGroupProfileFront: self.closedGroupProfileFront,
-            closedGroupProfileBack: self.closedGroupProfileBack,
-            closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,
-            closedGroupAdminProfile: self.closedGroupAdminProfile,
-            closedGroupName: self.closedGroupName,
-            closedGroupDescription: self.closedGroupDescription,
-            closedGroupUserCount: self.closedGroupUserCount,
-            closedGroupExpired: self.closedGroupExpired,
-            currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
-            currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
-            openGroupName: self.openGroupName,
-            openGroupDescription: self.openGroupDescription,
-            openGroupServer: self.openGroupServer,
-            openGroupRoomToken: self.openGroupRoomToken,
-            openGroupPublicKey: self.openGroupPublicKey,
-            openGroupUserCount: self.openGroupUserCount,
-            openGroupPermissions: self.openGroupPermissions,
-            interactionId: self.interactionId,
-            interactionVariant: self.interactionVariant,
-            interactionTimestampMs: self.interactionTimestampMs,
-            interactionBody: self.interactionBody,
-            interactionState: self.interactionState,
-            interactionHasBeenReadByRecipient: self.interactionHasBeenReadByRecipient,
-            interactionIsOpenGroupInvitation: self.interactionIsOpenGroupInvitation,
-            interactionAttachmentDescriptionInfo: self.interactionAttachmentDescriptionInfo,
-            interactionAttachmentCount: self.interactionAttachmentCount,
-            authorId: self.authorId,
-            threadContactNameInternal: self.threadContactNameInternal,
-            authorNameInternal: self.authorNameInternal,
-            currentUserSessionId: self.currentUserSessionId,
-            currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
-            recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji),
-            wasKickedFromGroup: self.wasKickedFromGroup,
-            groupIsDestroyed: self.groupIsDestroyed
-        )
-    }
-    
     func populatingPostQueryData(
-        _ db: Database? = nil,
-        currentUserBlinded15SessionIdForThisThread: String?,
-        currentUserBlinded25SessionIdForThisThread: String?,
+        recentReactionEmoji: [String]?,
+        openGroupCapabilities: Set<Capability.Variant>?,
+        currentUserSessionIds: Set<String>,
         wasKickedFromGroup: Bool,
         groupIsDestroyed: Bool,
-        threadCanWrite: Bool,
-        using dependencies: Dependencies
+        threadCanWrite: Bool
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
             rowId: self.rowId,
@@ -664,7 +592,7 @@ public extension SessionThreadViewModel {
             threadCanWrite: threadCanWrite,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
-            displayPictureFilename: self.displayPictureFilename,
+            threadDisplayPictureUrl: self.threadDisplayPictureUrl,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -683,6 +611,7 @@ public extension SessionThreadViewModel {
             openGroupPublicKey: self.openGroupPublicKey,
             openGroupUserCount: self.openGroupUserCount,
             openGroupPermissions: self.openGroupPermissions,
+            openGroupCapabilities: openGroupCapabilities,
             interactionId: self.interactionId,
             interactionVariant: self.interactionVariant,
             interactionTimestampMs: self.interactionTimestampMs,
@@ -696,27 +625,8 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserSessionId: self.currentUserSessionId,
-            currentUserBlinded15SessionId: (
-                currentUserBlinded15SessionIdForThisThread ??
-                SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: self.threadId,
-                    threadVariant: self.threadVariant,
-                    blindingPrefix: .blinded15,
-                    using: dependencies
-                )?.hexString
-            ),
-            currentUserBlinded25SessionId: (
-                currentUserBlinded25SessionIdForThisThread ??
-                SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: self.threadId,
-                    threadVariant: self.threadVariant,
-                    blindingPrefix: .blinded25,
-                    using: dependencies
-                )?.hexString
-            ),
-            recentReactionEmoji: self.recentReactionEmoji,
+            currentUserSessionIds: currentUserSessionIds,
+            recentReactionEmoji: recentReactionEmoji,
             wasKickedFromGroup: wasKickedFromGroup,
             groupIsDestroyed: groupIsDestroyed
         )
@@ -873,10 +783,10 @@ public extension SessionThreadViewModel {
                     \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
             
                     COALESCE(
-                        \(openGroup[.displayPictureFilename]),
-                        \(closedGroup[.displayPictureFilename]),
-                        \(contactProfile[.profilePictureFileName])
-                    ) AS \(ViewModel.Columns.displayPictureFilename),
+                        \(openGroup[.displayPictureOriginalUrl]),
+                        \(closedGroup[.displayPictureUrl]),
+                        \(contactProfile[.displayPictureUrl])
+                    ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
 
                     \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                     \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
@@ -1211,10 +1121,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
         
                 \(aggregateInteraction[.interactionId]),
                 \(aggregateInteraction[.interactionTimestampMs]),
@@ -1383,10 +1293,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.publicKey]) AS \(ViewModel.Columns.openGroupPublicKey),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
                     
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
             
@@ -1496,11 +1406,11 @@ public extension SessionThreadViewModel {
             .replacingOccurrences(of: "“", with: "\"")
     }
     
-    static func pattern(_ db: Database, searchTerm: String) throws -> FTS5Pattern {
+    static func pattern(_ db: ObservingDatabase, searchTerm: String) throws -> FTS5Pattern {
         return try pattern(db, searchTerm: searchTerm, forTable: Interaction.self)
     }
     
-    static func pattern<T>(_ db: Database, searchTerm: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
+    static func pattern<T>(_ db: ObservingDatabase, searchTerm: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         // Note: FTS doesn't support both prefix/suffix wild cards so don't bother trying to
         // add a prefix one
         let rawPattern: String = {
@@ -1569,10 +1479,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
             
                 \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                 \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
@@ -1717,10 +1627,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
@@ -1997,10 +1907,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
                 
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
@@ -2268,10 +2178,10 @@ public extension SessionThreadViewModel {
                 \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
         
                 COALESCE(
-                    \(openGroup[.displayPictureFilename]),
-                    \(closedGroup[.displayPictureFilename]),
-                    \(contactProfile[.profilePictureFileName])
-                ) AS \(ViewModel.Columns.displayPictureFilename),
+                    \(openGroup[.displayPictureOriginalUrl]),
+                    \(closedGroup[.displayPictureUrl]),
+                    \(contactProfile[.displayPictureUrl])
+                ) AS \(ViewModel.Columns.threadDisplayPictureUrl),
         
                 \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                 \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),

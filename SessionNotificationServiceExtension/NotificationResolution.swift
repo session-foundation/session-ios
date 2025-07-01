@@ -3,7 +3,7 @@
 // stringlint:disable
 
 import Foundation
-import SessionSnodeKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -14,18 +14,17 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToMainAppRunning
     case ignoreDueToNoContentFromApple
     case ignoreDueToNonLegacyGroupLegacyNotification
+    case ignoreDueToSelfSend
     case ignoreDueToOutdatedMessage
     case ignoreDueToRequiresNoNotification
+    case ignoreDueToMessageRequest(String)
     case ignoreDueToDuplicateMessage
+    case ignoreDueToDuplicateCall
     case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
     
     case errorTimeout
     case errorNotReadyForExtensions
-    case errorNoContentLegacy
-    case errorDatabaseInvalid
-    case errorDatabaseMigrations(Error)
-    case errorTransactionFailure
-    case errorLegacyGroupKeysMissing
+    case errorLegacyPushNotification
     case errorCallFailure
     case errorNoContent(PushNotificationAPI.NotificationMetadata)
     case errorProcessing(PushNotificationAPI.ProcessResult)
@@ -34,32 +33,36 @@ enum NotificationResolution: CustomStringConvertible {
     
     public var description: String {
         switch self {
-            case .success(let metadata): return "Completed: Handled notification from namespace: \(metadata.namespace)"
+            case .success(let metadata):
+                return "Completed: Handled notification from \(metadata.namespace) namespace for \(metadata.accountId)"
+            
             case .successCall: return "Completed: Notified main app of call message"
             
             case .ignoreDueToMainAppRunning: return "Ignored: Main app running"
             case .ignoreDueToNoContentFromApple: return "Ignored: No content"
             case .ignoreDueToNonLegacyGroupLegacyNotification: return "Ignored: Non-group legacy notification"
-            case .ignoreDueToOutdatedMessage: return "Ignored: Alteady seen message"
+            case .ignoreDueToSelfSend: return "Ignored: Self send"
+            case .ignoreDueToOutdatedMessage: return "Ignored: Already seen message"
             case .ignoreDueToRequiresNoNotification: return "Ignored: Message requires no notification"
+            case .ignoreDueToMessageRequest(let threadId):
+                return "Ignored: Subsequent message in message request \(threadId)"
             
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
+                
+            case .ignoreDueToDuplicateCall:
+                return "Ignored: Duplicate call (probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
-                return "Ignored: Notification content from namespace: \(metadata.namespace) was too long: \(metadata.dataLength)"
+                return "Ignored: Notification content from \(metadata.namespace) namespace was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
-            case .errorNoContentLegacy: return "Failed: Legacy notification contained invalid payload"
-            case .errorDatabaseInvalid: return "Failed: Database in invalid state"
-            case .errorDatabaseMigrations(let error): return "Failed: Database migration error: \(error)"
-            case .errorTransactionFailure: return "Failed: Unexpected database transaction rollback"
-            case .errorLegacyGroupKeysMissing: return "Failed: No legacy group decryption keys"
+            case .errorLegacyPushNotification: return "Failed: Legacy push notifications are no longer supported"
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
             case .errorNoContent(let metadata):
-                return "Failed: Notification from namespace: \(metadata.namespace) contained no content, expected dataLength: \(metadata.dataLength)"
+                return "Failed: Notification from namespace: \(metadata.namespace) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength))))"
                 
             case .errorProcessing(let result): return "Failed: Unable to process notification (\(result))"
             case .errorMessageHandling(let error): return "Failed: Handling the message (\(error))"
@@ -70,15 +73,16 @@ enum NotificationResolution: CustomStringConvertible {
     public var logLevel: Log.Level {
         switch self {
             case .success, .successCall, .ignoreDueToMainAppRunning, .ignoreDueToNoContentFromApple,
-                .ignoreDueToNonLegacyGroupLegacyNotification, .ignoreDueToOutdatedMessage,
-                .ignoreDueToRequiresNoNotification, .ignoreDueToDuplicateMessage, .ignoreDueToContentSize:
+                .ignoreDueToSelfSend, .ignoreDueToNonLegacyGroupLegacyNotification,
+                .ignoreDueToOutdatedMessage, .ignoreDueToRequiresNoNotification,
+                .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage, .ignoreDueToDuplicateCall,
+                .ignoreDueToContentSize:
                 return .info
                 
-            case .errorNotReadyForExtensions, .errorNoContentLegacy, .errorNoContent, .errorCallFailure:
+            case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:
                 return .warn
                 
-            case .errorTimeout, .errorDatabaseInvalid, .errorDatabaseMigrations, .errorTransactionFailure,
-                    .errorLegacyGroupKeysMissing, .errorProcessing, .errorMessageHandling, .errorOther:
+            case .errorTimeout, .errorProcessing, .errorMessageHandling, .errorOther:
                 return .error
         }
     }

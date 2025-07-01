@@ -47,7 +47,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     }
     
     public enum TableItem: Equatable, Hashable, Differentiable {
-        case theme(String)
+        case theme(Int)
         case primaryColorPreview
         case primaryColorSelectionView
         case darkModeMatchSystemSettings
@@ -64,11 +64,11 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     let title: String = "sessionAppearance".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { db -> State in
+        .libSessionObservation(self) { cache -> State in
             State(
-                theme: db[.theme].defaulting(to: .classicDark),
-                primaryColor: db[.themePrimaryColor].defaulting(to: .green),
-                authDarkModeEnabled: db[.themeMatchSystemDayNightCycle]
+                theme: cache.get(.theme).defaulting(to: .classicDark),
+                primaryColor: cache.get(.themePrimaryColor).defaulting(to: .green),
+                authDarkModeEnabled: cache.get(.themeMatchSystemDayNightCycle)
             )
         }
         .map { [weak self, dependencies] state -> [SectionModel] in
@@ -86,7 +86,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 isSelected: (state.theme == theme)
                             ),
                             onTap: {
-                                ThemeManager.updateThemeState(theme: theme)
+                                Task { @MainActor in ThemeManager.updateThemeState(theme: theme) }
                             }
                         )
                     }
@@ -111,7 +111,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 info: PrimaryColorSelectionView.Info(
                                     primaryColor: state.primaryColor,
                                     onChange: { color in
-                                        ThemeManager.updateThemeState(primaryColor: color)
+                                        Task { @MainActor in ThemeManager.updateThemeState(primaryColor: color) }
                                     }
                                 )
                             ),
@@ -136,9 +136,11 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 oldValue: ThemeManager.matchSystemNightModeSetting
                             ),
                             onTap: {
-                                ThemeManager.updateThemeState(
-                                    matchSystemNightModeSetting: !state.authDarkModeEnabled
-                                )
+                                Task { @MainActor in
+                                    ThemeManager.updateThemeState(
+                                        matchSystemNightModeSetting: !state.authDarkModeEnabled
+                                    )
+                                }
                             }
                         )
                     ]

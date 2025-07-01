@@ -5,17 +5,19 @@ import GRDB
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage {
-    private let dependencies: Dependencies
+class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
+    public var dependencies: Dependencies
+    private let initialData: ((ObservingDatabase) throws -> ())?
     
     public init(
         customWriter: DatabaseWriter? = nil,
         migrationTargets: [MigratableTarget.Type]? = nil,
         migrations: [Storage.KeyedMigration]? = nil,
         using dependencies: Dependencies,
-        initialData: ((Database) throws -> ())? = nil
+        initialData: ((ObservingDatabase) throws -> ())? = nil
     ) {
         self.dependencies = dependencies
+        self.initialData = initialData
         
         super.init(customWriter: customWriter, using: dependencies)
         
@@ -38,15 +40,31 @@ class SynchronousStorage: Storage {
                 onComplete: { _ in }
             )
         }
-        
-        write { db in try initialData?(db) }
     }
     
+    // MARK: - DependenciesSettable
+    
+    func setDependencies(_ dependencies: Dependencies?) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        self.dependencies = dependencies
+    }
+    
+    // MARK: - InitialSetupable
+    
+    func performInitialSetup() {
+        guard let closure: ((ObservingDatabase) throws -> ()) = initialData else { return }
+        
+        write { db in try closure(db) }
+    }
+    
+    // MARK: - Overwritten Functions
+    
     @discardableResult override func write<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T?
+        updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -58,7 +76,9 @@ class SynchronousStorage: Storage {
             let result: T?
             let didThrow: Bool
             do {
-                result = try dbWriter.unsafeReentrantWrite(updates)
+                result = try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                    try updates(ObservingDatabase(db, using: dependencies))
+                }
                 didThrow = false
             }
             catch {
@@ -94,10 +114,10 @@ class SynchronousStorage: Storage {
     }
     
     @discardableResult override func read<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        _ value: @escaping (Database) throws -> T?
+        _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -109,7 +129,9 @@ class SynchronousStorage: Storage {
             let result: T?
             let didThrow: Bool
             do {
-                result = try dbWriter.unsafeReentrantRead(value)
+                result = try dbWriter.unsafeReentrantRead { [dependencies] db in
+                    try value(ObservingDatabase(db, using: dependencies))
+                }
                 didThrow = false
             }
             catch {
@@ -147,10 +169,10 @@ class SynchronousStorage: Storage {
     // MARK: - Async Methods
     
     override func readPublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        value: @escaping (Database) throws -> T
+        value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
@@ -164,7 +186,11 @@ class SynchronousStorage: Storage {
         guard !dependencies.forceSynchronous else {
             return Just(())
                 .setFailureType(to: Error.self)
-                .tryMap { _ in try dbWriter.unsafeReentrantRead(value) }
+                .tryMap { [dependencies] _ in
+                    try dbWriter.unsafeReentrantRead { [dependencies] db in
+                        try value(ObservingDatabase(db, using: dependencies))
+                    }
+                }
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
                         try? dbWriter.unsafeReentrantRead { db in
@@ -190,10 +216,10 @@ class SynchronousStorage: Storage {
     }
     
     override func writeAsync<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T,
+        updates: @escaping (ObservingDatabase) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void
     ) {
         do {
@@ -206,10 +232,10 @@ class SynchronousStorage: Storage {
     }
     
     override func writePublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T
+        updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
@@ -223,7 +249,11 @@ class SynchronousStorage: Storage {
         guard !dependencies.forceSynchronous else {
             return Just(())
                 .setFailureType(to: Error.self)
-                .tryMap { _ in try dbWriter.unsafeReentrantWrite(updates) }
+                .tryMap { [dependencies] _ in
+                    try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                        try updates(ObservingDatabase(db, using: dependencies))
+                    }
+                }
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
                         dbWriter.unsafeReentrantWrite { db in

@@ -15,7 +15,6 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
     internal static let interaction = belongsTo(Interaction.self, using: interactionForeignKey)
     private static let profile = hasOne(Profile.self, using: profileForeignKey)
     private static let quotedInteraction = hasOne(Interaction.self, using: originalInteractionForeignKey)
-    public static let attachment = hasOne(Attachment.self, using: Attachment.quoteForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -23,7 +22,6 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
         case authorId
         case timestampMs
         case body
-        case attachmentId
     }
     
     /// The id for the interaction this Quote belongs to
@@ -38,9 +36,6 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
     /// The body of the quoted message if the user is quoting a text message or an attachment with a caption
     public let body: String?
     
-    /// The id for the attachment this Quote is associated with
-    public let attachmentId: String?
-    
     // MARK: - Relationships
     
     public var interaction: QueryInterfaceRequest<Interaction> {
@@ -49,10 +44,6 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
     
     public var profile: QueryInterfaceRequest<Profile> {
         request(for: Quote.profile)
-    }
-    
-    public var attachment: QueryInterfaceRequest<Attachment> {
-        request(for: Quote.attachment)
     }
     
     public var originalInteraction: QueryInterfaceRequest<Interaction> {
@@ -65,14 +56,12 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
         interactionId: Int64,
         authorId: String,
         timestampMs: Int64,
-        body: String?,
-        attachmentId: String?
+        body: String?
     ) {
         self.interactionId = interactionId
         self.authorId = authorId
         self.timestampMs = timestampMs
         self.body = body
-        self.attachmentId = attachmentId
     }
 }
 
@@ -83,15 +72,13 @@ public extension Quote {
         interactionId: Int64? = nil,
         authorId: String? = nil,
         timestampMs: Int64? = nil,
-        body: String? = nil,
-        attachmentId: String? = nil
+        body: String? = nil
     ) -> Quote {
         return Quote(
             interactionId: interactionId ?? self.interactionId,
             authorId: authorId ?? self.authorId,
             timestampMs: timestampMs ?? self.timestampMs,
-            body: body ?? self.body,
-            attachmentId: attachmentId ?? self.attachmentId
+            body: body ?? self.body
         )
     }
     
@@ -100,8 +87,7 @@ public extension Quote {
             interactionId: self.interactionId,
             authorId: self.authorId,
             timestampMs: self.timestampMs,
-            body: nil,
-            attachmentId: nil
+            body: nil
         )
     }
 }
@@ -109,7 +95,7 @@ public extension Quote {
 // MARK: - Protobuf
 
 public extension Quote {
-    init?(_ db: Database, proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
+    init?(proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
         guard
             let quoteProto = proto.quote,
             quoteProto.id != 0,
@@ -120,6 +106,5 @@ public extension Quote {
         self.timestampMs = Int64(quoteProto.id)
         self.authorId = quoteProto.author
         self.body = nil
-        self.attachmentId = nil
     }
 }

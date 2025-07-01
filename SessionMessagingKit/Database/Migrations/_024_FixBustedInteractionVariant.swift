@@ -13,7 +13,7 @@ enum _024_FixBustedInteractionVariant: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var createdTables: [(FetchableRecord & TableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.execute(sql: """
             UPDATE interaction
             SET variant = \(Interaction.Variant.standardIncomingDeleted.rawValue)

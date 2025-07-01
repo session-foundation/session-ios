@@ -16,6 +16,7 @@ class DatabaseSpec: QuickSpec {
     fileprivate static let ignoredTables: Set<String> = [
         "sqlite_sequence", "grdb_migrations", "*_fts*"
     ]
+    private static var snapshotCache: [String: Result<DatabaseQueue, Error>] = [:]
     
     override class func spec() {
         // MARK: Configuration
@@ -61,6 +62,13 @@ class DatabaseSpec: QuickSpec {
             // libSession will fail to load state if the ConfigDump data is invalid
             TableColumn(ConfigDump.self, .data): Data()
         ]
+        
+        beforeSuite {
+            snapshotCache.removeAll()
+        }
+        afterSuite {
+            snapshotCache.removeAll()
+        }
         
         // MARK: - a Database
         describe("a Database") {
@@ -130,18 +138,52 @@ class DatabaseSpec: QuickSpec {
             // MARK: -- can migrate from X to Y
             dynamicTests.forEach { test in
                 it("can migrate from \(test.initialMigrationKey) to \(test.finalMigrationKey)") {
-                    mockStorage.perform(
-                        sortedMigrations: test.initialMigrations,
-                        async: false,
-                        onProgressUpdate: nil,
-                        onComplete: { result in initialResult = result }
-                    )
-                    expect(initialResult).to(beSuccess())
+                    let initialStateResult: Result<DatabaseQueue, Error> = {
+                        if let cachedResult: Result<DatabaseQueue, Error> = snapshotCache[test.initialMigrationKey] {
+                            return cachedResult
+                        }
+                        
+                        do {
+                            let dbQueue = try DatabaseQueue()
+                            let storage = SynchronousStorage(
+                                customWriter: dbQueue,
+                                using: dependencies
+                            )
+                            
+                            // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
+                            var initialResult: Result<Void, Error>!
+                            storage.perform(
+                                sortedMigrations: test.initialMigrations,
+                                async: false,
+                                onProgressUpdate: nil,
+                                onComplete: { result in initialResult = result }
+                            )
+                            try initialResult.get()
+                            
+                            // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
+                            try MigrationTest.generateDummyData(storage, nullsWherePossible: false)
+                            
+                            snapshotCache[test.initialMigrationKey] = .success(dbQueue)
+                            return .success(dbQueue)
+                        } catch {
+                            snapshotCache[test.initialMigrationKey] = .failure(error)
+                            return .failure(error)
+                        }
+                    }()
                     
-                    // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
-                    expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: false))
-                        .toNot(throwError())
+                    var sourceDb: DatabaseQueue!
+                    switch initialStateResult {
+                        case .success(let db): sourceDb = db
+                        case .failure(let error):
+                            fail("Failed to prepare the initial state for '\(test.initialMigrationKey)'. Error: \(error)")
+                            return
+                    }
                     
+                    // Copy the cached initial state over to a new instance to run this test
+                    let testDb = try! DatabaseQueue()
+                    try! sourceDb.backup(to: testDb)
+                    mockStorage = SynchronousStorage(customWriter: testDb, using: dependencies)
+
                     // Peform the target migrations to ensure the migrations themselves worked correctly
                     mockStorage.perform(
                         sortedMigrations: test.migrationsToTest,
@@ -149,7 +191,14 @@ class DatabaseSpec: QuickSpec {
                         onProgressUpdate: nil,
                         onComplete: { result in finalResult = result }
                     )
-                    expect(finalResult).to(beSuccess())
+                    
+                    switch finalResult {
+                        case .success: break
+                        case .failure(let error):
+                            fail("Failed to migrate from '\(test.initialMigrationKey)' to '\(test.finalMigrationKey)'. Error: \(error)")
+                        case .none:
+                            fail("Failed to migrate from '\(test.initialMigrationKey)' to '\(test.finalMigrationKey)'. Error: No result")
+                    }
                 }
             }
         }
@@ -245,7 +294,7 @@ private class MigrationTest {
         if let error: Error = generationError { throw error }
     }
     
-    private static func generateDummyData(_ db: Database, nullsWherePossible: Bool) throws {
+    private static func generateDummyData(_ db: ObservingDatabase, nullsWherePossible: Bool) throws {
         // Fetch table schema information
         let disallowedPrefixes: Set<String> = DatabaseSpec.ignoredTables
             .filter { $0.hasPrefix("*") && !$0.hasSuffix("*") }
@@ -389,7 +438,7 @@ enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }
 
 enum TestRequiresLibSessionStateMigration: Migration {
@@ -398,7 +447,7 @@ enum TestRequiresLibSessionStateMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }
 
 enum TestRequiresSessionIdCachedMigration: Migration {
@@ -407,5 +456,5 @@ enum TestRequiresSessionIdCachedMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }

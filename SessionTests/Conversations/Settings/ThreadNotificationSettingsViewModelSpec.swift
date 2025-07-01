@@ -47,8 +47,12 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                     .thenReturn(nil)
             }
         )
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
         @TestState var viewModel: ThreadNotificationSettingsViewModel! = ThreadNotificationSettingsViewModel(
             threadId: "TestId",
+            threadVariant: .contact,
             threadNotificationSettings: .init(
                 threadOnlyNotifyForMentions: nil,
                 threadMutedUntilTimestamp: nil
@@ -142,11 +146,14 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                         .filter(id: "TestId")
                         .updateAll(
                             db,
-                            SessionThread.Columns.mutedUntilTimestamp.set(to: Date.distantFuture.timeIntervalSince1970)
+                            SessionThread.Columns.mutedUntilTimestamp.set(
+                                to: Date.distantFuture.timeIntervalSince1970
+                            )
                         )
                 }
                 viewModel = ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
+                    threadVariant: .contact,
                     threadNotificationSettings: .init(
                         threadOnlyNotifyForMentions: false,
                         threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
@@ -252,6 +259,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 }
                 viewModel = ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
+                    threadVariant: .contact,
                     threadNotificationSettings: .init(
                         threadOnlyNotifyForMentions: false,
                         threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
@@ -402,18 +410,17 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                     }
                     
                     // MARK: ------ saves the updated settings
-                    it("saves the updated settings") {
+                    fit("saves the updated settings") {
                         footerButtonInfo?.onTap()
                         
-                        let updatedSettings: TimeInterval? = mockStorage.read { db in
-                            try SessionThread
-                                .select(SessionThread.Columns.mutedUntilTimestamp)
-                                .filter(id: "TestId")
-                                .asRequest(of: TimeInterval.self)
-                                .fetchOne(db)
-                        }
-                        
-                        expect(updatedSettings).to(beGreaterThan(0))
+                        expect(mockNotificationsManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.updateSettings(
+                                threadId: "TestId",
+                                threadVariant: .contact,
+                                mentionsOnly: false,
+                                mutedUntil: Date.distantFuture.timeIntervalSince1970
+                            )
+                        })
                     }
                 }
             }

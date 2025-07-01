@@ -55,13 +55,24 @@ public enum MessageReceiveJob: JobExecutor {
             updates: { db -> Error? in
                 for (messageInfo, protoContent) in messageData {
                     do {
-                        try MessageReceiver.handle(
+                        let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
                             db,
                             threadId: threadId,
                             threadVariant: messageInfo.threadVariant,
                             message: messageInfo.message,
                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: protoContent,
+                            suppressNotifications: false,
+                            using: dependencies
+                        )
+                        
+                        /// Notify about the received message
+                        MessageReceiver.prepareNotificationsForInsertedInteractions(
+                            db,
+                            insertedInteractionInfo: info,
+                            isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
+                                cache.isMessageRequest(threadId: threadId, threadVariant: messageInfo.threadVariant)
+                            },
                             using: dependencies
                         )
                     }
@@ -76,7 +87,6 @@ public enum MessageReceiveJob: JobExecutor {
                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                 DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                                 MessageReceiverError.duplicateMessage,
-                                MessageReceiverError.duplicateControlMessage,
                                 MessageReceiverError.selfSend:
                                 break
                                 
@@ -110,11 +120,17 @@ public enum MessageReceiveJob: JobExecutor {
                 // Handle the result
                 switch result {
                     case .failure(let error): failure(updatedJob, error, false)
-                    case .success(.some(let error as MessageReceiverError)) where !error.isRetryable:
-                        failure(updatedJob, error, true)
+                    case .success(let lastError):
+                        /// Report the result of the job
+                        switch lastError {
+                            case let error as MessageReceiverError where !error.isRetryable:
+                                failure(updatedJob, error, true)
+                                
+                            case .some(let error): failure(updatedJob, error, false)
+                            case .none: success(updatedJob, false)
+                        }
                         
-                    case .success(.some(let error)): failure(updatedJob, error, false)
-                    case .success: success(updatedJob, false)
+                        success(updatedJob, false)
                 }
             }
         )
@@ -208,8 +224,8 @@ extension MessageReceiveJob {
         public init(messages: [ProcessedMessage]) {
             self.messages = messages.compactMap { processedMessage in
                 switch processedMessage {
-                    case .config: return nil
-                    case .standard(_, _, _, let messageInfo): return messageInfo
+                    case .config, .invalid: return nil
+                    case .standard(_, _, _, let messageInfo, _): return messageInfo
                 }
             }
         }

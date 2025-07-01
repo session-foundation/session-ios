@@ -49,68 +49,121 @@ public enum AttachmentUploadJob: JobExecutor {
             return deferred(job)
         }
         
-        // If this upload is related to sending a message then trigger the 'handleMessageWillSend' logic
-        // as if this is a retry the logic wouldn't run until after the upload has completed resulting in
-        // a potentially incorrect delivery status
-        dependencies[singleton: .storage].write { db in
-            guard
-                let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
-                let sendJobDetails: Data = sendJob.details,
-                let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
-                    .decode(MessageSendJob.Details.self, from: sendJobDetails)
-            else { return }
-            
-            MessageSender.handleMessageWillSend(
-                db,
-                message: details.message,
-                destination: details.destination,
-                interactionId: interactionId
-            )
-        }
-        
-        // Note: In the AttachmentUploadJob we intentionally don't provide our own db instance to prevent
-        // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
-        // will attempt to update the state of the job immediately
+        /// If this upload is related to sending a message then trigger the `handleMessageWillSend` logic as if this is a retry the
+        /// logic wouldn't run until after the upload has completed resulting in a potentially incorrect delivery status
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<String> in
-                try attachment.preparedUpload(db, threadId: threadId, logCategory: .cat, using: dependencies)
+            .writePublisher { db -> AuthenticationMethod in
+                let threadVariant: SessionThread.Variant = try SessionThread
+                    .select(.variant)
+                    .filter(id: threadId)
+                    .asRequest(of: SessionThread.Variant.self)
+                    .fetchOne(db, orThrow: StorageError.objectNotFound)
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    using: dependencies
+                )
+                
+                guard
+                    let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                    let sendJobDetails: Data = sendJob.details,
+                    let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
+                        .decode(MessageSendJob.Details.self, from: sendJobDetails)
+                else { return authMethod }
+                
+                MessageSender.handleMessageWillSend(
+                    db,
+                    message: details.message,
+                    destination: details.destination,
+                    interactionId: interactionId
+                )
+                
+                return authMethod
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
+            .tryMap { authMethod -> Network.PreparedRequest<(attachment: Attachment, fileId: String)> in
+                try AttachmentUploader.preparedUpload(
+                    attachment: attachment,
+                    logCategory: .cat,
+                    authMethod: authMethod,
+                    using: dependencies
+                )
+            }
+            .flatMapStorageWritePublisher(using: dependencies) { db, uploadRequest -> Network.PreparedRequest<(attachment: Attachment, fileId: String)> in
+                /// If we have a `cachedResponse` (ie. already uploaded) then don't change the attachment state to uploading
+                /// as it's already been done
+                guard uploadRequest.cachedResponse == nil else { return uploadRequest }
+                
+                /// Update the attachment to the `uploading` state
+                _ = try? Attachment
+                    .filter(id: attachment.id)
+                    .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploading))
+                
+                return uploadRequest
+            }
+            .flatMap { $0.send(using: dependencies) }
+            .map { _, value -> Attachment in value.attachment }
+            .handleEvents(
+                receiveCancel: {
+                    /// If the stream gets cancelled then `receiveCompletion` won't get called, so we need to handle that
+                    /// case and flag the upload as cancelled
+                    dependencies[singleton: .storage].writeAsync { db in
+                        try Attachment
+                            .filter(id: attachment.id)
+                            .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
+                    }
+                }
+            )
+            .flatMapStorageWritePublisher(using: dependencies) { db, updatedAttachment in
+                /// Ensure there were changes before triggering a db write to avoid unneeded write queue use and UI updates
+                guard updatedAttachment != attachment else { return }
+                
+                try updatedAttachment.upserted(db)
+            }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .failure(let error):
-                            // If this upload is related to sending a message then trigger the
-                            // 'handleFailedMessageSend' logic as we want to ensure the message
-                            // has the correct delivery status
-                            var didLogError: Bool = false
-                            
-                            dependencies[singleton: .storage].read { db in
-                                guard
-                                    let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
-                                    let sendJobDetails: Data = sendJob.details,
-                                    let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
-                                        .decode(MessageSendJob.Details.self, from: sendJobDetails)
-                                else { return }
-                                
-                                MessageSender.handleFailedMessageSend(
-                                    db,
-                                    message: details.message,
-                                    destination: nil,
-                                    error: .other(.cat, "Failed", error),
-                                    interactionId: interactionId,
-                                    using: dependencies
-                                )
-                                didLogError = true
-                            }
-                            
-                            // If we didn't log an error above then log it now
-                            if !didLogError { Log.error(.cat, "Failed due to error: \(error)") }
-                            failure(job, error, false)
-                        
                         case .finished: success(job, false)
+                        
+                        case .failure(let error):
+                            dependencies[singleton: .storage].writeAsync(
+                                updates: { db in
+                                    /// Update the attachment state
+                                    try Attachment
+                                        .filter(id: attachment.id)
+                                        .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
+                                    
+                                    /// If this upload is related to sending a message then trigger the `handleFailedMessageSend` logic
+                                    /// as we want to ensure the message has the correct delivery status
+                                    guard
+                                        let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                                        let sendJobDetails: Data = sendJob.details,
+                                        let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
+                                            .decode(MessageSendJob.Details.self, from: sendJobDetails)
+                                    else { return false }
+                                    
+                                    MessageSender.handleFailedMessageSend(
+                                        db,
+                                        message: details.message,
+                                        destination: nil,
+                                        error: .other(.cat, "Failed", error),
+                                        interactionId: interactionId,
+                                        using: dependencies
+                                    )
+                                    return true
+                                },
+                                completion: { result in
+                                    /// If we didn't log an error above then log it now
+                                    switch result {
+                                        case .failure, .success(true): break
+                                        case .success(false): Log.error(.cat, "Failed due to error: \(error)")
+                                    }
+                                    
+                                    failure(job, error, false)
+                                }
+                            )
                     }
                 }
             )

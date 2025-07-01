@@ -183,7 +183,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
                     regions: [
                         OpenGroup.select(.name).filter(ids: openGroupIds),
                         OpenGroup.select(.roomDescription).filter(ids: openGroupIds),
-                        OpenGroup.select(.displayPictureFilename).filter(ids: openGroupIds)
+                        OpenGroup.select(.displayPictureOriginalUrl).filter(ids: openGroupIds)
                     ],
                     fetch: { db in try OpenGroup.filter(ids: openGroupIds).fetchAll(db) }
                 )
@@ -357,8 +357,8 @@ extension OpenGroupSuggestionGrid {
         fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
             label.text = room.name
             
-            let maybePath: String? = openGroup.displayPictureFilename
-                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+            let maybePath: String? = openGroup.displayPictureOriginalUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
             
             switch maybePath {
                 case .some(let path):

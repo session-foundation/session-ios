@@ -114,6 +114,10 @@ public enum Log {
     @ThreadSafeObject private static var logger: Logger? = nil
     @ThreadSafeObject private static var pendingStartupLogs: [LogInfo] = []
     
+    public static func loggerExists(withPrefix prefix: String) -> Bool {
+        return (Log._logger.wrappedValue?.primaryPrefix == prefix)
+    }
+    
     public static func setup(with logger: Logger) {
         logger.setPendingLogsRetriever {
             _pendingStartupLogs.performUpdateAndMap { ([], $0) }
@@ -126,11 +130,10 @@ public enum Log {
     }
     
     public static func logFilePath(using dependencies: Dependencies) -> String? {
-        guard let logger: Logger = logger else { return nil }
-        
-        let logFiles: [String] = logger.fileLogger.logFileManager.sortedLogFilePaths
-        
-        guard !logFiles.isEmpty else { return nil }
+        guard
+            let logFiles: [String] = logger?.fileLogger?.logFileManager.sortedLogFilePaths,
+            !logFiles.isEmpty
+        else { return nil }
         
         /// If the latest log file is too short (ie. less that ~1MB) then we want to create a temporary file which contains the previous
         /// log file logs plus the logs from the newest file so we don't miss info that might be relevant for debugging
@@ -207,126 +210,126 @@ public enum Log {
     // FIXME: Would be nice to properly require a category for all logs
     public static func verbose(
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cat: Category
         , _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [cat], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, cats, msg, file: file, function: function, line: line) }
     
     public static func debug(
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [cat], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, cats, msg, file: file, function: function, line: line) }
     
     public static func info(
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [], msg, file: file, function: function, line: line) }
     public static func info(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [cat], msg, file: file, function: function, line: line) }
     public static func info(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, cats, msg, file: file, function: function, line: line) }
     
     public static func warn(
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [cat], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, cats, msg, file: file, function: function, line: line) }
     
     public static func error(
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [], msg, file: file, function: function, line: line) }
     public static func error(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [cat], msg, file: file, function: function, line: line) }
     public static func error(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, cats, msg, file: file, function: function, line: line) }
     
     public static func critical(
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [cat], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, cats, msg, file: file, function: function, line: line) }
@@ -334,7 +337,7 @@ public enum Log {
     public static func assert(
         _ condition: Bool,
         _ message: @autoclosure () -> String = String(),
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -349,7 +352,7 @@ public enum Log {
     }
     
     public static func assertOnMainThread(
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -364,7 +367,7 @@ public enum Log {
     }
     
     public static func assertNotOnMainThread(
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -382,7 +385,7 @@ public enum Log {
         _ level: Level,
         _ categories: [Category],
         _ message: String,
-        file: StaticString = #file,
+        file: StaticString = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -392,19 +395,31 @@ public enum Log {
             }
         }
         
-        logger.log(level, categories, message, file: file, function: function, line: line)
+        logger._internalLog(level, categories, message, file: file, function: function, line: line)
     }
 }
 
 // MARK: - Logger
 
-public class Logger {
+open class Logger {
     private let dependencies: Dependencies
-    private let primaryPrefix: String
+    fileprivate let primaryPrefix: String
     @ThreadSafeObject private var systemLoggers: [String: SystemLoggerType] = [:]
-    fileprivate let fileLogger: DDFileLogger
+    fileprivate let fileLogger: DDFileLogger?
     @ThreadSafe fileprivate var isSuspended: Bool = true
     @ThreadSafeObject fileprivate var pendingLogsRetriever: (() -> [Log.LogInfo])? = nil
+    
+    internal init(
+        primaryPrefix: String,
+        fileLogger: DDFileLogger?,
+        isSuspended: Bool,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
+        self.primaryPrefix = primaryPrefix
+        self.fileLogger = fileLogger
+        self.isSuspended = isSuspended
+    }
     
     public init(
         primaryPrefix: String,
@@ -431,11 +446,15 @@ public class Logger {
         dateFormatter.timeZone = NSTimeZone.local
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss:SSSa ZZZZZ"
         
-        self.fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
-        self.fileLogger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
-        self.fileLogger.maximumFileSize = (1024 * 1024 * 5) // Max log file size of 5MB
-        self.fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
-        DDLog.add(self.fileLogger)
+        switch self.fileLogger {
+            case .none: break
+            case .some(let logger):
+                logger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
+                logger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
+                logger.maximumFileSize = (1024 * 1024 * 5) // Max log file size of 5MB
+                logger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+                DDLog.add(logger)
+        }
         
         // Now that we are setup we should load the extension logs which will then
         // complete the startup process when completed
@@ -445,7 +464,10 @@ public class Logger {
     deinit {
         // Need to ensure we remove the `fileLogger` from `DDLog` otherwise we will get duplicate
         // log entries
-        DDLog.remove(fileLogger)
+        switch fileLogger {
+            case .none: break
+            case .some(let logger): DDLog.remove(logger)
+        }
     }
     
     // MARK: - Functions
@@ -462,8 +484,8 @@ public class Logger {
         // to a local directory (so they can be exported via XCode) - the below code reads any
         // logs from the shared directly and attempts to add them to the main app logs to make
         // debugging user issues in extensions easier
-        DispatchQueue.global(qos: .utility).async { [weak self, dependencies] in
-            guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger.currentLogFileInfo else {
+        DispatchQueue.global(qos: .utility).async(using: dependencies) { [weak self, dependencies] in
+            guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger?.currentLogFileInfo else {
                 self?.completeResumeLogging(error: "Unable to retrieve current log file.")
                 return
             }
@@ -560,7 +582,7 @@ public class Logger {
         // If we had an error loading the extension logs then actually log it
         if let error: String = error {
             Log.empty()
-            log(.error, [], error, file: #file, function: #function, line: #line)
+            _internalLog(.error, [], error, file: #fileID, function: #function, line: #line)
         }
         
         // After creating a new logger we want to log two empty lines to make it easier to read
@@ -569,11 +591,11 @@ public class Logger {
         
         // Add any logs that were pending during the startup process
         pendingLogs.forEach { level, categories, message, file, function, line in
-            log(level, categories, message, file: file, function: function, line: line)
+            _internalLog(level, categories, message, file: file, function: function, line: line)
         }
     }
     
-    fileprivate func log(
+    internal func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
