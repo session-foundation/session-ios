@@ -686,7 +686,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         state: .sent,
                                         recipientReadTimestampMs: nil,
                                         mostRecentFailureText: nil,
-                                        isProMessage: false,
+                                        isProMessage: nil,
                                         transientDependencies: EquatableIgnoring(value: dependencies)
                                     ),
                                     in: SessionThread(

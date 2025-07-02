@@ -20,10 +20,18 @@ public extension LibSession {
 // TODO: Implementation
 
 public extension LibSessionCacheType {
-    var isSessionPro: Bool { return dependencies[feature: .mockCurrentUserSessionPro] }
+    var isSessionPro: Bool {
+        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
+            return dependencies[feature: .mockCurrentUserSessionPro]
+        }
+        return false
+    }
     
     func validateProProof(_ proProof: String?) -> Bool {
-        return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
+            return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+        }
+        return false
     }
     
     func getProProof() -> String? {
