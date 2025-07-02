@@ -4,19 +4,28 @@ import UIKit
 
 public class ShineButton: UIButton {
     private let shineLayer = CAGradientLayer()
-    
+    private var shineView: UIView?
+    private var isAnimating = false
+
     override init(frame: CGRect) {
         super.init(frame: frame)
-        setupShineLayer()
+        setupShine()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupShineLayer()
+        setupShine()
     }
-    
-    private func setupShineLayer() {
-        // Gradient: transparent - white - transparent (a "glare bar")
+
+    private func setupShine() {
+        // Setup a subview above content for the shine
+        if shineView == nil {
+            let view = UIView(frame: bounds)
+            view.isUserInteractionEnabled = false
+            addSubview(view)
+            bringSubviewToFront(view)
+            shineView = view
+        }
         shineLayer.colors = [
             UIColor.white.withAlphaComponent(0).cgColor,
             UIColor.white.withAlphaComponent(0.5).cgColor,
@@ -25,59 +34,50 @@ public class ShineButton: UIButton {
         shineLayer.locations = [0, 0.5, 1]
         shineLayer.startPoint = CGPoint(x: 0, y: 0.5)
         shineLayer.endPoint = CGPoint(x: 1, y: 0.5)
-        shineLayer.frame = bounds
-        shineLayer.opacity = 0.0 // Hidden initially
-        
-        // Add the shineLayer above the button's content
-        layer.addSublayer(shineLayer)
-        // Optional: make sure it doesn't block interactions
-        shineLayer.isOpaque = false
-        
-        startShineAnimation()
+        shineLayer.opacity = 1.0
+        shineView?.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
+        shineView?.layer.addSublayer(shineLayer)
+        isAnimating = false
     }
-    
+
     public override func layoutSubviews() {
         super.layoutSubviews()
-        shineLayer.frame = bounds
+        shineView?.frame = bounds
+        // Set initial shine layer size, so it fully covers the move
+        shineLayer.frame = CGRect(x: -bounds.width, y: 0, width: bounds.width, height: bounds.height)
+        // Start the animation if not already started
+        if !isAnimating {
+            isAnimating = true
+            animateShine(first: true)
+        }
     }
-    
-    // MARK: - Animation
-    func startShineAnimation() {
-        runShine()
-    }
-    
-    private func runShine() {
-        // Start position: off the left
-        shineLayer.frame = CGRect(
-            x: -bounds.width,
-            y: 0,
-            width: bounds.width,
-            height: bounds.height
-        )
-        
-        // Animate to: off the right
-        let animation = CABasicAnimation(keyPath: "position.x") // stringlint:ignore
-        animation.fromValue = -bounds.width / 2
-        animation.toValue = bounds.width * 1.5
-        animation.duration = 0.6
-        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        animation.fillMode = .forwards
-        animation.isRemovedOnCompletion = true
-        
-        // Completion: schedule next shine
+
+    private func animateShine(first: Bool) {
+        // Always reset to the left before animating
+        shineLayer.frame = CGRect(x: -bounds.width, y: 0, width: bounds.width, height: bounds.height)
+
+        let anim = CABasicAnimation(keyPath: "position.x") // stringlint:ignore
+        anim.fromValue = -bounds.width
+        anim.toValue = bounds.width
+        anim.duration = 0.6
+        anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        anim.fillMode = .forwards
+        anim.isRemovedOnCompletion = true
+
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
+            guard let self = self, self.isAnimating else { return }
+            // After the shine passes, wait 2.4s, then repeat
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-                self?.runShine()
-                self?.shineLayer.opacity = 1.0
+                self.animateShine(first: false)
             }
         }
-        shineLayer.add(animation, forKey: "shine") // stringlint:ignore
+        shineLayer.add(anim, forKey: "shine") // stringlint:ignore
         CATransaction.commit()
     }
-    
+
     func stopShineAnimation() {
-        shineLayer.opacity = 0.0
+        isAnimating = false
         shineLayer.removeAllAnimations()
     }
 }
