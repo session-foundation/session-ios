@@ -12,7 +12,9 @@ enum _026_AddProMessageFlag: Migration {
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: "interaction") { t in
-            t.add(column: "isProMessage", .boolean).defaults(to: false)
+            t.add(column: "isProMessage", .boolean)
+                .notNull()
+                .defaults(to: false)
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
