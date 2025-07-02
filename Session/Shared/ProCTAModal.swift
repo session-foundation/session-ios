@@ -11,7 +11,7 @@ final class ProCTAModal: Modal {
         case longerMessages
         case animatedProfileImage
         case largerFiles
-        case morePinnedConvos
+        case morePinnedConvos(isGrandfathered: Bool)
         case groupLimit
         case groupLimitNonAdmin
         
@@ -27,7 +27,7 @@ final class ProCTAModal: Modal {
                 case .largerFiles:
                     return "session_pro_modal_background_larger_files"
                 case .morePinnedConvos:
-                    return "session_pro_modal_background_more_pinned_convos"
+                    return "PinnedConversationsCTA.webp"
                 case .groupLimit:
                     return "session_pro_modal_background_group_limit"
                 case .groupLimitNonAdmin:
@@ -48,13 +48,15 @@ final class ProCTAModal: Modal {
                 case .generic:
                     return "Want to use Session to its fullest potential? Upgrade to Session Pro to gain access to loads exclusive perks and features."
                 case .longerMessages:
-                return "proCallToActionLongerMessages".localized()
+                    return "proCallToActionLongerMessages".localized()
                 case .animatedProfileImage:
                     return "Want to use gifs? Upgrade to Session Pro to upload animated display pictures and gain access to loads of other exclusive features."
                 case .largerFiles:
                     return "Want to send larger files? Upgrade to Session Pro to send files beyond the 10MB limit."
-                case .morePinnedConvos:
-                    return "Want to pin more conversations? Upgrade to Session Pro to pin more than 5 conversations."
+                case .morePinnedConvos(let isGrandfathered):
+                    return isGrandfathered ?
+                        "Want more pins? Organize your chats and unlock premium features with Session Pro" :
+                        "Want more than 5 pins? Organize your chats and unlock premium features with Session Pro"
                 case .groupLimit:
                     return "Want to increase the number of members you can invite to your group? Upgrade to Session Pro to invite up to 300 contacts."
                 case .groupLimitNonAdmin:
@@ -91,8 +93,8 @@ final class ProCTAModal: Modal {
                 case .morePinnedConvos:
                     return [
                         "Pin unlimited conversations",
-                        "Increase group sizes to 300 members",
-                        "Heaps more exclusive features"
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
                     ]
                 case .groupLimit:
                     return [

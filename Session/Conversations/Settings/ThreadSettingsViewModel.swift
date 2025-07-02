@@ -502,17 +502,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
                             label: "Pin Conversation"
                         ),
-                        onTap: { [dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAllAndConfig(
-                                        db,
-                                        SessionThread.Columns.shouldBeVisible.set(to: true),
-                                        SessionThread.Columns.pinnedPriority.set(to: (threadViewModel.threadPinnedPriority <= 0 ? 1 : 0)),
-                                        using: dependencies
-                                    )
-                            }
+                        onTap: { [weak self] in
+                            self?.pinConversation(
+                                threadPinnedPriority: threadViewModel.threadPinnedPriority
+                            )
                         }
                     )
                  ),
@@ -1825,6 +1818,39 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 .updateAllAndConfig(
                     db,
                     Contact.Columns.isBlocked.set(to: isBlocked),
+                    using: dependencies
+                )
+        }
+    }
+    
+    private func pinConversation(threadPinnedPriority: Int32) {
+        let isPinning: Bool = (threadPinnedPriority <= 0)
+        if isPinning,
+           !dependencies[cache: .libSession].isSessionPro,
+           let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
+               try SessionThread
+                   .filter(SessionThread.Columns.pinnedPriority == 1)
+                   .fetchCount(db)
+           }),
+           pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+        {
+            let sessionProModal: ProCTAModal = ProCTAModal(
+                touchPoint: .morePinnedConvos(
+                    isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
+                ),
+                using: dependencies
+            )
+            self.transitionToScreen(sessionProModal, transitionType: .present)
+            return
+        }
+        
+        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+            try SessionThread
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    SessionThread.Columns.shouldBeVisible.set(to: true),
+                    SessionThread.Columns.pinnedPriority.set(to: (isPinning ? 1 : 0)),
                     using: dependencies
                 )
         }

@@ -231,6 +231,29 @@ public extension UIContextualAction {
                             indexPath: indexPath,
                             tableView: tableView
                         ) { _, _, completionHandler in
+                            let isPinning: Bool = (threadViewModel.threadPinnedPriority <= 0)
+                            if isPinning,
+                               !dependencies[cache: .libSession].isSessionPro,
+                               let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
+                                   try SessionThread
+                                       .filter(SessionThread.Columns.pinnedPriority == 1)
+                                       .fetchCount(db)
+                               }),
+                               pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+                            {
+                                let sessionProModal: ProCTAModal = ProCTAModal(
+                                    touchPoint: .morePinnedConvos(
+                                        isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
+                                    ),
+                                    using: dependencies,
+                                    afterClosed: {
+                                        completionHandler(true)
+                                    }
+                                )
+                                viewController?.present(sessionProModal, animated: true, completion: nil)
+                                return
+                            }
+                            
                             (tableView.cellForRow(at: indexPath) as? SwipeActionOptimisticCell)?
                                 .optimisticUpdate(
                                     isPinned: !(threadViewModel.threadPinnedPriority > 0)
