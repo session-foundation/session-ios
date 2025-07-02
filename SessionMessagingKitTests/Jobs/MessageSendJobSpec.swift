@@ -163,6 +163,7 @@ class MessageSendJobSpec: QuickSpec {
                         state: .sending,
                         recipientReadTimestampMs: nil,
                         mostRecentFailureText: nil,
+                        isProMessage: false,
                         transientDependencies: nil
                     )
                     job = Job(
