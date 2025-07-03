@@ -42,6 +42,7 @@ class OpenGroupManagerSpec: QuickSpec {
             state: .sending,
             recipientReadTimestampMs: nil,
             mostRecentFailureText: nil,
+            isProMessage: false,
             transientDependencies: nil
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(

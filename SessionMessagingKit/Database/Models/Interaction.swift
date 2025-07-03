@@ -224,7 +224,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     public private(set) var mostRecentFailureText: String?
     
     /// A flag indicating if the message sender is a Session Pro user when the message is sent
-    public let isProMessage: Bool
+    public let isProMessage: Bool?
     
     // MARK: - Internal Values Used During Creation
     
@@ -294,7 +294,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         state: State,
         recipientReadTimestampMs: Int64?,
         mostRecentFailureText: String?,
-        isProMessage: Bool,
+        isProMessage: Bool?,
         transientDependencies: EquatableIgnoring<Dependencies>?
     ) {
         self.id = id
@@ -341,7 +341,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil,
         state: Interaction.State? = nil,
-        isProMessage: Bool = false,
+        isProMessage: Bool? = nil,
         using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
@@ -444,7 +444,7 @@ public extension Interaction {
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
             mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
-            isProMessage: try container.decode(Bool.self, forKey: .isProMessage),
+            isProMessage: try? container.decode(Bool.self, forKey: .isProMessage),
             transientDependencies: decoder.dependencies.map { EquatableIgnoring(value: $0) }
         )
     }
