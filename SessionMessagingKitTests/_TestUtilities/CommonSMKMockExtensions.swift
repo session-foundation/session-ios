@@ -70,6 +70,7 @@ extension Interaction: Mocked {
         state: .sent,
         recipientReadTimestampMs: nil,
         mostRecentFailureText: nil,
+        isProMessage: false,
         transientDependencies: nil
     )
 }

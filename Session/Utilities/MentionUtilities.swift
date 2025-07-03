@@ -16,6 +16,69 @@ public enum MentionUtilities {
         case styleFree
     }
     
+    public static func getMentions(
+        in string: String,
+        threadVariant: SessionThread.Variant,
+        currentUserSessionId: String?,
+        currentUserBlinded15SessionId: String?,
+        currentUserBlinded25SessionId: String?,
+        using dependencies: Dependencies
+    ) -> (String, [(range: NSRange, isCurrentUser: Bool, info: MentionInfo)]) {
+        guard
+            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+        else {
+            return (string, [])
+        }
+        
+        var string = string
+        var lastMatchEnd: Int = 0
+        var mentions: [(range: NSRange, isCurrentUser: Bool, info: MentionInfo)] = []
+        let currentUserSessionIds: Set<String> = [
+            currentUserSessionId,
+            currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId
+        ]
+        .compactMap { $0 }
+        .asSet()
+        
+        while let match: NSTextCheckingResult = regex.firstMatch(
+            in: string,
+            options: .withoutAnchoringBounds,
+            range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)
+        ) {
+            guard let range: Range = Range(match.range, in: string) else { break }
+            
+            let sessionId: String = String(string[range].dropFirst()) // Drop the @
+            let isCurrentUser: Bool = currentUserSessionIds.contains(sessionId)
+            
+            // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
+            guard let targetProfile: Profile = dependencies[singleton: .storage].read({ db in try? Profile.fetchOne(db, id: sessionId)}) else {
+                lastMatchEnd = (match.range.location + match.range.length)
+                continue
+            }
+            
+            let targetString: String = {
+                guard !isCurrentUser else { return "you".localized() }
+                return targetProfile.displayName(for: threadVariant)
+            }()
+            
+            string = string.replacingCharacters(in: range, with: "@\(targetString)")    // stringlint:ignore
+            lastMatchEnd = (match.range.location + targetString.utf16.count)
+            
+            mentions.append((
+                // + 1 to include the @
+                range: NSRange(location: match.range.location, length: targetString.utf16.count + 1),
+                isCurrentUser: isCurrentUser,
+                info: MentionInfo(
+                    profile: targetProfile,
+                    threadVariant: threadVariant
+                )
+            ))
+        }
+        
+        return (string, mentions)
+    }
+    
     public static func highlightMentionsNoAttributes(
         in string: String,
         threadVariant: SessionThread.Variant,
@@ -51,54 +114,14 @@ public enum MentionUtilities {
         attributes: [NSAttributedString.Key: Any],
         using dependencies: Dependencies
     ) -> ThemedAttributedString {
-        guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        else {
-            return ThemedAttributedString(string: string)
-        }
-        
-        var string = string
-        var lastMatchEnd: Int = 0
-        var mentions: [(range: NSRange, isCurrentUser: Bool)] = []
-        let currentUserSessionIds: Set<String> = [
-            currentUserSessionId,
-            currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId
-        ]
-        .compactMap { $0 }
-        .asSet()
-        
-        while let match: NSTextCheckingResult = regex.firstMatch(
+        let (string, mentions) = getMentions(
             in: string,
-            options: .withoutAnchoringBounds,
-            range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)
-        ) {
-            guard let range: Range = Range(match.range, in: string) else { break }
-            
-            let sessionId: String = String(string[range].dropFirst()) // Drop the @
-            let isCurrentUser: Bool = currentUserSessionIds.contains(sessionId)
-            
-            guard let targetString: String = {
-                guard !isCurrentUser else { return "you".localized() }
-                // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                guard let displayName: String = Profile.displayNameNoFallback(id: sessionId, threadVariant: threadVariant, using: dependencies) else {
-                    lastMatchEnd = (match.range.location + match.range.length)
-                    return nil
-                }
-                
-                return displayName
-            }()
-            else { continue }
-            
-            string = string.replacingCharacters(in: range, with: "@\(targetString)")    // stringlint:ignore
-            lastMatchEnd = (match.range.location + targetString.utf16.count)
-            
-            mentions.append((
-                // + 1 to include the @
-                range: NSRange(location: match.range.location, length: targetString.utf16.count + 1),
-                isCurrentUser: isCurrentUser
-            ))
-        }
+            threadVariant: threadVariant,
+            currentUserSessionId: currentUserSessionId,
+            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            using: dependencies
+        )
         
         let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
         let result: ThemedAttributedString = ThemedAttributedString(string: string, attributes: attributes)
