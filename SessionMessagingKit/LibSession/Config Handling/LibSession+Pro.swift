@@ -38,6 +38,6 @@ public extension LibSessionCacheType {
         guard isSessionPro else {
             return nil
         }
-        return "fake-pro-proof"
+        return ""
     }
 }
