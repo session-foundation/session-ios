@@ -162,19 +162,22 @@ extension MessageReceiver {
             using: dependencies
         )
         do {
+            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(message.proProof) })
+            let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(message.text, isProMessage: isProMessage)
+            
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 authorId: sender,
                 variant: variant,
-                body: message.text,
+                body: processedMessageBody,
                 timestampMs: Int64(messageSentTimestamp * 1000),
                 wasRead: wasRead,
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
-                    body: message.text,
+                    body: processedMessageBody,
                     quoteAuthorId: dataMessage.quote?.author,
                     using: dependencies
                 ),
@@ -190,6 +193,7 @@ extension MessageReceiver {
                 // If we received an outgoing message then we can assume the interaction has already
                 // been sent, otherwise we should just use whatever the default state is
                 state: (variant == .standardOutgoing ? .sent : nil),
+                isProMessage: isProMessage,
                 using: dependencies
             ).inserted(db)
         }
@@ -530,5 +534,16 @@ extension MessageReceiver {
             
             _ = try pendingReadReceipt.delete(db)
         }
+    }
+    
+    private static func truncateMessageTextIfNeeded(
+        _ text: String?,
+        isProMessage: Bool
+    ) -> String? {
+        guard let text = text else { return nil }
+        guard !isProMessage && text.count > LibSession.CharacterLimit else {
+            return text
+        }
+        return String(text.prefix(LibSession.CharacterLimit))
     }
 }

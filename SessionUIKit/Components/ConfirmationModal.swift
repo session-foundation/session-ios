@@ -663,15 +663,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     @objc internal func textFieldClearButtonTapped() {
-        self.textField.text = ""
+        textField.text = ""
+        internalOnTextChanged?((textField.text ?? ""), textView.text)
     }
     
     @objc internal func textViewClearButtonTapped() {
-        self.textView.text = ""
-        textViewHeightConstraint?.constant = textViewMinHeight
-        UIView.animate(withDuration: 0.2) {
-            self.view.layoutIfNeeded()
-        }
+        textView.text = ""
+        textViewDidChange(textView)
     }
     
     // MARK: - Keyboard Avoidance

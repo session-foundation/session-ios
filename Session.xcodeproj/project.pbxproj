@@ -194,6 +194,14 @@
 		94A6B9DB2DD6BF7C00DB4B44 /* Constants+URLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A6B9DA2DD6BF6E00DB4B44 /* Constants+URLs.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
+		94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BA2E08D9D40097754D /* SessionProBadge.swift */; };
+		94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BC2E0908340097754D /* LibSession+Pro.swift */; };
+		94CD95BF2E0936D50097754D /* ProCTAModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BE2E0936CF0097754D /* ProCTAModal.swift */; };
+		94CD95C12E0CBF430097754D /* _026_AddProMessageFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */; };
+		94CD95C42E0D0BFC0097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */; };
+		94CD95C62E0D290F0097754D /* GenericCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C52E0D290F0097754D /* GenericCTA.webp */; };
+		94CD95CA2E1358B40097754D /* GenericCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */; };
+		94CD95CC2E13BD5C0097754D /* ShineButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95CB2E13BD560097754D /* ShineButton.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1501,6 +1509,14 @@
 		94A6B9DA2DD6BF6E00DB4B44 /* Constants+URLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Constants+URLs.swift"; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
+		94CD95BA2E08D9D40097754D /* SessionProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBadge.swift; sourceTree = "<group>"; };
+		94CD95BC2E0908340097754D /* LibSession+Pro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Pro.swift"; sourceTree = "<group>"; };
+		94CD95BE2E0936CF0097754D /* ProCTAModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProCTAModal.swift; sourceTree = "<group>"; };
+		94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _026_AddProMessageFlag.swift; sourceTree = "<group>"; };
+		94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = HigherCharLimitCTA.webp; sourceTree = "<group>"; };
+		94CD95C52E0D290F0097754D /* GenericCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTA.webp; sourceTree = "<group>"; };
+		94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTAAnimation.webp; sourceTree = "<group>"; };
+		94CD95CB2E13BD560097754D /* ShineButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShineButton.swift; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -2739,6 +2755,16 @@
 			path = SessionNetworkScreen;
 			sourceTree = "<group>";
 		};
+		94CD95C22E0D0BDF0097754D /* WebPImages */ = {
+			isa = PBXGroup;
+			children = (
+				94CD95C92E1358B40097754D /* GenericCTAAnimation.webp */,
+				94CD95C32E0D0BFC0097754D /* HigherCharLimitCTA.webp */,
+				94CD95C52E0D290F0097754D /* GenericCTA.webp */,
+			);
+			path = WebPImages;
+			sourceTree = "<group>";
+		};
 		B8041A7325C8F758003C2166 /* Content Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -2936,6 +2962,7 @@
 				7B2561C329874851005C086C /* SessionCarouselView+Info.swift */,
 				7B3A3933298882D6002FE4AC /* SessionCarouselViewDelegate.swift */,
 				FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */,
+				94CD95BE2E0936CF0097754D /* ProCTAModal.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -3175,6 +3202,8 @@
 			children = (
 				942256932C23F8DD00C0FDBF /* SwiftUI */,
 				B8B5BCEB2394D869003823C9 /* SessionButton.swift */,
+				94CD95CB2E13BD560097754D /* ShineButton.swift */,
+				94CD95BA2E08D9D40097754D /* SessionProBadge.swift */,
 				FD52090228B4680F006098F6 /* RadioButton.swift */,
 				B8BB82B02390C37000BA5194 /* SearchBar.swift */,
 				B8BB82B82394911B00BA5194 /* Separator.swift */,
@@ -3667,6 +3696,7 @@
 				B8FF8E6025C10D8B004D1F22 /* Countries */,
 				34330A581E7875FB00DF2FB9 /* Fonts */,
 				B66DBF4919D5BBC8006EA940 /* Images.xcassets */,
+				94CD95C22E0D0BDF0097754D /* WebPImages */,
 				45CB2FA71CB7146C00E1B343 /* Launch Screen.storyboard */,
 				FDE125222A837E4E002DA685 /* MainAppContext.swift */,
 				C3CA3AA0255CDA7000F4C6D4 /* Mnemonic */,
@@ -3871,6 +3901,7 @@
 				FDE33BBD2D5C3AE800E56F42 /* _023_GroupsExpiredFlag.swift */,
 				FD860CBB2D6E7A9400BBE29C /* _024_FixBustedInteractionVariant.swift */,
 				FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */,
+				94CD95C02E0CBF1C0097754D /* _026_AddProMessageFlag.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -4446,6 +4477,7 @@
 		FD8ECF8E29381FB200C0D1BB /* Config Handling */ = {
 			isa = PBXGroup;
 			children = (
+				94CD95BC2E0908340097754D /* LibSession+Pro.swift */,
 				FD2272F32C352D8D004D8A6C /* LibSession+Contacts.swift */,
 				FD2272F42C352D8D004D8A6C /* LibSession+ConvoInfoVolatile.swift */,
 				FD2272F92C352D8E004D8A6C /* LibSession+GroupInfo.swift */,
@@ -5439,6 +5471,7 @@
 			files = (
 				4C63CC00210A620B003AE45C /* SignalTSan.supp in Resources */,
 				4C6F527C20FFE8400097DEEE /* SignalUBSan.supp in Resources */,
+				94CD95CA2E1358B40097754D /* GenericCTAAnimation.webp in Resources */,
 				FD86FDA32BC5020600EC251B /* PrivacyInfo.xcprivacy in Resources */,
 				34CF078A203E6B78005C4D61 /* end_call_tone_cept.caf in Resources */,
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,
@@ -5467,6 +5500,7 @@
 				FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
 				4503F1BE20470A5B00CEE724 /* classic-quiet.aifc in Resources */,
+				94CD95C62E0D290F0097754D /* GenericCTA.webp in Resources */,
 				45B74A7E2044AAB600CD42F8 /* complete.aifc in Resources */,
 				9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,
@@ -5488,6 +5522,7 @@
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,
+				94CD95C42E0D0BFC0097754D /* HigherCharLimitCTA.webp in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5848,8 +5883,10 @@
 				FD8A5B022DBEFF73004C689B /* SessionNetworkScreen+Models.swift in Sources */,
 				FD71165828E436E800B47552 /* Modal.swift in Sources */,
 				FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */,
+				94CD95CC2E13BD5C0097754D /* ShineButton.swift in Sources */,
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				FD8A5B102DBF2F17004C689B /* NavBarSessionIcon.swift in Sources */,
+				94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */,
 				942256972C23F8DD00C0FDBF /* SessionSearchBar.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
@@ -6231,6 +6268,7 @@
 				FD2273022C352D8E004D8A6C /* LibSession+GroupInfo.swift in Sources */,
 				FDDD554E2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift in Sources */,
 				FD09798927FD1C5A00936362 /* OpenGroup.swift in Sources */,
+				94CD95C12E0CBF430097754D /* _026_AddProMessageFlag.swift in Sources */,
 				FD2272FC2C352D8E004D8A6C /* LibSession+Contacts.swift in Sources */,
 				FD848B9628422A2A000E298B /* MessageViewModel.swift in Sources */,
 				FD2272782C32911C004D8A6C /* AttachmentDownloadJob.swift in Sources */,
@@ -6385,6 +6423,7 @@
 				FD2272FF2C352D8E004D8A6C /* LibSession+UserProfile.swift in Sources */,
 				FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */,
 				FDB5DAE82A95D96C002C8721 /* MessageReceiver+Groups.swift in Sources */,
+				94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */,
 				FD1D732E2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift in Sources */,
 				FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */,
 				FDAA167F2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift in Sources */,
@@ -6478,6 +6517,7 @@
 				3496955E219B605E00DCFE74 /* PhotoLibrary.swift in Sources */,
 				7BA37AFD2AEF7C3D002438F8 /* VoiceMessageView_SwiftUI.swift in Sources */,
 				7B1B52E028580D51006069F2 /* EmojiSkinTonePicker.swift in Sources */,
+				94CD95BF2E0936D50097754D /* ProCTAModal.swift in Sources */,
 				B849789625D4A2F500D0D0B3 /* LinkPreviewView.swift in Sources */,
 				FD71164428E2CB8A00B47552 /* SessionCell+Accessory.swift in Sources */,
 				7B1B52DF28580D51006069F2 /* EmojiPickerCollectionView.swift in Sources */,
