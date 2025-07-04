@@ -301,6 +301,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             viewModel.updateTableData(updatedData)
             filteredTableData = filterTableDataIfNeeded()
             tableView.reloadData()
+            tableView.beginUpdates()
+            tableView.endUpdates()
             hasLoadedInitialTableData = true
             
             // Complete page loading
