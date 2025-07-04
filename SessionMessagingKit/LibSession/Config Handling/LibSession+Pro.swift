@@ -12,7 +12,7 @@ public extension LibSession {
     static var ProCharacterLimit: Int { 10000 }
     
     static func numberOfCharactersLeft(for content: String, isSessionPro: Bool) -> Int {
-        return ((isSessionPro ? ProCharacterLimit : CharacterLimit) - content.utf8.count)
+        return ((isSessionPro ? ProCharacterLimit : CharacterLimit) - content.utf16.count)
     }
 }
 
