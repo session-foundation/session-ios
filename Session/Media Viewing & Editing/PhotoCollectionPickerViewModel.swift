@@ -63,7 +63,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
 
     let title: String = "notificationsSound".localized()
 
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(photoCollections)
         .map { [thumbnailSize, thumbnailPixelDimension] collections -> [SectionModel] in
             [

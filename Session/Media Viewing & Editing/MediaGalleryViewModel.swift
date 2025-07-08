@@ -207,6 +207,7 @@ public class MediaGalleryViewModel {
         public typealias Columns = CodingKeys
         public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
             case interactionId
+            case interactionThreadId
             case interactionVariant
             case interactionAuthorId
             case interactionTimestampMs
@@ -220,6 +221,7 @@ public class MediaGalleryViewModel {
         public var differenceIdentifier: String { attachment.id }
         
         let interactionId: Int64
+        let interactionThreadId: String
         let interactionVariant: Interaction.Variant
         let interactionAuthorId: String
         let interactionTimestampMs: Int64

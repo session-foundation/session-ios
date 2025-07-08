@@ -97,19 +97,28 @@ extension MessageSender {
 extension MessageSender {
     public static func standardEventHandling(using dependencies: Dependencies) -> ((Event) -> Void) {
         return { event in
-            dependencies[singleton: .storage].write { db in
+            let threadId: String = Message.threadId(
+                forMessage: event.message,
+                destination: event.destination,
+                using: dependencies
+            )
+            
+            dependencies[singleton: .storage].writeAsync { db in
                 switch event {
                     case .willSend(let message, let destination, let interactionId):
                         handleMessageWillSend(
                             db,
+                            threadId: threadId,
                             message: message,
                             destination: destination,
-                            interactionId: interactionId
+                            interactionId: interactionId,
+                            using: dependencies
                         )
                     
                     case .success(let message, let destination, let interactionId, let serverTimestampMs, let serverExpirationMs):
                         try handleSuccessfulMessageSend(
                             db,
+                            threadId: threadId,
                             message: message,
                             to: destination,
                             interactionId: interactionId,
@@ -119,8 +128,11 @@ extension MessageSender {
                         )
                         
                     case .failure(let message, let destination, let interactionId, let error):
+                        let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
+                        
                         handleFailedMessageSend(
                             db,
+                            threadId: threadId,
                             message: message,
                             destination: destination,
                             error: error,
@@ -134,9 +146,11 @@ extension MessageSender {
     
     internal static func handleMessageWillSend(
         _ db: ObservingDatabase,
+        threadId: String,
         message: Message,
         destination: Message.Destination,
-        interactionId: Int64?
+        interactionId: Int64?,
+        using dependencies: Dependencies
     ) {
         // If the message was a reaction then we don't want to do anything to the original
         // interaction (which the 'interactionId' is pointing to
@@ -149,17 +163,20 @@ extension MessageSender {
                     .filter(id: interactionId)
                     .filter(Interaction.Columns.state == Interaction.State.failedToSync)
                     .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.syncing))
+                db.addMessageEvent(id: interactionId, threadId: threadId, type: .updated(.state(.syncing)))
                 
             default:
                 _ = try? Interaction
                     .filter(id: interactionId)
                     .filter(Interaction.Columns.state == Interaction.State.failed)
                     .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.sending))
+                db.addMessageEvent(id: interactionId, threadId: threadId, type: .updated(.state(.sending)))
         }
     }
     
     private static func handleSuccessfulMessageSend(
         _ db: ObservingDatabase,
+        threadId: String,
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
@@ -243,8 +260,8 @@ extension MessageSender {
             }
         }
         
-        // Extract the threadId from the message
-        let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
+        // Notify of the state change
+        db.addMessageEvent(id: interactionId, threadId: threadId, type: .updated(.state(.sent)))
         
         // Insert a `MessageDeduplication` record so we don't handle this message when it's received
         // in the next poll
@@ -283,6 +300,7 @@ extension MessageSender {
 
     @discardableResult internal static func handleFailedMessageSend(
         _ db: ObservingDatabase,
+        threadId: String,
         message: Message,
         destination: Message.Destination?,
         error: MessageSenderError,
@@ -320,6 +338,7 @@ extension MessageSender {
                         Interaction.Columns.state.set(to: Interaction.State.failedToSync),
                         Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
                     )
+                db.addMessageEvent(id: interactionId, threadId: threadId, type: .updated(.state(.failedToSync)))
                 
             default:
                 _ = try? Interaction
@@ -330,6 +349,7 @@ extension MessageSender {
                         Interaction.Columns.state.set(to: Interaction.State.failed),
                         Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
                     )
+                db.addMessageEvent(id: interactionId, threadId: threadId, type: .updated(.state(.failed)))
         }
         
         return error

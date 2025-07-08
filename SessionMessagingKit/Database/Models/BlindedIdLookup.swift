@@ -141,6 +141,8 @@ public extension BlindedIdLookup {
                         Contact.Columns.isApproved.set(to: true),
                         using: dependencies
                     )
+                
+                db.addContactEvent(id: contact.id, change: .isApproved(true))
             }
             
             break

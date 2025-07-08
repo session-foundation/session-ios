@@ -625,15 +625,13 @@ extension ConversationVC:
             .writePublisher { [weak self, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
-                    _ = try SessionThread
-                        .filter(id: threadId)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.shouldBeVisible.set(to: true),
-                            SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                            SessionThread.Columns.isDraft.set(to: false),
-                            using: dependencies
-                        )
+                    try SessionThread.updateVisibility(
+                        db,
+                        threadId: threadId,
+                        isVisible: true,
+                        additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+                        using: dependencies
+                    )
                 }
                 
                 // Insert the interaction and associated it with the optimistically inserted message so
@@ -719,9 +717,14 @@ extension ConversationVC:
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
-            dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .outgoing)
-            
+        Task {
+            await viewModel.dependencies[singleton: .typingIndicators].didStopTyping(
+                threadId: threadId,
+                direction: .outgoing
+            )
+        }
+        
+        viewModel.dependencies[singleton: .storage].writeAsync { db in
             _ = try SessionThread
                 .filter(id: threadId)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: ""))
@@ -758,14 +761,14 @@ extension ConversationVC:
         let newText: String = (inputTextView.text ?? "")
         
         if !newText.isEmpty {
-            viewModel.dependencies[singleton: .typingIndicators].startIfNeeded(
-                threadId: viewModel.threadData.threadId,
-                threadVariant: viewModel.threadData.threadVariant,
-                threadIsBlocked: (viewModel.threadData.threadIsBlocked == true),
-                threadIsMessageRequest: (viewModel.threadData.threadIsMessageRequest == true),
-                direction: .outgoing,
-                timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-            )
+            Task { [threadData = viewModel.threadData, dependencies = viewModel.dependencies] in
+                await viewModel.dependencies[singleton: .typingIndicators].startIfNeeded(
+                    threadId: threadData.threadId,
+                    threadVariant: threadData.threadVariant,
+                    direction: .outgoing,
+                    timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                )
+            }
         }
         
         updateMentions(for: newText)
@@ -1268,6 +1271,9 @@ extension ConversationVC:
                 
                 // Otherwise share the file
                 let shareVC = UIActivityViewController(activityItems: [ fileUrl ], applicationActivities: nil)
+                shareVC.completionWithItemsHandler = { [dependencies = viewModel.dependencies] _, success, _, _ in
+                    UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                }
                 
                 if UIDevice.current.isIPad {
                     shareVC.excludedActivityTypes = []
@@ -1667,13 +1673,12 @@ extension ConversationVC:
         .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupAPI.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
             // Update the thread to be visible (if it isn't already)
             if self?.viewModel.threadData.threadShouldBeVisible == false {
-                _ = try SessionThread
-                    .filter(id: cellViewModel.threadId)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.shouldBeVisible.set(to: true),
-                        using: dependencies
-                    )
+                try SessionThread.updateVisibility(
+                    db,
+                    threadId: cellViewModel.threadId,
+                    isVisible: true,
+                    using: dependencies
+                )
             }
             
             let pendingReaction: Reaction? = {
@@ -2724,16 +2729,19 @@ extension ConversationVC {
                         }
                         
                         // Default 'didApproveMe' to true for the person approving the message request
+                        let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
                         try contact.upsert(db)
                         try Contact
                             .filter(id: contact.id)
                             .updateAllAndConfig(
                                 db,
                                 Contact.Columns.isApproved.set(to: true),
-                                Contact.Columns.didApproveMe
-                                    .set(to: contact.didApproveMe || !isDraft),
+                                Contact.Columns.didApproveMe.set(to: updatedDidApproveMe),
                                 using: dependencies
                             )
+                        db.addContactEvent(id: contact.id, change: .isApproved(true))
+                        db.addContactEvent(id: contact.id, change: .didApproveMe(updatedDidApproveMe))
+                        db.addEvent(contact.id, forKey: .messageRequestAccepted)
                     }
                     .map { _ in () }
                     .catch { _ in Just(()).eraseToAnyPublisher() }

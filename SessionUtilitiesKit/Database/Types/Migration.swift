@@ -29,7 +29,7 @@ public extension Migration {
         return { (db: ObservingDatabase) in
             Log.info(.migration, "Starting \(targetIdentifier.key(with: self))")
             storage?.willStartMigration(db, self, targetIdentifier)
-            defer { storage?.didCompleteMigration() }
+            defer { storage?.didCompleteMigration(events: db.events, postCommitActions: db.postCommitActions) }
             
             try migrate(db, using: dependencies)
             Log.info(.migration, "Completed \(targetIdentifier.key(with: self))")

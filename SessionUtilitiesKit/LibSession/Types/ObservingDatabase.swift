@@ -4,43 +4,55 @@ import Foundation
 import GRDB
 
 public class ObservingDatabase {
-    public typealias Change = (key: ObservableKey, value: Any?)
-    
     private let dependencies: Dependencies
     internal let originalDb: Database
-    internal var changes: [Change] = []
+    internal var events: [ObservedEvent] = []
+    internal var postCommitActions: [String: () -> Void] = [:]
     
     // MARK: - Initialization
     
-    public init(_ db: Database, changes: [Change] = [], using dependencies: Dependencies) {
+    /// The observation mechanism works via the `Storage` wrapper so if we create a new `ObservingDatabase` outside of that
+    /// mechanism the observed events won't be emitted
+    public static func create(_ db: Database, using dependencies: Dependencies) -> ObservingDatabase {
+        return ObservingDatabase(db, using: dependencies)
+    }
+    
+    private init(_ db: Database, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.originalDb = db
-        self.changes = changes
     }
     
     // MARK: - Functions
     
-    public func addChange(_ value: Any?, forKey key: ObservableKey) {
-        /// If this is the first
-        if changes.isEmpty {
-            afterNextTransactionNested(using: dependencies) { [weak self, dependencies] _ in
-                guard let changes: [Change] = self?.changes, !changes.isEmpty else { return }
-                
-                Task(priority: .medium) {
-                    await dependencies[singleton: .observationManager].notify(changes)                    
-                }
-            }
-        }
+    public func addEvent(_ event: ObservedEvent) {
+        events.append(event)
+    }
+    
+    public func afterCommit(
+        dedupeId: String = UUID().uuidString,
+        closure: @escaping () -> Void
+    ) {
+        /// If there is already an entry for `dedupeId` then don't do anything (this allows us to schedule an action to run at most once
+        /// per commit (eg. scheduling a job to run after receiving messages)
+        guard postCommitActions[dedupeId] == nil else { return }
         
-        changes.append((key, value))
+        postCommitActions[dedupeId] = closure
     }
 }
 
 public extension ObservingDatabase {
-    func addChangeIfNotNull(_ value: Any?, forKey key: ObservableKey) {
-        guard let value: Any = value else { return }
+    func addEvent(_ key: ObservableKey) {
+        addEvent(ObservedEvent(key: key, value: nil))
+    }
+    
+    func addEvent(_ value: AnyHashable?, forKey key: ObservableKey) {
+        addEvent(ObservedEvent(key: key, value: value))
+    }
+    
+    func addEventIfNotNull(_ value: AnyHashable?, forKey key: ObservableKey) {
+        guard let value: AnyHashable = value else { return }
         
-        addChange(value, forKey: key)
+        addEvent(ObservedEvent(key: key, value: value))
     }
 }
 
@@ -360,6 +372,10 @@ public extension ObservingDatabase {
         try self.originalDb.makeFTS5Pattern(rawPattern: rawPattern, forTable: table)
     }
     
+    func makeFTS5Pattern<T>(rawPattern: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
+        return try makeFTS5Pattern(rawPattern: rawPattern, forTable: table.databaseTableName)
+    }
+    
     func dropFTS5SynchronizationTriggers(forTable tableName: String) throws {
         try self.originalDb.dropFTS5SynchronizationTriggers(forTable: tableName)
     }
@@ -374,16 +390,6 @@ public extension ObservingDatabase {
     
     func makeStatement(sql: String) throws -> Statement {
         try self.originalDb.makeStatement(sql: sql)
-    }
-    
-    func afterNextTransaction(
-        onCommit: @escaping @Sendable (ObservingDatabase) -> Void,
-        onRollback: @escaping @Sendable (ObservingDatabase) -> Void = { _ in }
-    ) {
-        self.originalDb.afterNextTransaction(
-            onCommit: { [dependencies] db in onCommit(ObservingDatabase(db, using: dependencies)) },
-            onRollback: { [dependencies] db in onRollback(ObservingDatabase(db, using: dependencies)) }
-        )
     }
     
     func add(

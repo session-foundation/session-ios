@@ -281,27 +281,34 @@ public class ExtensionHelper: ExtensionHelperType {
         else { return }
         
         /// Load the config dumps from the database
-        let dumps: [ConfigDump] = dependencies[singleton: .storage]
-            .read { db in try ConfigDump.fetchAll(db) }
-            .defaulting(to: [])
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        
-        /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from the database)
-        ///
-        /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
-        /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
-        /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
-        dumps.forEach { dump in
-            let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
-                for: dump.sessionId,
-                variant: dump.variant
-            )
-            
-            replicate(
-                dump: dump,
-                replaceExisting: (dumpLastUpdated < fetchTimestamp)
-            )
-        }
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { db in try ConfigDump.fetchAll(db) },
+            completion: { [weak self] result in
+                guard
+                    let self = self,
+                    let dumps: [ConfigDump] = try? result.successOrThrow()
+                else { return }
+                
+                /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
+                /// the database)
+                ///
+                /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
+                /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
+                /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
+                dumps.forEach { dump in
+                    let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
+                        for: dump.sessionId,
+                        variant: dump.variant
+                    )
+                    
+                    self.replicate(
+                        dump: dump,
+                        replaceExisting: (dumpLastUpdated < fetchTimestamp)
+                    )
+                }
+            }
+        )
     }
     
     public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {

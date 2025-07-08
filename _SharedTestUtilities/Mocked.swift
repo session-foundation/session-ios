@@ -63,8 +63,12 @@ extension ObservingDatabase: Mocked {
     static var mock: Self {
         var result: Database!
         try! DatabaseQueue().read { result = $0 }
-        return ObservingDatabase(result!, using: .any) as! Self
+        return ObservingDatabase.create(result!, using: .any) as! Self
     }
+}
+
+extension ObservedEvent: Mocked {
+    static var mock: ObservedEvent = ObservedEvent(key: "mock", value: nil)
 }
 
 extension UUID: Mocked {

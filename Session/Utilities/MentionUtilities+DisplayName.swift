@@ -18,7 +18,7 @@ public extension MentionUtilities {
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: { sessionId in
                 // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                Profile.displayNameNoFallback(
+                return Profile.displayNameNoFallback(
                     id: sessionId,
                     threadVariant: threadVariant,
                     using: dependencies
@@ -44,7 +44,7 @@ public extension MentionUtilities {
             attributes: attributes,
             displayNameRetriever: { sessionId in
                 // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                Profile.displayNameNoFallback(
+                return Profile.displayNameNoFallback(
                     id: sessionId,
                     threadVariant: threadVariant,
                     using: dependencies

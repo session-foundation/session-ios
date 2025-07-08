@@ -93,7 +93,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> { Just(infoBanner).eraseToAnyPublisher() }
     var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(emptyState).eraseToAnyPublisher() }
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [request, dependencies] db -> [WithProfile<T>] in
             try request.fetchAllWithProfiles(db, using: dependencies)
         }

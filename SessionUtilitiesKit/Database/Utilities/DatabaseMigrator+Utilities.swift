@@ -15,7 +15,7 @@ public extension DatabaseMigrator {
             targetIdentifier.key(with: migration),
             migrate: { db in
                 let migration = migration.loggedMigrate(storage, targetIdentifier: targetIdentifier, using: dependencies)
-                try migration(ObservingDatabase(db, using: dependencies))
+                try migration(ObservingDatabase.create(db, using: dependencies))
             }
         )
     }

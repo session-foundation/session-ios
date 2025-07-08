@@ -194,7 +194,9 @@ final class ShareNavController: UINavigationController {
         let screenLockVC = SAEScreenLockViewController(
             hasUserMetadata: userMetadata != nil,
             onUnlock: { [weak self] in self?.showMainContent(userMetadata: userMetadata) },
-            onCancel: { [weak self] in self?.shareViewWasCompleted() }
+            onCancel: { [weak self] in
+                self?.shareViewWasCompleted(threadId: nil, interactionId: nil)
+            }
         )
         setViewControllers([ screenLockVC ], animated: false)
     }
@@ -221,8 +223,14 @@ final class ShareNavController: UINavigationController {
         ShareNavController.attachmentPrepPublisher = publisher
     }
     
-    func shareViewWasCompleted() {
-        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+    func shareViewWasCompleted(threadId: String?, interactionId: Int64?) {
+        dependencies[defaults: .appGroup, key: .lastSharedThreadId] = threadId
+        
+        if let interactionId: Int64 = interactionId {
+            dependencies[defaults: .appGroup, key: .lastSharedMessageId] = Int(interactionId)
+        }
+        
+        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
     
     func shareViewFailed(error: Error) {

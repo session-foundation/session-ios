@@ -78,7 +78,7 @@ internal extension LibSessionCacheType {
                     profile.nickname != data.profile.nickname ||
                     profilePictureShouldBeUpdated
                 {
-                    db.addChange(profile, forKey: .profile(profile.id))
+                    db.addEvent(profile, forKey: .profile(profile.id))
                     try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
@@ -106,6 +106,22 @@ internal extension LibSessionCacheType {
                             ].compactMap { $0 },
                             using: dependencies
                         )
+                    
+                    if profileNameShouldBeUpdated {
+                        db.addProfileEvent(id: sessionId, change: .name(data.profile.name))
+                        
+                        if data.profile.nickname == nil {
+                            db.addConversationEvent(id: sessionId, type: .updated(.displayName(data.profile.name)))
+                        }
+                    }
+                    
+                    if profile.nickname != data.profile.nickname {
+                        db.addProfileEvent(id: sessionId, change: .nickname(data.profile.nickname))
+                        db.addConversationEvent(
+                            id: sessionId,
+                            type: .updated(.displayName(data.profile.nickname ?? data.profile.name))
+                        )
+                    }
                 }
                 
                 /// Since message requests have no reverse, we should only handle setting `isApproved`
@@ -116,7 +132,7 @@ internal extension LibSessionCacheType {
                     (contact.isBlocked != data.contact.isBlocked) ||
                     (contact.didApproveMe != data.contact.didApproveMe)
                 {
-                    db.addChange(contact, forKey: .contact(contact.id))
+                    db.addEvent(contact, forKey: .contact(contact.id))
                     try contact.upsert(db)
                     try Contact
                         .filter(id: sessionId)
@@ -135,6 +151,19 @@ internal extension LibSessionCacheType {
                             ].compactMap { $0 },
                             using: dependencies
                         )
+                    
+                    if contact.isApproved != data.contact.isApproved {
+                        db.addContactEvent(id: contact.id, change: .isApproved(data.contact.isApproved))
+                        db.addEvent(contact.id, forKey: .messageRequestAccepted)
+                    }
+                    
+                    if contact.didApproveMe != data.contact.didApproveMe {
+                        db.addContactEvent(id: contact.id, change: .didApproveMe(data.contact.didApproveMe))
+                    }
+                    
+                    if contact.isBlocked != data.contact.isBlocked {
+                        db.addContactEvent(id: contact.id, change: .isBlocked(data.contact.isBlocked))
+                    }
                 }
                 
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
@@ -492,7 +521,7 @@ internal extension LibSession {
         if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                    db.addChangeIfNotNull(
+                    db.addEventIfNotNull(
                         try cache.updateProfile(
                             displayName: updatedUserProfile.name,
                             displayPictureUrl: updatedUserProfile.displayPictureUrl,

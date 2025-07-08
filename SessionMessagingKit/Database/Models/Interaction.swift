@@ -5,7 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
+public struct Interaction: Codable, Identifiable, Equatable, Hashable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "interaction" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     internal static let linkPreviewForeignKey = ForeignKey(
@@ -223,7 +223,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     
     /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
     /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
-    private let transientDependencies: EquatableIgnoring<Dependencies>?
+    private let transientDependencies: EquatableHashableIgnoring<Dependencies>?
     
     // MARK: - Relationships
          
@@ -287,7 +287,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         state: State,
         recipientReadTimestampMs: Int64?,
         mostRecentFailureText: String?,
-        transientDependencies: EquatableIgnoring<Dependencies>?
+        transientDependencies: EquatableHashableIgnoring<Dependencies>?
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -368,7 +368,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
-        self.transientDependencies = EquatableIgnoring(value: dependencies)
+        self.transientDependencies = EquatableHashableIgnoring(value: dependencies)
     }
     
     // MARK: - Custom Database Interaction
@@ -386,18 +386,22 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         _ = try insert()
         
         // Start the disappearing messages timer if needed
-        switch (self.transientDependencies?.value, self.expiresStartedAtMs) {
-            case (_, .none): break
-            case (.none, .some):
-                Log.error("[Interaction] Could not update disappearing messages job due to missing transientDependencies.")
+        switch self.transientDependencies?.value {
+            case .none: Log.error("[Interaction] Missing transientDependencies when inserting.")
+            case .some(let dependencies):
+                guard let observableDb: ObservingDatabase = dependencies[singleton: .storage].observedDatabase(db) else {
+                    Log.error("[Interaction] Unable to get ObservingDatabase when inserting.")
+                    break
+                }
+                observableDb.addMessageEvent(id: id, threadId: threadId, type: .created)
                 
-            case (.some(let dependencies), .some):
-                let observableDb: ObservingDatabase = ObservingDatabase(db, using: dependencies)
-                dependencies[singleton: .jobRunner].upsert(
-                    observableDb,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(observableDb, using: dependencies),
-                    canStartJob: true
-                )
+                if self.expiresStartedAtMs != nil {
+                    dependencies[singleton: .jobRunner].upsert(
+                        observableDb,
+                        job: DisappearingMessagesJob.updateNextRunIfNeeded(observableDb, using: dependencies),
+                        canStartJob: true
+                    )
+                }
         }
     }
     
@@ -434,7 +438,7 @@ public extension Interaction {
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
             mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
-            transientDependencies: decoder.dependencies.map { EquatableIgnoring(value: $0) }
+            transientDependencies: decoder.dependencies.map { EquatableHashableIgnoring(value: $0) }
         )
     }
 }
@@ -634,6 +638,9 @@ public extension Interaction {
         
         // Update the `wasRead` flag to true
         try interactionQuery.updateAll(db, Columns.wasRead.set(to: true))
+        interactionInfoToMarkAsRead.forEach { info in
+            db.addMessageEvent(id: info.id, threadId: threadId, type: .updated(.wasRead(true)))
+        }
         
         // Retrieve the interaction ids we want to update
         try Interaction.scheduleReadJobs(
@@ -663,17 +670,17 @@ public extension Interaction {
         struct InterationRowState: Codable, FetchableRecord {
             public typealias Columns = CodingKeys
             public enum CodingKeys: String, CodingKey {
-                case rowId
+                case id
                 case state
             }
             
-            var rowId: Int64
+            var id: Int64
             var state: Interaction.State
         }
         
         // Get the row ids for the interactions which should be updated
         let interactionInfo: [InterationRowState] = try Interaction
-            .select(Column.rowID.forKey(InterationRowState.Columns.rowId), Interaction.Columns.state)
+            .select(.id, .state)
             .filter(Interaction.Columns.threadId == threadId)
             .filter(timestampMsValues.contains(Columns.timestampMs))
             .filter(Variant.variantsWhichSupportReadReceipts.contains(Columns.variant))
@@ -684,20 +691,20 @@ public extension Interaction {
         // timestamps are for pending read receipts
         guard !interactionInfo.isEmpty else { return timestampMsValues.asSet() }
         
-        let allRowIds: Set<Int64> = Set(interactionInfo.map { $0.rowId })
+        let allIds: Set<Int64> = Set(interactionInfo.map { $0.id })
         let sentInteractionIds: Set<Int64> = interactionInfo
             .filter { $0.state != .sending }
-            .map { $0.rowId }
+            .map { $0.id }
             .asSet()
-        let sendingInteractionInfo: Set<Int64> = interactionInfo
+        let sendingInteractionIds: Set<Int64> = interactionInfo
             .filter { $0.state == .sending }
-            .map { $0.rowId }
+            .map { $0.id }
             .asSet()
         
         // Update the 'recipientReadTimestampMs' if it doesn't match (need to do this to prevent
         // the UI update from being triggered for a redundant update)
         try Interaction
-            .filter(sentInteractionIds.contains(Column.rowID))
+            .filter(sentInteractionIds.contains(Interaction.Columns.id))
             .filter(Interaction.Columns.recipientReadTimestampMs == nil)
             .updateAll(
                 db,
@@ -707,7 +714,7 @@ public extension Interaction {
         // If the message still appeared to be sending then mark it as sent (can also remove the
         // failure text as it's redundant if the message is in the sent state)
         try Interaction
-            .filter(sendingInteractionInfo.contains(Column.rowID))
+            .filter(sendingInteractionIds.contains(Interaction.Columns.id))
             .filter(Interaction.Columns.state == Interaction.State.sending)
             .updateAll(
                 db,
@@ -715,10 +722,19 @@ public extension Interaction {
                 Interaction.Columns.mostRecentFailureText.set(to: nil)
             )
         
+        // Send events for the read receipt
+        sentInteractionIds.forEach { id in
+            db.addMessageEvent(id: id, threadId: threadId, type: .updated(.recipientReadTimestampMs(readTimestampMs)))
+        }
+        sendingInteractionIds.forEach { id in
+            db.addMessageEvent(id: id, threadId: threadId, type: .updated(.state(.sent)))
+            db.addMessageEvent(id: id, threadId: threadId, type: .updated(.recipientReadTimestampMs(readTimestampMs)))
+        }
+        
         // Retrieve the set of timestamps which were updated
         let timestampsUpdated: Set<Int64> = try Interaction
             .select(Columns.timestampMs)
-            .filter(allRowIds.contains(Column.rowID))
+            .filter(allIds.contains(Interaction.Columns.id))
             .filter(timestampMsValues.contains(Columns.timestampMs))
             .filter(Variant.variantsWhichSupportReadReceipts.contains(Columns.variant))
             .asRequest(of: Int64.self)
@@ -999,7 +1015,7 @@ public extension Interaction {
                 return Interaction.previewText(
                     variant: interaction.variant,
                     body: interaction.body,
-                    authorDisplayName: Profile.displayName(db, id: interaction.threadId, using: dependencies),
+                    authorDisplayName: Profile.displayName(db, id: interaction.threadId),
                     using: dependencies
                 )
 
@@ -1359,10 +1375,18 @@ public extension Interaction {
         )
         
         /// Retrieve any attachments for the messages and delete them from the database
+        let interactionAttachments: [InteractionAttachment] = try InteractionAttachment
+            .filter(interactionIds.contains(InteractionAttachment.Columns.interactionId))
+            .fetchAll(db)
         let attachments: [Attachment] = try Attachment
             .joining(required: Attachment.interaction.filter(interactionIds.contains(Interaction.Columns.id)))
             .fetchAll(db)
         try attachments.forEach { try $0.delete(db) }
+        
+        /// Notify about the attachment deletion
+        interactionAttachments.forEach { info in
+            db.addEvent(.attachmentDeleted(id: info.attachmentId, messageId: info.interactionId))
+        }
         
         /// Delete the reactions from the database
         _ = try Reaction
@@ -1426,6 +1450,11 @@ public extension Interaction {
                         )
                 }
             }
+        
+        /// Notify about the deletion
+        interactionIds.forEach { id in
+            db.addEvent(.messageDeleted(id: id, threadId: threadId))
+        }
         
         /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
         /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`

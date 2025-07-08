@@ -81,7 +81,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     
     let title: String = "notificationsSound".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(currentSelection)
         .map { [weak self] selectedSound in
             return [

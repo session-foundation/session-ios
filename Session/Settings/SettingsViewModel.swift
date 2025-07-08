@@ -131,7 +131,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     let title: String = "sessionSettings".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .libSessionObservation(self) { cache -> State in
             State(
                 profile: cache.profile,

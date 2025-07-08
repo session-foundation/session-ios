@@ -226,7 +226,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     let title: String = "Developer Settings"
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .refreshableData(self) { [weak self, dependencies] () -> State in
             let versionBlindedID: String? = {
                 guard
@@ -981,12 +981,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
         dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
+        dependencies.notifyAsync(.isUsingFullAPNs, value: false)
         SyncPushTokensJob
             .run(uploadOnlyIfStale: false, using: dependencies)
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
                     dependencies.set(feature: .pushNotificationService, to: updatedService)
                     dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+                    dependencies.notifyAsync(.isUsingFullAPNs, value: true)
                     self?.forceRefresh(type: .databaseQuery)
                 }
             )
@@ -1231,6 +1233,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                     Contact.Columns.isApproved.set(to: true),
                                                     using: dependencies
                                                 )
+                                            db.addContactEvent(
+                                                id: sessionId.hexString,
+                                                change: .isApproved(true)
+                                            )
                                         }
                                     },
                                     completion: { _ in
@@ -1515,7 +1521,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             activityItems: [ URL(fileURLWithPath: backupFile) ],
                             applicationActivities: nil
                         )
-                        shareVC.completionWithItemsHandler = { _, _, _, _ in }
+                        shareVC.completionWithItemsHandler = { _, success, _, _ in
+                            UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                        }
                         
                         if UIDevice.current.isIPad {
                             shareVC.excludedActivityTypes = []

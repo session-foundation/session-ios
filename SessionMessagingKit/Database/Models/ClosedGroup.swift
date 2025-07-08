@@ -198,6 +198,8 @@ public extension ClosedGroup {
                     ClosedGroup.Columns.shouldPoll.set(to: true),
                     using: dependencies
                 )
+            
+            db.addEvent(group.id, forKey: .messageRequestAccepted)
         }
         
         /// Load the group state into the `LibSession.Cache` if needed
@@ -275,18 +277,22 @@ public extension ClosedGroup {
                 if dataToRemove.contains(.libSessionState) {
                     /// Wait until after the transaction completes before removing the group state (this is needed as it's possible that
                     /// we are already mutating the `libSessionCache` when this function gets called)
-                    db.afterNextTransactionNested(using: dependencies) { db in
-                        threadVariants
-                            .filter { $0.variant == .group }
-                            .forEach { threadIdVariant in
-                                let groupSessionId: SessionId = SessionId(.group, hex: threadIdVariant.id)
-                                
+                    db.afterCommit {
+                        let groupVariants: [ThreadIdVariant] = threadVariants.filter {
+                            $0.variant == .group
+                        }
+                        
+                        guard !groupVariants.isEmpty else { return }
+                        
+                        dependencies[singleton: .storage].writeAsync { db in
+                            groupVariants.forEach { threadIdVariant in
                                 LibSession.removeGroupStateIfNeeded(
                                     db,
-                                    groupSessionId: groupSessionId,
+                                    groupSessionId: SessionId(.group, hex: threadIdVariant.id),
                                     using: dependencies
                                 )
                             }
+                        }
                     }
                 }
             }
@@ -323,9 +329,19 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.messages) {
-            try Interaction
+            struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
+                let id: Int64
+                let threadId: String
+            }
+            
+            let interactionInfo: Set<InteractionThreadInfo> = try Interaction
+                .select(.id, .threadId)
                 .filter(threadIds.contains(Interaction.Columns.threadId))
-                .deleteAll(db)
+                .asRequest(of: InteractionThreadInfo.self)
+                .fetchSet(db)
+            try Interaction.deleteAll(db, ids: interactionInfo.map { $0.id })
+            
+            interactionInfo.forEach { db.addEvent(.messageDeleted(id: $0.id, threadId: $0.threadId)) }
             
             /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
@@ -363,6 +379,10 @@ public extension ClosedGroup {
             try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
                 .filter(ids: threadIds)
                 .deleteAll(db)
+            
+            threadIds.forEach { id in
+                db.addEvent(.conversationDeleted(id))
+            }
         }
         
         // Ignore if called from the config handling

@@ -100,7 +100,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         return Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher()
     }
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [dependencies, threadId, userSessionId] db -> State in
             guard let group: ClosedGroup = try ClosedGroup.fetchOne(db, id: threadId) else {
                 return State.invalidState

@@ -121,8 +121,7 @@ extension MessageReceiver {
                             Profile.displayNameNoFallback(
                                 db,
                                 id: sessionId,
-                                threadVariant: thread.variant,
-                                using: dependencies
+                                threadVariant: thread.variant
                             )
                         },
                         groupNameRetriever: { threadId, threadVariant in
@@ -188,8 +187,7 @@ extension MessageReceiver {
                             Profile.displayNameNoFallback(
                                 db,
                                 id: sessionId,
-                                threadVariant: thread.variant,
-                                using: dependencies
+                                threadVariant: thread.variant
                             )
                         },
                         groupNameRetriever: { threadId, threadVariant in

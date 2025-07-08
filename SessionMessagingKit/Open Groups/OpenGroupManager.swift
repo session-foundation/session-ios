@@ -89,16 +89,6 @@ public final class OpenGroupManager {
     }
     
     public func hasExistingOpenGroup(
-        roomToken: String,
-        server: String,
-        publicKey: String
-    ) -> Bool? {
-        return dependencies[singleton: .storage].read { [weak self] db in
-            self?.hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey)
-        }
-    }
-    
-    public func hasExistingOpenGroup(
         _ db: ObservingDatabase,
         roomToken: String,
         server: String,
@@ -337,6 +327,8 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
+        db.addEvent(.conversationDeleted(openGroupId))
+        
         // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
         try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)
         
@@ -512,6 +504,27 @@ public final class OpenGroupManager {
                 ),
                 canStartJob: true
             )
+        }
+        
+        /// Emit events
+        if hasDetails {
+            if openGroup.name != pollInfo.details?.name {
+                db.addConversationEvent(
+                    id: openGroup.id,
+                    type: .updated(.displayName(pollInfo.details?.name ?? openGroup.name))
+                )
+            }
+            
+            if openGroup.roomDescription == pollInfo.details?.roomDescription {
+                db.addConversationEvent(
+                    id: openGroup.id,
+                    type: .updated(.description(pollInfo.details?.roomDescription))
+                )
+            }
+            
+            if pollInfo.details?.imageId == nil {
+                db.addConversationEvent(id: openGroup.id, type: .updated(.displayPictureUrl(nil)))
+            }
         }
     }
     
@@ -852,16 +865,11 @@ public final class OpenGroupManager {
     
     /// This method specifies if the given capability is supported on a specified Open Group
     public func doesOpenGroupSupport(
-        _ db: ObservingDatabase? = nil,
+        _ db: ObservingDatabase,
         capability: Capability.Variant,
         on server: String?
     ) -> Bool {
         guard let server: String = server else { return false }
-        guard let db: ObservingDatabase = db else {
-            return dependencies[singleton: .storage]
-                .read { [weak self] db in self?.doesOpenGroupSupport(db, capability: capability, on: server) }
-                .defaulting(to: false)
-        }
         
         let capabilities: [Capability.Variant] = (try? Capability
             .select(.variant)
@@ -876,27 +884,14 @@ public final class OpenGroupManager {
     
     /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
     public func isUserModeratorOrAdmin(
-        _ db: ObservingDatabase? = nil,
+        _ db: ObservingDatabase,
         publicKey: String,
         for roomToken: String?,
         on server: String?,
         currentUserSessionIds: Set<String>
     ) -> Bool {
         guard let roomToken: String = roomToken, let server: String = server else { return false }
-        guard let db: ObservingDatabase = db else {
-            return dependencies[singleton: .storage]
-                .read { [weak self] db in
-                    self?.isUserModeratorOrAdmin(
-                        db,
-                        publicKey: publicKey,
-                        for: roomToken,
-                        on: server,
-                        currentUserSessionIds: currentUserSessionIds
-                    )
-                }
-                .defaulting(to: false)
-        }
-
+        
         let groupId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
         let targetRoles: [GroupMember.Role] = [.moderator, .admin]
         var possibleKeys: Set<String> = [publicKey]
@@ -920,6 +915,68 @@ public final class OpenGroupManager {
             .filter(possibleKeys.contains(GroupMember.Columns.profileId))
             .filter(targetRoles.contains(GroupMember.Columns.role))
             .isNotEmpty(db)
+    }
+}
+
+// MARK: - Deprecated Conveneince Functions
+
+public extension OpenGroupManager {
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    func doesOpenGroupSupport(
+        capability: Capability.Variant,
+        on server: String?
+    ) -> Bool {
+        guard let server: String = server else { return false }
+        
+        var openGroupSupportsCapability: Bool = false
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [weak self] db in
+                self?.doesOpenGroupSupport(db, capability: capability, on: server)
+            },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let value): openGroupSupportsCapability = (value == true)
+                }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return openGroupSupportsCapability
+    }
+    
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    func isUserModeratorOrAdmin(
+        publicKey: String,
+        for roomToken: String?,
+        on server: String?,
+        currentUserSessionIds: Set<String>
+    ) -> Bool {
+        guard let roomToken: String = roomToken, let server: String = server else { return false }
+        
+        var userIsModeratorOrAdmin: Bool = false
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [weak self] db in
+                self?.isUserModeratorOrAdmin(
+                    db,
+                    publicKey: publicKey,
+                    for: roomToken,
+                    on: server,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+            },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let value): userIsModeratorOrAdmin = (value == true)
+                }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return userIsModeratorOrAdmin
     }
 }
 

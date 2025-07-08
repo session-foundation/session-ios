@@ -143,26 +143,6 @@ public extension KeyValueStore {
 
 // MARK: - GRDB Interactions
 
-public extension Storage {
-    subscript(key: KeyValueStore.BoolKey) -> Bool {
-        // Default to false if it doesn't exist
-        return (read { db in db[key] } ?? false)
-    }
-    
-    subscript(key: KeyValueStore.DoubleKey) -> Double? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.IntKey) -> Int? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.Int64Key) -> Int64? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.StringKey) -> String? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.DateKey) -> Date? { return read { db in db[key] } }
-    
-    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == Int {
-        return read { db in db[key] }
-    }
-    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == String {
-        return read { db in db[key] }
-    }
-}
-
 public extension ObservingDatabase {
     @discardableResult func unsafeSet<T: Numeric>(key: String, value: T?) -> KeyValueStore? {
         guard let value: T = value else {

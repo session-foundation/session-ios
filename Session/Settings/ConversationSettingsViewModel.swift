@@ -53,7 +53,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     let title: String = "sessionConversations".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .libSessionObservation(self) { cache -> State in
             State(
                 trimOpenGroupMessagesOlderThanSixMonths: cache.get(.trimOpenGroupMessagesOlderThanSixMonths),

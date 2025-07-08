@@ -35,10 +35,19 @@ public enum DisappearingMessagesJob: JobExecutor {
         var numDeleted: Int = -1
         
         let updatedJob: Job? = dependencies[singleton: .storage].write { db in
-            numDeleted = try Interaction
+            let interactionInfo: Set<InteractionThreadInfo> = try Interaction
+                .select(.id, .threadId)
                 .filter(Interaction.Columns.expiresStartedAtMs != nil)
                 .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
-                .deleteAll(db)
+                .asRequest(of: InteractionThreadInfo.self)
+                .fetchSet(db)
+            try Interaction.filter(interactionInfo.map { $0.id }.contains(Interaction.Columns.id)).deleteAll(db)
+            numDeleted = interactionInfo.count
+            
+            // Notify of the deletion
+            interactionInfo.forEach { info in
+                db.addEvent(.messageDeleted(id: info.id, threadId: info.threadId))
+            }
             
             // Update the next run timestamp for the DisappearingMessagesJob (if the call
             // to 'updateNextRunIfNeeded' returns 'nil' then it doesn't need to re-run so
@@ -54,6 +63,11 @@ public enum DisappearingMessagesJob: JobExecutor {
         // The 'if' is only there to prevent the "variable never read" warning from showing
         if backgroundTask != nil { backgroundTask = nil }
     }
+}
+
+private struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
+    let id: Int64
+    let threadId: String
 }
 
 // MARK: - Clean expired messages on app launch

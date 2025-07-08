@@ -344,7 +344,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public lazy var observableThreadData: ThreadObservation = setupObservableThreadData(for: self.threadId)
     
     private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
-        return ObservationBuilder
+        return ObservationBuilderOld
             .databaseObservation(dependencies) { [weak self, dependencies] db -> SessionThreadViewModel? in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
@@ -1044,6 +1044,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             try Contact
                 .filter(id: threadId)
                 .updateAll(db, Contact.Columns.isTrusted.set(to: true))
+            db.addContactEvent(id: threadId, change: .isTrusted(true))
             
             // Start downloading any pending attachments for this contact (UI will automatically be
             // updated due to the database observation)
@@ -1078,6 +1079,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     Contact.Columns.isBlocked.set(to: false),
                     using: dependencies
                 )
+            db.addContactEvent(id: threadId, change: .isBlocked(false))
         }
     }
     

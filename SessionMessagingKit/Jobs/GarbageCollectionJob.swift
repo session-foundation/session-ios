@@ -78,8 +78,16 @@ public enum GarbageCollectionJob: JobExecutor {
                 
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
-                    _ = try ThreadTypingIndicator
-                        .deleteAll(db)
+                    let threadIds: Set<String> = try ThreadTypingIndicator
+                        .select(.threadId)
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+                    _ = try ThreadTypingIndicator.deleteAll(db)
+                    
+                    /// Just in case we should emit events for each typing indicator to indicate that it should have stopped typing
+                    threadIds.forEach { id in
+                        db.addTypingIndicatorEvent(threadId: id, change: .stopped)
+                    }
                 }
                 
                 /// Remove any old open group messages - open group messages which are older than six months

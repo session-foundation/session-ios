@@ -76,6 +76,7 @@ public enum PushNotificationAPI {
                             dependencies[defaults: .standard, key: .deviceToken] = hexEncodedToken
                             dependencies[defaults: .standard, key: .lastDeviceTokenUpload] = now
                             dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+                            dependencies.notifyAsync(.isUsingFullAPNs, value: true)
                         }
                     )
             }

@@ -63,7 +63,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     
     let title: String = "sessionAppearance".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .libSessionObservation(self) { cache -> State in
             State(
                 theme: cache.get(.theme).defaulting(to: .classicDark),

@@ -31,8 +31,11 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
-            let preparedDownload: Network.PreparedRequest<Data> = try? {
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        
+        dependencies[singleton: .storage]
+            .readPublisher { db -> Network.PreparedRequest<Data> in
                 switch details.target {
                     case .profile(_, let url, _), .group(_, let url, _):
                         guard
@@ -47,11 +50,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         
                     case .community(let fileId, let roomToken, let server):
                         guard
-                            let info: LibSession.OpenGroupCapabilityInfo = dependencies[singleton: .storage]
-                                .read({ db in
-                                    try LibSession.OpenGroupCapabilityInfo
-                                        .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
-                                })
+                            let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                                .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
                         else { throw JobRunnerError.missingRequiredDetails }
                         
                         return try OpenGroupAPI.preparedDownload(
@@ -61,110 +61,116 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             using: dependencies
                         )
                 }
-            }()
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
-        
-        guard
-            let filePath: String = try? dependencies[singleton: .displayPictureManager].path(
-                for: (preparedDownload.destination.url?.absoluteString)
-                    .defaulting(to: preparedDownload.destination.urlPathAndParamsString)
-            )
-        else {
-            Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
-            failure(job, DisplayPictureError.invalidPath, true)
-            return
-        }
-        
-        guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-            /// If the file already exists then write the changes to the database
-            return dependencies[singleton: .storage].writeAsync(
-                updates: { db in
-                    try writeChanges(
-                        db,
-                        details: details,
-                        preparedDownload: preparedDownload,
-                        using: dependencies
+            }
+            .tryMap { (preparedDownload: Network.PreparedRequest<Data>) -> Network.PreparedRequest<(Data, String, URL?)> in
+                guard
+                    let filePath: String = try? dependencies[singleton: .displayPictureManager].path(
+                        for: (preparedDownload.destination.url?.absoluteString)
+                            .defaulting(to: preparedDownload.destination.urlPathAndParamsString)
                     )
-                },
-                completion: { result in
-                    switch result {
-                        case .success: success(job, false)
-                        case .failure(let error): failure(job, error, true)
-                    }
+                else { throw DisplayPictureError.invalidPath }
+                
+                guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
+                    throw DisplayPictureError.alreadyDownloaded(preparedDownload.destination.url)
                 }
-            )
-        }
-        
-        preparedDownload
-            .send(using: dependencies)
+                
+                return preparedDownload.map { _, data in
+                    (data, filePath, preparedDownload.destination.url)
+                }
+            }
+            .flatMap { $0.send(using: dependencies) }
+            .map { _, result in result }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
+            .flatMapStorageReadPublisher(using: dependencies) { (db: ObservingDatabase, result: (Data, String, URL?)) -> (Data, String, URL?) in
+                /// Check to make sure this download is still a valid update
+                guard details.isValidUpdate(db, using: dependencies) else {
+                    throw DisplayPictureError.updateNoLongerValid
+                }
+                
+                return result
+            }
+            .tryMap { (data: Data, filePath: String, downloadUrl: URL?) -> URL? in
+                guard
+                    let decryptedData: Data = {
+                        switch details.target {
+                            case .community: return data    // Community data is unencrypted
+                            case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
+                                return dependencies[singleton: .crypto].generate(
+                                    .decryptedDataDisplayPicture(data: data, key: encryptionKey)
+                                )
+                        }
+                    }()
+                else { throw DisplayPictureError.writeFailed }
+                
+                guard
+                    UIImage(data: decryptedData) != nil,
+                    dependencies[singleton: .fileManager].createFile(
+                        atPath: filePath,
+                        contents: decryptedData
+                    )
+                else { throw DisplayPictureError.loadFailed }
+                
+                /// Kick off a task to load the image into the cache (assuming we want to render it soon)
+                Task(priority: .userInitiated) {
+                    await dependencies[singleton: .imageDataManager].load(
+                        .url(URL(fileURLWithPath: filePath))
+                    )
+                }
+                
+                return downloadUrl
+            }
+            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, downloadUrl: URL?) in
+                /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
+                /// the `downloadUrl` changing)
+                try writeChanges(
+                    db,
+                    details: details,
+                    downloadUrl: downloadUrl,
+                    using: dependencies
+                )
+            }
             .sinkUntilComplete(
                 receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error): failure(job, error, true)
-                    }
-                },
-                receiveValue: { _, data in
-                    /// Check to make sure this download is still a valid update
-                    guard dependencies[singleton: .storage].read({ db in details.isValidUpdate(db, using: dependencies) }) == true else {
-                        return success(job, false)
-                    }
-                    
-                    guard
-                        let decryptedData: Data = {
-                            switch details.target {
-                                case .community: return data    // Community data is unencrypted
-                                case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
-                                    return dependencies[singleton: .crypto].generate(
-                                        .decryptedDataDisplayPicture(data: data, key: encryptionKey)
+                    switch (result, result.errorOrNull, result.errorOrNull as? DisplayPictureError) {
+                        case (.finished, _, _): success(job, false)
+                        case (_, _, .updateNoLongerValid): success(job, false)
+                        case (_, _, .alreadyDownloaded(let downloadUrl)):
+                            /// If the file already exists then write the changes to the database
+                            dependencies[singleton: .storage].writeAsync(
+                                updates: { db in
+                                    try writeChanges(
+                                        db,
+                                        details: details,
+                                        downloadUrl: downloadUrl,
+                                        using: dependencies
                                     )
-                            }
-                        }()
-                    else {
-                        Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
-                        failure(job, DisplayPictureError.writeFailed, true)
-                        return
-                    }
-                    
-                    guard
-                        UIImage(data: decryptedData) != nil,
-                        dependencies[singleton: .fileManager].createFile(
-                            atPath: filePath,
-                            contents: decryptedData
-                        )
-                    else {
-                        Log.error(.cat, "Failed to load display picture for \(details.target)")
-                        failure(job, DisplayPictureError.writeFailed, true)
-                        return
-                    }
-                    
-                    /// Kick off a task to load the image into the cache (assuming we want to render it soon)
-                    Task(priority: .userInitiated) {
-                        await dependencies[singleton: .imageDataManager].load(
-                            .url(URL(fileURLWithPath: filePath))
-                        )
-                    }
-                    
-                    /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
-                    /// the `downloadUrl` changing)
-                    dependencies[singleton: .storage].writeAsync(
-                        updates: { db in
-                            try writeChanges(
-                                db,
-                                details: details,
-                                preparedDownload: preparedDownload,
-                                using: dependencies
+                                },
+                                completion: { result in
+                                    switch result {
+                                        case .success: success(job, false)
+                                        case .failure(let error): failure(job, error, true)
+                                    }
+                                }
                             )
-                        },
-                        completion: { result in
-                            switch result {
-                                case .success: success(job, false)
-                                case .failure(let error): failure(job, error, true)
-                            }
-                        }
-                    )
+                            
+                        case (_, let error as JobRunnerError, _) where error == .missingRequiredDetails:
+                            failure(job, error, true)
+                            
+                        case (_, _, .invalidPath):
+                            Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
+                            failure(job, DisplayPictureError.invalidPath, true)
+                            
+                        case (_, _, .writeFailed):
+                            Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
+                            failure(job, DisplayPictureError.writeFailed, true)
+                            
+                        case (_, _, .loadFailed):
+                            Log.error(.cat, "Failed to load display picture for \(details.target)")
+                            failure(job, DisplayPictureError.loadFailed, true)
+                            
+                        case (.failure(let error), _, _): failure(job, error, true)
+                    }
                 }
             )
     }
@@ -172,7 +178,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     private static func writeChanges(
         _ db: ObservingDatabase,
         details: Details,
-        preparedDownload: Network.PreparedRequest<Data>,
+        downloadUrl: URL?,
         using dependencies: Dependencies
     ) throws {
         switch details.target {
@@ -186,6 +192,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         Profile.Columns.displayPictureLastUpdated.set(to: details.timestamp),
                         using: dependencies
                     )
+                db.addProfileEvent(id: id, change: .displayPictureUrl(url))
+                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
                 
             case .group(let id, let url, let encryptionKey):
                 _ = try? ClosedGroup
@@ -196,17 +204,20 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
                         using: dependencies
                     )
+                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
                 
             case .community(_, let roomToken, let server):
                 _ = try? OpenGroup
                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                     .updateAllAndConfig(
                         db,
-                        OpenGroup.Columns.displayPictureOriginalUrl.set(
-                            to: preparedDownload.destination.url
-                        ),
+                        OpenGroup.Columns.displayPictureOriginalUrl.set(to: downloadUrl),
                         using: dependencies
                     )
+                db.addConversationEvent(
+                    id: OpenGroup.idFor(roomToken: roomToken, server: server),
+                    type: .updated(.displayPictureUrl(downloadUrl?.absoluteString))
+                )
         }
     }
 }

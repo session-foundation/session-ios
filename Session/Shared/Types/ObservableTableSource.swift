@@ -41,7 +41,7 @@ extension ObservableTableSource {
         self.observableState.pendingTableDataSubject
     }
     public var observation: TargetObservation {
-        ObservationBuilder.subject(self.observableState.pendingTableDataSubject)
+        ObservationBuilderOld.subject(self.observableState.pendingTableDataSubject)
     }
     
     public var tableDataPublisher: TargetPublisher { self.observation.finalPublisher(self, using: dependencies) }
@@ -149,9 +149,9 @@ extension TableObservation: ExpressibleByArrayLiteral where T: Collection {
     }
 }
 
-// MARK: - ObservationBuilder
+// MARK: - ObservationBuilderOld
 
-public enum ObservationBuilder {
+public enum ObservationBuilderOld {
     /// The `subject` will emit immediately when there is a subscriber and store the most recent value to be emitted whenever a new subscriber is
     /// added
     static func subject<T: Equatable>(_ subject: CurrentValueSubject<T, Error>) -> TableObservation<T> {
@@ -208,7 +208,7 @@ public enum ObservationBuilder {
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
                                             .trackingConstantRegion { db in
-                                                try fetch(ObservingDatabase(db, using: dependencies))
+                                                try fetch(ObservingDatabase.create(db, using: dependencies))
                                             }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
@@ -265,7 +265,7 @@ public enum ObservationBuilder {
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
                                             .trackingConstantRegion { db in
-                                                try fetch(ObservingDatabase(db, using: dependencies))
+                                                try fetch(ObservingDatabase.create(db, using: dependencies))
                                             }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
@@ -296,7 +296,7 @@ public enum ObservationBuilder {
     static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> AnyPublisher<T, Error> {
         return ValueObservation
             .trackingConstantRegion { db in
-                try fetch(ObservingDatabase(db, using: dependencies))
+                try fetch(ObservingDatabase.create(db, using: dependencies))
             }
             .removeDuplicates()
             .publisher(in: dependencies[singleton: .storage], scheduling: .immediate)
@@ -305,7 +305,7 @@ public enum ObservationBuilder {
     static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<T>>> {
         return ValueObservation
             .trackingConstantRegion { db in
-                try fetch(ObservingDatabase(db, using: dependencies))
+                try fetch(ObservingDatabase.create(db, using: dependencies))
             }
             .removeDuplicates()
     }
@@ -327,7 +327,7 @@ public enum ObservationBuilder {
     ) -> TableObservation<T> {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<T?, Error> = CurrentValueSubject(nil)
-            let stream: AsyncThrowingStream<T, Error> = ObservationBuilder.libSessionObservation(
+            let stream: AsyncThrowingStream<T, Error> = ObservationBuilderOld.libSessionObservation(
                 dependencies,
                 debounceInterval: debounceInterval,
                 fetch: fetch
@@ -367,7 +367,7 @@ public enum ObservationBuilder {
         fetch: @escaping (ObservationCollector) throws -> T
     ) -> AsyncThrowingStream<T, Error> {
         return AsyncThrowingStream<T, Error> { continuation in
-            let debouncer: DebounceTaskManager<T> = DebounceTaskManager(debounceInterval: debounceInterval)
+            let debouncer: DebounceTaskManager<ObservedEvent> = DebounceTaskManager(debounceInterval: debounceInterval)
             let taskManager: MultiTaskManager<Void> = MultiTaskManager()
             
             let mainObservationTask = Task(priority: .userInitiated) {
@@ -393,17 +393,20 @@ public enum ObservationBuilder {
                 }
                 
                 /// After debouncing we want to re-fetch the data
-                await debouncer.setAction { continuation in
-                    let newValue: T = try dependencies.mutate(cache: .libSession) { cache in
-                        try fetch(ObservationCollector(store: cache))
+                await debouncer.setAction { _ in
+                    do {
+                        let newValue: T = try dependencies.mutate(cache: .libSession) { cache in
+                            try fetch(ObservationCollector(store: cache))
+                        }
+                        
+                        guard !Task.isCancelled else { throw CancellationError() }
+                        continuation.yield(newValue)
                     }
-                    
-                    guard !Task.isCancelled else { throw CancellationError() }
-                    continuation.yield(newValue)
+                    catch { continuation.finish(throwing: error) }
                 }
                 
                 /// Start observing the streams for updates
-                var streams: [AsyncStream<Any?>] = []
+                var streams: [AsyncStream<ObservedEvent>] = []
                 
                 for key in initialInfo.keys {
                     streams.append(await dependencies[singleton: .observationManager].observe(key))
@@ -413,9 +416,9 @@ public enum ObservationBuilder {
                     guard !Task.isCancelled else { break }
                     
                     let keyTask = Task {
-                        for await _ in stream {
+                        for await event in stream {
                             guard !Task.isCancelled else { break }
-                            await debouncer.signal(continuation: continuation)
+                            await debouncer.signal(event: event)
                         }
                     }
                     await taskManager.add(keyTask)

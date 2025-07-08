@@ -61,6 +61,7 @@ internal extension LibSessionCacheType {
                             SessionThread.Columns.markedAsUnread.set(to: markedAsUnread),
                             using: dependencies
                         )
+                    db.addConversationEvent(id: threadId, type: .updated(.markedAsUnread(markedAsUnread)))
                 }
                 
                 // If the device has a more recent read interaction then return the info so we can

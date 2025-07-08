@@ -225,7 +225,10 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
                 applicationActivities: nil
             )
-            shareVC.completionWithItemsHandler = { _, _, _, _ in onShareComplete?() }
+            shareVC.completionWithItemsHandler = { _, success, _, _ in
+                UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                onShareComplete?()
+            }
             
             if UIDevice.current.isIPad {
                 shareVC.excludedActivityTypes = []

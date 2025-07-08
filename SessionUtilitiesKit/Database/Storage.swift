@@ -73,7 +73,10 @@ open class Storage {
     
     @ThreadSafeObject private var migrationProgressUpdater: ((String, CGFloat) -> ())?
     @ThreadSafe private var internalCurrentlyRunningMigration: CurrentlyRunningMigration? = nil
+    @ThreadSafeObject private var internalObservedMigrationEvents: [ObservedEvent]? = nil
+    @ThreadSafeObject private var internalMigrationPostCommitActions: [String: () -> Void]? = nil
     @ThreadSafe private var migrationsCompleted: Bool = false
+    @ThreadSafeObject private var currentlyObservedQueries: [UUID: Weak<ObservingDatabase>] = [:]
     
     public var hasCompletedMigrations: Bool { migrationsCompleted }
     public var currentlyRunningMigration: CurrentlyRunningMigration? {
@@ -365,7 +368,7 @@ open class Storage {
         })
         
         // Store the logic to run when the migration completes
-        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter] result in
+        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
             // Make sure to transition the progress updater to 100% for the final migration (just
             // in case the migration itself didn't update to 100% itself)
             if let lastMigrationKey: String = unperformedMigrations.last?.key {
@@ -374,6 +377,25 @@ open class Storage {
             
             self?.migrationsCompleted = true
             self?._migrationProgressUpdater.set(to: nil)
+            
+            // Output any events tracked during the migration and trigger any `postCommitActions` which
+            // should occur
+            let events: [ObservedEvent]? = self?._internalObservedMigrationEvents.performUpdateAndMap { value in
+                (nil, value)
+            }
+            let actions: [String: () -> Void]? = self?._internalMigrationPostCommitActions.performUpdateAndMap { value in
+                (nil, value)
+            }
+            
+            if let events: [ObservedEvent] = events {
+                Task(priority: .medium) { [dependencies] in
+                    await dependencies[singleton: .observationManager].notify(events)
+                }
+            }
+            
+            if let actions: [String: () -> Void] = actions {
+                actions.values.forEach { $0() }
+            }
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -439,8 +461,31 @@ open class Storage {
         )
     }
     
-    public func didCompleteMigration() {
+    public func didCompleteMigration(events: [ObservedEvent], postCommitActions: [String: () -> Void]) {
         internalCurrentlyRunningMigration = nil
+        
+        if !events.isEmpty {
+            _internalObservedMigrationEvents.performUpdate {
+                var updatedEvents: [ObservedEvent] = ($0 ?? [])
+                updatedEvents.append(contentsOf: events)
+                return updatedEvents
+            }
+        }
+        
+        if !postCommitActions.isEmpty {
+            _internalMigrationPostCommitActions.performUpdate {
+                var updatedPostCommitActions: [String: () -> Void] = ($0 ?? [:])
+                
+                /// If there is already an action for the given key then ignore the new value (ie. dedupe as intended)
+                postCommitActions.forEach { key, value in
+                    guard updatedPostCommitActions[key] == nil else { return }
+                    
+                    updatedPostCommitActions[key] = value
+                }
+                
+                return updatedPostCommitActions
+            }
+        }
     }
     
     public static func update(
@@ -619,18 +664,34 @@ open class Storage {
         _ operation: @escaping (ObservingDatabase) throws -> T,
         _ dependencies: Dependencies
     ) async -> Result<T, Error> {
-        await withThrowingTaskGroup(of: T.self) { group in
+        typealias DatabaseOutput = (
+            result: T,
+            events: [ObservedEvent],
+            postCommitActions: [() -> Void]
+        )
+        typealias DatabaseResult = (result: T, postCommitActions: [() -> Void])
+        
+        return await withThrowingTaskGroup(of: DatabaseResult.self) { group in
             /// Add the task to perform the actual database operation
             group.addTask {
-                let trackedOperation: @Sendable (Database) throws -> (result: T, changes: [ObservingDatabase.Change]) = { db in
+                let trackedOperation: @Sendable (Database) throws -> DatabaseOutput = { db in
                     info.start()
                     guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
                     guard info.storage?.isSuspended == false else {
                         throw StorageError.databaseSuspended
                     }
                     
-                    let observingDatabase: ObservingDatabase = ObservingDatabase(db, using: dependencies)
+                    let dbId: UUID = UUID()
+                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                    info.storage?._currentlyObservedQueries.performUpdate {
+                        $0.setting(dbId, Weak(value: observingDatabase))
+                    }
+                    
                     let result: T = try operation(observingDatabase)
+                    
+                    info.storage?._currentlyObservedQueries.performUpdate {
+                        $0.removingValues(forKeys: [dbId])
+                    }
                     
                     /// Update the state flags
                     switch info.isWrite {
@@ -638,7 +699,11 @@ open class Storage {
                         case false: info.storage?.hasSuccessfullyRead = true
                     }
                     
-                    return (result, observingDatabase.changes)
+                    return (
+                        result,
+                        observingDatabase.events,
+                        Array(observingDatabase.postCommitActions.values)
+                    )
                 }
                 
                 /// Do this outside of the actually db operation as it's more for debugging queries running on the main thread
@@ -647,17 +712,17 @@ open class Storage {
                     try await Task.sleep(for: .seconds(1))
                 }
                 
-                let output: (result: T, changes: [ObservingDatabase.Change]) = (info.isWrite ?
+                let output: DatabaseOutput = (info.isWrite ?
                     try await dbWriter.write(trackedOperation) :
                     try await dbWriter.read(trackedOperation)
                 )
                 
                 /// Trigger the observations
                 Task(priority: .medium) { [dependencies] in
-                    await dependencies[singleton: .observationManager].notify(output.changes)
+                    await dependencies[singleton: .observationManager].notify(output.events)
                 }
                 
-                return output.result
+                return (output.result, output.postCommitActions)
             }
             
             /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
@@ -692,21 +757,26 @@ open class Storage {
             ///
             /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
             /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
-            let result: Result<T, Error> = await (
+            let output: Result<DatabaseResult, Error> = await (
                 group.nextResult() ??
                 .failure(StorageError.invalidQueryResult)
             )
             group.cancelAll()
-            return result
+            
+            /// If the database operation completed successfully we should trigger any of the `postCommitActions`
+            switch output {
+                case .failure: break
+                case .success(let result): result.postCommitActions.forEach { $0() }
+            }
+            
+            /// Return the actual result
+            return output.map { $0.result }
         }
     }
     
     /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
     /// block the syncrhonous version because `GRDB` has an internal assertion when using it's built-in synchronous `read`/`write`
     /// functions to prevent reentrancy which is unsupported
-    ///
-    /// Unfortunately this results in the code getting messy when trying to chain multiple database transactions (even
-    /// when using `db.afterNextTransaction`) which is somewhat unintuitive
     ///
     /// The `async` variants don't need to worry about this reentrancy issue so instead we route we use those for all operations instead
     /// and just block the thread when we want to perform a synchronous operation
@@ -1060,6 +1130,13 @@ open class Storage {
         /// that it isn't called on the main thread
         Log.assertNotOnMainThread()
         dbWriter.remove(transactionObserver: observer)
+    }
+    
+    public func observedDatabase(_ db: Database) -> ObservingDatabase? {
+        let weakResult: Weak<ObservingDatabase>? = _currentlyObservedQueries.wrappedValue.values
+            .first(where: { $0.value?.originalDb === db })
+        
+        return weakResult?.value
     }
 }
 

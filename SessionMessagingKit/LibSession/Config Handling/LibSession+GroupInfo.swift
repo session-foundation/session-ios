@@ -128,6 +128,18 @@ internal extension LibSessionCacheType {
                     using: dependencies
                 )
         }
+        
+        // Emit events
+        if existingGroup?.name != groupName {
+            db.addConversationEvent(id: groupSessionId.hexString, type: .updated(.displayName(groupName)))
+        }
+        
+        if existingGroup?.groupDescription == groupDesc {
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                type: .updated(.description(groupDesc))
+            )
+        }
 
         // If we have a display picture then start downloading it
         if needsDisplayPictureUpdate, let url: String = displayPictureUrl, let key: Data = displayPictureKey {
@@ -337,8 +349,23 @@ internal extension LibSession {
                     ///
                     /// **Note:** We indentionally only update the `GROUP_INFO` and not the `USER_GROUPS` as once the
                     /// group is synced between devices we want to rely on the proper group config to get display info
+                    let currentGroupName: String? = groups_info_get_name(conf)
+                        .map { String(cString: $0) }
+                    let currentGroupDesc: String? = groups_info_get_description(conf)
+                        .map { String(cString: $0) }
                     groups_info_set_name(conf, &cGroupName)
                     groups_info_set_description(conf, &cGroupDesc)
+                    
+                    if currentGroupName != group.name {
+                        db.addConversationEvent(id: group.threadId, type: .updated(.displayName(group.name)))
+                    }
+                    
+                    if currentGroupDesc != group.groupDescription {
+                        db.addConversationEvent(
+                            id: group.threadId,
+                            type: .updated(.description(group.groupDescription))
+                        )
+                    }
                     
                     // Either assign the updated display pic, or sent a blank pic (to remove the current one)
                     var displayPic: user_profile_pic = user_profile_pic()

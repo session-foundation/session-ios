@@ -8,12 +8,12 @@ import SessionUtilitiesKit
 
 /// This type is duplicate in both the database and within the LibSession config so should only ever have it's data changes via the
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
-public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
+public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
     internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
     internal static let groupMemberForeignKey = ForeignKey([GroupMember.Columns.profileId], to: [Columns.id])
-    internal static let contact = hasOne(Contact.self, using: contactForeignKey)
+    public static let contact = hasOne(Contact.self, using: contactForeignKey)
     public static let groupMembers = hasMany(GroupMember.self, using: groupMemberForeignKey)
     
     public typealias Columns = CodingKeys
@@ -221,26 +221,11 @@ public extension Profile {
     }
     
     static func displayName(
-        _ db: ObservingDatabase? = nil,
+        _ db: ObservingDatabase,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
-        customFallback: String? = nil,
-        using dependencies: Dependencies
+        customFallback: String? = nil
     ) -> String {
-        guard let db: ObservingDatabase = db else {
-            return dependencies[singleton: .storage]
-                .read { db in
-                    displayName(
-                        db,
-                        id: id,
-                        threadVariant: threadVariant,
-                        customFallback: customFallback,
-                        using: dependencies
-                    )
-                }
-                .defaulting(to: (customFallback ?? id))
-        }
-        
         let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
             .displayName(for: threadVariant)
         
@@ -248,17 +233,10 @@ public extension Profile {
     }
     
     static func displayNameNoFallback(
-        _ db: ObservingDatabase? = nil,
+        _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        using dependencies: Dependencies
+        threadVariant: SessionThread.Variant = .contact
     ) -> String? {
-        guard let db: ObservingDatabase = db else {
-            return dependencies[singleton: .storage].read { db in
-                displayNameNoFallback(db, id: id, threadVariant: threadVariant, using: dependencies)
-            }
-        }
-        
         return (try? Profile.fetchOne(db, id: id))?
             .displayName(for: threadVariant)
     }
@@ -290,6 +268,56 @@ public extension Profile {
         )
     }
 }
+
+// MARK: - Deprecated GRDB Interactions
+
+public extension Profile {
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    static func displayName(
+        id: ID,
+        threadVariant: SessionThread.Variant = .contact,
+        customFallback: String? = nil,
+        using dependencies: Dependencies
+    ) -> String {
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        var displayName: String?
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant) },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let name): displayName = name
+                }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return (displayName ?? (customFallback ?? id))
+    }
+    
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    static func displayNameNoFallback(
+        id: ID,
+        threadVariant: SessionThread.Variant = .contact,
+        using dependencies: Dependencies
+    ) -> String? {
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        var displayName: String?
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant) },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let name): displayName = name
+                }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return displayName
+    }
+}
+
 
 // MARK: - Search Queries
 
@@ -427,5 +455,27 @@ public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssocia
                 currentUserSessionId: dependencies[cache: .general].sessionId
             )
         }
+    }
+}
+
+// MARK: - Convenience
+
+public extension Profile {
+    func with(
+        name: String? = nil,
+        nickname: String?? = nil,
+        displayPictureUrl: String?? = nil
+    ) -> Profile {
+        return Profile(
+            id: id,
+            name: (name ?? self.name),
+            lastNameUpdate: lastNameUpdate,
+            nickname: (nickname ?? self.nickname),
+            displayPictureUrl: (displayPictureUrl ?? self.displayPictureUrl),
+            displayPictureEncryptionKey: displayPictureEncryptionKey,
+            displayPictureLastUpdated: displayPictureLastUpdated,
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests,
+            lastBlocksCommunityMessageRequests: lastBlocksCommunityMessageRequests
+        )
     }
 }

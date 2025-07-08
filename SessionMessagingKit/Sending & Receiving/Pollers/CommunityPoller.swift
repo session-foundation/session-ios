@@ -647,9 +647,9 @@ public extension CommunityPoller {
         
         public func startAllPollers() {
             // On the communityPollerQueue fetch all SOGS and start the pollers
-            Threading.communityPollerQueue.async(using: dependencies) { [dependencies] in
-                dependencies[singleton: .storage]
-                    .read { db -> [Info] in
+            Threading.communityPollerQueue.async(using: dependencies) { [weak self, dependencies] in
+                dependencies[singleton: .storage].readAsync(
+                    retrieve: { db -> [Info] in
                         // The default room promise creates an OpenGroup with an empty `roomToken` value,
                         // we don't want to start a poller for this as the user hasn't actually joined a room
                         try OpenGroup
@@ -662,8 +662,19 @@ public extension CommunityPoller {
                             .group(OpenGroup.Columns.server)
                             .asRequest(of: Info.self)
                             .fetchAll(db)
-                    }?
-                    .forEach { [weak self] info in self?.getOrCreatePoller(for: info).startIfNeeded() }
+                    },
+                    completion: { [weak self] result in
+                        switch result {
+                            case .failure: break
+                            case .success(let infos):
+                                Threading.communityPollerQueue.async(using: dependencies) { [weak self] in
+                                    infos.forEach { info in
+                                        self?.getOrCreatePoller(for: info).startIfNeeded()
+                                    }
+                                }
+                        }
+                    }
+                )
             }
         }
         

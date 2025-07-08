@@ -425,7 +425,7 @@ public final class SnodeAPI {
                         let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
                             .updated(with: targetResult.unchanged)
                             .groupedByValue()
-                            .nullIfEmpty()
+                            .nullIfEmpty
                     else { return }
                         
                     dependencies[singleton: .storage].writeAsync { db in

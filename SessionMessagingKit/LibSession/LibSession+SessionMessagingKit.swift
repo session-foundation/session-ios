@@ -190,7 +190,7 @@ public extension LibSession {
     class Cache: LibSessionCacheType {
         private let configStore: ConfigStore = ConfigStore()
         private let behaviourStore: BehaviourStore = BehaviourStore()
-        private var pendingChanges: [(key: ObservableKey, value: Any?)] = []
+        private var pendingEvents: [ObservedEvent] = []
         
         public let dependencies: Dependencies
         public let userSessionId: SessionId
@@ -536,8 +536,8 @@ public extension LibSession {
                 try change(config)
                 
                 // Store the pending changes locally and clear them from the instance
-                let pendingChanges: [(key: ObservableKey, value: Any?)] = self.pendingChanges
-                self.pendingChanges = []
+                let pendingEvents: [ObservedEvent] = self.pendingEvents
+                self.pendingEvents = []
                 
                 // If an error occurred during the change then actually throw it to prevent
                 // any database change from completing
@@ -549,14 +549,14 @@ public extension LibSession {
                     sessionId: sessionId,
                     skipAutomaticConfigSync: behaviourStore
                         .hasBehaviour(.skipAutomaticConfigSync, for: sessionId, variant),
-                    pendingChanges: pendingChanges,
+                    pendingEvents: pendingEvents,
                     cache: self,
                     using: dependencies
                 ).upsert(db)
             }
             catch {
                 Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
-                self.pendingChanges = []
+                self.pendingEvents = []
                 throw error
             }
         }
@@ -589,8 +589,8 @@ public extension LibSession {
                 try change(config)
                 
                 // Store the pending changes locally and clear them from the instance
-                let pendingChanges: [(key: ObservableKey, value: Any?)] = self.pendingChanges
-                self.pendingChanges = []
+                let pendingEvents: [ObservedEvent] = self.pendingEvents
+                self.pendingEvents = []
                 
                 // If an error occurred during the change then actually throw it to prevent
                 // any database change from completing
@@ -602,14 +602,14 @@ public extension LibSession {
                     sessionId: sessionId,
                     skipAutomaticConfigSync: behaviourStore
                         .hasBehaviour(.skipAutomaticConfigSync, for: sessionId, variant),
-                    pendingChanges: pendingChanges,
+                    pendingEvents: pendingEvents,
                     cache: self,
                     using: dependencies
                 )
             }
             catch {
                 Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
-                self.pendingChanges = []
+                self.pendingEvents = []
                 throw error
             }
         }
@@ -689,8 +689,8 @@ public extension LibSession {
                 }
         }
         
-        public func addPendingChange(key: ObservableKey, value: Any?) {
-            pendingChanges.append((key, value))
+        public func addEvent(_ event: ObservedEvent) {
+            pendingEvents.append(event)
         }
         
         // MARK: - Config Message Handling
@@ -882,9 +882,11 @@ public extension LibSession {
                 results.contains(where: { $0.dump != nil })
             else { return }
             
-            db.afterNextTransactionNested(using: dependencies) { [dependencies] db in
+            db.afterCommit { [dependencies] in
                 if needsPush {
-                    ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+                    dependencies[singleton: .storage].writeAsync { db in
+                        ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+                    }
                 }
                 
                 Task.detached(priority: .medium) { [dependencies] in
@@ -994,7 +996,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump]
-    func addPendingChange(key: ObservableKey, value: Any?)
+    func addEvent(_ event: ObservedEvent)
     
     // MARK: - Config Message Handling
     
@@ -1163,12 +1165,17 @@ public extension LibSessionCacheType {
         loadState(db, requestId: nil)
     }
     
-    func addPendingChange(key: Setting.BoolKey, value: Any?) {
-        addPendingChange(key: .setting(key), value: value)
+    
+    func addEvent(key: ObservableKey, value: AnyHashable?) {
+        addEvent(ObservedEvent(key: key, value: value))
     }
     
-    func addPendingChange(key: Setting.EnumKey, value: Any?) {
-        addPendingChange(key: .setting(key), value: value)
+    func addEvent(key: Setting.BoolKey, value: AnyHashable?) {
+        addEvent(ObservedEvent(key: .setting(key), value: value))
+    }
+    
+    func addEvent(key: Setting.EnumKey, value: AnyHashable?) {
+        addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
     @discardableResult func updateProfile(displayName: String) throws -> Profile? {
@@ -1242,7 +1249,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
             config: nil,
             sessionId: .invalid,
             skipAutomaticConfigSync: false,
-            pendingChanges: [],
+            pendingEvents: [],
             cache: self,
             using: dependencies
         )
@@ -1259,7 +1266,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     ) throws -> [ConfigDump] {
         return []
     }
-    func addPendingChange(key: ObservableKey, value: Any?) {}
+    func addEvent(_ event: ObservedEvent) {}
     
     // MARK: - Config Message Handling
     

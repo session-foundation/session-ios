@@ -208,17 +208,23 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 cancelStyle: .alert_text
             ) { [weak self, dependencies] _ in
                 // Unblock the contacts
-                dependencies[singleton: .storage].write { db in
-                    _ = try Contact
-                        .filter(ids: contactIds)
-                        .updateAllAndConfig(
-                            db,
-                            Contact.Columns.isBlocked.set(to: false),
-                            using: dependencies
-                        )
-                }
-                
-                self?.selectedIdsSubject.send([])
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        _ = try Contact
+                            .filter(ids: contactIds)
+                            .updateAllAndConfig(
+                                db,
+                                Contact.Columns.isBlocked.set(to: false),
+                                using: dependencies
+                            )
+                        contactIds.forEach { id in
+                            db.addContactEvent(id: id, change: .isBlocked(false))
+                        }
+                    },
+                    completion: { _ in
+                        self?.selectedIdsSubject.send([])
+                    }
+                )
             }
         )
         self.transitionToScreen(confirmationModal, transitionType: .present)

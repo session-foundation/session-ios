@@ -31,7 +31,7 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     
     let title: String = "notificationsContent".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .libSessionObservation(self) { cache -> Preferences.NotificationPreviewType in
             cache.get(.preferencesNotificationPreviewType).defaulting(to: .defaultPreviewType)
         }

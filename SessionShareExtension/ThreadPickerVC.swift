@@ -260,6 +260,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
             /// before we create the interaction
+            var sharedInteractionId: Int64?
             dependencies[singleton: .network]
                 .getSwarm(for: swarmPublicKey)
                 .tryFlatMapWithRandomSnode(using: dependencies) { snode in
@@ -275,15 +276,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     
                     // Update the thread to be visible (if it isn't already)
                     if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
-                        _ = try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                                SessionThread.Columns.isDraft.set(to: false),
-                                using: dependencies
-                            )
+                        try SessionThread.updateVisibility(
+                            db,
+                            threadId: threadId,
+                            isVisible: true,
+                            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+                            using: dependencies
+                        )
                     }
                     
                     // Create the interaction
@@ -307,6 +306,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil),
                         using: dependencies
                     ).inserted(db)
+                    sharedInteractionId = interaction.id
                     
                     guard let interactionId: Int64 = interaction.id else {
                         throw StorageError.failedToSave
@@ -425,7 +425,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         activityIndicator.dismiss { }
                         
                         switch result {
-                            case .finished: self?.shareNavController?.shareViewWasCompleted()
+                            case .finished: self?.shareNavController?.shareViewWasCompleted(
+                                threadId: threadId,
+                                interactionId: sharedInteractionId
+                            )
                             case .failure(let error): self?.shareNavController?.shareViewFailed(error: error)
                         }
                     }

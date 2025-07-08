@@ -11,7 +11,7 @@ public extension MessageViewModel {
     struct DeletionBehaviours {
         public enum Behaviour {
             case markAsDeleted(ids: [Int64], options: Interaction.DeletionOption, threadId: String, threadVariant: SessionThread.Variant)
-            case deleteFromDatabase([Int64])
+            case deleteFromDatabase(ids: [Int64], threadId: String)
             case cancelPendingSendJobs([Int64])
             case preparedRequest(Network.PreparedRequest<Void>)
         }
@@ -97,11 +97,14 @@ public extension MessageViewModel {
                             )
                         }
                         
-                    case .deleteFromDatabase(let ids):
+                    case .deleteFromDatabase(let ids, let threadId):
                         result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
                             _ = try Interaction
                                 .filter(ids: ids)
                                 .deleteAll(db)
+                            ids.forEach { id in
+                                db.addEvent(nil, forKey: .messageDeleted(id: id, threadId: threadId))
+                            }
                         }
                         
                     case .preparedRequest(let preparedRequest):
@@ -146,207 +149,221 @@ public extension MessageViewModel.DeletionBehaviours {
         }()
         
         /// The remaining deletion options are more complicated to determine
-        return dependencies[singleton: .storage].read { [dependencies] db -> MessageViewModel.DeletionBehaviours? in
-            let isAdmin: Bool = {
-                switch threadData.threadVariant {
-                    case .contact: return false
-                    case .group, .legacyGroup: return (threadData.currentUserIsClosedGroupAdmin == true)
-                    case .community:
-                        guard
-                            let server: String = threadData.openGroupServer,
-                            let roomToken: String = threadData.openGroupRoomToken
-                        else { return false }
+        // FIXME: [Database Relocation] Remove this database usage
+        var deletionBehaviours: MessageViewModel.DeletionBehaviours?
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [dependencies] db -> MessageViewModel.DeletionBehaviours? in
+                let isAdmin: Bool = {
+                    switch threadData.threadVariant {
+                        case .contact: return false
+                        case .group, .legacyGroup: return (threadData.currentUserIsClosedGroupAdmin == true)
+                        case .community:
+                            guard
+                                let server: String = threadData.openGroupServer,
+                                let roomToken: String = threadData.openGroupRoomToken
+                            else { return false }
+                            
+                            return dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
+                                db,
+                                publicKey: threadData.currentUserSessionId,
+                                for: roomToken,
+                                on: server,
+                                currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
+                            )
+                    }
+                }()
+                
+                switch (state, isAdmin) {
+                    /// User selects messages including a control message or “deleted” message
+                    case (.containsDeletedOrControlMessages, _):
+                        return MessageViewModel.DeletionBehaviours(
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            warning: (threadData.threadIsNoteToSelf ?
+                                "deleteMessageNoteToSelfWarning"
+                                    .putNumber(cellViewModels.count)
+                                    .localized() :
+                                "deleteMessageWarning"
+                                    .putNumber(cellViewModels.count)
+                                    .localized()
+                            ),
+                            body: "deleteMessageConfirm"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            actions: [
+                                NamedAction(
+                                    title: "deleteMessageDeviceOnly".localized(),
+                                    state: .enabledAndDefaultSelected,
+                                    accessibility: Accessibility(identifier: "Delete for me"),
+                                    behaviours: [
+                                        .cancelPendingSendJobs(cellViewModels.map { $0.id }),
+                                        
+                                        /// Control messages and deleted messages should be immediately deleted from the database
+                                        .deleteFromDatabase(
+                                            ids: cellViewModels
+                                                .filter { viewModel in
+                                                    viewModel.variant.isInfoMessage ||
+                                                    viewModel.variant.isDeletedMessage
+                                                }
+                                                .map { $0.id },
+                                            threadId: threadData.threadId
+                                        ),
+                                        
+                                        /// Other message types should only be marked as deleted
+                                        .markAsDeleted(
+                                            ids: cellViewModels
+                                                .filter { viewModel in
+                                                    !viewModel.variant.isInfoMessage &&
+                                                    !viewModel.variant.isDeletedMessage
+                                                }
+                                                .map { $0.id },
+                                            options: .local,
+                                            threadId: threadData.threadId,
+                                            threadVariant: threadData.threadVariant
+                                        )
+                                    ]
+                                ),
+                                NamedAction(
+                                    title: (threadData.threadIsNoteToSelf ?
+                                        "deleteMessageDevicesAll".localized() :
+                                        "deleteMessageEveryone".localized()
+                                    ),
+                                    state: .disabled,
+                                    accessibility: Accessibility(identifier: "Delete for everyone")
+                                )
+                            ]
+                        )
+                    
+                    /// User selects messages including only their own messages
+                    case (.outgoingOnly, _):
+                        return MessageViewModel.DeletionBehaviours(
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            warning: nil,
+                            body: "deleteMessageConfirm"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            actions: [
+                                NamedAction(
+                                    title: "deleteMessageDeviceOnly".localized(),
+                                    state: .enabledAndDefaultSelected,
+                                    accessibility: Accessibility(identifier: "Delete for me"),
+                                    behaviours: [
+                                        .cancelPendingSendJobs(cellViewModels.map { $0.id }),
+                                        .markAsDeleted(
+                                            ids: cellViewModels.map { $0.id },
+                                            options: .local,
+                                            threadId: threadData.threadId,
+                                            threadVariant: threadData.threadVariant
+                                        )
+                                    ]
+                                ),
+                                NamedAction(
+                                    title: (threadData.threadIsNoteToSelf ?
+                                        "deleteMessageDevicesAll".localized() :
+                                        "deleteMessageEveryone".localized()
+                                    ),
+                                    state: .enabled,
+                                    accessibility: Accessibility(identifier: "Delete for everyone"),
+                                    behaviours: try deleteForEveryoneBehaviours(
+                                        db,
+                                        isAdmin: isAdmin,
+                                        threadData: threadData,
+                                        cellViewModels: cellViewModels,
+                                        using: dependencies
+                                    )
+                                )
+                            ]
+                        )
                         
-                        return dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                            db,
-                            publicKey: threadData.currentUserSessionId,
-                            for: roomToken,
-                            on: server,
-                            currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
+                    /// User selects messages including ones from other users
+                    case (.containsIncoming, false):
+                        return MessageViewModel.DeletionBehaviours(
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            warning: "deleteMessageWarning"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            body: "deleteMessageDescriptionDevice"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            actions: [
+                                NamedAction(
+                                    title: "deleteMessageDeviceOnly".localized(),
+                                    state: .enabledAndDefaultSelected,
+                                    accessibility: Accessibility(identifier: "Delete for me"),
+                                    behaviours: [
+                                        .cancelPendingSendJobs(cellViewModels.map { $0.id }),
+                                        .markAsDeleted(
+                                            ids: cellViewModels.map { $0.id },
+                                            options: .local,
+                                            threadId: threadData.threadId,
+                                            threadVariant: threadData.threadVariant
+                                        )
+                                    ]
+                                ),
+                                NamedAction(
+                                    title: "deleteMessageEveryone".localized(),
+                                    state: .disabled,
+                                    accessibility: Accessibility(identifier: "Delete for everyone")
+                                )
+                            ]
+                        )
+                        
+                    /// Admin can multi-select their own messages and messages from other users
+                    case (.containsIncoming, true):
+                        return MessageViewModel.DeletionBehaviours(
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            warning: nil,
+                            body: "deleteMessageConfirm"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
+                            actions: [
+                                NamedAction(
+                                    title: "deleteMessageDeviceOnly".localized(),
+                                    state: .enabled,
+                                    accessibility: Accessibility(identifier: "Delete for me"),
+                                    behaviours: [
+                                        .cancelPendingSendJobs(cellViewModels.map { $0.id }),
+                                        .markAsDeleted(
+                                            ids: cellViewModels.map { $0.id },
+                                            options: .local,
+                                            threadId: threadData.threadId,
+                                            threadVariant: threadData.threadVariant
+                                        )
+                                    ]
+                                ),
+                                NamedAction(
+                                    title: "deleteMessageEveryone".localized(),
+                                    state: .enabledAndDefaultSelected,
+                                    accessibility: Accessibility(identifier: "Delete for everyone"),
+                                    behaviours: try deleteForEveryoneBehaviours(
+                                        db,
+                                        isAdmin: isAdmin,
+                                        threadData: threadData,
+                                        cellViewModels: cellViewModels,
+                                        using: dependencies
+                                    )
+                                )
+                            ]
                         )
                 }
-            }()
-            
-            switch (state, isAdmin) {
-                /// User selects messages including a control message or “deleted” message
-                case (.containsDeletedOrControlMessages, _):
-                    return MessageViewModel.DeletionBehaviours(
-                        title: "deleteMessage"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        warning: (threadData.threadIsNoteToSelf ?
-                            "deleteMessageNoteToSelfWarning"
-                                .putNumber(cellViewModels.count)
-                                .localized() :
-                            "deleteMessageWarning"
-                                .putNumber(cellViewModels.count)
-                                .localized()
-                        ),
-                        body: "deleteMessageConfirm"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        actions: [
-                            NamedAction(
-                                title: "deleteMessageDeviceOnly".localized(),
-                                state: .enabledAndDefaultSelected,
-                                accessibility: Accessibility(identifier: "Delete for me"),
-                                behaviours: [
-                                    .cancelPendingSendJobs(cellViewModels.map { $0.id }),
-                                    
-                                    /// Control messages and deleted messages should be immediately deleted from the database
-                                    .deleteFromDatabase(
-                                        cellViewModels
-                                            .filter { viewModel in
-                                                viewModel.variant.isInfoMessage ||
-                                                viewModel.variant.isDeletedMessage
-                                            }
-                                            .map { $0.id }
-                                    ),
-                                    
-                                    /// Other message types should only be marked as deleted
-                                    .markAsDeleted(
-                                        ids: cellViewModels
-                                            .filter { viewModel in
-                                                !viewModel.variant.isInfoMessage &&
-                                                !viewModel.variant.isDeletedMessage
-                                            }
-                                            .map { $0.id },
-                                        options: .local,
-                                        threadId: threadData.threadId,
-                                        threadVariant: threadData.threadVariant
-                                    )
-                                ]
-                            ),
-                            NamedAction(
-                                title: (threadData.threadIsNoteToSelf ?
-                                    "deleteMessageDevicesAll".localized() :
-                                    "deleteMessageEveryone".localized()
-                                ),
-                                state: .disabled,
-                                accessibility: Accessibility(identifier: "Delete for everyone")
-                            )
-                        ]
-                    )
-                
-                /// User selects messages including only their own messages
-                case (.outgoingOnly, _):
-                    return MessageViewModel.DeletionBehaviours(
-                        title: "deleteMessage"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        warning: nil,
-                        body: "deleteMessageConfirm"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        actions: [
-                            NamedAction(
-                                title: "deleteMessageDeviceOnly".localized(),
-                                state: .enabledAndDefaultSelected,
-                                accessibility: Accessibility(identifier: "Delete for me"),
-                                behaviours: [
-                                    .cancelPendingSendJobs(cellViewModels.map { $0.id }),
-                                    .markAsDeleted(
-                                        ids: cellViewModels.map { $0.id },
-                                        options: .local,
-                                        threadId: threadData.threadId,
-                                        threadVariant: threadData.threadVariant
-                                    )
-                                ]
-                            ),
-                            NamedAction(
-                                title: (threadData.threadIsNoteToSelf ?
-                                    "deleteMessageDevicesAll".localized() :
-                                    "deleteMessageEveryone".localized()
-                                ),
-                                state: .enabled,
-                                accessibility: Accessibility(identifier: "Delete for everyone"),
-                                behaviours: try deleteForEveryoneBehaviours(
-                                    db,
-                                    isAdmin: isAdmin,
-                                    threadData: threadData,
-                                    cellViewModels: cellViewModels,
-                                    using: dependencies
-                                )
-                            )
-                        ]
-                    )
-                    
-                /// User selects messages including ones from other users
-                case (.containsIncoming, false):
-                    return MessageViewModel.DeletionBehaviours(
-                        title: "deleteMessage"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        warning: "deleteMessageWarning"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        body: "deleteMessageDescriptionDevice"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        actions: [
-                            NamedAction(
-                                title: "deleteMessageDeviceOnly".localized(),
-                                state: .enabledAndDefaultSelected,
-                                accessibility: Accessibility(identifier: "Delete for me"),
-                                behaviours: [
-                                    .cancelPendingSendJobs(cellViewModels.map { $0.id }),
-                                    .markAsDeleted(
-                                        ids: cellViewModels.map { $0.id },
-                                        options: .local,
-                                        threadId: threadData.threadId,
-                                        threadVariant: threadData.threadVariant
-                                    )
-                                ]
-                            ),
-                            NamedAction(
-                                title: "deleteMessageEveryone".localized(),
-                                state: .disabled,
-                                accessibility: Accessibility(identifier: "Delete for everyone")
-                            )
-                        ]
-                    )
-                    
-                /// Admin can multi-select their own messages and messages from other users
-                case (.containsIncoming, true):
-                    return MessageViewModel.DeletionBehaviours(
-                        title: "deleteMessage"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        warning: nil,
-                        body: "deleteMessageConfirm"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        actions: [
-                            NamedAction(
-                                title: "deleteMessageDeviceOnly".localized(),
-                                state: .enabled,
-                                accessibility: Accessibility(identifier: "Delete for me"),
-                                behaviours: [
-                                    .cancelPendingSendJobs(cellViewModels.map { $0.id }),
-                                    .markAsDeleted(
-                                        ids: cellViewModels.map { $0.id },
-                                        options: .local,
-                                        threadId: threadData.threadId,
-                                        threadVariant: threadData.threadVariant
-                                    )
-                                ]
-                            ),
-                            NamedAction(
-                                title: "deleteMessageEveryone".localized(),
-                                state: .enabledAndDefaultSelected,
-                                accessibility: Accessibility(identifier: "Delete for everyone"),
-                                behaviours: try deleteForEveryoneBehaviours(
-                                    db,
-                                    isAdmin: isAdmin,
-                                    threadData: threadData,
-                                    cellViewModels: cellViewModels,
-                                    using: dependencies
-                                )
-                            )
-                        ]
-                    )
+            },
+            completion: { result in
+                deletionBehaviours = try? result.successOrThrow()
+                semaphore.signal()
             }
-        }
+        )
+        semaphore.wait()
+        
+        return deletionBehaviours
     }
     
     private static func deleteForEveryoneBehaviours(
@@ -366,10 +383,10 @@ public extension MessageViewModel.DeletionBehaviours {
                 /// Only include messages sent by the current user (can't delete incoming messages in contact conversations)
                 let targetViewModels: [MessageViewModel] = cellViewModels
                     .filter { threadData.currentUserSessionId.contains($0.authorId) }
-                let serverHashes: Set<String> = try Interaction.serverHashesForDeletion(
-                    db,
-                    interactionIds: targetViewModels.map { $0.id }.asSet()
-                )
+                let serverHashes: Set<String> = targetViewModels.compactMap { $0.serverHash }.asSet()
+                    .inserting(contentsOf: Set(targetViewModels.flatMap { message in
+                        (message.reactionInfo ?? []).compactMap { $0.reaction.serverHash }
+                    }))
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
                     try MessageSender.preparedSend(
                         message: UnsendRequest(
@@ -430,7 +447,10 @@ public extension MessageViewModel.DeletionBehaviours {
                     )
                     .appending(threadData.threadIsNoteToSelf ?
                         /// If it's the `Note to Self`conversation then we want to just delete the interaction
-                        .deleteFromDatabase(cellViewModels.map { $0.id }) :
+                        .deleteFromDatabase(
+                            ids: cellViewModels.map { $0.id },
+                            threadId: threadData.threadId
+                        ) :
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
                             options: [.local, .network],
@@ -512,10 +532,10 @@ public extension MessageViewModel.DeletionBehaviours {
                 /// Only include messages sent by the current user (non-admins can't delete incoming messages in group conversations)
                 let targetViewModels: [MessageViewModel] = cellViewModels
                     .filter { (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
-                let serverHashes: Set<String> = try Interaction.serverHashesForDeletion(
-                    db,
-                    interactionIds: targetViewModels.map { $0.id }.asSet()
-                )
+                let serverHashes: Set<String> = targetViewModels.compactMap { $0.serverHash }.asSet()
+                    .inserting(contentsOf: Set(targetViewModels.flatMap { message in
+                        (message.reactionInfo ?? []).compactMap { $0.reaction.serverHash }
+                    }))
                 
                 return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
                     /// **Note:** No signature for member delete content
@@ -560,21 +580,19 @@ public extension MessageViewModel.DeletionBehaviours {
             /// Mark as deleted
             case (.group, true):
                 guard
-                    let ed25519SecretKey: Data = try? ClosedGroup
-                        .filter(id: threadData.threadId)
-                        .select(.groupIdentityPrivateKey)
-                        .asRequest(of: Data.self)
-                        .fetchOne(db)
+                    let ed25519SecretKey: [UInt8] = dependencies.mutate(cache: .libSession, { cache in
+                        cache.secretKey(groupSessionId: SessionId(.group, hex: threadData.threadId))
+                    })
                 else {
                     Log.error("[ConversationViewModel] Failed to retrieve groupIdentityPrivateKey when trying to delete messages from group.")
                     throw StorageError.objectNotFound
                 }
                 
                 /// Only try to delete messages with server hashes (can't delete them otherwise)
-                let serverHashes: Set<String> = try Interaction.serverHashesForDeletion(
-                    db,
-                    interactionIds: cellViewModels.map { $0.id }.asSet()
-                )
+                let serverHashes: Set<String> = cellViewModels.compactMap { $0.serverHash }.asSet()
+                    .inserting(contentsOf: Set(cellViewModels.flatMap { message in
+                        (message.reactionInfo ?? []).compactMap { $0.reaction.serverHash }
+                    }))
                 
                 return [.cancelPendingSendJobs(cellViewModels.map { $0.id })]
                     .appending(serverHashes.isEmpty ? nil :
@@ -586,7 +604,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                     sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                                     authMethod: Authentication.groupAdmin(
                                         groupSessionId: SessionId(.group, hex: threadData.threadId),
-                                        ed25519SecretKey: Array(ed25519SecretKey)
+                                        ed25519SecretKey: ed25519SecretKey
                                     ),
                                     using: dependencies
                                 ),
@@ -674,7 +692,12 @@ public extension MessageViewModel.DeletionBehaviours {
                                 )
                             }
                     )
-                    .appending(.deleteFromDatabase(cellViewModels.map { $0.id }))
+                    .appending(
+                        .deleteFromDatabase(
+                            ids: cellViewModels.map { $0.id },
+                            threadId: threadData.threadId
+                        )
+                    )
         }
     }
 }

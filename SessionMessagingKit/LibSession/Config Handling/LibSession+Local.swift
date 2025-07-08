@@ -119,8 +119,8 @@ public extension LibSession.Cache {
                 local_set_setting(conf, key.rawValue, valueAsInt)
         }
         
-        /// Add a pending observation to notify any observers of the change once it's committed
-        addPendingChange(key: key, value: value)
+        /// Add an event to notify any observers of the change once it's committed
+        addEvent(key: key, value: value)
     }
     
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {
@@ -162,14 +162,14 @@ public extension LibSession.Cache {
             default: Log.critical(.libSession, "Failed to set unknown \(key) due to missing libSesison function")
         }
         
-        /// Add a pending observation to notify any observers of the change once it's committed
-        addPendingChange(key: key, value: value)
+        /// Add an event to notify any observers of the change once it's committed
+        addEvent(key: key, value: value)
     }
 }
 
 // MARK: - LibSessionConvertibleEnum
 
-public protocol LibSessionConvertibleEnum {
+public protocol LibSessionConvertibleEnum: Hashable {
     associatedtype LibSessionType
     
     static var defaultLibSessionValue: LibSessionType { get }

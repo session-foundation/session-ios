@@ -529,6 +529,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 try? dependencies[singleton: .fileManager].removeItem(atPath: path)
             }
             
+            /// Notify any conversations to update if a message was sent via Session
+            UIActivityViewController.notifyIfNeeded(completed, using: dependencies)
+            
             guard
                 let activityType = activityType,
                 activityType == .saveToCameraRoll,
@@ -539,7 +542,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             let threadId: String = self.viewModel.threadId
             let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
             
-            dependencies[singleton: .storage].write { db in
+            dependencies[singleton: .storage].writeAsync { db in
                 try MessageSender.send(
                     db,
                     message: DataExtractionNotification(
@@ -864,12 +867,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             switch targetItem.interactionVariant {
                 case .standardIncoming:
                     return viewModel.dependencies[singleton: .storage]
-                        .read { [dependencies = viewModel.dependencies] db in
+                        .read { db in
                             Profile.displayName(
                                 db,
                                 id: targetItem.interactionAuthorId,
-                                threadVariant: threadVariant,
-                                using: dependencies
+                                threadVariant: threadVariant
                             )
                         }
                         .defaulting(to: Profile.truncated(id: targetItem.interactionAuthorId, truncating: .middle))

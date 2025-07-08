@@ -347,7 +347,7 @@ public extension DisappearingMessagesConfiguration {
             body: self.messageInfoString(
                 threadVariant: threadVariant,
                 senderName: (authorId != userSessionId.hexString ?
-                    Profile.displayName(db, id: authorId, using: dependencies) :
+                    Profile.displayName(db, id: authorId) :
                     nil
                 ),
                 using: dependencies

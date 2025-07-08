@@ -527,7 +527,7 @@ extension MessageReceiver {
         else { throw MessageReceiverError.invalidMessage }
         
         // Trigger this removal in a separate process because it requires a number of requests to be made
-        db.afterNextTransactionNested(using: dependencies) { _ in
+        db.afterCommit {
             MessageSender
                 .removeGroupMembers(
                     groupSessionId: groupSessionId.hexString,
@@ -917,19 +917,21 @@ extension MessageReceiver {
         switch message.serverHash {
             case .none: break
             case .some(let serverHash):
-                db.afterNextTransactionNested(using: dependencies) { db in
-                    try? SnodeAPI
-                        .preparedDeleteMessages(
-                            serverHashes: [serverHash],
-                            requireSuccessfulDeletion: false,
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: userSessionId.hexString,
+                db.afterCommit {
+                    dependencies[singleton: .storage]
+                        .readPublisher { db in
+                            try SnodeAPI.preparedDeleteMessages(
+                                serverHashes: [serverHash],
+                                requireSuccessfulDeletion: false,
+                                authMethod: try Authentication.with(
+                                    db,
+                                    swarmPublicKey: userSessionId.hexString,
+                                    using: dependencies
+                                ),
                                 using: dependencies
-                            ),
-                            using: dependencies
-                        )
-                        .send(using: dependencies)
+                            )
+                        }
+                        .flatMap { $0.send(using: dependencies) }
                         .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                         .sinkUntilComplete()
                 }
@@ -1039,8 +1041,7 @@ extension MessageReceiver {
                             Profile.displayNameNoFallback(
                                 db,
                                 id: sessionId,
-                                threadVariant: thread.variant,
-                                using: dependencies
+                                threadVariant: thread.variant
                             )
                         },
                         groupNameRetriever: { threadId, threadVariant in

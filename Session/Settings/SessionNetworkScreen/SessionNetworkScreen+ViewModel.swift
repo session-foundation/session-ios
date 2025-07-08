@@ -29,7 +29,7 @@ extension SessionNetworkScreenContent {
             self.dataModel = DataModel()
             
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            self.observationCancellable = ObservationBuilder
+            self.observationCancellable = ObservationBuilderOld
                 .databaseObservation(dependencies) { [dependencies] db in
                     let swarmNodesCount: Int = dependencies[cache: .libSessionNetwork].snodeNumber[userSessionId.hexString] ?? 0
                     let snodeInTotal: Int = {

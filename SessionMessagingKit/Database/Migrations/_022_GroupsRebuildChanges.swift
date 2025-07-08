@@ -145,15 +145,17 @@ enum _022_GroupsRebuildChanges: Migration {
                 
                 /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
                 if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    db.afterNextTransactionNested(using: dependencies) { db in
-                        try? PushNotificationAPI
-                            .preparedSubscribe(
-                                db,
-                                token: Data(hex: token),
-                                sessionIds: [SessionId(.group, hex: group.groupSessionId)],
-                                using: dependencies
-                            )
-                            .send(using: dependencies)
+                    db.afterCommit {
+                        dependencies[singleton: .storage]
+                            .readPublisher { db in
+                                try PushNotificationAPI.preparedSubscribe(
+                                    db,
+                                    token: Data(hex: token),
+                                    sessionIds: [SessionId(.group, hex: group.groupSessionId)],
+                                    using: dependencies
+                                )
+                            }
+                            .flatMap { $0.send(using: dependencies) }
                             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                             .sinkUntilComplete()
                     }

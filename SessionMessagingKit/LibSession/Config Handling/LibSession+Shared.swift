@@ -134,6 +134,20 @@ internal extension LibSession {
                                 in: config,
                                 using: dependencies
                             )
+                            
+                            remainingThreads.forEach { thread in
+                                db.addEvent(
+                                    ConversationEvent(
+                                        id: thread.id,
+                                        change: .pinnedPriority(
+                                            thread.pinnedPriority
+                                                .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
+                                                .defaulting(to: LibSession.visiblePriority)
+                                        )
+                                    ),
+                                    forKey: .conversationUpdated(thread.id)
+                                )
+                            }
                         }
                     }
                     
@@ -872,7 +886,10 @@ public extension Dependencies {
             }
 
             dependencies[singleton: .storage].writeAsync(
-                updates: { db in try mutation?.upsert(db) },
+                updates: { db in
+                    try mutation?.upsert(db)
+                    db.addEvent(value, forKey: .setting(key))
+                },
                 completion: { _ in onComplete?() }
             )
         }
@@ -888,6 +905,7 @@ public extension Dependencies {
 
             try? await dependencies[singleton: .storage].writeAsync { db in
                 try mutation?.upsert(db)
+                db.addEvent(value, forKey: .setting(key))
             }
             
             onComplete?()

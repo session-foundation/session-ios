@@ -188,17 +188,49 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         shouldOpenCommunity: Bool,
         onError: (() -> ())?
     ) {
-        guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
-        
-        guard dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
-            roomToken: roomToken,
-            server: server,
-            publicKey: publicKey
-        ) != true else {
-            self.showToast(
-                text: "communityJoinedAlready".localized(),
-                backgroundColor: .backgroundSecondary
-            )
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [dependencies] db in
+                dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
+                    db,
+                    roomToken: roomToken,
+                    server: server,
+                    publicKey: publicKey
+                )
+            },
+            completion: { [weak self] result in
+                switch result {
+                    case .failure: onError?()
+                    case .success(let hasExistingOpenGroup):
+                        guard !hasExistingOpenGroup else {
+                            DispatchQueue.main.async {
+                                self?.showToast(
+                                    text: "communityJoinedAlready".localized(),
+                                    backgroundColor: .backgroundSecondary
+                                )
+                            }
+                            return
+                        }
+                        
+                        self?.joinOpenGroupAfterExistingCheck(
+                            roomToken: roomToken,
+                            server: server,
+                            publicKey: publicKey,
+                            shouldOpenCommunity: shouldOpenCommunity,
+                            onError: onError
+                        )
+                }
+            }
+        )
+    }
+    
+    private func joinOpenGroupAfterExistingCheck(
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        shouldOpenCommunity: Bool,
+        onError: (() -> ())?
+    ) {
+        guard !isJoining, let navigationController: UINavigationController = navigationController else {
             return
         }
         

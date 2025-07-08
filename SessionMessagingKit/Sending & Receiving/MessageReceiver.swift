@@ -426,17 +426,15 @@ public enum MessageReceiver {
         // Start the disappearing messages timer if needed
         // For disappear after send, this is necessary so the message will disappear even if it is not read
         if threadVariant != .community {
-            db.afterNextTransactionNestedOnce(
-                dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:ignore
-                using: dependencies,
-                onCommit: { db in
+            db.afterCommit(dedupeId: "PostInsertDisappearingMessagesJob") {  // stringlint:ignore
+                dependencies[singleton: .storage].writeAsync { db in
                     dependencies[singleton: .jobRunner].upsert(
                         db,
                         job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
                         canStartJob: true
                     )
                 }
-            )
+            }
         }
         
         // Only check the current visibility state if we should become visible for this message type
@@ -453,15 +451,13 @@ public enum MessageReceiver {
 
         guard !isCurrentlyVisible else { return }
         
-        try SessionThread
-            .filter(id: threadId)
-            .updateAllAndConfig(
-                db,
-                SessionThread.Columns.shouldBeVisible.set(to: true),
-                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                SessionThread.Columns.isDraft.set(to: false),
-                using: dependencies
-            )
+        try SessionThread.updateVisibility(
+            db,
+            threadId: threadId,
+            isVisible: true,
+            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+            using: dependencies
+        )
     }
     
     public static func handleOpenGroupReactions(
@@ -588,22 +584,17 @@ public enum MessageReceiver {
     ) {
         guard let info: InsertedInteractionInfo = insertedInteractionInfo else { return }
         
-        switch info {
-            case (let threadId, let threadVariant, let interactionId, _, false, let numPreviousInteractionsForMessageRequest):
-                db.addChange(interactionId, forKey: .unreadMessageReceived(threadId: threadId))
-                
-                if isMessageRequest {
-                    db.addChange(interactionId, forKey: .unreadMessageRequestMessageReceived)
-                    
-                    // Need to re-show the message requests section if we received a new message
-                    // request
-                    if numPreviousInteractionsForMessageRequest == 0 {
-                        dependencies.setAsync(.hasHiddenMessageRequests, false)
-                    }
-                }
-            
-            case (let threadId, _, let interactionId, _, _, _):
-                db.addChange(interactionId, forKey: .messageReceived(threadId: threadId))
+        /// This allows observing for an event where a message request receives an unread message
+        if isMessageRequest && !info.wasRead {
+            db.addEvent(
+                MessageEvent(id: info.interactionId, threadId: info.threadId, change: nil),
+                forKey: .unreadMessageRequestMessageReceived
+            )
+        }
+        
+        /// Need to re-show the message requests section if we received a new message request
+        if isMessageRequest && info.numPreviousInteractionsForMessageRequest == 0 {
+            dependencies.setAsync(.hasHiddenMessageRequests, false)
         }
     }
 }

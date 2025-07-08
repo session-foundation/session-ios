@@ -123,7 +123,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         }
     }
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> State in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
@@ -496,14 +496,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         ),
                         onTap: { [dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAllAndConfig(
-                                        db,
-                                        SessionThread.Columns.shouldBeVisible.set(to: true),
-                                        SessionThread.Columns.pinnedPriority.set(to: (threadViewModel.threadPinnedPriority <= 0 ? 1 : 0)),
-                                        using: dependencies
-                                    )
+                                try SessionThread.updateVisibility(
+                                    db,
+                                    threadId: threadViewModel.threadId,
+                                    isVisible: true,
+                                    customPriority: (threadViewModel.threadPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                                    using: dependencies
+                                )
                             }
                         }
                     )
@@ -771,14 +770,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         onTap: { [dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 if isThreadHidden {
-                                    try SessionThread
-                                        .filter(id: threadViewModel.threadId)
-                                        .updateAllAndConfig(
-                                            db,
-                                            SessionThread.Columns.shouldBeVisible.set(to: true),
-                                            SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                                            using: dependencies
-                                        )
+                                    try SessionThread.updateVisibility(
+                                        db,
+                                        threadId: threadViewModel.threadId,
+                                        isVisible: true,
+                                        using: dependencies
+                                    )
                                 } else {
                                     try SessionThread.deleteOrLeave(
                                         db,
@@ -1258,7 +1255,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     linkPreviewUrl: communityUrl,
                                     using: dependencies
                                 )
-                                    .inserted(db)
+                                .inserted(db)
                                 
                                 try MessageSender.send(
                                     db,
@@ -1537,6 +1534,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 Profile.Columns.nickname.set(to: finalNickname),
                                 using: dependencies
                             )
+                        db.addProfileEvent(id: threadId, change: .nickname(finalNickname))
+                        db.addConversationEvent(id: threadId, type: .updated(.displayName(finalNickname)))
                     },
                     completion: { _ in
                         DispatchQueue.main.async {
@@ -1556,6 +1555,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 Profile.Columns.nickname.set(to: nil),
                                 using: dependencies
                             )
+                        db.addProfileEvent(id: threadId, change: .nickname(nil))
+                        db.addConversationEvent(id: threadId, type: .updated(.displayName(displayName)))
                     },
                     completion: { _ in
                         DispatchQueue.main.async {
@@ -1869,6 +1870,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     Contact.Columns.isBlocked.set(to: isBlocked),
                     using: dependencies
                 )
+            db.addContactEvent(id: threadId, change: .isBlocked(isBlocked))
         }
     }
     

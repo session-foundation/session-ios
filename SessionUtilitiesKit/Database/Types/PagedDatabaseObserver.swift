@@ -18,6 +18,7 @@ private extension Log.Category {
 /// This type manages observation and paging for the provided dataQuery
 ///
 /// **Note:** We **MUST** have accurate `filterSQL` and `orderSQL` values otherwise the indexing won't work
+@available(*, deprecated, message: "This type is now deprecated since we store data in both the database and libSession (and this type only observes database changes). Use the `ObservationBuilder` approach in the HomeViewModel instead")
 public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObserver where ObservedTable: TableRecord & ColumnExpressible & Identifiable, T: FetchableRecordWithRowId & Identifiable {
     private let commitProcessingQueue: DispatchQueue = DispatchQueue(
         label: "PagedDatabaseObserver.commitProcessingQueue",
@@ -584,7 +585,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
     
     // MARK: - Functions
     
-    fileprivate func load(_ target: PagedData.PageInfo.InternalTarget) {
+    fileprivate func load(_ target: PagedData.InternalTarget) {
         // Only allow a single page load at a time
         guard !self.isLoadingMoreData else { return }
 
@@ -611,308 +612,313 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
             change.joinToPagedType != nil
         }
         
-        let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = dependencies[singleton: .storage].read { [weak self] db in
-            typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
-            let totalCount: Int = PagedData.totalCount(
-                db,
-                tableName: pagedTableName,
-                requiredJoinSQL: joinSQL,
-                filterSQL: filterSQL
-            )
-            
-            let (queryInfo, callback): (QueryInfo?, (() -> ())?) = {
-                switch target {
-                    case .initialPageAround(let targetId):
-                        // If we want to focus on a specific item then we need to find it's index in
-                        // the queried data
-                        let maybeIndex: Int? = PagedData.index(
-                            db,
-                            for: targetId,
-                            tableName: pagedTableName,
-                            idColumn: idColumnName,
-                            requiredJoinSQL: joinSQL,
-                            orderSQL: orderSQL,
-                            filterSQL: filterSQL
-                        )
-                        
-                        // If we couldn't find the targetId then just load the first page
-                        guard let targetIndex: Int = maybeIndex else {
-                            return ((currentPageInfo.pageSize, 0, 0), nil)
-                        }
-                        
-                        let updatedOffset: Int = {
-                            // If the focused item is within the first or last half of the page
-                            // then we still want to retrieve a full page so calculate the offset
-                            // needed to do so (snapping to the ends)
-                            let halfPageSize: Int = Int(floor(Double(currentPageInfo.pageSize) / 2))
-                            
-                            guard targetIndex > halfPageSize else { return 0 }
-                            guard targetIndex < (totalCount - halfPageSize) else {
-                                return max(0, (totalCount - currentPageInfo.pageSize))
-                            }
-
-                            return (targetIndex - halfPageSize)
-                        }()
-
-                        return ((currentPageInfo.pageSize, updatedOffset, updatedOffset), nil)
-                        
-                    case .pageBefore:
-                        let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - currentPageInfo.pageSize))
-                        
-                        return (
-                            (
-                                currentPageInfo.pageSize,
-                                updatedOffset,
-                                updatedOffset
-                            ),
-                            nil
-                        )
-                        
-                    case .pageAfter:
-                        return (
-                            (
-                                currentPageInfo.pageSize,
-                                (currentPageInfo.pageOffset + currentPageInfo.currentCount),
-                                currentPageInfo.pageOffset
-                            ),
-                            nil
-                        )
-                    
-                    case .untilInclusive(let targetId, let padding):
-                        // If we want to focus on a specific item then we need to find it's index in
-                        // the queried data
-                        let maybeIndex: Int? = PagedData.index(
-                            db,
-                            for: targetId,
-                            tableName: pagedTableName,
-                            idColumn: idColumnName,
-                            requiredJoinSQL: joinSQL,
-                            orderSQL: orderSQL,
-                            filterSQL: filterSQL
-                        )
-                        let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
-                        
-                        // If we couldn't find the targetId or it's already in the cache then do nothing
-                        guard
-                            let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
-                            (
-                                targetIndex < currentPageInfo.pageOffset ||
-                                targetIndex >= cacheCurrentEndIndex
-                            )
-                        else { return (nil, nil) }
-                        
-                        // If the target is before the cached data then load before
-                        if targetIndex < currentPageInfo.pageOffset {
-                            let finalIndex: Int = max(0, (targetIndex - abs(padding)))
-                            
-                            return (
-                                (
-                                    (currentPageInfo.pageOffset - finalIndex),
-                                    finalIndex,
-                                    finalIndex
-                                ),
-                                nil
-                            )
-                        }
-                        
-                        // Otherwise load after (targetIndex is 0-indexed so we need to add 1 for this to
-                        // have the correct 'limit' value)
-                        let finalIndex: Int = min(totalCount, (targetIndex + 1 + abs(padding)))
-                        
-                        return (
-                            (
-                                (finalIndex - cacheCurrentEndIndex),
-                                cacheCurrentEndIndex,
-                                currentPageInfo.pageOffset
-                            ),
-                            nil
-                        )
-                        
-                    case .jumpTo(let targetId, let paddingForInclusive):
-                        // If we want to focus on a specific item then we need to find it's index in
-                        // the queried data
-                        let maybeIndex: Int? = PagedData.index(
-                            db,
-                            for: targetId,
-                            tableName: pagedTableName,
-                            idColumn: idColumnName,
-                            requiredJoinSQL: joinSQL,
-                            orderSQL: orderSQL,
-                            filterSQL: filterSQL
-                        )
-                        let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
-                        
-                        // If we couldn't find the targetId or it's already in the cache then do nothing
-                        guard
-                            let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
-                            (
-                                targetIndex < currentPageInfo.pageOffset ||
-                                targetIndex >= cacheCurrentEndIndex
-                            )
-                        else { return (nil, nil) }
-                        
-                        // If the targetIndex is over a page before the current content or more than a page
-                        // after the current content then we want to reload the entire content (to avoid
-                        // loading an excessive amount of data), otherwise we should load all messages between
-                        // the current content and the targetIndex (plus padding)
-                        guard
-                            (targetIndex < (currentPageInfo.pageOffset - currentPageInfo.pageSize)) ||
-                            (targetIndex > (cacheCurrentEndIndex + currentPageInfo.pageSize))
-                        else {
-                            let callback: () -> () = {
-                                self?.load(.untilInclusive(id: targetId, padding: paddingForInclusive))
-                            }
-                            return (nil, callback)
-                        }
-                        
-                        // If the targetId is further than 1 pageSize away then discard the current
-                        // cached data and trigger a fresh `initialPageAround`
-                        let callback: () -> () = {
-                            self?.dataCache = DataCache()
-                            self?.associatedRecords.forEach { $0.clearCache() }
-                            self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
-                            self?.load(.initialPageAround(id: targetId))
-                        }
-                        
-                        return (nil, callback)
-                        
-                    case .reloadCurrent:
-                        return (
-                            (
-                                currentPageInfo.currentCount,
-                                currentPageInfo.pageOffset,
-                                currentPageInfo.pageOffset
-                            ),
-                            nil
-                        )
-                }
-            }()
-            
-            // If there is no queryOffset then we already have the data we need so
-            // early-out (may as well update the 'totalCount' since it may be relevant)
-            guard let queryInfo: QueryInfo = queryInfo else {
-                return (
-                    nil,
-                    PagedData.PageInfo(
-                        pageSize: currentPageInfo.pageSize,
-                        pageOffset: currentPageInfo.pageOffset,
-                        currentCount: currentPageInfo.currentCount,
-                        totalCount: totalCount
-                    ),
-                    callback
-                )
-            }
-            
-            // Fetch the desired data
-            let pageRowIds: [Int64]
-            let newData: [T]
-            let updatedLimitInfo: PagedData.PageInfo
-            
-            do {
-                pageRowIds = try PagedData.rowIds(
+        typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
+        typealias LoadedPage = (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)
+        
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [weak self] (db: ObservingDatabase) -> LoadedPage in
+                let totalCount: Int = PagedData.totalCount(
                     db,
                     tableName: pagedTableName,
                     requiredJoinSQL: joinSQL,
-                    filterSQL: filterSQL,
-                    groupSQL: groupSQL,
-                    orderSQL: orderSQL,
-                    limit: queryInfo.limit,
-                    offset: queryInfo.offset
+                    filterSQL: filterSQL
                 )
-                newData = try dataQuery(pageRowIds).fetchAll(db)
-                updatedLimitInfo = PagedData.PageInfo(
-                    pageSize: currentPageInfo.pageSize,
-                    pageOffset: queryInfo.updatedCacheOffset,
-                    currentCount: {
-                        switch target {
-                            case .reloadCurrent: return currentPageInfo.currentCount
-                            default: return (currentPageInfo.currentCount + newData.count)
-                        }
-                    }(),
-                    totalCount: totalCount
-                )
-                let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
-                    guard let joinToPagedType: SQL = change.joinToPagedType else { return }
-                    
-                    let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
-                        db,
-                        tableName: change.databaseTableName,
-                        pagedTableName: pagedTableName,
-                        pagedRowIds: pageRowIds,
-                        joinToPagedType: joinToPagedType
+                
+                let (queryInfo, callback): (QueryInfo?, (() -> ())?) = {
+                    switch target {
+                        case .initialPageAround(let targetId):
+                            // If we want to focus on a specific item then we need to find it's index in
+                            // the queried data
+                            let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                                db,
+                                for: targetId,
+                                tableName: pagedTableName,
+                                idColumn: idColumnName,
+                                requiredJoinSQL: joinSQL,
+                                orderSQL: orderSQL,
+                                filterSQL: filterSQL
+                            )
+                            
+                            // If we couldn't find the targetId then just load the first page
+                            guard let targetIndex: Int = maybeRowInfo?.rowIndex else {
+                                return ((currentPageInfo.pageSize, 0, 0), nil)
+                            }
+                            
+                            let updatedOffset: Int = {
+                                // If the focused item is within the first or last half of the page
+                                // then we still want to retrieve a full page so calculate the offset
+                                // needed to do so (snapping to the ends)
+                                let halfPageSize: Int = Int(floor(Double(currentPageInfo.pageSize) / 2))
+                                
+                                guard targetIndex > halfPageSize else { return 0 }
+                                guard targetIndex < (totalCount - halfPageSize) else {
+                                    return max(0, (totalCount - currentPageInfo.pageSize))
+                                }
+
+                                return (targetIndex - halfPageSize)
+                            }()
+
+                            return ((currentPageInfo.pageSize, updatedOffset, updatedOffset), nil)
+                            
+                        case .pageBefore:
+                            let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - currentPageInfo.pageSize))
+                            
+                            return (
+                                (
+                                    currentPageInfo.pageSize,
+                                    updatedOffset,
+                                    updatedOffset
+                                ),
+                                nil
+                            )
+                            
+                        case .pageAfter:
+                            return (
+                                (
+                                    currentPageInfo.pageSize,
+                                    (currentPageInfo.pageOffset + currentPageInfo.currentCount),
+                                    currentPageInfo.pageOffset
+                                ),
+                                nil
+                            )
+                        
+                        case .untilInclusive(let targetId, let padding):
+                            // If we want to focus on a specific item then we need to find it's index in
+                            // the queried data
+                            let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                                db,
+                                for: targetId,
+                                tableName: pagedTableName,
+                                idColumn: idColumnName,
+                                requiredJoinSQL: joinSQL,
+                                orderSQL: orderSQL,
+                                filterSQL: filterSQL
+                            )
+                            let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
+                            
+                            // If we couldn't find the targetId or it's already in the cache then do nothing
+                            guard
+                                let targetIndex: Int = maybeRowInfo.map({ max(0, min(totalCount, $0.rowIndex)) }),
+                                (
+                                    targetIndex < currentPageInfo.pageOffset ||
+                                    targetIndex >= cacheCurrentEndIndex
+                                )
+                            else { return (nil, nil) }
+                            
+                            // If the target is before the cached data then load before
+                            if targetIndex < currentPageInfo.pageOffset {
+                                let finalIndex: Int = max(0, (targetIndex - abs(padding)))
+                                
+                                return (
+                                    (
+                                        (currentPageInfo.pageOffset - finalIndex),
+                                        finalIndex,
+                                        finalIndex
+                                    ),
+                                    nil
+                                )
+                            }
+                            
+                            // Otherwise load after (targetIndex is 0-indexed so we need to add 1 for this to
+                            // have the correct 'limit' value)
+                            let finalIndex: Int = min(totalCount, (targetIndex + 1 + abs(padding)))
+                            
+                            return (
+                                (
+                                    (finalIndex - cacheCurrentEndIndex),
+                                    cacheCurrentEndIndex,
+                                    currentPageInfo.pageOffset
+                                ),
+                                nil
+                            )
+                            
+                        case .jumpTo(let targetId, let paddingForInclusive):
+                            // If we want to focus on a specific item then we need to find it's index in
+                            // the queried data
+                            let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                                db,
+                                for: targetId,
+                                tableName: pagedTableName,
+                                idColumn: idColumnName,
+                                requiredJoinSQL: joinSQL,
+                                orderSQL: orderSQL,
+                                filterSQL: filterSQL
+                            )
+                            let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
+                            
+                            // If we couldn't find the targetId or it's already in the cache then do nothing
+                            guard
+                                let targetIndex: Int = maybeRowInfo.map({ max(0, min(totalCount, $0.rowIndex)) }),
+                                (
+                                    targetIndex < currentPageInfo.pageOffset ||
+                                    targetIndex >= cacheCurrentEndIndex
+                                )
+                            else { return (nil, nil) }
+                            
+                            // If the targetIndex is over a page before the current content or more than a page
+                            // after the current content then we want to reload the entire content (to avoid
+                            // loading an excessive amount of data), otherwise we should load all messages between
+                            // the current content and the targetIndex (plus padding)
+                            guard
+                                (targetIndex < (currentPageInfo.pageOffset - currentPageInfo.pageSize)) ||
+                                (targetIndex > (cacheCurrentEndIndex + currentPageInfo.pageSize))
+                            else {
+                                let callback: () -> () = {
+                                    self?.load(.untilInclusive(id: targetId, padding: paddingForInclusive))
+                                }
+                                return (nil, callback)
+                            }
+                            
+                            // If the targetId is further than 1 pageSize away then discard the current
+                            // cached data and trigger a fresh `initialPageAround`
+                            let callback: () -> () = {
+                                self?.dataCache = DataCache()
+                                self?.associatedRecords.forEach { $0.clearCache() }
+                                self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
+                                self?.load(.initialPageAround(id: targetId))
+                            }
+                            
+                            return (nil, callback)
+                            
+                        case .reloadCurrent:
+                            return (
+                                (
+                                    currentPageInfo.currentCount,
+                                    currentPageInfo.pageOffset,
+                                    currentPageInfo.pageOffset
+                                ),
+                                nil
+                            )
+                    }
+                }()
+                
+                // If there is no queryOffset then we already have the data we need so
+                // early-out (may as well update the 'totalCount' since it may be relevant)
+                guard let queryInfo: QueryInfo = queryInfo else {
+                    return (
+                        nil,
+                        PagedData.PageInfo(
+                            pageSize: currentPageInfo.pageSize,
+                            pageOffset: currentPageInfo.pageOffset,
+                            currentCount: currentPageInfo.currentCount,
+                            totalCount: totalCount
+                        ),
+                        callback
                     )
-                    result[change.databaseTableName] = relationshipIds
-                        .grouped(by: { $0.relatedRowId })
-                        .mapValues { value in value.map { $0.pagedRowId } }
                 }
                 
-                // Update the relationshipCache records for the paged values
-                self?._relationshipCache.performUpdate { cache in
-                    var updatedCache: [String: [Int64: [Int64]]] = cache
-                    updatedRelationships.forEach { key, value in
-                        if updatedCache[key] == nil {
-                            updatedCache[key] = [:]
-                        }
-                        updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                // Fetch the desired data
+                let pageRowIds: [Int64]
+                let newData: [T]
+                let updatedLimitInfo: PagedData.PageInfo
+                
+                do {
+                    pageRowIds = try PagedData.rowIds(
+                        db,
+                        tableName: pagedTableName,
+                        requiredJoinSQL: joinSQL,
+                        filterSQL: filterSQL,
+                        groupSQL: groupSQL,
+                        orderSQL: orderSQL,
+                        limit: queryInfo.limit,
+                        offset: queryInfo.offset
+                    )
+                    newData = try dataQuery(pageRowIds).fetchAll(db)
+                    updatedLimitInfo = PagedData.PageInfo(
+                        pageSize: currentPageInfo.pageSize,
+                        pageOffset: queryInfo.updatedCacheOffset,
+                        currentCount: {
+                            switch target {
+                                case .reloadCurrent: return currentPageInfo.currentCount
+                                default: return (currentPageInfo.currentCount + newData.count)
+                            }
+                        }(),
+                        totalCount: totalCount
+                    )
+                    let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
+                        guard let joinToPagedType: SQL = change.joinToPagedType else { return }
+                        
+                        let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
+                            db,
+                            tableName: change.databaseTableName,
+                            pagedTableName: pagedTableName,
+                            pagedRowIds: pageRowIds,
+                            joinToPagedType: joinToPagedType
+                        )
+                        result[change.databaseTableName] = relationshipIds
+                            .grouped(by: { $0.relatedRowId })
+                            .mapValues { value in value.map { $0.pagedRowId } }
                     }
                     
-                    return updatedCache
+                    // Update the relationshipCache records for the paged values
+                    self?._relationshipCache.performUpdate { cache in
+                        var updatedCache: [String: [Int64: [Int64]]] = cache
+                        updatedRelationships.forEach { key, value in
+                            if updatedCache[key] == nil {
+                                updatedCache[key] = [:]
+                            }
+                            updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                        }
+                        
+                        return updatedCache
+                    }
+                    
+                    // Update the associatedRecords for the newly retrieved data
+                    let newDataRowIds: [Int64] = newData.map { $0.rowId }
+                    try self?.associatedRecords.forEach { record in
+                        record.updateCache(
+                            db,
+                            rowIds: try PagedData.associatedRowIds(
+                                db,
+                                tableName: record.databaseTableName,
+                                pagedTableName: pagedTableName,
+                                pagedTypeRowIds: newDataRowIds,
+                                joinToPagedType: record.joinToPagedType
+                            ),
+                            hasOtherChanges: false
+                        )
+                    }
+                }
+                catch {
+                    Log.error(.cat, "Error loading data: \(error)")
+                    throw error
+                }
+
+                return (newData, updatedLimitInfo, nil)
+            },
+            completion: { [weak self] result in
+                guard
+                    let self = self,
+                    case .success(let loadedPage) = result
+                else { return }
+                
+                // Unwrap the updated data
+                guard let loadedPageData: [T] = loadedPage.data else {
+                    /// It's possible to get updated page info without having updated data, in that case we do want to update the
+                    /// cache but probably don't need to trigger the change callback
+                    self.pageInfo = loadedPage.pageInfo
+                    self.isLoadingMoreData = false
+                    loadedPage.failureCallback?()
+                    return
                 }
                 
-                // Update the associatedRecords for the newly retrieved data
-                let newDataRowIds: [Int64] = newData.map { $0.rowId }
-                try self?.associatedRecords.forEach { record in
-                    record.updateCache(
-                        db,
-                        rowIds: try PagedData.associatedRowIds(
-                            db,
-                            tableName: record.databaseTableName,
-                            pagedTableName: pagedTableName,
-                            pagedTypeRowIds: newDataRowIds,
-                            joinToPagedType: record.joinToPagedType
-                        ),
-                        hasOtherChanges: false
-                    )
+                // Attach any associated data to the loadedPageData
+                var associatedLoadedData: DataCache<T> = DataCache(items: loadedPageData)
+                
+                self.associatedRecords.forEach { record in
+                    associatedLoadedData = record.updateAssociatedData(to: associatedLoadedData)
                 }
+                
+                // Update the cache and pageInfo
+                self.dataCache = self.dataCache.upserting(items: associatedLoadedData.values)
+                self.pageInfo = loadedPage.pageInfo
+                
+                /// Trigger the unsorted change callback (the actual UI update triggering should eventually be run on the main thread
+                /// via the `PagedData.processAndTriggerUpdates` function)
+                self.onChangeUnsorted(self.dataCache.values, loadedPage.pageInfo)
+                self.isLoadingMoreData = false
             }
-            catch {
-                Log.error(.cat, "Error loading data: \(error)")
-                throw error
-            }
-
-            return (newData, updatedLimitInfo, nil)
-        }
-        
-        // Unwrap the updated data
-        guard
-            let loadedPageData: [T] = loadedPage?.data,
-            let updatedPageInfo: PagedData.PageInfo = loadedPage?.pageInfo
-        else {
-            // It's possible to get updated page info without having updated data, in that case
-            // we do want to update the cache but probably don't need to trigger the change callback
-            if let updatedPageInfo: PagedData.PageInfo = loadedPage?.pageInfo {
-                self.pageInfo = updatedPageInfo
-            }
-            self.isLoadingMoreData = false
-            loadedPage?.failureCallback?()
-            return
-        }
-        
-        // Attach any associated data to the loadedPageData
-        var associatedLoadedData: DataCache<T> = DataCache(items: loadedPageData)
-        
-        self.associatedRecords.forEach { record in
-            associatedLoadedData = record.updateAssociatedData(to: associatedLoadedData)
-        }
-        
-        // Update the cache and pageInfo
-        self.dataCache = self.dataCache.upserting(items: associatedLoadedData.values)
-        self.pageInfo = updatedPageInfo
-        
-        // Trigger the unsorted change callback (the actual UI update triggering should eventually be run on
-        // the main thread via the `PagedData.processAndTriggerUpdates` function)
-        self.onChangeUnsorted(self.dataCache.values, updatedPageInfo)
-        self.isLoadingMoreData = false
+        )
     }
     
     public func suspend() {
@@ -927,12 +933,46 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
 
 // MARK: - Convenience
 
+private extension PagedData {
+    /// This type is identical to the 'Target' type but has it's 'SQLExpressible' requirement removed
+    enum InternalTarget {
+        case initialPageAround(id: SQLExpression)
+        case pageBefore
+        case pageAfter
+        case jumpTo(id: SQLExpression, paddingForInclusive: Int)
+        case reloadCurrent
+        
+        /// This will be used when `jumpTo`  is called and the `id` is within a single `pageSize` of the currently
+        /// cached data (plus the padding amount)
+        ///
+        /// **Note:** If the id is already within the cache then this will do nothing (even if
+        /// the padding would mean more data should be loaded)
+        case untilInclusive(id: SQLExpression, padding: Int)
+    }
+}
+
+private extension PagedData.Target {
+    var internalTarget: PagedData.InternalTarget {
+        switch self {
+            case .initial: return .pageBefore
+            case .initialPageAround(let id): return .initialPageAround(id: id.sqlExpression)
+            case .pageBefore: return .pageBefore
+            case .pageAfter: return .pageAfter
+            
+            case .jumpTo(let id, let padding):
+                return .jumpTo(id: id.sqlExpression, paddingForInclusive: padding)
+                
+            case .reloadCurrent: return .reloadCurrent
+        }
+    }
+}
+
 public extension PagedDatabaseObserver {
-    func load(_ target: PagedData.PageInfo.Target<ObservedTable.ID>) where ObservedTable.ID: SQLExpressible {
+    func load(_ target: PagedData.Target<ObservedTable.ID>) where ObservedTable.ID: SQLExpressible {
         self.load(target.internalTarget)
     }
     
-    func load<ID>(_ target: PagedData.PageInfo.Target<ID>) where ObservedTable.ID == Optional<ID>, ID: SQLExpressible {
+    func load<ID>(_ target: PagedData.Target<ID>) where ObservedTable.ID == Optional<ID>, ID: SQLExpressible {
         self.load(target.internalTarget)
     }
 }
@@ -1034,79 +1074,7 @@ public struct DataCache<T: FetchableRecordWithRowId & Identifiable>: ThreadSafeT
 
 // MARK: - PagedData
 
-public enum PagedData {
-    public static let autoLoadNextPageDelay: DispatchTimeInterval = .milliseconds(400)
-    
-    // MARK: - PageInfo
-    
-    public struct PageInfo: ThreadSafeType {
-        /// This type is identical to the 'Target' type but has it's 'SQLExpressible' requirement removed
-        fileprivate enum InternalTarget {
-            case initialPageAround(id: SQLExpression)
-            case pageBefore
-            case pageAfter
-            case jumpTo(id: SQLExpression, paddingForInclusive: Int)
-            case reloadCurrent
-            
-            /// This will be used when `jumpTo`  is called and the `id` is within a single `pageSize` of the currently
-            /// cached data (plus the padding amount)
-            ///
-            /// **Note:** If the id is already within the cache then this will do nothing (even if
-            /// the padding would mean more data should be loaded)
-            case untilInclusive(id: SQLExpression, padding: Int)
-        }
-        
-        public enum Target<ID: SQLExpressible> {
-            /// This will attempt to load a page of data around a specified id
-            ///
-            /// **Note:** This target will only work if there is no other data in the cache
-            case initialPageAround(id: ID)
-            
-            /// This will attempt to load a page of data before the first item in the cache
-            case pageBefore
-            
-            /// This will attempt to load a page of data after the last item in the cache
-            case pageAfter
-            
-            /// This will jump to the specified id, loading a page around it and clearing out any
-            /// data that was previously cached
-            ///
-            /// **Note:** If the id is within 1 pageSize of the currently cached data then this
-            /// will behave as per the `untilInclusive(id:padding:)` type
-            case jumpTo(id: ID, paddingForInclusive: Int)
-            
-            fileprivate var internalTarget: InternalTarget {
-                switch self {
-                    case .initialPageAround(let id): return .initialPageAround(id: id.sqlExpression)
-                    case .pageBefore: return .pageBefore
-                    case .pageAfter: return .pageAfter
-                    
-                    case .jumpTo(let id, let paddingForInclusive):
-                        return .jumpTo(id: id.sqlExpression, paddingForInclusive: paddingForInclusive)
-                }
-            }
-        }
-        
-        public let pageSize: Int
-        public let pageOffset: Int
-        public let currentCount: Int
-        public let totalCount: Int
-        
-        // MARK: - Initizliation
-        
-        public init(
-            pageSize: Int,
-            pageOffset: Int = 0,
-            currentCount: Int = 0,
-            totalCount: Int = 0
-        ) {
-            self.pageSize = pageSize
-            self.pageOffset = pageOffset
-            self.currentCount = currentCount
-            self.totalCount = totalCount
-        }
-    }
-    
+public extension PagedData {
     // MARK: - ObservedChanges
 
     /// This type contains the information needed to define what changes should be included when observing
@@ -1116,7 +1084,7 @@ public enum PagedData {
     ///   - table: The table whose changes should be observed
     ///   - events: The database events which should be observed
     ///   - columns: The specific columns which should trigger changes (**Note:** These only apply to `update` changes)
-    public struct ObservedChanges {
+    struct ObservedChanges {
         public let databaseTableName: String
         public let events: [DatabaseEvent.Kind]
         public let columns: [String]
@@ -1137,7 +1105,7 @@ public enum PagedData {
 
     // MARK: - TrackedChange
 
-    public struct TrackedChange: Hashable {
+    struct TrackedChange: Hashable {
         let tableName: String
         let kind: DatabaseEvent.Kind
         let rowId: Int64
@@ -1159,7 +1127,7 @@ public enum PagedData {
     // MARK: - Convenience Functions
     
     // FIXME: Would be good to clean this up further in the future (should be able to do more processing on BG threads)
-    public static func processAndTriggerUpdates<SectionModel: DifferentiableSection>(
+    static func processAndTriggerUpdates<SectionModel: DifferentiableSection>(
         updatedData: [SectionModel]?,
         currentDataRetriever: @escaping (() -> [SectionModel]?),
         onDataChangeRetriever: @escaping (() -> (([SectionModel], StagedChangeset<[SectionModel]>) -> ())?),
@@ -1208,7 +1176,7 @@ public enum PagedData {
         }
     }
     
-    public static func processAndTriggerUpdates<SectionModel: DifferentiableSection>(
+    static func processAndTriggerUpdates<SectionModel: DifferentiableSection>(
         updatedData: [SectionModel]?,
         currentDataRetriever: @escaping (() -> [SectionModel]?),
         valueSubject: CurrentValueSubject<([SectionModel], StagedChangeset<[SectionModel]>), Never>?
@@ -1247,25 +1215,6 @@ public enum PagedData {
     
     // MARK: - Internal Functions
     
-    fileprivate static func totalCount(
-        _ db: ObservingDatabase,
-        tableName: String,
-        requiredJoinSQL: SQL? = nil,
-        filterSQL: SQL
-    ) -> Int {
-        let tableNameLiteral: SQL = SQL(stringLiteral: tableName)
-        let finalJoinSQL: SQL = (requiredJoinSQL ?? "")
-        let request: SQLRequest<Int> = """
-            SELECT \(tableNameLiteral).rowId
-            FROM \(tableNameLiteral)
-            \(finalJoinSQL)
-            WHERE \(filterSQL)
-        """
-        
-        return (try? request.fetchCount(db))
-            .defaulting(to: 0)
-    }
-    
     fileprivate static func rowIds(
         _ db: ObservingDatabase,
         tableName: String,
@@ -1292,35 +1241,6 @@ public enum PagedData {
         return try request.fetchAll(db)
     }
     
-    fileprivate static func index<ID: SQLExpressible>(
-        _ db: ObservingDatabase,
-        for id: ID,
-        tableName: String,
-        idColumn: String,
-        requiredJoinSQL: SQL? = nil,
-        orderSQL: SQL,
-        filterSQL: SQL
-    ) -> Int? {
-        let tableNameLiteral: SQL = SQL(stringLiteral: tableName)
-        let idColumnLiteral: SQL = SQL(stringLiteral: idColumn)
-        let finalJoinSQL: SQL = (requiredJoinSQL ?? "")
-        let request: SQLRequest<Int> = """
-            SELECT
-                (data.rowIndex - 1) AS rowIndex -- Converting from 1-Indexed to 0-indexed
-            FROM (
-                SELECT
-                    \(tableNameLiteral).\(idColumnLiteral) AS \(idColumnLiteral),
-                    ROW_NUMBER() OVER (ORDER BY \(orderSQL)) AS rowIndex
-                FROM \(tableNameLiteral)
-                \(finalJoinSQL)
-                WHERE \(filterSQL)
-            ) AS data
-            WHERE \(SQL("data.\(idColumnLiteral) = \(id)"))
-        """
-        
-        return try? request.fetchOne(db)
-    }
-
     /// Returns the indexes the requested rowIds will have in the paged query
     ///
     /// **Note:** If the `associatedRecord` is null then the index for the rowId of the paged data type will be returned

@@ -374,7 +374,12 @@ extension MessageReceiver {
         
         // Cancel any typing indicators if needed
         if isMainAppActive {
-            dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: thread.id, direction: .incoming)
+            Task {
+                await dependencies[singleton: .typingIndicators].didStopTyping(
+                    threadId: thread.id,
+                    direction: .incoming
+                )
+            }
         }
         
         // Update the contact's approval status of the current user if needed (if we are getting messages from
@@ -452,8 +457,7 @@ extension MessageReceiver {
                 Profile.displayNameNoFallback(
                     db,
                     id: sessionId,
-                    threadVariant: threadVariant,
-                    using: dependencies
+                    threadVariant: threadVariant
                 )
             },
             groupNameRetriever: { threadId, threadVariant in
@@ -576,8 +580,7 @@ extension MessageReceiver {
                             Profile.displayNameNoFallback(
                                 db,
                                 id: sessionId,
-                                threadVariant: thread.variant,
-                                using: dependencies
+                                threadVariant: thread.variant
                             )
                         },
                         groupNameRetriever: { threadId, threadVariant in
@@ -626,14 +629,16 @@ extension MessageReceiver {
         
         // Immediately update any existing outgoing message 'State' records to be 'sent' (can
         // also remove the failure text as it's redundant if the message is in the sent state)
-        _ = try? Interaction
-            .filter(id: interactionId)
-            .filter(Interaction.Columns.state != Interaction.State.sent)
-            .updateAll(
-                db,
-                Interaction.Columns.state.set(to: Interaction.State.sent),
-                Interaction.Columns.mostRecentFailureText.set(to: nil)
-            )
+        if (try? Interaction.select(.state).filter(id: interactionId).asRequest(of: Interaction.State.self).fetchOne(db)) != .sent {
+            _ = try? Interaction
+                .filter(id: interactionId)
+                .updateAll(
+                    db,
+                    Interaction.Columns.state.set(to: Interaction.State.sent),
+                    Interaction.Columns.mostRecentFailureText.set(to: nil)
+                )
+            db.addMessageEvent(id: interactionId, threadId: thread.id, type: .updated(.state(.sent)))
+        }
         
         // For outgoing messages mark all older interactions as read (the user should have seen
         // them if they send a message - also avoids a situation where the user has "phantom"

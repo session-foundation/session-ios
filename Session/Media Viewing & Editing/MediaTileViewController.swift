@@ -709,15 +709,15 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             .putNumber(indexPaths.count)
             .localized()
 
-        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, dependencies = viewModel.dependencies] _ in
+        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, threadId = viewModel.threadId, dependencies = viewModel.dependencies] _ in
             dependencies[singleton: .storage].writeAsync { db in
-                let interactionIds: Set<Int64> = items
-                    .map { $0.interactionId }
-                    .asSet()
-                
                 _ = try Attachment
                     .filter(ids: items.map { $0.attachment.id })
                     .deleteAll(db)
+                
+                items.forEach { item in
+                    db.addEvent(.attachmentDeleted(id: item.attachment.id, messageId: item.interactionId))
+                }
                 
                 // Add the garbage collection job to delete orphaned attachment files
                 dependencies[singleton: .jobRunner].add(
@@ -733,10 +733,16 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 )
                 
                 // Delete any interactions which had all of their attachments removed
-                _ = try Interaction
-                    .filter(ids: interactionIds)
-                    .having(Interaction.interactionAttachments.isEmpty)
-                    .deleteAll(db)
+                try items.forEach { item in
+                    let remainingAttachmentCount: Int = try InteractionAttachment
+                        .filter(InteractionAttachment.Columns.interactionId == item.interactionId)
+                        .fetchCount(db)
+                    
+                    if remainingAttachmentCount == 0 {
+                        _ = try Interaction.deleteOne(db, id: item.interactionId)
+                        db.addEvent(.messageDeleted(id: item.interactionId, threadId: threadId))
+                    }
+                }
             }
             
             self?.endSelectMode()

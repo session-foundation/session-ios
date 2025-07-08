@@ -201,7 +201,7 @@ extension MessageSender {
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                         .sinkUntilComplete()
                     
-                    dependencies[singleton: .storage].write { db in
+                    dependencies[singleton: .storage].writeAsync { db in
                         // Save jobs for sending group member invitations
                         groupMembers
                             .filter { $0.profileId != userSessionId.hexString }
@@ -268,9 +268,16 @@ extension MessageSender {
                     try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
                         var groupChanges: [ConfigColumnAssignment] = []
                         
-                        if name != closedGroup.name { groupChanges.append(ClosedGroup.Columns.name.set(to: name)) }
+                        if name != closedGroup.name {
+                            groupChanges.append(ClosedGroup.Columns.name.set(to: name))
+                            db.addConversationEvent(id: groupSessionId, type: .updated(.displayName(name)))
+                        }
                         if groupDescription != closedGroup.groupDescription {
                             groupChanges.append(ClosedGroup.Columns.groupDescription.set(to: groupDescription))
+                            db.addConversationEvent(
+                                id: groupSessionId,
+                                type: .updated(.description(groupDescription))
+                            )
                         }
                         
                         /// Update the group (this will be propagated to libSession configs automatically)

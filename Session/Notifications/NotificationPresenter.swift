@@ -164,6 +164,14 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 try SessionThread
                     .filter(id: threadId)
                     .updateAll(db, changes)
+                
+                if mentionsOnly == oldMentionsOnly {
+                    db.addConversationEvent(id: threadId, type: .updated(.onlyNotifyForMentions(mentionsOnly)))
+                }
+                
+                if mutedUntil != oldMutedUntil {
+                    db.addConversationEvent(id: threadId, type: .updated(.mutedUntilTimestamp(mutedUntil)))
+                }
             }
         }
         

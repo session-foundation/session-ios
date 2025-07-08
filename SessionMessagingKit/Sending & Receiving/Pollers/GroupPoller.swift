@@ -156,9 +156,9 @@ public extension GroupPoller {
         
         public func startAllPollers() {
             // On the group poller queue fetch all closed groups which should poll and start the pollers
-            Threading.groupPollerQueue.async(using: dependencies) { [dependencies] in
-                dependencies[singleton: .storage]
-                    .read { db -> Set<String> in
+            Threading.groupPollerQueue.async(using: dependencies) { [weak self, dependencies] in
+                dependencies[singleton: .storage].readAsync(
+                    retrieve: { db -> Set<String> in
                         try ClosedGroup
                             .select(.threadId)
                             .filter(ClosedGroup.Columns.shouldPoll == true)
@@ -168,10 +168,19 @@ public extension GroupPoller {
                             )
                             .asRequest(of: String.self)
                             .fetchSet(db)
-                    }?
-                    .forEach { [weak self] swarmPublicKey in
-                        self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+                    },
+                    completion: { [weak self] result in
+                        switch result {
+                            case .failure: break
+                            case .success(let publicKeys):
+                                Threading.groupPollerQueue.async(using: dependencies) { [weak self] in
+                                    publicKeys.forEach { swarmPublicKey in
+                                        self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+                                    }
+                                }
+                        }
                     }
+                )
             }
         }
         

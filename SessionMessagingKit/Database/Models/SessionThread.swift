@@ -5,8 +5,10 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct SessionThread: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
     public static var databaseTableName: String { "thread" }
+    public static let idColumn: ColumnExpression = Columns.id
+    
     public static let contact = hasOne(Contact.self, using: Contact.threadForeignKey)
     public static let closedGroup = hasOne(ClosedGroup.self, using: ClosedGroup.threadForeignKey)
     public static let openGroup = hasOne(OpenGroup.self, using: OpenGroup.threadForeignKey)
@@ -86,7 +88,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
     /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
-    private let transientDependencies: EquatableIgnoring<Dependencies>?
+    private let transientDependencies: EquatableHashableIgnoring<Dependencies>?
     
     // MARK: - Relationships
     
@@ -144,7 +146,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         self.pinnedPriority = ((pinnedPriority ?? 0) > 0 ? pinnedPriority :
             (isPinned ? 1 : 0)
         )
-        self.transientDependencies = dependencies.map { EquatableIgnoring(value: $0) }
+        self.transientDependencies = dependencies.map { EquatableHashableIgnoring(value: $0) }
     }
     
     // MARK: - Custom Database Interaction
@@ -156,7 +158,10 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
             case .none:
                 Log.error("[SessionThread] Could not update 'hasSavedThread' due to missing transientDependencies.")
                 
-            case .some(let dependencies): dependencies.setAsync(.hasSavedThread, true)
+            case .some(let dependencies):
+                dependencies.setAsync(.hasSavedThread, true)
+                dependencies[singleton: .storage].observedDatabase(db)?
+                    .addConversationEvent(id: id, type: .created)
         }
     }
 }
@@ -419,11 +424,13 @@ public extension SessionThread {
         if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
+            db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(value)))
         }
         
         if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
             requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
             finalPinnedPriority = value
+            db.addConversationEvent(id: id, type: .updated(.pinnedPriority(value)))
         }
         
         if case .setTo(let value) = values.isDraft, value != result.isDraft {
@@ -434,11 +441,13 @@ public extension SessionThread {
         if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
             requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
             finalMutedUntilTimestamp = value
+            db.addConversationEvent(id: id, type: .updated(.mutedUntilTimestamp(value)))
         }
         
         if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
             requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
             finalOnlyNotifyForMentions = value
+            db.addConversationEvent(id: id, type: .updated(.onlyNotifyForMentions(value)))
         }
         
         /// If no changes were needed we can just return the existing/default thread
@@ -597,14 +606,12 @@ public extension SessionThread {
         
         switch type {
             case .hideContactConversation:
-                _ = try SessionThread
-                    .filter(ids: threadIds)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false),
-                        using: dependencies
-                    )
+                try SessionThread.updateVisibility(
+                    db,
+                    threadIds: threadIds,
+                    isVisible: false,
+                    using: dependencies
+                )
                 
             case .hideContactConversationAndDeleteContentDirectly:
                 // Clear any interactions for the deleted thread
@@ -613,14 +620,12 @@ public extension SessionThread {
                     .deleteAll(db)
                 
                 // Hide the threads
-                _ = try SessionThread
-                    .filter(ids: threadIds)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false),
-                        using: dependencies
-                    )
+                try SessionThread.updateVisibility(
+                    db,
+                    threadIds: threadIds,
+                    isVisible: false,
+                    using: dependencies
+                )
                 
                 // Remove desired deduplication records
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
@@ -630,6 +635,10 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
+                remainingThreadIds.forEach { id in
+                    db.addEvent(.conversationDeleted(id))
+                }
+                
                 // We need to custom handle the 'Note to Self' conversation (it should just be
                 // hidden locally rather than deleted)
                 if threadIds.contains(userSessionId.hexString) {
@@ -638,14 +647,12 @@ public extension SessionThread {
                         .filter(Interaction.Columns.threadId == userSessionId.hexString)
                         .deleteAll(db)
                     
-                    _ = try SessionThread
-                        .filter(id: userSessionId.hexString)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false),
-                            using: dependencies
-                        )
+                    try SessionThread.updateVisibility(
+                        db,
+                        threadIds: threadIds,
+                        isVisible: false,
+                        using: dependencies
+                    )
                 }
                 
                 // Remove desired deduplication records
@@ -670,6 +677,10 @@ public extension SessionThread {
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
+                
+                remainingThreadIds.forEach { id in
+                    db.addEvent(.conversationDeleted(id))
+                }
                 
                 // Remove desired deduplication records
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
@@ -702,6 +713,78 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
+    static func updateVisibility(
+        _ db: ObservingDatabase,
+        threadId: String,
+        isVisible: Bool,
+        customPriority: Int32? = nil,
+        additionalChanges: [ConfigColumnAssignment] = [],
+        using dependencies: Dependencies
+    ) throws {
+        try updateVisibility(
+            db,
+            threadIds: [threadId],
+            isVisible: isVisible,
+            customPriority: customPriority,
+            additionalChanges: additionalChanges,
+            using: dependencies
+        )
+    }
+    
+    static func updateVisibility(
+        _ db: ObservingDatabase,
+        threadIds: [String],
+        isVisible: Bool,
+        customPriority: Int32? = nil,
+        additionalChanges: [ConfigColumnAssignment] = [],
+        using dependencies: Dependencies
+    ) throws {
+        struct ThreadInfo: Decodable, FetchableRecord {
+            var id: String
+            var shouldBeVisible: Bool
+            var pinnedPriority: Int32
+        }
+        
+        let targetPriority: Int32
+        
+        switch (customPriority, isVisible) {
+            case (.some(let priority), _): targetPriority = priority
+            case (.none, true): targetPriority = LibSession.visiblePriority
+            case (.none, false): targetPriority = LibSession.hiddenPriority
+        }
+        
+        let currentInfo: [String: ThreadInfo] = try SessionThread
+            .select(.id, .shouldBeVisible, .pinnedPriority)
+            .filter(ids: threadIds)
+            .asRequest(of: ThreadInfo.self)
+            .fetchAll(db)
+            .reduce(into: [:]) { result, next in
+                result[next.id] = next
+            }
+        
+        _ = try SessionThread
+            .filter(ids: threadIds)
+            .updateAllAndConfig(
+                db,
+                [
+                    SessionThread.Columns.pinnedPriority.set(to: targetPriority),
+                    SessionThread.Columns.shouldBeVisible.set(to: isVisible)
+                ].appending(contentsOf: additionalChanges),
+                using: dependencies
+            )
+        
+        /// Emit events for any changes
+        threadIds.forEach { id in
+            if currentInfo[id]?.shouldBeVisible != isVisible {
+                db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(isVisible)))
+            }
+            
+            if currentInfo[id]?.pinnedPriority != targetPriority {
+                db.addConversationEvent(id: id, type: .updated(.pinnedPriority(targetPriority)))
+            }
+        }
+    }
+    
     static func unreadMessageRequestsCountQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<Int> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()

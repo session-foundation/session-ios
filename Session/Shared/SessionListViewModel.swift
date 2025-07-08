@@ -134,7 +134,7 @@ class SessionListViewModel<T: Listable>: SessionTableViewModel, NavigationItemSo
     
     // MARK: - Content
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(selectedOptionsSubject)
         .map { [weak self, options, behaviour] currentSelections -> [SectionModel] in
             return [

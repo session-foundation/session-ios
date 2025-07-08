@@ -158,6 +158,7 @@ public extension Profile {
                 
                 profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
+                db.addProfileEvent(id: publicKey, change: .name(name))
             
             // Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
@@ -179,6 +180,7 @@ public extension Profile {
                 profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
                 profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
                 profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
+                db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
             
             case (.contactUpdateTo(let url, let key, let filePath), false),
                 (.currentUserUpdateTo(let url, let key, let filePath), true):
@@ -201,6 +203,7 @@ public extension Profile {
                 else {
                     if url != profile.displayPictureUrl {
                         profileChanges.append(Profile.Columns.displayPictureUrl.set(to: url))
+                        db.addProfileEvent(id: publicKey, change: .displayPictureUrl(url))
                     }
                     
                     if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {

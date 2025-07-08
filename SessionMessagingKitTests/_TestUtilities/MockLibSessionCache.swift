@@ -101,8 +101,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return try mockThrowing(args: [data, sentTimestamp, swarmPublicKey])
     }
     
-    func addPendingChange(key: ObservableKey, value: Any?) {
-        mockNoReturn(args: [key, value])
+    func addEvent(_ event: ObservedEvent) {
+        mockNoReturn(args: [event])
     }
 
     // MARK: - Config Message Handling
@@ -449,7 +449,7 @@ extension Mock where T == LibSessionCacheType {
         self.when { $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.mock) }.thenReturn(())
         self.when { $0.set(.theme, Theme.mock) }.thenReturn(())
         self.when { $0.set(.themePrimaryColor, Theme.PrimaryColor.mock) }.thenReturn(())
-        self.when { $0.addPendingChange(key: .any, value: anyAny()) }.thenReturn(())
+        self.when { $0.addEvent(.any) }.thenReturn(())
         self
             .when { $0.displayPictureUrl(threadId: .any, threadVariant: .any) }
             .thenReturn(nil)

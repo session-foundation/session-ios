@@ -286,18 +286,24 @@ public extension UIContextualAction {
                                         .select(.mutedUntilTimestamp)
                                         .asRequest(of: TimeInterval.self)
                                         .fetchOne(db)
+                                    let newValue: TimeInterval? = (currentValue == nil ?
+                                        Date.distantFuture.timeIntervalSince1970 :
+                                        nil
+                                    )
                                     
                                     try SessionThread
                                         .filter(id: threadViewModel.threadId)
                                         .updateAll(
                                             db,
-                                            SessionThread.Columns.mutedUntilTimestamp.set(
-                                                to: (currentValue == nil ?
-                                                    Date.distantFuture.timeIntervalSince1970 :
-                                                    nil
-                                                )
-                                            )
+                                            SessionThread.Columns.mutedUntilTimestamp.set(to: newValue)
                                         )
+                                    
+                                    if currentValue != newValue {
+                                        db.addConversationEvent(
+                                            id: threadViewModel.threadId,
+                                            type: .updated(.mutedUntilTimestamp(newValue))
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -363,6 +369,9 @@ public extension UIContextualAction {
                                 (!threadIsContactMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
                                 (!threadIsContactMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
+                            let contactChangeEvents: [ContactEvent.Change] = (!threadIsContactMessageRequest ? [] :
+                                [.isApproved(false), .didApproveMe(true)]
+                            )
                             let nameToUse: String = {
                                 switch threadViewModel.threadVariant {
                                     case .group:
@@ -427,6 +436,12 @@ public extension UIContextualAction {
                                                                     contactChanges,
                                                                     using: dependencies
                                                                 )
+                                                            contactChangeEvents.forEach { change in
+                                                                db.addContactEvent(
+                                                                    id: threadViewModel.threadId,
+                                                                    change: change
+                                                                )
+                                                            }
                                                             
                                                         case .group:
                                                             try Contact
@@ -443,6 +458,12 @@ public extension UIContextualAction {
                                                                     contactChanges,
                                                                     using: dependencies
                                                                 )
+                                                            contactChangeEvents.forEach { change in
+                                                                db.addContactEvent(
+                                                                    id: profileInfo.id,
+                                                                    change: change
+                                                                )
+                                                            }
                                                             
                                                         default: break
                                                     }

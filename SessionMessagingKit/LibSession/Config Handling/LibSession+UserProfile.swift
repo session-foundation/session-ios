@@ -47,7 +47,7 @@ internal extension LibSessionCacheType {
             let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile,
             profile != updatedProfile
         {
-            db.addChange(updatedProfile, forKey: .profile(updatedProfile.id))
+            db.addEvent(updatedProfile, forKey: .profile(updatedProfile.id))
         }
         
         // Handle user profile changes
@@ -99,6 +99,20 @@ internal extension LibSessionCacheType {
                         threadChanges,
                         using: dependencies
                     )
+            }
+            
+            if threadInfo.pinnedPriority != targetPriority {
+                db.addConversationEvent(
+                    id: userSessionId.hexString,
+                    type: .updated(.pinnedPriority(targetPriority))
+                )
+            }
+            
+            if threadInfo.shouldBeVisible != LibSession.shouldBeVisible(priority: targetPriority) {
+                db.addConversationEvent(
+                    id: userSessionId.hexString,
+                    type: .updated(.shouldBeVisible(LibSession.shouldBeVisible(priority: targetPriority)))
+                )
             }
         }
         else {
@@ -159,7 +173,7 @@ internal extension LibSessionCacheType {
             oldCheckForCommunityMessageRequests != nil &&
             oldCheckForCommunityMessageRequests != newCheckForCommunityMessageRequests
         {
-            db.addChange(newCheckForCommunityMessageRequests, forKey: checkForCommunityMessageRequestsKey)
+            db.addEvent(newCheckForCommunityMessageRequests, forKey: checkForCommunityMessageRequestsKey)
         }
         
         // Create a contact for the current user if needed (also force-approve the current user
@@ -177,6 +191,10 @@ internal extension LibSessionCacheType {
                     Contact.Columns.didApproveMe.set(to: true),
                     using: dependencies
                 )
+            
+            db.addContactEvent(id: userSessionId.hexString, change: .isTrusted(true))
+            db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
+            db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
         }
     }
 }

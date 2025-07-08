@@ -80,7 +80,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
         }
         .eraseToAnyPublisher()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(threadNotificationSettingsSubject)
         .compactMap { [weak self] threadNotificationSettings -> [SectionModel]? in self?.content(threadNotificationSettings) }
             

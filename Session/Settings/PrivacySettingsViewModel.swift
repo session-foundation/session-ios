@@ -95,7 +95,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     
     let title: String = "sessionPrivacy".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .libSessionObservation(self) { cache -> State in
             State(
                 isScreenLockEnabled: cache.get(.isScreenLockEnabled),

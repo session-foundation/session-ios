@@ -61,7 +61,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     let title: String = "sessionNotifications".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .libSessionObservation(self) { [dependencies] cache -> State in
             /// Listen for `isUsingFullAPNs` changes
             cache.register(.isUsingFullAPNs)
@@ -97,8 +97,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             ),
                             // stringlint:ignore_contents
                             onTap: { [weak self] in
-                                dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
-                                dependencies.notifyAsync(.isUsingFullAPNs)
+                                let updatedValue: Bool = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
+                                dependencies[defaults: .standard, key: .isUsingFullAPNs] = updatedValue
+                                dependencies.notifyAsync(.isUsingFullAPNs, value: updatedValue)
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob

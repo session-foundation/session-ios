@@ -79,7 +79,7 @@ internal extension LibSessionCacheType {
             )
             
             if successfullyAddedGroup {
-                db.afterNextTransactionNested(using: dependencies) { [dependencies] _ in
+                db.afterCommit { [dependencies] in
                     dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
@@ -95,17 +95,24 @@ internal extension LibSessionCacheType {
             // Update any thread settings which have changed (new communities will have already been
             // inserted at this stage)
             if let existingInfo: LibSession.ThreadUpdateInfo = existingThreadInfo[community.threadId] {
-            _ = try? SessionThread
-                .filter(id: community.threadId)
-                .updateAllAndConfig(
-                    db,
-                    [
-                        (existingInfo.pinnedPriority == community.priority ? nil :
-                            SessionThread.Columns.pinnedPriority.set(to: community.priority)
-                        )
-                    ].compactMap { $0 },
-                    using: dependencies
-                )
+                _ = try? SessionThread
+                    .filter(id: community.threadId)
+                    .updateAllAndConfig(
+                        db,
+                        [
+                            (existingInfo.pinnedPriority == community.priority ? nil :
+                                SessionThread.Columns.pinnedPriority.set(to: community.priority)
+                            )
+                        ].compactMap { $0 },
+                        using: dependencies
+                    )
+                
+                if existingInfo.pinnedPriority != community.priority {
+                    db.addConversationEvent(
+                        id: community.threadId,
+                        type: .updated(.pinnedPriority(community.priority))
+                    )
+                }
             }
         }
         
@@ -202,6 +209,10 @@ internal extension LibSessionCacheType {
                         )
                 }
                 
+                if existingLegacyGroups[group.id]?.name != name {
+                    db.addConversationEvent(id: group.id, type: .updated(.displayName(name)))
+                }
+                
                 // Update the members
                 let updatedMembers: Set<GroupMember> = members
                     .map { member in
@@ -291,6 +302,11 @@ internal extension LibSessionCacheType {
                         SessionThread.Columns.pinnedPriority.set(to: group.priority),
                         using: dependencies
                     )
+                
+                db.addConversationEvent(
+                    id: group.id,
+                    type: .updated(.pinnedPriority(group.priority ?? LibSession.hiddenPriority))
+                )
             }
         }
         
@@ -384,17 +400,24 @@ internal extension LibSessionCacheType {
             
             // Update any thread settings which have changed
             if let existingInfo: LibSession.ThreadUpdateInfo = existingThreadInfo[group.groupSessionId] {
-            _ = try? SessionThread
-                .filter(id: group.groupSessionId)
-                .updateAllAndConfig(
-                    db,
-                    [
-                        (existingInfo.pinnedPriority == group.priority ? nil :
-                            SessionThread.Columns.pinnedPriority.set(to: group.priority)
-                        )
-                    ].compactMap { $0 },
-                    using: dependencies
-                )
+                _ = try? SessionThread
+                    .filter(id: group.groupSessionId)
+                    .updateAllAndConfig(
+                        db,
+                        [
+                            (existingInfo.pinnedPriority == group.priority ? nil :
+                                SessionThread.Columns.pinnedPriority.set(to: group.priority)
+                            )
+                        ].compactMap { $0 },
+                        using: dependencies
+                    )
+                
+                if existingInfo.pinnedPriority != group.priority {
+                    db.addConversationEvent(
+                        id: group.groupSessionId,
+                        type: .updated(.pinnedPriority(group.priority))
+                    )
+                }
             }
         }
         

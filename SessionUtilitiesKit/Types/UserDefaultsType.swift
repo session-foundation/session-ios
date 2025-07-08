@@ -37,7 +37,16 @@ public protocol UserDefaultsType: AnyObject {
     func set(_ value: Bool, forKey defaultName: String)
     func set(_ url: URL?, forKey defaultName: String)
     
+    func removeObject(forKey defaultName: String)
     func removeAll()
+}
+
+public extension UserDefaultsType {
+    func removeObject(forKey key: UserDefaults.BoolKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.DateKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.DoubleKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.IntKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.StringKey) { self.removeObject(forKey: key.rawValue) }
 }
 
 extension UserDefaults: UserDefaultsType {}
@@ -140,6 +149,9 @@ public extension UserDefaults.IntKey {
     
     /// The latest softfork value returned when interacting with a service node
     static let softfork: UserDefaults.IntKey = "softfork"
+    
+    /// The id of the message that was just shared to
+    static let lastSharedMessageId: UserDefaults.IntKey = "lastSharedMessageId"
 }
 
 public extension UserDefaults.StringKey {
@@ -148,6 +160,9 @@ public extension UserDefaults.StringKey {
     
     /// The warning to show at the top of the app
     static let topBannerWarningToShow: UserDefaults.StringKey = "topBannerWarningToShow"
+    
+    /// The id of the thread that a message was just shared to
+    static let lastSharedThreadId: UserDefaults.StringKey = "lastSharedThreadId"
 }
 
 // MARK: - Keys

@@ -1980,10 +1980,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.searchController.resultsBar.startLoading()
             
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.pagedDataObserver?.load(.jumpTo(
-                    id: interactionInfo.id,
-                    paddingForInclusive: 5
-                ))
+                self?.viewModel.pagedDataObserver?.load(.jumpTo(id: interactionInfo.id, padding: 5))
             }
             return
         }

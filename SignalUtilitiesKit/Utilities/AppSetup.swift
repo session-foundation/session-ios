@@ -72,59 +72,64 @@ public enum AppSetup {
                     SNMessagingKit.self
                 ]),
             onProgressUpdate: migrationProgressChanged,
-            onComplete: { result in
+            onComplete: { originalResult in
                 // Now that the migrations are complete there are a few more states which need
                 // to be setup
                 typealias UserInfo = (sessionId: SessionId, ed25519SecretKey: [UInt8], unreadCount: Int?)
-                let maybeUserInfo: UserInfo? = dependencies[singleton: .storage].read { db in
-                    guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                        return nil
-                    }
-                    
-                    /// Cache the users session id so we don't need to fetch it from the database every time
-                    dependencies.mutate(cache: .general) {
-                        $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
-                    }
-                    
-                    /// Load the `libSession` state into memory
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                    let cache: LibSession.Cache = LibSession.Cache(
-                        userSessionId: userSessionId,
-                        using: dependencies
-                    )
-                    cache.loadState(db, requestId: requestId)
-                    dependencies.set(cache: .libSession, to: cache)
-                    
-                    return (
-                        userSessionId,
-                        ed25519KeyPair.secretKey,
-                        try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                    )
-                }
-                
-                /// Save the `UserMetadata` and replicate `ConfigDump` data if needed
-                if let userInfo: UserInfo = maybeUserInfo {
-                    try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-                        sessionId: userInfo.sessionId,
-                        ed25519SecretKey: userInfo.ed25519SecretKey,
-                        unreadCount: userInfo.unreadCount
-                    )
-                    
-                    Task.detached(priority: .medium) {
-                        dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
-                            userSessionId: userInfo.sessionId
+                dependencies[singleton: .storage].readAsync(
+                    retrieve: { db -> UserInfo? in
+                        guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+                            return nil
+                        }
+                        
+                        /// Cache the users session id so we don't need to fetch it from the database every time
+                        dependencies.mutate(cache: .general) {
+                            $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
+                        }
+                        
+                        /// Load the `libSession` state into memory
+                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                        let cache: LibSession.Cache = LibSession.Cache(
+                            userSessionId: userSessionId,
+                            using: dependencies
                         )
+                        cache.loadState(db, requestId: requestId)
+                        dependencies.set(cache: .libSession, to: cache)
+                        
+                        return (
+                            userSessionId,
+                            ed25519KeyPair.secretKey,
+                            try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                        )
+                    },
+                    completion: { result in
+                        switch result {
+                            case .failure, .success(.none): break
+                            case .success(.some(let userInfo)):
+                                /// Save the `UserMetadata` and replicate `ConfigDump` data if needed
+                                try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                                    sessionId: userInfo.sessionId,
+                                    ed25519SecretKey: userInfo.ed25519SecretKey,
+                                    unreadCount: userInfo.unreadCount
+                                )
+                                
+                                Task.detached(priority: .medium) {
+                                    dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
+                                        userSessionId: userInfo.sessionId
+                                    )
+                                }
+                        }
+                        
+                        /// Ensure any recurring jobs are properly scheduled
+                        dependencies[singleton: .jobRunner].scheduleRecurringJobsIfNeeded()
+                        
+                        /// Callback that the migrations have completed
+                        migrationsCompletion(originalResult)
+                        
+                        /// The 'if' is only there to prevent the "variable never read" warning from showing
+                        if backgroundTask != nil { backgroundTask = nil }
                     }
-                }
-                
-                /// Ensure any recurring jobs are properly scheduled
-                dependencies[singleton: .jobRunner].scheduleRecurringJobsIfNeeded()
-                
-                /// Callback that the migrations have completed
-                migrationsCompletion(result)
-                
-                /// The 'if' is only there to prevent the "variable never read" warning from showing
-                if backgroundTask != nil { backgroundTask = nil }
+                )
             }
         )
     }

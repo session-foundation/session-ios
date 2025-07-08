@@ -212,6 +212,7 @@ extension MessageReceiver {
                     Contact.Columns.isApproved.set(to: true),
                     using: dependencies
                 )
+            db.addContactEvent(id: threadId, change: .isApproved(true))
         }
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
@@ -228,6 +229,7 @@ extension MessageReceiver {
                     Contact.Columns.didApproveMe.set(to: true),
                     using: dependencies
                 )
+            db.addContactEvent(id: senderSessionId, change: .didApproveMe(true))
         }
     }
 }

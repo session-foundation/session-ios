@@ -759,7 +759,7 @@ public final class JobRunner: JobRunnerType {
         guard canStartJob else { return updatedJob }
         
         // Start the job runner if needed
-        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(jobQueue?.queueContext ?? "N/A")", using: dependencies) { _ in
+        db.afterCommit(dedupeId: "JobRunner-Start: \(jobQueue?.queueContext ?? "N/A")") {
             jobQueue?.start()
         }
         
@@ -798,7 +798,7 @@ public final class JobRunner: JobRunnerType {
         guard canStartJob else { return updatedJob }
         
         // Start the job runner if needed
-        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(jobQueue?.queueContext ?? "N/A")", using: dependencies) { _ in
+        db.afterCommit(dedupeId: "JobRunner-Start: \(jobQueue?.queueContext ?? "N/A")") {
             jobQueue?.start()
         }
         
@@ -1216,7 +1216,7 @@ public final class JobQueue: Hashable {
         
         // Ensure that the database commit has completed and then trigger the next job to run (need
         // to ensure any interactions have been correctly inserted first)
-        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Add: \(job.variant)", using: dependencies) { [weak self] _ in
+        db.afterCommit(dedupeId: "JobRunner-Add: \(job.variant)") { [weak self] in
             self?.runNextJob()
         }
     }

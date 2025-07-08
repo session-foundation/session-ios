@@ -20,6 +20,22 @@ public final class MessageSender {
         case willSend(Message, Message.Destination, interactionId: Int64?)
         case success(Message, Message.Destination, interactionId: Int64?, serverTimestampMs: Int64?, serverExpirationMs: Int64?)
         case failure(Message, Message.Destination, interactionId: Int64?, error: MessageSenderError)
+        
+        var message: Message {
+            switch self {
+                case .willSend(let message, _, _), .success(let message, _, _, _, _),
+                    .failure(let message, _, _, _):
+                    return message
+            }
+        }
+        
+        var destination: Message.Destination {
+            switch self {
+                case .willSend(_, let destination, _), .success(_, let destination, _, _, _),
+                    .failure(_, let destination, _, _):
+                    return destination
+            }
+        }
     }
     
     // MARK: - Message Preparation

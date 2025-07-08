@@ -175,6 +175,9 @@ extension AllMediaViewController: UIDocumentInteractionControllerDelegate {
 extension AllMediaViewController: DocumentTileViewControllerDelegate {
     public func share(temporaryFileUrl: URL) {
         let shareVC = UIActivityViewController(activityItems: [ temporaryFileUrl ], applicationActivities: nil)
+        shareVC.completionWithItemsHandler = { [dependencies] _, success, _, _ in
+            UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+        }
         
         if UIDevice.current.isIPad {
             shareVC.excludedActivityTypes = []
