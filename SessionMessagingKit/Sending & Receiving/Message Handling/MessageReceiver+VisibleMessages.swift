@@ -541,9 +541,28 @@ extension MessageReceiver {
         isProMessage: Bool
     ) -> String? {
         guard let text = text else { return nil }
-        guard !isProMessage && text.count > LibSession.CharacterLimit else {
+        
+        let utf16View = text.utf16
+        guard !isProMessage && utf16View.count > LibSession.CharacterLimit else {
             return text
         }
-        return String(text.prefix(LibSession.CharacterLimit))
+        
+        // Get the index at the maxUnits position in UTF16
+        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: LibSession.CharacterLimit)
+        
+        // Try converting that UTF16 index back to a String.Index
+        if let endIndex = String.Index(endUTF16Index, within: text) {
+            return String(text[..<endIndex])
+        } else {
+            // Fallback: safely step back until there is a valid boundary
+            var adjustedIndex = endUTF16Index
+            while adjustedIndex > utf16View.startIndex {
+                adjustedIndex = utf16View.index(before: adjustedIndex)
+                if let validIndex = String.Index(adjustedIndex, within: text) {
+                    return String(text[..<validIndex])
+                }
+            }
+            return text // If all else fails, return original string
+        }
     }
 }

@@ -1835,10 +1835,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
            pinnedConversationsNumber >= LibSession.PinnedConversationLimit
         {
             let sessionProModal: ProCTAModal = ProCTAModal(
+                delegate: SessionProState(using: dependencies),
                 touchPoint: .morePinnedConvos(
                     isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
                 ),
-                using: dependencies
+                dataManager: dependencies[singleton: .imageDataManager]
             )
             self.transitionToScreen(sessionProModal, transitionType: .present)
             return

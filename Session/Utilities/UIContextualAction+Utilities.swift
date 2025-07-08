@@ -242,10 +242,11 @@ public extension UIContextualAction {
                                pinnedConversationsNumber >= LibSession.PinnedConversationLimit
                             {
                                 let sessionProModal: ProCTAModal = ProCTAModal(
+                                    delegate: SessionProState(using: dependencies),
                                     touchPoint: .morePinnedConvos(
                                         isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
                                     ),
-                                    using: dependencies,
+                                    dataManager: dependencies[singleton: .imageDataManager],
                                     afterClosed: {
                                         completionHandler(true)
                                     }

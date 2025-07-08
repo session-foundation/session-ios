@@ -1,8 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
-import SessionUtilitiesKit
 
 public final class InputTextView: UITextView, UITextViewDelegate {
     private static let defaultFont: UIFont = .systemFont(ofSize: Values.mediumFontSize)
@@ -26,12 +24,12 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     
     // MARK: - Settings
     
-    internal let minHeight: CGFloat = 22
-    internal let maxHeight: CGFloat = 122
+    public let minHeight: CGFloat = 22
+    public let maxHeight: CGFloat = 122
 
     // MARK: - Lifecycle
     
-    init(delegate: InputTextViewDelegate, maxWidth: CGFloat) {
+    public init(delegate: InputTextViewDelegate, maxWidth: CGFloat) {
         snDelegate = delegate
         self.maxWidth = maxWidth
         
@@ -119,7 +117,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 
 // MARK: - InputTextViewDelegate
 
-protocol InputTextViewDelegate: AnyObject {
+public protocol InputTextViewDelegate: AnyObject {
     func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage)
