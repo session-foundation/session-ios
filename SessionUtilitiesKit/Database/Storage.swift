@@ -38,11 +38,6 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 
 open class Storage {
     public static let base32: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-    public struct CurrentlyRunningMigration: ThreadSafeType {
-        public let identifier: TargetMigrations.Identifier
-        public let migration: Migration.Type
-    }
-    
     public static let queuePrefix: String = "SessionDatabase"
     public static let dbFileName: String = "Session.sqlite"
     private static let SQLCipherKeySpecLength: Int = 48
@@ -69,26 +64,13 @@ open class Storage {
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
     
-    // MARK: - Migration Variables
-    
-    @ThreadSafeObject private var migrationProgressUpdater: ((String, CGFloat) -> ())?
-    @ThreadSafe private var internalCurrentlyRunningMigration: CurrentlyRunningMigration? = nil
-    @ThreadSafeObject private var internalObservedMigrationEvents: [ObservedEvent]? = nil
-    @ThreadSafeObject private var internalMigrationPostCommitActions: [String: () -> Void]? = nil
-    @ThreadSafe private var migrationsCompleted: Bool = false
-    @ThreadSafeObject private var currentlyObservedQueries: [UUID: Weak<ObservingDatabase>] = [:]
-    
-    public var hasCompletedMigrations: Bool { migrationsCompleted }
-    public var currentlyRunningMigration: CurrentlyRunningMigration? {
-        internalCurrentlyRunningMigration
-    }
-    
     // MARK: - Database State Variables
     
     private var startupError: Error?
     public private(set) var isValid: Bool = false
     public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
+    public private(set) var hasCompletedMigrations: Bool = false
     
     /// This property gets set the first time we successfully read from the database
     public private(set) var hasSuccessfullyRead: Bool = false
@@ -351,7 +333,8 @@ open class Storage {
             .map { _, _, migration in migration.minExpectedRunDuration }
         let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
         
-        self._migrationProgressUpdater.set(to: { targetKey, progress in
+        // Store the logic to handle migration progress and completion
+        let progressUpdater: (String, CGFloat) -> Void = { (targetKey: String, progress: CGFloat) in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _, _ in key == targetKey }) else {
                 return
             }
@@ -365,35 +348,25 @@ open class Storage {
             DispatchQueue.main.async {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
-        })
-        
-        // Store the logic to run when the migration completes
+        }
         let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
             // Make sure to transition the progress updater to 100% for the final migration (just
             // in case the migration itself didn't update to 100% itself)
             if let lastMigrationKey: String = unperformedMigrations.last?.key {
-                self?.migrationProgressUpdater?(lastMigrationKey, 1)
+                MigrationExecution.current?.progressUpdater(lastMigrationKey, 1)
             }
             
-            self?.migrationsCompleted = true
-            self?._migrationProgressUpdater.set(to: nil)
+            self?.hasCompletedMigrations = true
             
             // Output any events tracked during the migration and trigger any `postCommitActions` which
             // should occur
-            let events: [ObservedEvent]? = self?._internalObservedMigrationEvents.performUpdateAndMap { value in
-                (nil, value)
-            }
-            let actions: [String: () -> Void]? = self?._internalMigrationPostCommitActions.performUpdateAndMap { value in
-                (nil, value)
-            }
-            
-            if let events: [ObservedEvent] = events {
+            if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
                 Task(priority: .medium) { [dependencies] in
                     await dependencies[singleton: .observationManager].notify(events)
                 }
             }
             
-            if let actions: [String: () -> Void] = actions {
+            if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
                 actions.values.forEach { $0() }
             }
             
@@ -426,78 +399,33 @@ open class Storage {
             return
         }
         
+        // Create the `MigrationContext` 
+        let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
+        
         // If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationKey: String = unperformedMigrations.first?.key {
-            self.migrationProgressUpdater?(firstMigrationKey, 0)
+            migrationContext.progressUpdater(firstMigrationKey, 0)
         }
         
-        // Note: The non-async migration should only be used for unit tests
-        guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
-        
-        migrator.asyncMigrate(dbWriter) { [dependencies] result in
-            let finalResult: Result<Void, Error> = {
-                switch result {
-                    case .failure(let error): return .failure(error)
-                    case .success: return .success(())
-                }
-            }()
+        MigrationExecution.$current.withValue(migrationContext) {
+            // Note: The non-async migration should only be used for unit tests
+            guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
             
-            // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
-            // performs subsequent database operations
-            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
-                migrationCompleted(finalResult)
-            }
-        }
-    }
-    
-    public func willStartMigration(
-        _ db: ObservingDatabase,
-        _ migration: Migration.Type,
-        _ identifier: TargetMigrations.Identifier
-    ) {
-        internalCurrentlyRunningMigration = CurrentlyRunningMigration(
-            identifier: identifier,
-            migration: migration
-        )
-    }
-    
-    public func didCompleteMigration(events: [ObservedEvent], postCommitActions: [String: () -> Void]) {
-        internalCurrentlyRunningMigration = nil
-        
-        if !events.isEmpty {
-            _internalObservedMigrationEvents.performUpdate {
-                var updatedEvents: [ObservedEvent] = ($0 ?? [])
-                updatedEvents.append(contentsOf: events)
-                return updatedEvents
-            }
-        }
-        
-        if !postCommitActions.isEmpty {
-            _internalMigrationPostCommitActions.performUpdate {
-                var updatedPostCommitActions: [String: () -> Void] = ($0 ?? [:])
+            migrator.asyncMigrate(dbWriter) { [dependencies] result in
+                let finalResult: Result<Void, Error> = {
+                    switch result {
+                        case .failure(let error): return .failure(error)
+                        case .success: return .success(())
+                    }
+                }()
                 
-                /// If there is already an action for the given key then ignore the new value (ie. dedupe as intended)
-                postCommitActions.forEach { key, value in
-                    guard updatedPostCommitActions[key] == nil else { return }
-                    
-                    updatedPostCommitActions[key] = value
+                // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
+                // performs subsequent database operations
+                DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
+                    migrationCompleted(finalResult)
                 }
-                
-                return updatedPostCommitActions
             }
         }
-    }
-    
-    public static func update(
-        progress: CGFloat,
-        for migration: Migration.Type,
-        in target: TargetMigrations.Identifier,
-        using dependencies: Dependencies
-    ) {
-        // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
-        guard !SNUtilitiesKit.isRunningTests else { return }
-        
-        dependencies[singleton: .storage].migrationProgressUpdater?(target.key(with: migration), progress)
     }
     
     // MARK: - Security
@@ -591,7 +519,7 @@ open class Storage {
     
     public func resetAllStorage() {
         isValid = false
-        migrationsCompleted = false
+        hasCompletedMigrations = false
         dbWriter = nil
         
         deleteDatabaseFiles()
@@ -681,16 +609,12 @@ open class Storage {
                         throw StorageError.databaseSuspended
                     }
                     
-                    let dbId: UUID = UUID()
+                    /// Create the `ObservingDatabase` and store it in the `ObservationContext` so objects can access
+                    /// it while the operation is running (this allows us to use things like `aroundInsert` without having to resort
+                    /// to hacks to give it access to the `ObservingDatabase` or `Dependencies` instances
                     let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
-                    info.storage?._currentlyObservedQueries.performUpdate {
-                        $0.setting(dbId, Weak(value: observingDatabase))
-                    }
-                    
-                    let result: T = try operation(observingDatabase)
-                    
-                    info.storage?._currentlyObservedQueries.performUpdate {
-                        $0.removingValues(forKeys: [dbId])
+                    let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                        try operation(observingDatabase)
                     }
                     
                     /// Update the state flags
@@ -1130,13 +1054,6 @@ open class Storage {
         /// that it isn't called on the main thread
         Log.assertNotOnMainThread()
         dbWriter.remove(transactionObserver: observer)
-    }
-    
-    public func observedDatabase(_ db: Database) -> ObservingDatabase? {
-        let weakResult: Weak<ObservingDatabase>? = _currentlyObservedQueries.wrappedValue.values
-            .first(where: { $0.value?.originalDb === db })
-        
-        return weakResult?.value
     }
 }
 

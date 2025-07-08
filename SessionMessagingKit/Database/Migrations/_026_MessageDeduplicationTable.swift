@@ -136,7 +136,7 @@ enum _026_MessageDeduplicationTable: Migration {
             }
         
         /// Update the progress (from testing the above fetching took ~60% of the duration of the migration)
-        Storage.update(progress: 0.6, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(0.6)
         
         var recordsToInsert: [DedupeRecord] = []
         var processedKeys: Set<String> = []
@@ -339,7 +339,7 @@ enum _026_MessageDeduplicationTable: Migration {
         /// Drop the old `controlMessageProcessRecord` table (since we no longer need it)
         try db.execute(sql: "DROP TABLE controlMessageProcessRecord")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

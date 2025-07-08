@@ -18,7 +18,7 @@ enum _002_SetupStandardJobs: Migration {
         guard
             !SNUtilitiesKit.isRunningTests ||
             ((try? db.tableExists("job")) == true)
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         // Note: We also want this job to run both onLaunch and onActive as we want it to block
         // 'onLaunch' and 'onActive' doesn't support blocking jobs
@@ -39,6 +39,6 @@ enum _002_SetupStandardJobs: Migration {
                 )
         """)
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

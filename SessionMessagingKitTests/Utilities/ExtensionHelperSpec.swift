@@ -704,19 +704,19 @@ class ExtensionHelperSpec: AsyncSpec {
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
                     )
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "AgME"))
                     })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.moveItem(
                             atPath: "tmpFile",
                             toPath: "/test/extensionCache/conversations/010203/dumps/020304"
                         )
                     })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BQYH"))
                     })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.moveItem(
                             atPath: "tmpFile",
                             toPath: "/test/extensionCache/conversations/040506/dumps/050607"
@@ -735,19 +735,19 @@ class ExtensionHelperSpec: AsyncSpec {
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "AgME"))
                     })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.moveItem(
                             atPath: "tmpFile",
                             toPath: "/test/extensionCache/conversations/010203/dumps/020304"
                         )
                     })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BQYH"))
                     })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.moveItem(
                             atPath: "tmpFile",
                             toPath: "/test/extensionCache/conversations/040506/dumps/050607"

@@ -23,6 +23,6 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
             columns: ["threadId", "timestampMs", "variant"]
         )
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

@@ -3,8 +3,10 @@
 import Foundation
 import GRDB
 
+// MARK: - ObservingDatabase
+
 public class ObservingDatabase {
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     internal let originalDb: Database
     internal var events: [ObservedEvent] = []
     internal var postCommitActions: [String: () -> Void] = [:]
@@ -54,6 +56,15 @@ public extension ObservingDatabase {
         
         addEvent(ObservedEvent(key: key, value: value))
     }
+}
+
+// MARK: - ObservationContext
+
+public enum ObservationContext {
+    /// This `TaskLocal` variable is set and accessible within the context of a single `Task` and allows any code running within
+    /// the task to access the isntance without running into threading issues or needing to manage multiple instances
+    @TaskLocal
+    public static var observingDb: ObservingDatabase?
 }
 
 // MARK: - Convenience

@@ -73,34 +73,29 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
-            let result: T?
-            let didThrow: Bool
-            do {
-                result = try dbWriter.unsafeReentrantWrite { [dependencies] db in
-                    try updates(ObservingDatabase(db, using: dependencies))
-                }
-                didThrow = false
-            }
-            catch {
-                result = nil
-                didThrow = true
-            }
+            var result: T?
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
             
-            dbWriter.unsafeReentrantWrite { db in
-                // Forcibly call the transaction observer when forcing synchronous logic
-                dependencies.mutate(cache: .transactionObserver) { cache in
-                    let handlers = cache.registeredHandlers
-                    handlers.forEach { identifier, observer in
-                        if didThrow {
-                            observer.databaseDidRollback(db)
-                        }
-                        else {
-                            observer.databaseDidCommit(db)
-                        }
-                        cache.remove(for: identifier)
+            do {
+                try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                    result = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                        try updates(observingDatabase)
                     }
+                    
+                    events = observingDatabase.events
+                    actions = observingDatabase.postCommitActions
                 }
+                
+                /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                Task(priority: .medium) { [dependencies] in
+                    await dependencies[singleton: .observationManager].notify(events)
+                }
+                
+                actions.values.forEach { $0() }
             }
+            catch {}
             
             return result
         }
@@ -126,34 +121,29 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
-            let result: T?
-            let didThrow: Bool
-            do {
-                result = try dbWriter.unsafeReentrantRead { [dependencies] db in
-                    try value(ObservingDatabase(db, using: dependencies))
-                }
-                didThrow = false
-            }
-            catch {
-                result = nil
-                didThrow = true
-            }
+            var result: T?
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
             
-            try? dbWriter.unsafeReentrantRead { db in
-                // Forcibly call the transaction observer when forcing synchronous logic
-                dependencies.mutate(cache: .transactionObserver) { cache in
-                    let handlers = cache.registeredHandlers
-                    handlers.forEach { identifier, observer in
-                        if didThrow {
-                            observer.databaseDidRollback(db)
-                        }
-                        else {
-                            observer.databaseDidCommit(db)
-                        }
-                        cache.remove(for: identifier)
+            do {
+                try dbWriter.unsafeReentrantRead { [dependencies] db in
+                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                    result = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                        try value(observingDatabase)
                     }
+                    
+                    events = observingDatabase.events
+                    actions = observingDatabase.postCommitActions
                 }
+                
+                /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                Task(priority: .medium) { [dependencies] in
+                    await dependencies[singleton: .observationManager].notify(events)
+                }
+                
+                actions.values.forEach { $0() }
             }
+            catch {}
             
             return result
         }
@@ -184,29 +174,32 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
+            
             return Just(())
                 .setFailureType(to: Error.self)
                 .tryMap { [dependencies] _ in
                     try dbWriter.unsafeReentrantRead { [dependencies] db in
-                        try value(ObservingDatabase(db, using: dependencies))
+                        let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                        let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                            try value(observingDatabase)
+                        }
+                        
+                        events = observingDatabase.events
+                        actions = observingDatabase.postCommitActions
+                        
+                        return result
                     }
                 }
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
-                        try? dbWriter.unsafeReentrantRead { db in
-                            // Forcibly call the transaction observer when forcing synchronous logic
-                            dependencies.mutate(cache: .transactionObserver) { cache in
-                                let handlers = cache.registeredHandlers
-                                handlers.forEach { identifier, observer in
-                                    switch result {
-                                        case .finished: observer.databaseDidCommit(db)
-                                        case .failure: observer.databaseDidRollback(db)
-                                    }
-                                    cache.remove(for: identifier)
-                                }
-                            }
+                        /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                        Task(priority: .medium) { [dependencies] in
+                            await dependencies[singleton: .observationManager].notify(events)
                         }
                         
+                        actions.values.forEach { $0() }
                     }
                 )
                 .eraseToAnyPublisher()
@@ -247,29 +240,32 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
+            
             return Just(())
                 .setFailureType(to: Error.self)
                 .tryMap { [dependencies] _ in
                     try dbWriter.unsafeReentrantWrite { [dependencies] db in
-                        try updates(ObservingDatabase(db, using: dependencies))
+                        let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                        let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                            try updates(observingDatabase)
+                        }
+                        
+                        events = observingDatabase.events
+                        actions = observingDatabase.postCommitActions
+                        
+                        return result
                     }
                 }
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
-                        dbWriter.unsafeReentrantWrite { db in
-                            // Forcibly call the transaction observer when forcing synchronous logic
-                            dependencies.mutate(cache: .transactionObserver) { cache in
-                                let handlers = cache.registeredHandlers
-                                handlers.forEach { identifier, observer in
-                                    switch result {
-                                        case .finished: observer.databaseDidCommit(db)
-                                        case .failure: observer.databaseDidRollback(db)
-                                    }
-                                    cache.remove(for: identifier)
-                                }
-                            }
+                        /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                        Task(priority: .medium) { [dependencies] in
+                            await dependencies[singleton: .observationManager].notify(events)
                         }
                         
+                        actions.values.forEach { $0() }
                     }
                 )
                 .eraseToAnyPublisher()

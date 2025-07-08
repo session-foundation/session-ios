@@ -176,7 +176,7 @@ enum _021_ReworkRecipientState: Migration {
         /// Finally we can drop the old recipient states table
         try db.drop(table: "recipientState")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

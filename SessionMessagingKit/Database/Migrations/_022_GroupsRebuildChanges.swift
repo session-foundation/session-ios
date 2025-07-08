@@ -45,7 +45,7 @@ enum _022_GroupsRebuildChanges: Migration {
         guard
             MigrationHelper.userExists(db),
             let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         let userSessionId: SessionId = MigrationHelper.userSessionId(db)
         
@@ -205,7 +205,7 @@ enum _022_GroupsRebuildChanges: Migration {
             """)
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

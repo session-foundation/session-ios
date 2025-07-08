@@ -15,7 +15,7 @@ enum _025_DropLegacyClosedGroupKeyPairTable: Migration {
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.drop(table: "closedGroupKeyPair")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

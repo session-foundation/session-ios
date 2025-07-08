@@ -18,6 +18,6 @@ enum _008_ResetUserConfigLastHashes: Migration {
             WHERE namespace IN (\(SnodeAPI.Namespace.configContacts.rawValue), \(SnodeAPI.Namespace.configUserProfile.rawValue), \(SnodeAPI.Namespace.configUserGroups.rawValue), \(SnodeAPI.Namespace.configConvoInfoVolatile.rawValue))
         """)
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

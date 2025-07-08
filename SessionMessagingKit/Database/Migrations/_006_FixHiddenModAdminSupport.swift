@@ -24,6 +24,6 @@ enum _006_FixHiddenModAdminSupport: Migration {
         // added/changed fields
         try db.execute(sql: "UPDATE openGroup SET infoUpdates = 0")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

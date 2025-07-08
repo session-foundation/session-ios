@@ -11,7 +11,7 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class CommunityPollerSpec: QuickSpec {
+class CommunityPollerSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -133,14 +133,15 @@ class CommunityPollerSpec: QuickSpec {
                 it("creates pollers for all of the communities") {
                     cache.startAllPollers()
                     
-                    expect(cache.serversBeingPolled).to(equal(["testserver", "testserver1"]))
+                    await expect(cache.serversBeingPolled).toEventually(equal(["testserver", "testserver1"]))
                 }
                 
                 // MARK: ---- updates the isPolling flag
                 it("updates the isPolling flag") {
                     cache.startAllPollers()
                     
-                    expect(cache.allPollers.count).to(equal(2))
+                    await expect(cache.allPollers.count).toEventually(equal(2))
+                    try require(cache.allPollers.count).to(equal(2))
                     expect(cache.allPollers[0].isPolling).to(beTrue())
                     expect(cache.allPollers[1].isPolling).to(beTrue())
                 }

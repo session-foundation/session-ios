@@ -16,9 +16,7 @@ enum _027_MoveSettingsToLibSession: Migration {
         guard
             MigrationHelper.userExists(db),
             let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
-        else {
-            return Storage.update(progress: 1, for: self, in: target, using: dependencies)
-        }
+        else { return MigrationExecution.updateProgress(1) }
         
         let boolSettings: [Setting.BoolKey] = [
             .areReadReceiptsEnabled,
@@ -143,7 +141,7 @@ enum _027_MoveSettingsToLibSession: Migration {
             WHERE key IN (\(keysToDrop.map { "'\($0)'" }.joined(separator: ", ")))
         """)
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

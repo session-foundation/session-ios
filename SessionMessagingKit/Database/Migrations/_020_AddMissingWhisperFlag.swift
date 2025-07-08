@@ -19,6 +19,6 @@ enum _020_AddMissingWhisperFlag: Migration {
                 .defaults(to: false)
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

@@ -40,6 +40,6 @@ enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
         try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["expirationDateMs"])
         try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["wasDeletedOrInvalid"])
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

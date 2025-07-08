@@ -188,8 +188,7 @@ class MessageSendJobSpec: QuickSpec {
                         openGroupWhisperTo: nil,
                         state: .sending,
                         recipientReadTimestampMs: nil,
-                        mostRecentFailureText: nil,
-                        transientDependencies: nil
+                        mostRecentFailureText: nil
                     )
                     job = Job(
                         variant: .messageSend,

@@ -15,7 +15,7 @@ enum _023_GroupsExpiredFlag: Migration {
             t.add(column: "expired", .boolean).defaults(to: false)
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

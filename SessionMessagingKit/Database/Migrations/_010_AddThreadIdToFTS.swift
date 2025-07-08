@@ -28,6 +28,6 @@ enum _010_AddThreadIdToFTS: Migration {
             t.column("threadId")
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

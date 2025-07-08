@@ -16,13 +16,13 @@ enum _019_ScheduleAppUpdateCheckJob: Migration {
         guard
             !SNUtilitiesKit.isRunningTests ||
             ((try? db.tableExists("job")) == true)
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         try db.execute(sql: """
             INSERT INTO job (variant, behaviour)
             VALUES (\(Job.Variant.checkForAppUpdates.rawValue), \(Job.Behaviour.recurring.rawValue))
         """)
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

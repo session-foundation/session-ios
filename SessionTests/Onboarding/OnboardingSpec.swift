@@ -612,8 +612,7 @@ class OnboardingSpec: AsyncSpec {
                         onlyNotifyForMentions: false,
                         markedAsUnread: false,
                         pinnedPriority: 0,
-                        isDraft: false,
-                        using: nil
+                        isDraft: false
                     )
                 ]))
             }

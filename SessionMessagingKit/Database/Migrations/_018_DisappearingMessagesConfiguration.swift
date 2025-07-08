@@ -33,7 +33,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
         guard
             MigrationHelper.userExists(db),
             let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         // Set the disappearing messages type per conversation
         let userSessionId: SessionId = MigrationHelper.userSessionId(db)
@@ -167,6 +167,6 @@ enum _018_DisappearingMessagesConfiguration: Migration {
             )
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

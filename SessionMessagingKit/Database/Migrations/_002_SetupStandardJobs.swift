@@ -19,7 +19,7 @@ enum _002_SetupStandardJobs: Migration {
         guard
             !SNUtilitiesKit.isRunningTests ||
             ((try? db.tableExists("job")) == true)
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         // Start by adding the jobs that don't have collections (in the jobs like these
         // will be added via migrations)
@@ -58,6 +58,6 @@ enum _002_SetupStandardJobs: Migration {
                 )
         """)
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

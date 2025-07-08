@@ -2304,8 +2304,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: EquatableHashableIgnoring(value: dependencies)
+                            mostRecentFailureText: nil
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2329,8 +2328,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: EquatableHashableIgnoring(value: dependencies)
+                            mostRecentFailureText: nil
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2354,8 +2352,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: EquatableHashableIgnoring(value: dependencies)
+                            mostRecentFailureText: nil
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2379,8 +2376,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: EquatableHashableIgnoring(value: dependencies)
+                            mostRecentFailureText: nil
                         ).inserted(db)
                     }
                 }
@@ -2930,8 +2926,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: EquatableHashableIgnoring(value: dependencies)
+                            mostRecentFailureText: nil
                         ).inserted(db)
                         
                         try ConfigDump(

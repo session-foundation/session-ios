@@ -14,7 +14,7 @@ enum _003_YDBToGRDBMigration: Migration {
         guard
             !SNUtilitiesKit.isRunningTests,
             MigrationHelper.userExists(db)
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         Log.error(.migration, "Attempted to perform legacy migation")
         throw StorageError.migrationNoLongerSupported

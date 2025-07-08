@@ -219,12 +219,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
     /// The reason why the most recent attempt to send this message failed
     public private(set) var mostRecentFailureText: String?
     
-    // MARK: - Internal Values Used During Creation
-    
-    /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
-    /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
-    private let transientDependencies: EquatableHashableIgnoring<Dependencies>?
-    
     // MARK: - Relationships
          
     public var thread: QueryInterfaceRequest<SessionThread> {
@@ -286,8 +280,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         openGroupWhisperTo: String?,
         state: State,
         recipientReadTimestampMs: Int64?,
-        mostRecentFailureText: String?,
-        transientDependencies: EquatableHashableIgnoring<Dependencies>?
+        mostRecentFailureText: String?
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -310,7 +303,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         self.state = (variant.isLocalOnly ? .localOnly : state)
         self.recipientReadTimestampMs = recipientReadTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
-        self.transientDependencies = transientDependencies
     }
     
     public init(
@@ -368,7 +360,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
-        self.transientDependencies = EquatableHashableIgnoring(value: dependencies)
     }
     
     // MARK: - Custom Database Interaction
@@ -386,19 +377,18 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         _ = try insert()
         
         // Start the disappearing messages timer if needed
-        switch self.transientDependencies?.value {
-            case .none: Log.error("[Interaction] Missing transientDependencies when inserting.")
-            case .some(let dependencies):
-                guard let observableDb: ObservingDatabase = dependencies[singleton: .storage].observedDatabase(db) else {
-                    Log.error("[Interaction] Unable to get ObservingDatabase when inserting.")
-                    break
-                }
-                observableDb.addMessageEvent(id: id, threadId: threadId, type: .created)
+        switch ObservationContext.observingDb {
+            case .none: Log.error("[Interaction] Could not process 'aroundInsert' due to missing observingDb.")
+            case .some(let observingDb):
+                observingDb.addMessageEvent(id: id, threadId: threadId, type: .created)
                 
                 if self.expiresStartedAtMs != nil {
-                    dependencies[singleton: .jobRunner].upsert(
-                        observableDb,
-                        job: DisappearingMessagesJob.updateNextRunIfNeeded(observableDb, using: dependencies),
+                    observingDb.dependencies[singleton: .jobRunner].upsert(
+                        observingDb,
+                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                            observingDb,
+                            using: observingDb.dependencies
+                        ),
                         canStartJob: true
                     )
                 }
@@ -437,8 +427,7 @@ public extension Interaction {
             openGroupWhisperTo: try? container.decode(String?.self, forKey: .openGroupWhisperTo),
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
-            mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
-            transientDependencies: decoder.dependencies.map { EquatableHashableIgnoring(value: $0) }
+            mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText)
         )
     }
 }
@@ -481,8 +470,7 @@ public extension Interaction {
             openGroupWhisperTo: self.openGroupWhisperTo,
             state: (state ?? self.state),
             recipientReadTimestampMs: (recipientReadTimestampMs ?? self.recipientReadTimestampMs),
-            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
-            transientDependencies: self.transientDependencies
+            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText)
         )
     }
     

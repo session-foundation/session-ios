@@ -84,12 +84,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
     /// A value indicating whether this conversation is a draft conversation (ie. hasn't sent a message yet and should auto-delete)
     public let isDraft: Bool?
     
-    // MARK: - Internal Values Used During Creation
-    
-    /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
-    /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
-    private let transientDependencies: EquatableHashableIgnoring<Dependencies>?
-    
     // MARK: - Relationships
     
     public var contact: QueryInterfaceRequest<Contact> {
@@ -130,8 +124,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
         onlyNotifyForMentions: Bool = false,
         markedAsUnread: Bool? = false,
         pinnedPriority: Int32? = nil,
-        isDraft: Bool? = nil,
-        using dependencies: Dependencies?
+        isDraft: Bool? = nil
     ) {
         self.id = id
         self.variant = variant
@@ -146,7 +139,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
         self.pinnedPriority = ((pinnedPriority ?? 0) > 0 ? pinnedPriority :
             (isPinned ? 1 : 0)
         )
-        self.transientDependencies = dependencies.map { EquatableHashableIgnoring(value: $0) }
     }
     
     // MARK: - Custom Database Interaction
@@ -154,14 +146,11 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
     public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {
         _ = try insert()
         
-        switch self.transientDependencies?.value {
-            case .none:
-                Log.error("[SessionThread] Could not update 'hasSavedThread' due to missing transientDependencies.")
-                
-            case .some(let dependencies):
-                dependencies.setAsync(.hasSavedThread, true)
-                dependencies[singleton: .storage].observedDatabase(db)?
-                    .addConversationEvent(id: id, type: .created)
+        switch ObservationContext.observingDb {
+            case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
+            case .some(let observingDb):
+                observingDb.dependencies.setAsync(.hasSavedThread, true)
+                observingDb.addConversationEvent(id: id, type: .created)
         }
     }
 }
@@ -185,8 +174,7 @@ public extension SessionThread {
             onlyNotifyForMentions: try container.decode(Bool.self, forKey: .onlyNotifyForMentions),
             markedAsUnread: try container.decodeIfPresent(Bool.self, forKey: .markedAsUnread),
             pinnedPriority: pinnedPriority,
-            isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft),
-            using: decoder.dependencies
+            isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft)
         )
     }
 }
@@ -367,8 +355,7 @@ public extension SessionThread {
                     mutedUntilTimestamp: nil,
                     onlyNotifyForMentions: false,
                     pinnedPriority: targetPriority,
-                    isDraft: (values.isDraft.valueOrNull == true),
-                    using: dependencies
+                    isDraft: (values.isDraft.valueOrNull == true)
                 ).upserted(db)
         }
         
@@ -477,8 +464,7 @@ public extension SessionThread {
                     mutedUntilTimestamp: finalMutedUntilTimestamp,
                     onlyNotifyForMentions: finalOnlyNotifyForMentions,
                     pinnedPriority: finalPinnedPriority,
-                    isDraft: finalIsDraft,
-                    using: dependencies
+                    isDraft: finalIsDraft
                 ).upserted(db)
             )
     }

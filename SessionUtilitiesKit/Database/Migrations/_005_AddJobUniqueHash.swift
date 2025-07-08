@@ -15,6 +15,6 @@ enum _005_AddJobUniqueHash: Migration {
             t.add(column: "uniqueHashValue", .integer)
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

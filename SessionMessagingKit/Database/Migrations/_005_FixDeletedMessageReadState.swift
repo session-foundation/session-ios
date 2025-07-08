@@ -24,6 +24,6 @@ enum _005_FixDeletedMessageReadState: Migration {
                 Interaction.Variant.infoDisappearingMessagesUpdate.rawValue
             ])
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

@@ -17,10 +17,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         guard
             MigrationHelper.userExists(db),
             let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
-        else {
-            Storage.update(progress: 1, for: self, in: target, using: dependencies)
-            return
-        }
+        else { return MigrationExecution.updateProgress(1) }
         
         // Create the initial config state        
         let userSessionId: SessionId = MigrationHelper.userSessionId(db)
@@ -390,6 +387,6 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             )
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

@@ -23,6 +23,6 @@ enum _006_DropSnodeCache: Migration {
         ].map { "\($0.rawValue)" }.joined(separator: ", ")
         try db.execute(sql: "DELETE FROM job WHERE variant IN (\(variantsToDelete))")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

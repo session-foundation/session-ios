@@ -32,8 +32,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
-                    creationDateTimestamp: 0,
-                    using: dependencies
+                    creationDateTimestamp: 0
                 ).insert(db)
             }
         )

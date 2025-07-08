@@ -129,8 +129,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     try SessionThread(
                         id: user2Pubkey,
                         variant: .contact,
-                        creationDateTimestamp: 0,
-                        using: dependencies
+                        creationDateTimestamp: 0
                     ).insert(db)
                 }
                 
@@ -162,8 +161,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         try SessionThread(
                             id: userPubkey,
                             variant: .contact,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     
@@ -209,8 +207,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         try SessionThread(
                             id: user2Pubkey,
                             variant: .contact,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     
@@ -332,8 +329,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         try SessionThread(
                             id: legacyGroupPubkey,
                             variant: .legacyGroup,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                         
                         try DisappearingMessagesConfiguration
@@ -447,8 +443,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         try SessionThread(
                             id: groupPubkey,
                             variant: .group,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                         
                         try ClosedGroup(
@@ -746,8 +741,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         try SessionThread(
                             id: communityId,
                             variant: .community,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                         
                         try OpenGroup(

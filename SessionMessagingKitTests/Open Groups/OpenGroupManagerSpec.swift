@@ -41,14 +41,12 @@ class OpenGroupManagerSpec: QuickSpec {
             openGroupWhisperTo: nil,
             state: .sending,
             recipientReadTimestampMs: nil,
-            mostRecentFailureText: nil,
-            transientDependencies: nil
+            mostRecentFailureText: nil
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(
             id: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
             variant: .community,
-            creationDateTimestamp: 0,
-            using: dependencies
+            creationDateTimestamp: 0
         )
         @TestState var testOpenGroup: OpenGroup! = OpenGroup(
             server: "http://127.0.0.1",
@@ -563,8 +561,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 messageDraft: nil,
                                 notificationSound: nil,
                                 mutedUntilTimestamp: nil,
-                                onlyNotifyForMentions: false,
-                                using: dependencies
+                                onlyNotifyForMentions: false
                             ).insert(db)
                         }
                         
@@ -596,8 +593,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 messageDraft: nil,
                                 notificationSound: nil,
                                 mutedUntilTimestamp: nil,
-                                onlyNotifyForMentions: false,
-                                using: dependencies
+                                onlyNotifyForMentions: false
                             ).insert(db)
                         }
                         

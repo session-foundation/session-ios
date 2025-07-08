@@ -385,6 +385,6 @@ enum _001_InitialSetupMigration: Migration {
             t.column("timestampMs", .integer).notNull()
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

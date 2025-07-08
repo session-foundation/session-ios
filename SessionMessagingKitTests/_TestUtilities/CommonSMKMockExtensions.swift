@@ -51,8 +51,7 @@ extension SessionThread: Mocked {
         mutedUntilTimestamp: nil,
         onlyNotifyForMentions: false,
         markedAsUnread: nil,
-        pinnedPriority: nil,
-        using: .any
+        pinnedPriority: nil
     )
 }
 
@@ -86,8 +85,7 @@ extension Interaction: Mocked {
         openGroupWhisperTo: nil,
         state: .sent,
         recipientReadTimestampMs: nil,
-        mostRecentFailureText: nil,
-        transientDependencies: nil
+        mostRecentFailureText: nil
     )
 }
 
