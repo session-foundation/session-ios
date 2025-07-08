@@ -23,7 +23,8 @@ extension ConversationVC:
     SendMediaNavDelegate,
     UIDocumentPickerDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    SessionProCTADelegate
 {
     // MARK: - Open Settings
     
@@ -241,8 +242,9 @@ extension ConversationVC:
         }
         self.hideInputAccessoryView()
         let sessionProModal: ProCTAModal = ProCTAModal(
+            delegate: self,
             touchPoint: .longerMessages,
-            using: viewModel.dependencies,
+            dataManager: viewModel.dependencies[singleton: .imageDataManager],
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -251,6 +253,11 @@ extension ConversationVC:
         present(sessionProModal, animated: true, completion: nil)
         
         return true
+    }
+    
+    func upgradeToPro(completion: (() -> Void)?) {
+        viewModel.dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
+        completion?()
     }
 
     // MARK: - SendMediaNavDelegate

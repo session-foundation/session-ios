@@ -2,10 +2,8 @@
 
 import UIKit
 import Lucide
-import SessionUIKit
-import SessionUtilitiesKit
 
-final class ProCTAModal: Modal {
+public final class ProCTAModal: Modal {
     public enum TouchPoint {
         case generic
         case longerMessages
@@ -110,14 +108,23 @@ final class ProCTAModal: Modal {
         }
     }
     
-    private let dependencies: Dependencies
+    private var delegate: SessionProCTADelegate?
     private let touchPoint: TouchPoint
+    private var dataManager: ImageDataManagerType
     
     // MARK: - Initialization
     
-    init(touchPoint: TouchPoint = .generic, targetView: UIView? = nil, dismissType: DismissType = .recursive, using dependencies: Dependencies, afterClosed: (() -> ())? = nil) {
+    public init(
+        delegate: SessionProCTADelegate? = nil,
+        touchPoint: TouchPoint = .generic,
+        dataManager: ImageDataManagerType,
+        targetView: UIView? = nil,
+        dismissType: DismissType = .recursive,
+        afterClosed: (() -> ())? = nil
+    ) {
         self.touchPoint = touchPoint
-        self.dependencies = dependencies
+        self.delegate = delegate
+        self.dataManager = dataManager
         
         super.init(targetView: targetView, dismissType: dismissType, afterClosed: afterClosed)
         
@@ -141,7 +148,7 @@ final class ProCTAModal: Modal {
     
     private lazy var animatedAvatarImageView: SessionImageView = {
         let result: SessionImageView = SessionImageView(
-            dataManager: dependencies[singleton: .imageDataManager]
+            dataManager: self.dataManager
         )
         result.contentMode = .scaleAspectFill
         
@@ -300,7 +307,7 @@ final class ProCTAModal: Modal {
     
     // MARK: - Lifecycle
     
-    override func populateContentView() {
+    public override func populateContentView() {
         if let animatedAvatarImageName: String = self.touchPoint.animatedAvatarImageName,
            let imageURL = Bundle.main.url(forResource: animatedAvatarImageName, withExtension: "webp")
         {
@@ -332,8 +339,12 @@ final class ProCTAModal: Modal {
     // MARK: - Interaction
     
     @objc private func upgrade() {
-        // TODO: To be implemented
-        dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        close()
+        delegate?.upgradeToPro { [weak self] in
+            self?.close()
+        }
     }
+}
+
+public protocol SessionProCTADelegate: AnyObject {
+    func upgradeToPro(completion: (() -> Void)?)
 }
