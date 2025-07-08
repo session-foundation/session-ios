@@ -154,7 +154,20 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
             for: text.trimmingCharacters(in: .whitespacesAndNewlines),
             isSessionPro: dependencies[cache: .libSession].isSessionPro
         )
-        characterLimitLabel.text = "\(numberOfCharactersLeft)"
+        let textOptions: [String] = [
+            "\(numberOfCharactersLeft)",
+            "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))",
+            "\(numberOfCharactersLeft.formatted(format: .abbreviated))"
+        ]
+        
+        for text in textOptions {
+            if text.widthWithNumberOfLines(font: characterLimitLabel.font) > InputViewButton.expandedSize {
+                continue
+            }
+            characterLimitLabel.text = text
+            break
+        }
+        
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
         proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
