@@ -120,7 +120,7 @@ public extension PagedData {
             requiredJoinSQL: SQL?,
             filterSQL: SQL,
             groupSQL: SQL?,
-            orderSQL: SQL,
+            orderSQL: SQL
         ) {
             self.tableName = tableName
             self.idColumnName = idColumnName
@@ -147,7 +147,7 @@ public extension PagedData {
             requiredJoinSQL: SQL?,
             filterSQL: SQL,
             groupSQL: SQL?,
-            orderSQL: SQL,
+            orderSQL: SQL
         ) throws {
             self.tableName = tableName
             self.idColumnName = idColumnName
