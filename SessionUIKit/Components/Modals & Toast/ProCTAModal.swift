@@ -8,10 +8,8 @@ public final class ProCTAModal: Modal {
         case generic
         case longerMessages
         case animatedProfileImage
-        case largerFiles
         case morePinnedConvos(isGrandfathered: Bool)
-        case groupLimit
-        case groupLimitNonAdmin
+        case groupLimit(isAdmin: Bool)
         
         // stringlint:ignore_contents
         public var backgroundImageName: String {
@@ -22,14 +20,10 @@ public final class ProCTAModal: Modal {
                     return "HigherCharLimitCTA.webp"
                 case .animatedProfileImage:
                     return "session_pro_modal_background_animated_profile_image"
-                case .largerFiles:
-                    return "session_pro_modal_background_larger_files"
                 case .morePinnedConvos:
                     return "PinnedConversationsCTA.webp"
-                case .groupLimit:
-                    return "session_pro_modal_background_group_limit"
-                case .groupLimitNonAdmin:
-                    return "session_pro_modal_background_group_limit_non_admin"
+                case .groupLimit(let isAdmin):
+                    return isAdmin ? "" : ""
             }
         }
         // stringlint:ignore_contents
@@ -48,17 +42,13 @@ public final class ProCTAModal: Modal {
                 case .longerMessages:
                     return "proCallToActionLongerMessages".localized()
                 case .animatedProfileImage:
-                    return "Want to use gifs? Upgrade to Session Pro to upload animated display pictures and gain access to loads of other exclusive features."
-                case .largerFiles:
-                    return "Want to send larger files? Upgrade to Session Pro to send files beyond the 10MB limit."
+                    return "proAnimatedDisplayPictureCallToActionDescription".localized()
                 case .morePinnedConvos(let isGrandfathered):
                     return isGrandfathered ?
-                        "Want more pins? Organize your chats and unlock premium features with Session Pro" :
-                        "Want more than 5 pins? Organize your chats and unlock premium features with Session Pro"
-                case .groupLimit:
+                        "proCallToActionPinnedConversations".localized() :
+                        "proCallToActionPinnedConversationsMoreThan".localized()
+                case .groupLimit(let isAdmin):
                     return "Want to increase the number of members you can invite to your group? Upgrade to Session Pro to invite up to 300 contacts."
-                case .groupLimitNonAdmin:
-                    return "Want to increase the number of members? Let your admin know they can upgrade to Session Pro to invite up to 300 contacts."
             }
         }
         // TODO: Localization
@@ -66,9 +56,9 @@ public final class ProCTAModal: Modal {
             switch self {
                 case .generic:
                     return  [
-                        "Upload animated display pictures",
-                        "Share files beyond the 10MB limit",
-                        "Heaps more exclusive features"
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListLoadsMore".localized()
                     ]
                 case .longerMessages:
                     return [
@@ -78,34 +68,23 @@ public final class ProCTAModal: Modal {
                     ]
                 case .animatedProfileImage:
                     return [
-                        "Upload animated display pictures",
-                        "Increase group sizes to 300 members",
-                        "Heaps more exclusive features"
-                    ]
-                case .largerFiles:
-                    return [
-                        "Share files beyond the 10MB limit",
-                        "Increase group sizes to 300 members",
-                        "Heaps more exclusive features"
-                    ]
-                case .morePinnedConvos:
-                    return [
-                        "Pin unlimited conversations",
+                        "proFeatureListAnimatedDisplayPicture".localized(),
                         "proFeatureListLargerGroups".localized(),
                         "proFeatureListLoadsMore".localized()
                     ]
-                case .groupLimit:
+                case .morePinnedConvos:
                     return [
-                        "Increase group sizes to 300 members",
-                        "Send messages up to 10k characters",
-                        "Heaps more exclusive features"
+                        "proFeatureListPinnedConversations".localized(),
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
                     ]
-                case .groupLimitNonAdmin:
-                    return [
-                        "Invite up to 300 group members",
-                        "Send messages up to 10k characters",
-                        "Heaps more exclusive features"
-                    ]
+                case .groupLimit(let isAdmin):
+                    return !isAdmin ? [] :
+                        [
+                            "proFeatureListLargerGroups".localized(),
+                            "proFeatureListLongerMessages".localized(),
+                            "proFeatureListLoadsMore".localized()
+                        ]
             }
         }
     }
