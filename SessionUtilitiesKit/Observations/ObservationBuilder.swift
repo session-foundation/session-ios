@@ -56,10 +56,10 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
     fileprivate let debounceInterval: DispatchTimeInterval
     fileprivate let observationManager: ObservationManager
     fileprivate let query: (_ previousValue: Output?, _ events: [ObservedEvent]) async -> Output
-
-    // MARK: - Internal Functions
     
-    private func makeObservationTask() -> (task: Task<Void, Never>, stream: AsyncStream<Output>) {
+    // MARK: - Outputs
+    
+    public func stream() -> AsyncStream<Output> {
         let (stream, continuation) = AsyncStream.makeStream(of: Output.self)
         let runner: QueryRunner = QueryRunner(
             observationManager: observationManager,
@@ -70,33 +70,16 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
         let observationTask: Task<Void, Never> = Task.detached {
             await runner.run()
         }
-
-        return (observationTask, stream)
-    }
-    
-    // MARK: - Outputs
-    
-    public func stream() -> AsyncStream<Output> {
-        let (task, stream) = makeObservationTask()
-        let (cancellableStream, continuation) = AsyncStream.makeStream(of: Output.self)
-
-        Task {
-            for await value in stream {
-                continuation.yield(value)
-            }
-            continuation.finish()
-        }
         
         continuation.onTermination = { @Sendable _ in
-            task.cancel()
+            observationTask.cancel()
         }
-        
-        return cancellableStream
-    }
 
+        return stream
+    }
     
     public func publisher(initialValue: Output) -> AnyPublisher<Output, Never> {
-        let (task, stream) = makeObservationTask()
+        let stream: AsyncStream<Output> = stream()
         let subject: CurrentValueSubject<Output, Never> = CurrentValueSubject(initialValue)
         let streamConsumingTask: Task<Void, Never> = Task {
             for await value in stream {
@@ -105,36 +88,22 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
             }
         }
         
-        /// When the publisher subscription is cancelled, we cancel BOTH the underlying observation task and the task that's
-        /// consuming the stream
+        /// When the publisher subscription is cancelled, we cancel the task that's consuming the stream
         return subject.handleEvents(
             receiveCancel: {
-                task.cancel()
                 streamConsumingTask.cancel()
             }
         ).eraseToAnyPublisher()
     }
     
     public func assign(using update: @escaping @MainActor (Output) -> Void) -> Task<Void, Never> {
-        let (task, stream) = makeObservationTask()
-        let streamConsumingTask = Task {
+        let stream: AsyncStream<Output> = stream()
+        
+        return Task {
             for await value in stream {
                 if Task.isCancelled { break }
                 
                 await update(value)
-            }
-        }
-        
-        /// Create a "supervisor" task which cancells any child tasks when it gets cancelled
-        let supervisorTask: Task<Void, Never> = Task { await task.value }
-
-        return Task {
-            await withTaskCancellationHandler {
-                /// Keeps the supervisor task running until it's cancelled.
-                await supervisorTask.value
-            } onCancel: {
-                task.cancel()
-                streamConsumingTask.cancel()
             }
         }
     }
@@ -149,7 +118,7 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
     private let query: (_ previousValue: Output?, _ events: [ObservedEvent]) async -> Output
     
     private var activeKeys: Set<ObservableKey> = []
-    private var observationTask: Task<Void, Never>?
+    private var listenerTask: Task<Void, Never>?
     private var lastValue: Output?
     
     // MARK: - Initialization
@@ -164,20 +133,21 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         self.observationManager = observationManager
         self.continuation = continuation
         self.debouncer = DebounceTaskManager(debounceInterval: debounceInterval)
-        
-        continuation.onTermination = { @Sendable [weak self] _ in
-            Task { await self?.cancel() }
-        }
     }
     
     // MARK: - Functions
     
     func run() async {
+        /// Setup the debouncer to trigger a requery when events come through
         await debouncer.setAction { [weak self] events in
             await self?.requery(changes: events)
         }
         
+        /// Perform initial query
         await requery(changes: [])
+        
+        /// Keep the `QueryRunner` alive until it's parent task is cancelled
+        await TaskCancellation.wait()
     }
     
     private func requery(changes: [ObservedEvent]) async {
@@ -189,12 +159,13 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
 
         /// If the keys have changed then we need to restart the observation
         if newKeys != activeKeys {
-            observationTask?.cancel()
-            let newTask: Task<Void, Never> = Task { [weak self] in
+            let oldListenerTask: Task<Void, Never>? = self.listenerTask
+            
+            listenerTask = Task { [weak self] in
                 await self?.observe(keys: newKeys)
             }
-            observationTask = newTask
             activeKeys = newKeys
+            oldListenerTask?.cancel()
         }
         
         /// Prevent redundant updates if the output hasn't changed.
@@ -206,20 +177,17 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
     }
     
     private func observe(keys: Set<ObservableKey>) async {
-        var streams: [AsyncStream<ObservedEvent>] = []
-        
-        for key in keys {
-            streams.append(await observationManager.observe(key))
-        }
-        
-        /// Use a task group to merge all of the stream observations
         await withTaskGroup(of: Void.self) { group in
-            for stream in streams {
+            for key in keys {
                 group.addTask { [weak self] in
+                    guard let self = self else { return }
+                    
                     do {
+                        let stream = await self.observationManager.observe(key)
+                        
                         for await event in stream {
                             try Task.checkCancellation()
-                            await self?.debouncer.signal(event: event)
+                            await self.debouncer.signal(event: event)
                         }
                     }
                     catch {
@@ -230,11 +198,5 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
                 }
             }
         }
-    }
-    
-    private func cancel() async {
-        observationTask?.cancel()
-        observationTask = nil
-        await debouncer.reset()
     }
 }

@@ -622,7 +622,7 @@ public extension SessionThread {
                     .deleteAll(db)
                 
                 remainingThreadIds.forEach { id in
-                    db.addEvent(.conversationDeleted(id))
+                    db.addConversationEvent(id: id, type: .deleted)
                 }
                 
                 // We need to custom handle the 'Note to Self' conversation (it should just be
@@ -665,7 +665,7 @@ public extension SessionThread {
                     .deleteAll(db)
                 
                 remainingThreadIds.forEach { id in
-                    db.addEvent(.conversationDeleted(id))
+                    db.addConversationEvent(id: id, type: .deleted)
                 }
                 
                 // Remove desired deduplication records

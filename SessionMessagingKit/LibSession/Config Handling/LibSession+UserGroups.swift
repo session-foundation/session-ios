@@ -43,7 +43,9 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+        }
         
         // Extract all of the user group info
         let extractedUserGroups: LibSession.ExtractedUserGroups = try LibSession.extractUserGroups(
@@ -464,7 +466,9 @@ internal extension LibSessionCacheType {
         using dependencies: Dependencies
     ) throws {
         try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
-            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .userGroups(let conf) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+            }
             
             try groupSessionIds.forEach { groupId in
                 var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -486,7 +490,9 @@ public extension LibSession {
         legacyGroups: [LegacyGroupInfo],
         in config: Config?
     ) throws {
-        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+        }
         guard !legacyGroups.isEmpty else { return }
         
         try legacyGroups
@@ -580,7 +586,9 @@ public extension LibSession {
         in config: Config?,
         using dependencies: Dependencies
     ) throws {
-        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+        }
         guard !groups.isEmpty else { return }
         
         try groups
@@ -630,7 +638,9 @@ public extension LibSession {
         communities: [CommunityUpdateInfo],
         in config: Config?
     ) throws {
-        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+        }
         guard !communities.isEmpty else { return }
         
         try communities
@@ -757,7 +767,9 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+                }
                 
                 var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -793,7 +805,9 @@ public extension LibSession {
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+                }
                 
                 legacyGroupIds.forEach { legacyGroupId in
                     guard var cGroupId: [CChar] = legacyGroupId.cString(using: .utf8) else { return }
@@ -905,7 +919,9 @@ public extension LibSession {
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
+                }
                 
                 try groupSessionIds.forEach { groupSessionId in
                     var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
@@ -927,8 +943,11 @@ public extension LibSession {
 
 public extension LibSession.Cache {
     func markAsInvited(groupSessionIds: [String]) throws {
-        guard case .userGroups(let conf) =  config(for: .userGroups, sessionId: userSessionId) else {
-            throw LibSessionError.invalidConfigObject
+        guard let config: LibSession.Config = config(for: .userGroups, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: nil)
+        }
+        guard case .userGroups(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
         }
         
         try groupSessionIds.forEach { groupId in
@@ -943,8 +962,11 @@ public extension LibSession.Cache {
     }
     
     func markAsKicked(groupSessionIds: [String]) throws {
-        guard case .userGroups(let conf) =  config(for: .userGroups, sessionId: userSessionId) else {
-            throw LibSessionError.invalidConfigObject
+        guard let config: LibSession.Config = config(for: .userGroups, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: nil)
+        }
+        guard case .userGroups(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userGroups, got: config)
         }
         
         try groupSessionIds.forEach { groupId in

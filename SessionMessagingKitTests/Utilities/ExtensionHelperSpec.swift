@@ -1059,6 +1059,58 @@ class ExtensionHelperSpec: AsyncSpec {
                     ptr.deallocate()
                 }
                 
+                // MARK: ---- returns correct config load results
+                it("returns correct config load results") {
+                    let ptr: UnsafeMutablePointer<config_object> = UnsafeMutablePointer<config_object>.allocate(capacity: 1)
+                    let keysPtr: UnsafeMutablePointer<config_group_keys> = UnsafeMutablePointer<config_group_keys>.allocate(capacity: 1)
+                    let configs: [LibSession.Config] = [
+                        .groupKeys(keysPtr, info: ptr, members: ptr), .groupInfo(ptr)
+                    ]
+                    
+                    mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
+                    configs.forEach { config in
+                        mockLibSessionCache
+                            .when {
+                                try $0.loadState(
+                                    for: config.variant,
+                                    sessionId: .any,
+                                    userEd25519SecretKey: .any,
+                                    groupEd25519SecretKey: .any,
+                                    cachedData: .any
+                                )
+                            }
+                            .thenReturn(config)
+                        mockCrypto
+                            .when { $0.generate(.hash(message: Array("DumpSalt-\(config.variant)".utf8))) }
+                            .thenReturn([0, 1, 2])
+                    }
+                    mockCrypto
+                        .when { $0.generate(.hash(message: Array("ConvoIdSalt-03\(TestConstants.publicKey)".utf8))) }
+                        .thenReturn([4, 5, 6])
+                    mockCrypto
+                        .when {
+                            $0.generate(.hash(message: Array("DumpSalt-\(ConfigDump.Variant.groupMembers)".utf8)))
+                        }
+                        .thenReturn(nil)
+                    
+                    var result: [ConfigDump.Variant: Bool] = [:]
+                    expect {
+                        result = try extensionHelper.loadGroupConfigStateIfNeeded(
+                            into: mockLibSessionCache,
+                            swarmPublicKey: "03\(TestConstants.publicKey)",
+                            userEd25519SecretKey: [1, 2, 3]
+                        )
+                    }.toNot(throwError())
+                    expect(result).to(equal([
+                        ConfigDump.Variant.groupKeys: true,
+                        ConfigDump.Variant.groupMembers: false,
+                        ConfigDump.Variant.groupInfo: true
+                    ]))
+                    
+                    keysPtr.deallocate()
+                    ptr.deallocate()
+                }
+                
                 // MARK: ---- does nothing if it cannot get a dump for the config
                 it("does nothing if it cannot get a dump for the config") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)

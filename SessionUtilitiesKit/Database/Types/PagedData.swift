@@ -10,18 +10,19 @@ public enum PagedData {
 // MARK: - PagedData.PageInfo
 
 public extension PagedData {
-    struct LoadedInfo<ID: SQLExpressible & Sendable>: Sendable, Equatable, ThreadSafeType {
+    struct LoadedInfo<ID: SQLExpressible & Sendable & Hashable & Codable>: Sendable, Equatable, ThreadSafeType {
         fileprivate let queryInfo: QueryInfo
         
         public let pageSize: Int
         public let totalCount: Int
         public let firstPageOffset: Int
         public let currentRowIds: [Int64]
+        private let idToRowIdMap: [ID: Int64]
         
         public var lastIndex: Int { firstPageOffset + currentRowIds.count - 1 }
         public var hasPrevPage: Bool { firstPageOffset > 0 }
         public var hasNextPage: Bool { (lastIndex + 1) < totalCount }
-        public var asResult: LoadResult<ID> { LoadResult(info: self, newRowIds: []) }
+        public var asResult: LoadResult<ID> { LoadResult<ID>(info: self, newRowIds: []) }
         
         // MARK: - Initialization
         
@@ -45,6 +46,7 @@ public extension PagedData {
             self.totalCount = 0
             self.firstPageOffset = 0
             self.currentRowIds = []
+            self.idToRowIdMap = [:]
         }
         
         fileprivate init(
@@ -52,17 +54,19 @@ public extension PagedData {
             pageSize: Int,
             totalCount: Int,
             firstPageOffset: Int,
-            currentRowIds: [Int64]
+            currentRowIds: [Int64],
+            idToRowIdMap: [ID: Int64]
         ) {
             self.queryInfo = queryInfo
             self.pageSize = pageSize
             self.totalCount = totalCount
             self.firstPageOffset = firstPageOffset
             self.currentRowIds = currentRowIds
+            self.idToRowIdMap = [:]
         }
     }
     
-    struct LoadResult<ID: SQLExpressible & Sendable> {
+    struct LoadResult<ID: SQLExpressible & Sendable & Hashable & Codable> {
         public let info: PagedData.LoadedInfo<ID>
         public let newRowIds: [Int64]
         
@@ -209,7 +213,7 @@ public extension PagedData {
 // MARK: - PagedData.Target
 
 public extension PagedData {
-    enum Target<ID: SQLExpressible & Sendable>: Sendable {
+    enum Target<ID: SQLExpressible & Sendable & Hashable>: Sendable {
         /// This will attempt to load the first page of data
         case initial
         
@@ -232,7 +236,16 @@ public extension PagedData {
         case jumpTo(id: ID, padding: Int)
         
         /// This will refetched all of the currently fetched data
-        case reloadCurrent
+        case reloadCurrent(insertedIds: Set<ID>, deletedIds: Set<ID>)
+        
+        public var reloadCurrent: Target<ID> { .reloadCurrent(insertedIds: [], deletedIds: []) }
+        public static func reloadCurrent(insertedIds: Set<ID>) -> Target<ID> {
+            return .reloadCurrent(insertedIds: insertedIds, deletedIds: [])
+        }
+        
+        public static func reloadCurrent(deletedIds: Set<ID>) -> Target<ID> {
+            return .reloadCurrent(insertedIds: [], deletedIds: deletedIds)
+        }
     }
 }
 
@@ -256,29 +269,41 @@ public extension PagedData.LoadedInfo {
         var newOffset: Int
         var newLimit: Int
         var newFirstPageOffset: Int
-        var mergeStrategy: ([Int64], [Int64]) -> [Int64]
+        var mergeStrategy: ([Int64], [ID: Int64], [Int64], [ID: Int64]) -> (ids: [Int64], map: [ID: Int64])
+        let newTotalCount: Int = PagedData.totalCount(
+            db,
+            tableName: queryInfo.tableName,
+            requiredJoinSQL: queryInfo.requiredJoinSQL,
+            filterSQL: queryInfo.filterSQL
+        )
         
         switch target {
             case .initial:
                 newOffset = 0
                 newLimit = pageSize
                 newFirstPageOffset = 0
-                mergeStrategy = { _, new in new } // Replace old with new
+                mergeStrategy = { _, _, new, newMap in
+                    (new, newMap) // Replace old with new
+                }
                 
             case .pageBefore:
                 newLimit = min(firstPageOffset, pageSize)
                 newOffset = max(0, firstPageOffset - newLimit)
                 newFirstPageOffset = newOffset
-                mergeStrategy = { old, new in new + old } // Prepend new page
+                mergeStrategy = { old, oldMap, new, newMap in
+                    (new + old, newMap.merging(oldMap, uniquingKeysWith: { $1 })) // Prepend new page
+                }
                 
             case .pageAfter:
-                newOffset = self.lastIndex + 1
+                newOffset = firstPageOffset + currentRowIds.count
                 newLimit = pageSize
-                newFirstPageOffset = self.firstPageOffset
-                mergeStrategy = { old, new in old + new } // Append new page
+                newFirstPageOffset = firstPageOffset
+                mergeStrategy = { old, oldMap, new, newMap in
+                    (old + new, oldMap.merging(newMap, uniquingKeysWith: { $1 })) // Append new page
+                }
                 
             case .initialPageAround(let id):
-                let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
                     db,
                     for: id,
                     tableName: queryInfo.tableName,
@@ -296,11 +321,13 @@ public extension PagedData.LoadedInfo {
                 newOffset = max(0, targetIndex - halfPage)
                 newLimit = pageSize
                 newFirstPageOffset = newOffset
-                mergeStrategy = { _, new in new }
+                mergeStrategy = { _, _, new, newMap in
+                    (new, newMap) // Replace old with new
+                }
                 
             case .jumpTo(let targetId, let padding):
                 /// If we want to focus on a specific item then we need to find it's index in the queried data
-                let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
                     db,
                     for: targetId,
                     tableName: queryInfo.tableName,
@@ -312,14 +339,14 @@ public extension PagedData.LoadedInfo {
                 
                 /// If the id doesn't exist then we can't jump to it so just return the current state
                 guard let targetIndex: Int = maybeRowInfo?.rowIndex else {
-                    return PagedData.LoadResult(info: self)
+                    return PagedData.LoadResult<ID>(info: self)
                 }
                 
                 /// Check if the item is already loaded, if so then no need to load anything
                 guard
                     targetIndex < firstPageOffset ||
                     targetIndex >= lastIndex
-                else { return PagedData.LoadResult(info: self) }
+                else { return PagedData.LoadResult<ID>(info: self) }
                 
                 /// If the `targetIndex` is over a page before the current content or more than a page after the current content
                 /// then we want to reload the entire content (to avoid loading an excessive amount of data), otherwise we should
@@ -331,13 +358,17 @@ public extension PagedData.LoadedInfo {
                     newOffset = max(0, targetIndex - padding)
                     newLimit = firstPageOffset - newOffset
                     newFirstPageOffset = newOffset
-                    mergeStrategy = { old, new in new + old }
+                    mergeStrategy = { old, oldMap, new, newMap in
+                        (new + old, newMap.merging(oldMap, uniquingKeysWith: { $1 })) // Prepend new page
+                    }
                 }
                 else if isCloseAfter {
                     newOffset = lastIndex + 1
                     newLimit = (targetIndex - lastIndex) + padding
                     newFirstPageOffset = firstPageOffset
-                    mergeStrategy = { old, new in old + new }
+                    mergeStrategy = { old, oldMap, new, newMap in
+                        (old + new, oldMap.merging(newMap, uniquingKeysWith: { $1 })) // Append new page
+                    }
                 }
                 else {
                     /// The target is too far away so we need to do a new fetch
@@ -347,22 +378,26 @@ public extension PagedData.LoadedInfo {
                             pageSize: pageSize,
                             totalCount: 0,
                             firstPageOffset: 0,
-                            currentRowIds: []
+                            currentRowIds: [],
+                            idToRowIdMap: [:]
                         )
                         .load(db, .initialPageAround(id: targetId))
                 }
-                
-            case .reloadCurrent:
+            
+            case .reloadCurrent(let insertedIds, let deletedIds):
                 newOffset = self.firstPageOffset
-                newLimit = self.currentRowIds.count
+                newLimit = max(pageSize, currentRowIds.count - deletedIds.count + insertedIds.count)
                 newFirstPageOffset = self.firstPageOffset
-                mergeStrategy = { _, new in new }
+                mergeStrategy = { _, _, new, newMap in
+                    (new, newMap) // Replace old with new
+                }
         }
         
         /// Now that we have the limit and offset actually load the data
-        let newRowIds: [Int64] = try PagedData.rowIds(
+        let newRowIdPairs: [PagedData.RowIdPair<ID>] = try PagedData.rowIdPairs(
             db,
             tableName: queryInfo.tableName,
+            idColumn: queryInfo.idColumnName,
             requiredJoinSQL: queryInfo.requiredJoinSQL,
             filterSQL: queryInfo.filterSQL,
             groupSQL: queryInfo.groupSQL,
@@ -370,73 +405,23 @@ public extension PagedData.LoadedInfo {
             limit: newLimit,
             offset: newOffset
         )
-        let newTotalCount: Int = PagedData.totalCount(
-            db,
-            tableName: queryInfo.tableName,
-            requiredJoinSQL: queryInfo.requiredJoinSQL,
-            filterSQL: queryInfo.filterSQL
+        let (mergedIds, mergedMap) = mergeStrategy(
+            currentRowIds,
+            idToRowIdMap,
+            newRowIdPairs.map { $0.rowId },
+            Dictionary(uniqueKeysWithValues: newRowIdPairs.map { ($0.id, $0.rowId) })
         )
         
-        return PagedData.LoadResult(
+        return PagedData.LoadResult<ID>(
             info: PagedData.LoadedInfo(
                 queryInfo: try queryInfo.resolveIfNeeded(db),
                 pageSize: pageSize,
                 totalCount: newTotalCount,
                 firstPageOffset: newFirstPageOffset,
-                currentRowIds: mergeStrategy(currentRowIds, newRowIds)
+                currentRowIds: mergedIds,
+                idToRowIdMap: mergedMap
             ),
-            newRowIds: newRowIds
-        )
-    }
-    
-    fileprivate func insertIfVisible(_ db: ObservingDatabase, id: ID) throws -> PagedData.LoadResult<ID> {
-        let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
-            db,
-            for: id,
-            tableName: queryInfo.tableName,
-            idColumn: queryInfo.idColumnName,
-            requiredJoinSQL: queryInfo.requiredJoinSQL,
-            orderSQL: queryInfo.orderSQL,
-            filterSQL: queryInfo.filterSQL
-        )
-        let newTotalCount: Int = (self.totalCount + 1) /// We inserted a new value so need to increment
-        let newFirstPageOffset: Int = maybeRowInfo
-            .map { info in (info.rowIndex < firstPageOffset ? (firstPageOffset + 1) : firstPageOffset) }
-            .defaulting(to: firstPageOffset)
-        
-        /// If the index is outside of our loaded data then just return the current state with the updated indexes
-        guard
-            let rowInfo: PagedData.RowInfo = maybeRowInfo,
-            rowInfo.rowIndex < lastIndex,
-            rowInfo.rowIndex >= newFirstPageOffset
-        else {
-            return PagedData.LoadResult(
-                info: PagedData.LoadedInfo(
-                    queryInfo: queryInfo,
-                    pageSize: pageSize,
-                    totalCount: newTotalCount,
-                    firstPageOffset: newFirstPageOffset,
-                    currentRowIds: currentRowIds
-                ),
-                newRowIds: []
-            )
-        }
-        
-        /// Insert the new row at the correct index
-        let insertionIndex: Int = (rowInfo.rowIndex - firstPageOffset)
-        var updatedRowIds: [Int64] = currentRowIds
-        updatedRowIds.insert(rowInfo.rowId, at: insertionIndex)
-        
-        /// Return the updated data
-        return PagedData.LoadResult(
-            info: PagedData.LoadedInfo(
-                queryInfo: queryInfo,
-                pageSize: pageSize,
-                totalCount: newTotalCount,
-                firstPageOffset: newFirstPageOffset,
-                currentRowIds: updatedRowIds
-            ),
-            newRowIds: [rowInfo.rowId]
+            newRowIds: newRowIdPairs.map { $0.rowId }
         )
     }
 }
@@ -444,12 +429,12 @@ public extension PagedData.LoadedInfo {
 // MARK: - PagedData.LoadResult Convenience
 
 public extension PagedData.LoadResult {
-    func prepending(existingNewRowIds: [Int64]) -> PagedData.LoadResult<ID> {
-        return PagedData.LoadResult(info: info, newRowIds: (existingNewRowIds + newRowIds))
-    }
-    
-    func insertIfVisible(_ db: ObservingDatabase, id: ID) throws -> PagedData.LoadResult<ID> {
-        try info.insertIfVisible(db, id: id).prepending(existingNewRowIds: newRowIds)
+    func load(_ db: ObservingDatabase, target: PagedData.Target<ID>) throws -> PagedData.LoadResult<ID> {
+        let result: PagedData.LoadResult<ID> = try info.load(db, target)
+        
+        guard !newRowIds.isEmpty else { return result }
+        
+        return PagedData.LoadResult<ID>(info: info, newRowIds: (newRowIds + result.newRowIds))
     }
 }
 
@@ -457,8 +442,12 @@ public extension PagedData.LoadResult {
 
 internal extension PagedData {
     struct RowInfo: Codable, FetchableRecord {
-        let rowIndex: Int
         let rowId: Int64
+        let rowIndex: Int
+    }
+    struct RowIdPair<ID: Codable>: Codable, FetchableRecord {
+        let rowId: Int64
+        let id: ID
     }
     
     static func totalCount(
@@ -480,21 +469,25 @@ internal extension PagedData {
             .defaulting(to: 0)
     }
     
-    fileprivate static func rowIds(
+    fileprivate static func rowIdPairs<ID: Codable & SQLExpressible>(
         _ db: ObservingDatabase,
         tableName: String,
+        idColumn: String,
         requiredJoinSQL: SQL?,
         filterSQL: SQL,
         groupSQL: SQL?,
         orderSQL: SQL,
         limit: Int,
         offset: Int
-    ) throws -> [Int64] {
+    ) throws -> [RowIdPair<ID>] {
         let tableNameLiteral: SQL = SQL(stringLiteral: tableName)
+        let idColumnLiteral: SQL = SQL(stringLiteral: idColumn)
         let finalJoinSQL: SQL = (requiredJoinSQL ?? "")
         let finalGroupSQL: SQL = (groupSQL ?? "")
-        let request: SQLRequest<Int64> = """
-            SELECT \(tableNameLiteral).rowId
+        let request: SQLRequest<RowIdPair<ID>> = """
+            SELECT
+                \(tableNameLiteral).rowId,
+                \(tableNameLiteral).\(idColumnLiteral) as id
             FROM \(tableNameLiteral)
             \(finalJoinSQL)
             WHERE \(filterSQL)
@@ -506,7 +499,7 @@ internal extension PagedData {
         return try request.fetchAll(db)
     }
     
-    static func index<ID: SQLExpressible>(
+    static func rowInfo<ID: SQLExpressible>(
         _ db: ObservingDatabase,
         for id: ID,
         tableName: String,

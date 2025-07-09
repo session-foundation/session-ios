@@ -212,7 +212,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     // MARK: - Functions
     
-    private func submit(with selectedUsers: Set<WithProfile<T>>) {
+    @MainActor private func submit(with selectedUsers: Set<WithProfile<T>>) {
         switch onSubmitAction {
             case .none: return
             

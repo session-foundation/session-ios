@@ -529,7 +529,7 @@ public extension LibSession {
             
             do {
                 guard let config: Config = configStore[sessionId, variant] else {
-                    throw LibSessionError.invalidConfigObject
+                    throw LibSessionError.invalidConfigObject(wanted: variant, got: nil)
                 }
                 
                 // Peform the change
@@ -582,7 +582,7 @@ public extension LibSession {
             
             do {
                 guard let config: Config = configStore[sessionId, variant] else {
-                    throw LibSessionError.invalidConfigObject
+                    throw LibSessionError.invalidConfigObject(wanted: variant, got: nil)
                 }
                 
                 // Peform the change
@@ -1207,7 +1207,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?,
         cachedData: Data?
-    ) throws -> LibSession.Config { throw LibSessionError.invalidConfigObject }
+    ) throws -> LibSession.Config { throw LibSessionError.invalidConfigObject(wanted: .invalid, got: nil) }
     func loadAdminKey(
         groupIdentitySeed: Data,
         groupSessionId: SessionId
@@ -1429,5 +1429,12 @@ private extension SessionId {
                 
             case (_, .invalid): self = SessionId.invalid
         }
+    }
+}
+
+public extension LibSessionError {
+    // stringlint:ignore_contents
+    static func invalidConfigObject(wanted: ConfigDump.Variant, got other: LibSession.Config?) -> Error {
+        return LibSessionError.invalidConfigObject(wanted.rawValue, (other?.variant.rawValue ?? "null"))
     }
 }

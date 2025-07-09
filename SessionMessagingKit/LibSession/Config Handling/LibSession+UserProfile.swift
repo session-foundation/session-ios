@@ -29,7 +29,9 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: config)
+        }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -207,7 +209,9 @@ internal extension LibSession {
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         in config: Config?
     ) throws {
-        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: config)
+        }
         
         if let priority: Int32 = priority {
             user_profile_set_nts_priority(conf, priority)
@@ -222,7 +226,9 @@ internal extension LibSession {
         checkForCommunityMessageRequests: Bool? = nil,
         in config: Config?
     ) throws {
-        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: config)
+        }
         
         if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
             user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
@@ -268,8 +274,11 @@ public extension LibSession.Cache {
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?
     ) throws -> Profile? {
-        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-            throw LibSessionError.invalidConfigObject
+        guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: nil)
+        }
+        guard case .userProfile(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: config)
         }
         
         // Get the old values to determine if something changed

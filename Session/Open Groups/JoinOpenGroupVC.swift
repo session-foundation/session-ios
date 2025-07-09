@@ -188,42 +188,37 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         shouldOpenCommunity: Bool,
         onError: (() -> ())?
     ) {
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { [dependencies] db in
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            let hasExistingOpenGroup: Bool = try await dependencies[singleton: .storage].readAsync { db in
                 dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
                     db,
                     roomToken: roomToken,
                     server: server,
                     publicKey: publicKey
                 )
-            },
-            completion: { [weak self] result in
-                switch result {
-                    case .failure: onError?()
-                    case .success(let hasExistingOpenGroup):
-                        guard !hasExistingOpenGroup else {
-                            DispatchQueue.main.async {
-                                self?.showToast(
-                                    text: "communityJoinedAlready".localized(),
-                                    backgroundColor: .backgroundSecondary
-                                )
-                            }
-                            return
-                        }
-                        
-                        self?.joinOpenGroupAfterExistingCheck(
-                            roomToken: roomToken,
-                            server: server,
-                            publicKey: publicKey,
-                            shouldOpenCommunity: shouldOpenCommunity,
-                            onError: onError
-                        )
-                }
             }
-        )
+            
+            guard !hasExistingOpenGroup else {
+                await MainActor.run { [weak self] in
+                    self?.showToast(
+                        text: "communityJoinedAlready".localized(),
+                        backgroundColor: .backgroundSecondary
+                    )
+                }
+                return
+            }
+            
+            await self?.joinOpenGroupAfterExistingCheck(
+                roomToken: roomToken,
+                server: server,
+                publicKey: publicKey,
+                shouldOpenCommunity: shouldOpenCommunity,
+                onError: onError
+            )
+        }
     }
     
-    private func joinOpenGroupAfterExistingCheck(
+    @MainActor private func joinOpenGroupAfterExistingCheck(
         roomToken: String,
         server: String,
         publicKey: String,

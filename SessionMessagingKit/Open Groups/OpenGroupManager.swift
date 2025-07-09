@@ -327,7 +327,7 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
-        db.addEvent(.conversationDeleted(openGroupId))
+        db.addConversationEvent(id: openGroupId, type: .deleted)
         
         // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
         try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)

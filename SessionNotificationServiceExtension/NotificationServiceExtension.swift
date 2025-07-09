@@ -131,12 +131,20 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func setupGroupIfNeeded(_ info: NotificationInfo) throws {
-        try dependencies.mutate(cache: .libSession) { cache in
+        let loadResult: [ConfigDump.Variant: Bool] = try dependencies.mutate(cache: .libSession) { cache in
             try dependencies[singleton: .extensionHelper].loadGroupConfigStateIfNeeded(
                 into: cache,
                 swarmPublicKey: info.metadata.accountId,
                 userEd25519SecretKey: dependencies[cache: .general].ed25519SecretKey
             )
+        }
+        
+        /// Log the result if it is a notification for a group
+        if (try? SessionId(from: info.metadata.accountId).prefix) == .group {
+            let resultString: String = ConfigDump.Variant.groupVariants
+                .map { "\($0): \(loadResult[$0] ?? false)" }
+                .joined(separator: ", ")
+            Log.info(.cat, "Setup group \(info.metadata.accountId) config state (\(resultString)) for requestId: \(info.requestId).")
         }
     }
     

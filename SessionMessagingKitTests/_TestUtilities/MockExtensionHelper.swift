@@ -73,8 +73,8 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         into cache: LibSessionCacheType,
         swarmPublicKey: String,
         userEd25519SecretKey: [UInt8]
-    ) throws {
-        mockNoReturn(args: [cache, swarmPublicKey, userEd25519SecretKey])
+    ) throws -> [ConfigDump.Variant: Bool] {
+        return mock(args: [cache, swarmPublicKey, userEd25519SecretKey])
     }
     
     // MARK: - Notification Settings

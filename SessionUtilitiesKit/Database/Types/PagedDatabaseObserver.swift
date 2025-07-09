@@ -629,7 +629,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         case .initialPageAround(let targetId):
                             // If we want to focus on a specific item then we need to find it's index in
                             // the queried data
-                            let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                            let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
                                 db,
                                 for: targetId,
                                 tableName: pagedTableName,
@@ -685,7 +685,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         case .untilInclusive(let targetId, let padding):
                             // If we want to focus on a specific item then we need to find it's index in
                             // the queried data
-                            let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                            let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
                                 db,
                                 for: targetId,
                                 tableName: pagedTableName,
@@ -735,7 +735,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         case .jumpTo(let targetId, let paddingForInclusive):
                             // If we want to focus on a specific item then we need to find it's index in
                             // the queried data
-                            let maybeRowInfo: PagedData.RowInfo? = PagedData.index(
+                            let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
                                 db,
                                 for: targetId,
                                 tableName: pagedTableName,

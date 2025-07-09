@@ -210,6 +210,28 @@ public class HomeViewModel: NavigatableStateHolder {
                             events: databaseEvents,
                             cache: self.itemCache
                         )
+                        let loadPageEvent: LoadPageEvent? = databaseEvents
+                            .first(where: { $0.key.generic == .loadPage })?
+                            .value as? LoadPageEvent
+                        
+                        /// Identify any inserted/deleted records
+                        var insertedIds: Set<String> = []
+                        var deletedIds: Set<String> = []
+                        
+                        databaseEvents.forEach { event in
+                            switch (event.key.generic, event.value) {
+                                case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
+                                    insertedIds.insert(threadId)
+                                    
+                                case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
+                                    insertedIds.insert(event.id)
+                                    
+                                case (.conversationDeleted, let event as ConversationEvent):
+                                    deletedIds.insert(event.id)
+                                    
+                                default: break
+                            }
+                        }
                         
                         try await dependencies[singleton: .storage].readAsync { db in
                             /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
@@ -220,17 +242,15 @@ public class HomeViewModel: NavigatableStateHolder {
                                     .defaulting(to: 0)
                             }
                             
-                            /// Handle individual events
-                            try databaseEvents.forEach { event in
-                                switch (event.key.generic, event.value) {
-                                    case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
-                                        loadResult = try loadResult.insertIfVisible(db, id: threadId)
-                                        
-                                    case (.loadPage, let value as LoadPageEvent):
-                                        loadResult = try value.load(db, current: loadResult)
-                                        
-                                    default: break
-                                }
+                            /// Update loaded page info as needed
+                            if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
+                                loadResult = try loadResult.load(
+                                    db,
+                                    target: (
+                                        loadPageEvent?.target(with: loadResult) ??
+                                        .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
+                                    )
+                                )
                             }
                             
                             /// Fetch any records needed
@@ -248,6 +268,17 @@ public class HomeViewModel: NavigatableStateHolder {
                         
                         /// Update the `itemCache` with the newly fetched values
                         fetchedConversations.forEach { self.itemCache[$0.rowId] = $0 }
+                        
+                        /// Remove any deleted values
+                        deletedIds.forEach { id in
+                            guard
+                                let key: Int64 = self.itemCache
+                                    .first(where: { _, value in value.threadId == id })?
+                                    .key
+                            else { return }
+                            
+                            self.itemCache.removeValue(forKey: key)
+                        }
                     } catch {
                         let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
                         Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
@@ -312,52 +343,31 @@ public class HomeViewModel: NavigatableStateHolder {
         cache: [Int64: SessionThreadViewModel]
     ) -> Set<Int64> {
         let conversationIds: Set<String> = events.reduce(into: []) { result, event in
-            switch event.key.generic {
-                case .conversationUpdated, .conversationDeleted:
-                    guard let id: String = (event.value as? ConversationEvent)?.id else {
-                        return
-                    }
+            switch (event.key.generic, event.value) {
+                case (.conversationUpdated, let event as ConversationEvent): result.insert(event.id)
+                case (.typingIndicator, let event as TypingIndicatorEvent): result.insert(event.threadId)
                     
-                    result.insert(id)
-                
-                case .typingIndicator:
-                    guard let id: String = (event.value as? TypingIndicatorEvent)?.threadId else {
-                        return
-                    }
+                case (.messageCreated, let event as MessageEvent),
+                    (.messageUpdated, let event as MessageEvent),
+                    (.messageDeleted, let event as MessageEvent):
+                    result.insert(event.threadId)
                     
-                    result.insert(id)
-                    
-                case .messageCreated, .messageUpdated, .messageDeleted:
-                    guard let id: String = (event.value as? MessageEvent)?.threadId else {
-                        return
-                    }
-                    
-                    result.insert(id)
-                    
-                case .profile:
-                    guard let id: String = (event.value as? ProfileEvent)?.id else {
-                        return
-                    }
-                    
+                case (.profile, let event as ProfileEvent):
                     result.insert(
                         contentsOf: Set(cache.values
                             .filter { threadViewModel -> Bool in
-                                threadViewModel.threadId == id ||
-                                threadViewModel.allProfileIds.contains(id)
+                                threadViewModel.threadId == event.id ||
+                                threadViewModel.allProfileIds.contains(event.id)
                             }
                             .map { $0.threadId })
                     )
                 
-                case .contact:
-                    guard let id: String = (event.value as? ContactEvent)?.id else {
-                        return
-                    }
-                    
+                case (.contact, let event as ContactEvent):
                     result.insert(
                         contentsOf: Set(cache.values
                             .filter { threadViewModel -> Bool in
-                                threadViewModel.threadId == id ||
-                                threadViewModel.allProfileIds.contains(id)
+                                threadViewModel.threadId == event.id ||
+                                threadViewModel.allProfileIds.contains(event.id)
                             }
                             .map { $0.threadId })
                     )

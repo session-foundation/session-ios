@@ -908,6 +908,7 @@
 		FDB3DA7B2E1B6AD800148F8D /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		FDB3DA7D2E1B6AFC00148F8D /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		FDB3DA842E1CA22400148F8D /* UIActivityViewController+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3DA832E1CA21C00148F8D /* UIActivityViewController+Utilities.swift */; };
+		FDB3DA862E1E1F0E00148F8D /* TaskCancellation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3DA852E1E1F0B00148F8D /* TaskCancellation.swift */; };
 		FDB4BBC72838B91E00B7C95D /* LinkPreviewError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB4BBC62838B91E00B7C95D /* LinkPreviewError.swift */; };
 		FDB5DAC12A9443A5002C8721 /* MessageSender+Groups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC02A9443A5002C8721 /* MessageSender+Groups.swift */; };
 		FDB5DAC72A9447E7002C8721 /* _022_GroupsRebuildChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC62A9447E7002C8721 /* _022_GroupsRebuildChanges.swift */; };
@@ -2156,6 +2157,7 @@
 		FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		FDB3487D2BE856C800B716C2 /* UIBezierPath+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIBezierPath+Utilities.swift"; sourceTree = "<group>"; };
 		FDB3DA832E1CA21C00148F8D /* UIActivityViewController+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIActivityViewController+Utilities.swift"; sourceTree = "<group>"; };
+		FDB3DA852E1E1F0B00148F8D /* TaskCancellation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCancellation.swift; sourceTree = "<group>"; };
 		FDB4BBC62838B91E00B7C95D /* LinkPreviewError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewError.swift; sourceTree = "<group>"; };
 		FDB5DAC02A9443A5002C8721 /* MessageSender+Groups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageSender+Groups.swift"; sourceTree = "<group>"; };
 		FDB5DAC62A9447E7002C8721 /* _022_GroupsRebuildChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _022_GroupsRebuildChanges.swift; sourceTree = "<group>"; };
@@ -4256,6 +4258,7 @@
 				FD52CB642E13B6E600A4DA70 /* ObservationBuilder.swift */,
 				FD52CB622E13B61700A4DA70 /* ObservableKey.swift */,
 				FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */,
+				FDB3DA852E1E1F0B00148F8D /* TaskCancellation.swift */,
 			);
 			path = Observations;
 			sourceTree = "<group>";
@@ -6272,6 +6275,7 @@
 				B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */,
 				FDE754E02C9BAF8A002A2623 /* Hex.swift in Sources */,
 				FDB11A5B2DD1901000BEF49F /* CurrentValueAsyncStream.swift in Sources */,
+				FDB3DA862E1E1F0E00148F8D /* TaskCancellation.swift in Sources */,
 				FDE754CC2C9BAF37002A2623 /* MediaUtils.swift in Sources */,
 				FDE754DE2C9BAF8A002A2623 /* Crypto+SessionUtilitiesKit.swift in Sources */,
 				FDF2220F281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift in Sources */,

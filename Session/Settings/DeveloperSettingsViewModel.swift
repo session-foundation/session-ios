@@ -1441,7 +1441,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         )
     }
     
-    private func performExport(
+    @MainActor private func performExport(
         viaShareSheet: Bool,
         targetView: UIView?
     ) {

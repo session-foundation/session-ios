@@ -103,7 +103,7 @@ public extension MessageViewModel {
                                 .filter(ids: ids)
                                 .deleteAll(db)
                             ids.forEach { id in
-                                db.addEvent(nil, forKey: .messageDeleted(id: id, threadId: threadId))
+                                db.addMessageEvent(id: id, threadId: threadId, type: .deleted)
                             }
                         }
                         

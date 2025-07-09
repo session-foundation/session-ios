@@ -341,7 +341,7 @@ public extension ClosedGroup {
                 .fetchSet(db)
             try Interaction.deleteAll(db, ids: interactionInfo.map { $0.id })
             
-            interactionInfo.forEach { db.addEvent(.messageDeleted(id: $0.id, threadId: $0.threadId)) }
+            interactionInfo.forEach { db.addMessageEvent(id: $0.id, threadId: $0.threadId, type: .deleted) }
             
             /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
@@ -381,7 +381,7 @@ public extension ClosedGroup {
                 .deleteAll(db)
             
             threadIds.forEach { id in
-                db.addEvent(.conversationDeleted(id))
+                db.addConversationEvent(id: id, type: .deleted)
             }
         }
         

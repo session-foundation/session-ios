@@ -755,8 +755,8 @@ public extension ConfirmationModal {
         let hasCloseButton: Bool
         let dismissOnConfirm: Bool
         let dismissType: Modal.DismissType
-        public let onConfirm: ((ConfirmationModal) -> ())?
-        let onCancel: ((ConfirmationModal) -> ())?
+        public let onConfirm: (@MainActor (ConfirmationModal) -> ())?
+        let onCancel: (@MainActor (ConfirmationModal) -> ())?
         let afterClosed: (() -> ())?
         
         // MARK: - Initialization
@@ -774,8 +774,8 @@ public extension ConfirmationModal {
             hasCloseButton: Bool = false,
             dismissOnConfirm: Bool = true,
             dismissType: Modal.DismissType = .recursive,
-            onConfirm: ((ConfirmationModal) -> ())? = nil,
-            onCancel: ((ConfirmationModal) -> ())? = nil,
+            onConfirm: (@MainActor (ConfirmationModal) -> ())? = nil,
+            onCancel: (@MainActor (ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
         ) {
             self.title = title

@@ -353,13 +353,14 @@ public class ExtensionHelper: ExtensionHelperType {
         into cache: LibSessionCacheType,
         swarmPublicKey: String,
         userEd25519SecretKey: [UInt8]
-    ) throws {
+    ) throws -> [ConfigDump.Variant: Bool] {
         guard
             let groupSessionId: SessionId = try? SessionId(from: swarmPublicKey),
             groupSessionId.prefix == .group
-        else { return }
+        else { return [:] }
         
         let groupEd25519SecretKey: [UInt8]? = cache.secretKey(groupSessionId: groupSessionId)
+        var results: [ConfigDump.Variant: Bool] = [:]
         
         try ConfigDump.Variant.groupVariants
             .sorted { $0.loadOrder < $1.loadOrder }
@@ -369,7 +370,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 guard
                     let path: String = dumpFilePath(for: groupSessionId, variant: variant),
                     let dump: Data = try? read(from: path)
-                else { return }
+                else { return results[variant] = false }
                 
                 cache.setConfig(
                     for: variant,
@@ -382,7 +383,10 @@ public class ExtensionHelper: ExtensionHelperType {
                         cachedData: dump
                     )
                 )
+                results[variant] = true
             }
+        
+        return results
     }
     
     // MARK: - Notification Settings
@@ -791,7 +795,7 @@ public protocol ExtensionHelperType {
         into cache: LibSessionCacheType,
         swarmPublicKey: String,
         userEd25519SecretKey: [UInt8]
-    ) throws
+    ) throws -> [ConfigDump.Variant: Bool]
     
     // MARK: - Notification Settings
     

@@ -617,7 +617,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
     }
     
-    fileprivate func updateProfile(
+    @MainActor fileprivate func updateProfile(
         displayNameUpdate: Profile.DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         onComplete: @escaping () -> ()

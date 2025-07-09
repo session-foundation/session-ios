@@ -30,7 +30,7 @@ internal extension LibSessionCacheType {
         groupSessionId: SessionId
     ) throws {
         guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-            throw LibSessionError.invalidConfigObject
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
         }
         
         /// If the group had been flagged as "expired" (because it got no config messages when initially polling) then receiving a config
@@ -77,8 +77,11 @@ public extension LibSession.Cache {
         groupIdentitySeed: Data,
         groupSessionId: SessionId
     ) throws {
-        guard case .groupKeys(let conf, let infoConf, let membersConf) = config(for: .groupKeys, sessionId: groupSessionId) else {
-            throw LibSessionError.invalidConfigObject
+        guard let config: LibSession.Config = config(for: .groupKeys, sessionId: groupSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+        }
+        guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
         }
         
         var identitySeed: [UInt8] = Array(groupIdentitySeed)
@@ -96,7 +99,7 @@ internal extension LibSession {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
                 guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-                    throw LibSessionError.invalidConfigObject
+                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
                 }
                 
                 // Performing a `rekey` returns the updated key data which we don't use directly, this updated
@@ -118,8 +121,11 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Data {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+            }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
             }
             
             return try memberIds.withUnsafeCStrArray { cMemberIds in
@@ -167,8 +173,11 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Int {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+            }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
             }
             
             return Int(groups_keys_size(conf))
@@ -180,8 +189,11 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Int {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+            }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
             }
             
             return Int(groups_keys_current_generation(conf))

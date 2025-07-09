@@ -716,7 +716,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                     .deleteAll(db)
                 
                 items.forEach { item in
-                    db.addEvent(.attachmentDeleted(id: item.attachment.id, messageId: item.interactionId))
+                    db.addAttachmentEvent(id: item.attachment.id, messageId: item.interactionId, type: .deleted)
                 }
                 
                 // Add the garbage collection job to delete orphaned attachment files
@@ -740,7 +740,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                     
                     if remainingAttachmentCount == 0 {
                         _ = try Interaction.deleteOne(db, id: item.interactionId)
-                        db.addEvent(.messageDeleted(id: item.interactionId, threadId: threadId))
+                        db.addMessageEvent(id: item.interactionId, threadId: threadId, type: .deleted)
                     }
                 }
             }

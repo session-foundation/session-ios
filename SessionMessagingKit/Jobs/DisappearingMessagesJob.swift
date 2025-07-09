@@ -46,7 +46,7 @@ public enum DisappearingMessagesJob: JobExecutor {
             
             // Notify of the deletion
             interactionInfo.forEach { info in
-                db.addEvent(.messageDeleted(id: info.id, threadId: info.threadId))
+                db.addMessageEvent(id: info.id, threadId: info.threadId, type: .deleted)
             }
             
             // Update the next run timestamp for the DisappearingMessagesJob (if the call

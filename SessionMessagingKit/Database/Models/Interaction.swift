@@ -1373,7 +1373,7 @@ public extension Interaction {
         
         /// Notify about the attachment deletion
         interactionAttachments.forEach { info in
-            db.addEvent(.attachmentDeleted(id: info.attachmentId, messageId: info.interactionId))
+            db.addAttachmentEvent(id: info.attachmentId, messageId: info.interactionId, type: .deleted)
         }
         
         /// Delete the reactions from the database
@@ -1441,7 +1441,7 @@ public extension Interaction {
         
         /// Notify about the deletion
         interactionIds.forEach { id in
-            db.addEvent(.messageDeleted(id: id, threadId: threadId))
+            db.addMessageEvent(id: id, threadId: threadId, type: .deleted)
         }
         
         /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the

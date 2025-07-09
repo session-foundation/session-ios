@@ -4,26 +4,18 @@ import Foundation
 import SessionUtilitiesKit
 
 public extension LoadPageEvent {
-    func load<ID>(_ db: ObservingDatabase, current: PagedData.LoadResult<ID>) throws -> PagedData.LoadResult<ID> {
+    func target<ID>(with current: PagedData.LoadResult<ID>) -> PagedData.Target<ID>? {
         switch target {
-            case .initial:
-                return try current.info
-                    .load(db, .initial)
-                    .prepending(existingNewRowIds: current.newRowIds)
-                
+            case .initial: return .initial
             case .nextPage(let lastIndex):
-                guard lastIndex == current.info.lastIndex else { return current }
+                guard lastIndex == current.info.lastIndex else { return nil }
                 
-                return try current.info
-                    .load(db, .pageAfter)
-                    .prepending(existingNewRowIds: current.newRowIds)
+                return .pageAfter
                 
             case .previousPage(let firstIndex):
-                guard firstIndex == current.info.firstPageOffset else { return current }
+                guard firstIndex == current.info.firstPageOffset else { return nil }
                 
-                return try current.info
-                    .load(db, .pageBefore)
-                    .prepending(existingNewRowIds: current.newRowIds)
+                return .pageBefore
         }
     }
 }

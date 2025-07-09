@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class ThreadNotificationSettingsViewModelSpec: QuickSpec {
+class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -403,16 +403,16 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                                 )
                         )
                         
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        expect(didDismissScreen).to(beTrue())
+                        await expect(didDismissScreen).toEventually(beTrue())
                     }
                     
                     // MARK: ------ saves the updated settings
-                    fit("saves the updated settings") {
-                        footerButtonInfo?.onTap()
+                    it("saves the updated settings") {
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        expect(mockNotificationsManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        await expect(mockNotificationsManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                             $0.updateSettings(
                                 threadId: "TestId",
                                 threadVariant: .contact,
