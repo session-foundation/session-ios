@@ -3,7 +3,6 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SignalUtilitiesKit
 
 final class VoiceMessageRecordingView: UIView {
     private let voiceMessageButtonFrame: CGRect

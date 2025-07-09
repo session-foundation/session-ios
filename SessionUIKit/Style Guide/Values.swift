@@ -83,7 +83,7 @@ public enum Values {
 
 /// These extensions are duplicate here from `SessionUtilitiesKit.CGFloat+Utilities` to avoid creating a
 /// dependency on `SessionUtilitiesKit`
-private extension CGFloat {
+internal extension CGFloat {
     func clamp(_ minValue: CGFloat, _ maxValue: CGFloat) -> CGFloat {
         return Swift.max(minValue, Swift.min(maxValue, self))
     }

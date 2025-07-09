@@ -69,6 +69,11 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let isAddMoreVisible: Bool
+    private var isSessionPro: Bool {
+        dependencies[cache: .libSession].isSessionPro
+    }
+    
+    var isKeyboardVisible: Bool = false
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
     
@@ -119,8 +124,8 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
     
     public var messageText: String? {
-        get { return bottomToolView.attachmentTextToolbar.messageText }
-        set { bottomToolView.attachmentTextToolbar.messageText = newValue }
+        get { return bottomToolView.attachmentTextToolbar.text }
+        set { bottomToolView.attachmentTextToolbar.text = newValue }
     }
 
     // MARK: - Initializers
@@ -196,9 +201,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let kSpacingBetweenItems: CGFloat = 20
     
     private lazy var bottomToolView: AttachmentApprovalInputAccessoryView = {
-        let bottomToolView = AttachmentApprovalInputAccessoryView()
+        let bottomToolView = AttachmentApprovalInputAccessoryView(delegate: self, using: dependencies)
         bottomToolView.delegate = self
-        bottomToolView.attachmentTextToolbar.attachmentTextToolbarDelegate = self
+        bottomToolView.attachmentTextToolbar.delegate = self
         bottomToolView.galleryRailView.delegate = self
 
         return bottomToolView
@@ -240,7 +245,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         // If the first item is just text, or is a URL and LinkPreviews are disabled
         // then just fill the 'message' box with it
         if firstItem.attachment.isText || (firstItem.attachment.isUrl && LinkPreview.previewUrl(for: firstItem.attachment.text(), using: dependencies) == nil) {
-            bottomToolView.attachmentTextToolbar.messageText = firstItem.attachment.text()
+            bottomToolView.attachmentTextToolbar.text = firstItem.attachment.text()
         }
     }
 
@@ -587,20 +592,88 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
         return nextItem
     }
+    
+    func hideInputAccessoryView() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.hideInputAccessoryView()
+            }
+            return
+        }
+        self.isKeyboardVisible = self.bottomToolView.isEditingMediaMessage
+        self.inputAccessoryView?.resignFirstResponder()
+        self.inputAccessoryView?.isHidden = true
+        self.inputAccessoryView?.alpha = 0
+    }
+    
+    func showInputAccessoryView() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.showInputAccessoryView()
+            }
+            return
+        }
+        UIView.animate(withDuration: 0.25, animations: {
+            self.inputAccessoryView?.isHidden = false
+            self.inputAccessoryView?.alpha = 1
+            if self.isKeyboardVisible {
+                self.inputAccessoryView?.becomeFirstResponder()
+            }
+        })
+    }
 
     // MARK: - Event Handlers
     
     private func cancelPressed() {
         self.approvalDelegate?.attachmentApprovalDidCancel(self)
     }
+    
+    // MARK: - Session Pro CTA
+    
+    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+        guard dependencies[feature: .sessionProEnabled] && (!isSessionPro) else {
+            return false
+        }
+        self.hideInputAccessoryView()
+        let sessionProModal: ProCTAModal = ProCTAModal(
+            delegate: self,
+            touchPoint: .longerMessages,
+            dataManager: dependencies[singleton: .imageDataManager],
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+            }
+        )
+        present(sessionProModal, animated: true, completion: nil)
+        
+        return true
+    }
 }
 
-// MARK: -
+// MARK: - AttachmentTextToolbarDelegate
 
 extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
-    func attachmentTextToolbarDidBeginEditing(_ attachmentTextToolbar: AttachmentTextToolbar) {}
-
-    func attachmentTextToolbarDidEndEditing(_ attachmentTextToolbar: AttachmentTextToolbar) {}
+    func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
+        guard !showSessionProCTAIfNeeded() else { return }
+        self.hideInputAccessoryView()
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "modalMessageCharacterTooLongTitle".localized(),
+                body: .text(
+                    "modalMessageTooLongDescription"
+                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .localized(),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
+    }
 
     func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
         // Toolbar flickers in and out if there are errors
@@ -615,12 +688,12 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
             didApproveAttachments: attachments,
             forThreadId: threadId,
             threadVariant: threadVariant,
-            messageText: attachmentTextToolbar.messageText
+            messageText: attachmentTextToolbar.text
         )
     }
 
     func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {
-        approvalDelegate?.attachmentApproval(self, didChangeMessageText: attachmentTextToolbar.messageText)
+        approvalDelegate?.attachmentApproval(self, didChangeMessageText: attachmentTextToolbar.text)
     }
 }
 
@@ -633,6 +706,15 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 
     func prepViewControllerUpdateControls() {
         updateInputAccessory()
+    }
+}
+
+// MARK: -
+
+extension AttachmentApprovalViewController: SessionProCTADelegate {
+    public func upgradeToPro(completion: (() -> Void)?) {
+        dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
+        completion?()
     }
 }
 

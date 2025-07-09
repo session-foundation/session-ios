@@ -11,6 +11,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     // MARK: - Variables
     
     private static let linkPreviewViewInset: CGFloat = 6
+    private static let thresholdForCharacterLimit: Int = 200
 
     private var disposables: Set<AnyCancellable> = Set()
     private let dependencies: Dependencies
@@ -147,6 +148,41 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
         return label
     }()
+    
+    private lazy var proStackView: UIStackView = {
+        let result = UIStackView(arrangedSubviews: [ characterLimitLabel, sessionProBadge ])
+        result.axis = .vertical
+        result.spacing = Values.verySmallSpacing
+        result.alignment = .center
+        result.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
+        result.alpha = 0
+        
+        return result
+    }()
+    private lazy var characterLimitLabelTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.addTarget(self, action: #selector(characterLimitLabelTapped))
+        result.isEnabled = false
+        
+        return result
+    }()
+    
+    private lazy var characterLimitLabel: UILabel = {
+        let label: UILabel = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: Values.smallFontSize)
+        label.themeTextColor = .textPrimary
+        label.textAlignment = .center
+        
+        return label
+    }()
+    
+    private lazy var sessionProBadge: SessionProBadge = {
+        let result: SessionProBadge = SessionProBadge(size: .small)
+        result.isHidden = !dependencies[feature: .sessionProEnabled]
+        
+        return result
+    }()
 
     private lazy var additionalContentContainer = UIView()
     
@@ -219,6 +255,11 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         mainStackView.pin(.top, to: .bottom, of: separator)
         mainStackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self)
         mainStackView.pin(.bottom, to: .bottom, of: self)
+        
+        // Pro stack view
+        addSubview(proStackView)
+        proStackView.pin(.bottom, to: .bottom, of: inputTextView)
+        proStackView.center(.horizontal, in: sendButton)
 
         addSubview(disabledInputLabel)
 
@@ -244,6 +285,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
         invalidateIntrinsicContentSize()
+        self.bottomStackView?.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
     }
 
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
@@ -251,7 +293,31 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         sendButton.isHidden = !hasText
         voiceMessageButtonContainer.isHidden = hasText
         autoGenerateLinkPreviewIfPossible()
+
         delegate?.inputTextViewDidChangeContent(inputTextView)
+    }
+    
+    func updateNumberOfCharactersLeft(_ text: String) {
+        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
+            for: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
+        let textOptions: [String] = [
+            "\(numberOfCharactersLeft)",
+            "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))",
+            "\(numberOfCharactersLeft.formatted(format: .abbreviated))"
+        ]
+        
+        for text in textOptions {
+            if text.widthWithNumberOfLines(font: characterLimitLabel.font) > InputViewButton.expandedSize {
+                continue
+            }
+            characterLimitLabel.text = text
+            break
+        }
+        characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
+        proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0
+        characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
     func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {
@@ -558,6 +624,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     @objc private func disabledInputTapped() {
         delegate?.handleDisabledInputTapped()
     }
+    
+    @objc private func characterLimitLabelTapped() {
+        delegate?.handleCharacterLimitLabelTapped()
+    }
 
     // MARK: - Convenience
     
@@ -579,6 +649,7 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     func handleSendButtonTapped()
     func handleDisabledInputTapped()
     func handleDisabledVoiceMessageButtonTapped()
+    func handleCharacterLimitLabelTapped()
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
     func didPasteImageFromPasteboard(_ image: UIImage)

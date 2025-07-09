@@ -18,6 +18,13 @@ public struct MentionInfo: FetchableRecord, Decodable, ColumnExpressible {
     public let threadVariant: SessionThread.Variant
     public let openGroupServer: String?
     public let openGroupRoomToken: String?
+    
+    public init(profile: Profile, threadVariant: SessionThread.Variant, openGroupServer: String? = nil, openGroupRoomToken: String? = nil) {
+        self.profile = profile
+        self.threadVariant = threadVariant
+        self.openGroupServer = openGroupServer
+        self.openGroupRoomToken = openGroupRoomToken
+    }
 }
 
 public extension MentionInfo {
