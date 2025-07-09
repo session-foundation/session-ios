@@ -1540,10 +1540,34 @@
             "value" : "Session needs access to local network to make voice and video calls."
           }
         },
+        "eo" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session bezonas aliron al loka reto por fari voĉajn kaj video vokojn."
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session a besoin d'accéder au réseau local pour passer des appels vocaux et vidéo."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session को वॉयस और वीडियो कॉल करने के लिए स्थानीय नेटवर्क तक पहुंच की आवश्यकता है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A(z) Session alkalmazásnak hozzáférésre van szüksége a helyi hálózathoz a hang- és videohívások indításához."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session이 음성 및 영상 통화를 하기 위해 로컬 네트워크에 접근해야 합니다."
           }
         },
         "nl" : {
@@ -1580,6 +1604,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session cần truy cập vào mạng cục bộ để thực hiện các cuộc gọi thoại và hình ảnh."
+          }
+        },
+        "zh-CN" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session需要访问本地网络才能进行语音和视频通话。"
           }
         }
       }
