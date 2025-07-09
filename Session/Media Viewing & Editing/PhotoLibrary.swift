@@ -58,9 +58,10 @@ class PhotoPickerAssetItem: PhotoGridItem {
     }
     
     var source: ImageDataManager.DataSource {
-        return .closureThumbnail(self.asset.localIdentifier, size) { [photoCollectionContents, asset, pixelDimension] in
+        return .closureThumbnail(self.asset.localIdentifier, size) { [photoCollectionContents, asset, size, pixelDimension] in
             await photoCollectionContents.requestThumbnail(
                 for: asset,
+                size: size,
                 thumbnailSize: CGSize(width: pixelDimension, height: pixelDimension)
             )
         }
@@ -147,15 +148,43 @@ class PhotoCollectionContents {
 
     // MARK: ImageManager
     
-    func requestThumbnail(for asset: PHAsset, thumbnailSize: CGSize) async -> UIImage? {
+    func requestThumbnail(for asset: PHAsset, size: ImageDataManager.ThumbnailSize, thumbnailSize: CGSize) async -> UIImage? {
+        var hasResumed: Bool = false
+        
         return await withCheckedContinuation { [imageManager] continuation in
+            let options = PHImageRequestOptions()
+            
+            switch size {
+                case .small: options.deliveryMode = .fastFormat
+                case .medium, .large: options.deliveryMode = .highQualityFormat
+            }
+            
             imageManager.requestImage(
                 for: asset,
                 targetSize: thumbnailSize,
                 contentMode: .aspectFill,
-                options: nil
-            ) { image, _ in
+                options: options
+            ) { image, info in
+                guard !hasResumed else { return }
+                guard
+                    info?[PHImageErrorKey] == nil,
+                    (info?[PHImageCancelledKey] as? Bool) != true
+                else {
+                    hasResumed = true
+                    return continuation.resume(returning: nil)
+                }
+                
+                switch size {
+                    case .small: break  // We want the first image, whether it is degraded or not
+                    case .medium, .large:
+                        // For medium and large thumbnails we want the full image so ignore any
+                        // degraded images
+                        guard (info?[PHImageResultIsDegradedKey] as? Bool) != true else { return }
+
+                }
+                
                 continuation.resume(returning: image)
+                hasResumed = true
             }
         }
     }
@@ -165,8 +194,22 @@ class PhotoCollectionContents {
             Future { [weak self] resolver in
                 let options: PHImageRequestOptions = PHImageRequestOptions()
                 options.isNetworkAccessAllowed = true
+                options.deliveryMode = .highQualityFormat
                 
                 _ = self?.imageManager.requestImageData(for: asset, options: options) { imageData, dataUTI, orientation, info in
+                    if let error: Error = info?[PHImageErrorKey] as? Error {
+                        return resolver(.failure(error))
+                    }
+                    
+                    if (info?[PHImageCancelledKey] as? Bool) == true {
+                        return resolver(.failure(PhotoLibraryError.assertionError(description: "Image request cancelled")))
+                    }
+                    
+                    // If we get a degraded image then we want to wait for the next callback (which will
+                    // be the non-degraded version)
+                    guard (info?[PHImageResultIsDegradedKey] as? Bool) != true else {
+                        return
+                    }
                     
                     guard let imageData = imageData else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil")))
@@ -196,7 +239,11 @@ class PhotoCollectionContents {
                 let options: PHVideoRequestOptions = PHVideoRequestOptions()
                 options.isNetworkAccessAllowed = true
                 
-                _ = self?.imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, foo in
+                _ = self?.imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, info in
+                    
+                    if let error: Error = info?[PHImageErrorKey] as? Error {
+                        return resolver(.failure(error))
+                    }
                     
                     guard let exportSession = exportSession else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil")))
