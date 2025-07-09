@@ -192,6 +192,10 @@
 		9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */; };
 		9499E68B2DF92F4E00091434 /* ThreadNotificationSettingsViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */; };
 		94A6B9DB2DD6BF7C00DB4B44 /* Constants+URLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A6B9DA2DD6BF6E00DB4B44 /* Constants+URLs.swift */; };
+		94AAB1442E1DF50000A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1422E1DF50000A6FA18 /* AnimatedProfileCTA.webp */; };
+		94AAB1452E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1432E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp */; };
+		94AAB1462E1DF50000A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1422E1DF50000A6FA18 /* AnimatedProfileCTA.webp */; };
+		94AAB1472E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1432E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
 		94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BA2E08D9D40097754D /* SessionProBadge.swift */; };
@@ -1513,6 +1517,8 @@
 		9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandableLabel.swift; sourceTree = "<group>"; };
 		9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModelSpec.swift; sourceTree = "<group>"; };
 		94A6B9DA2DD6BF6E00DB4B44 /* Constants+URLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Constants+URLs.swift"; sourceTree = "<group>"; };
+		94AAB1422E1DF50000A6FA18 /* AnimatedProfileCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTA.webp; sourceTree = "<group>"; };
+		94AAB1432E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTAAnimation.webp; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		94CD95BA2E08D9D40097754D /* SessionProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBadge.swift; sourceTree = "<group>"; };
@@ -2776,6 +2782,8 @@
 		94CD963F2E1BABE90097754D /* WebPImages */ = {
 			isa = PBXGroup;
 			children = (
+				94AAB1422E1DF50000A6FA18 /* AnimatedProfileCTA.webp */,
+				94AAB1432E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp */,
 				94CD96472E1CDC000097754D /* PinnedConversationsCTA.webp */,
 				94CD963C2E1BABE90097754D /* GenericCTA.webp */,
 				94CD963D2E1BABE90097754D /* GenericCTAAnimation.webp */,
@@ -5449,6 +5457,8 @@
 				4535186E1FC635DD00210559 /* MainInterface.storyboard in Resources */,
 				B8D07406265C683A00F77E07 /* ElegantIcons.ttf in Resources */,
 				FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */,
+				94AAB1462E1DF50000A6FA18 /* AnimatedProfileCTA.webp in Resources */,
+				94AAB1472E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp in Resources */,
 				3478504C1FD7496D007B8332 /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5508,6 +5518,8 @@
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,
 				B66DBF4A19D5BBC8006EA940 /* Images.xcassets in Resources */,
 				34CF0788203E6B78005C4D61 /* ringback_tone_ansi.caf in Resources */,
+				94AAB1442E1DF50000A6FA18 /* AnimatedProfileCTA.webp in Resources */,
+				94AAB1452E1DF50000A6FA18 /* AnimatedProfileCTAAnimation.webp in Resources */,
 				7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */,
 				34C3C78F2040A4F70000134C /* sonarping.mp3 in Resources */,
 				34661FB820C1C0D60056EDD6 /* message_sent.aiff in Resources */,

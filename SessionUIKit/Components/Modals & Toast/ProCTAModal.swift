@@ -7,7 +7,7 @@ public final class ProCTAModal: Modal {
     public enum TouchPoint {
         case generic
         case longerMessages
-        case animatedProfileImage
+        case animatedProfileImage(isActivated: Bool)
         case morePinnedConvos(isGrandfathered: Bool)
         case groupLimit(isAdmin: Bool)
         
@@ -19,7 +19,7 @@ public final class ProCTAModal: Modal {
                 case .longerMessages:
                     return "HigherCharLimitCTA.webp"
                 case .animatedProfileImage:
-                    return "session_pro_modal_background_animated_profile_image"
+                    return "AnimatedProfileCTA.webp"
                 case .morePinnedConvos:
                     return "PinnedConversationsCTA.webp"
                 case .groupLimit(let isAdmin):
@@ -30,6 +30,7 @@ public final class ProCTAModal: Modal {
         public var animatedAvatarImageName: String? {
             switch self {
                 case .generic: return "GenericCTAAnimation"
+                case .animatedProfileImage: return "AnimatedProfileCTAAnimation"
                 default: return nil
             }
         }
@@ -41,8 +42,10 @@ public final class ProCTAModal: Modal {
                     return "Want to use Session to its fullest potential? Upgrade to Session Pro to gain access to loads exclusive perks and features."
                 case .longerMessages:
                     return "proCallToActionLongerMessages".localized()
-                case .animatedProfileImage:
-                    return "proAnimatedDisplayPictureCallToActionDescription".localized()
+                case .animatedProfileImage(let isActivated):
+                    return isActivated ?
+                        "proAnimatedDisplayPicture".localized() :
+                        "proAnimatedDisplayPictureCallToActionDescription".localized()
                 case .morePinnedConvos(let isGrandfathered):
                     return isGrandfathered ?
                         "proCallToActionPinnedConversations".localized() :
@@ -51,7 +54,7 @@ public final class ProCTAModal: Modal {
                     return "Want to increase the number of members you can invite to your group? Upgrade to Session Pro to invite up to 300 contacts."
             }
         }
-        // TODO: Localization
+        
         public var benefits: [String] {
             switch self {
                 case .generic:
@@ -182,6 +185,22 @@ public final class ProCTAModal: Modal {
         return result
     }()
     
+    private lazy var proActivatedStackView: UIStackView = {
+        let sessionProBadge: SessionProBadge = SessionProBadge(size: .small)
+        let label: UILabel = UILabel()
+        label.font = .systemFont(ofSize: Values.smallFontSize)
+        label.themeTextColor = .textSecondary
+        label.textAlignment = .center
+        label.text = "proAlreadyPurchased".localized()
+        
+        let result: UIStackView = UIStackView(arrangedSubviews: [ label, sessionProBadge ])
+        result.axis = .horizontal
+        result.spacing = Values.smallSpacing
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var subtitleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
@@ -190,6 +209,14 @@ public final class ProCTAModal: Modal {
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
+        
+        return result
+    }()
+    
+    private lazy var subtitleStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [ proActivatedStackView, subtitleLabel ])
+        result.axis = .vertical
+        result.spacing = 0
         
         return result
     }()
@@ -233,7 +260,7 @@ public final class ProCTAModal: Modal {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result: UIStackView = UIStackView(arrangedSubviews: [ titleContainer, subtitleLabel, benefitsStackView ])
+        let result: UIStackView = UIStackView(arrangedSubviews: [ titleContainer, subtitleStackView, benefitsStackView ])
         result.axis = .vertical
         result.spacing = Values.largeSpacing
         result.alignment = .fill
