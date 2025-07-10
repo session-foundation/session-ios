@@ -70,8 +70,8 @@ public enum Theme: Int, CaseIterable, Codable {
         }
     }
     
-    public func color(for value: ThemeValue) -> UIColor? { return colors[value] }
-    public func color(for value: ThemeValue) -> Color? { return colorsSwiftUI[value] }
+    public func color(for value: ThemeValue) -> UIColor? { return ThemeManager.color(for: value, in: self) }
+    public func color(for value: ThemeValue) -> Color? { return ThemeManager.color(for: value, in: self) }
 }
 
 // MARK: - ColorType Convenience

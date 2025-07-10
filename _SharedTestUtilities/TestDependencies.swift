@@ -136,6 +136,28 @@ public class TestDependencies: Dependencies {
         return try mutation(value)
     }
     
+    @discardableResult override public func mutateAsyncAware<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) -> R
+    ) async -> R {
+        guard forceSynchronous else {
+            return mutate(cache: cache, mutation)
+        }
+        
+        return await MainActor.run { mutate(cache: cache, mutation) }
+    }
+    
+    @discardableResult override public func mutateAsyncAware<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) throws -> R
+    ) async throws -> R {
+        guard forceSynchronous else {
+            return try mutate(cache: cache, mutation)
+        }
+        
+        return try await MainActor.run { try mutate(cache: cache, mutation) }
+    }
+    
     public func stepForwardInTime() {
         let targetTime: Int = ((cachedFixedTime ?? 0) + 1)
         cachedFixedTime = targetTime

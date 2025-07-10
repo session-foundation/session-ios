@@ -285,9 +285,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 )
                 
                 // Change to another setting
-                viewModel.tableData.first?.elements.first?.onTap?()
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 // Change back
-                viewModel.tableData.first?.elements.last?.onTap?()
+                await viewModel.tableData.first?.elements.last?.onTap?()
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -365,7 +365,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                             )
                     )
                     
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
                 // MARK: ---- shows the set button

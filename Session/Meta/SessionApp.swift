@@ -24,6 +24,10 @@ public class SessionApp: SessionAppType {
     private let dependencies: Dependencies
     private var homeViewController: HomeVC?
     
+    @MainActor public var homePresentedViewController: UIViewController? {
+        homeViewController?.presentedViewController
+    }
+    
     static var versionInfo: String {
         let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
             .map { " (\($0))" }
@@ -200,7 +204,7 @@ public class SessionApp: SessionAppType {
         }
     }
     
-    private func showConversation(
+    @MainActor private func showConversation(
         threadId: String,
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
@@ -233,6 +237,8 @@ public class SessionApp: SessionAppType {
 // MARK: - SessionAppType
 
 public protocol SessionAppType {
+    @MainActor var homePresentedViewController: UIViewController? { get }
+    
     func setHomeViewController(_ homeViewController: HomeVC)
     func showHomeView()
     @MainActor func presentConversationCreatingIfNeeded(

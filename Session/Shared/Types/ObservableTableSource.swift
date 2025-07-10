@@ -198,12 +198,14 @@ public enum ObservationBuilderOld {
                     receiveSubscription: { subscription in
                         forcedRefreshCancellable = source.observableState.forcedRequery
                             .prepend(())
+                            .receive(on: DispatchQueue.main)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { _ in
                                     /// Cancel any previous observation and create a brand new observation for this refresh
                                     ///
-                                    /// **Note:** The `ValueObservation` **MUST** be started from the main thread
+                                    /// **Note:** The `ValueObservation` **MUST** be started from the main
+                                    /// thread (hence why this has `.receive(on: DispatchQueue.main)`
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation

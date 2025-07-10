@@ -699,7 +699,7 @@ public extension SessionThreadViewModel {
         userSessionId: SessionId,
         groupSQL: SQL,
         orderSQL: SQL,
-        rowIds: [Int64]
+        ids: [String]
     ) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
@@ -865,7 +865,6 @@ public extension SessionThreadViewModel {
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
                 )
@@ -878,7 +877,6 @@ public extension SessionThreadViewModel {
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
                 )
@@ -900,7 +898,7 @@ public extension SessionThreadViewModel {
                 )
             )
 
-            WHERE \(thread[.rowId]) IN \(rowIds)
+            WHERE \(thread[.id]) IN \(ids)
             \(groupSQL)
             ORDER BY \(orderSQL)
         """
@@ -925,23 +923,6 @@ public extension SessionThreadViewModel {
                 .closedGroupAdminProfile: adapters[5],
                 .interactionAttachmentDescriptionInfo: adapters[7]
             ])
-        }
-    }
-    
-    /// **Note:** This query **will not** include deleted incoming messages in it's unread count (they should never be marked as unread
-    /// but including this warning just in case there is a discrepancy)
-    static func baseQuery(
-        userSessionId: SessionId,
-        groupSQL: SQL,
-        orderSQL: SQL
-    ) -> (([Int64]) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>>) {
-        return { rowIds -> AdaptedFetchRequest<SQLRequest<ViewModel>> in
-            SessionThreadViewModel.query(
-                userSessionId: userSessionId,
-                groupSQL: groupSQL,
-                orderSQL: orderSQL,
-                rowIds: rowIds
-            )
         }
     }
     
@@ -1021,7 +1002,7 @@ public extension SessionThreadViewModel {
         """)
     }()
     
-    static let messageRequetsOrderSQL: SQL = {
+    static let messageRequestsOrderSQL: SQL = {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
@@ -1183,7 +1164,6 @@ public extension SessionThreadViewModel {
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
                 )
@@ -1196,7 +1176,6 @@ public extension SessionThreadViewModel {
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
                 )
@@ -1337,7 +1316,6 @@ public extension SessionThreadViewModel {
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
                 )
@@ -1350,7 +1328,6 @@ public extension SessionThreadViewModel {
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
                 )
@@ -1534,7 +1511,6 @@ public extension SessionThreadViewModel {
                     FROM \(GroupMember.self)
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(groupMember[.profileId]) != \(userSessionId.hexString)
                     )
@@ -1547,7 +1523,6 @@ public extension SessionThreadViewModel {
                     FROM \(GroupMember.self)
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(groupMember[.profileId]) != \(userSessionId.hexString)
                     )
@@ -1726,7 +1701,6 @@ public extension SessionThreadViewModel {
                     FROM \(GroupMember.self)
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(groupMember[.profileId]) != \(userSessionId.hexString)
                     )
@@ -1739,7 +1713,6 @@ public extension SessionThreadViewModel {
                     FROM \(GroupMember.self)
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(groupMember[.profileId]) != \(userSessionId.hexString)
                     )
@@ -2241,7 +2214,6 @@ public extension SessionThreadViewModel {
                     FROM \(GroupMember.self)
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )
@@ -2254,7 +2226,6 @@ public extension SessionThreadViewModel {
                     FROM \(GroupMember.self)
                     JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                     WHERE (
-                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(SQL("\(groupMember[.profileId]) != \(userSessionId.hexString)"))
                     )

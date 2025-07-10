@@ -74,76 +74,8 @@ internal extension LibSessionCacheType {
             using: dependencies
         )
         
-        // Update the 'Note to Self' visibility and priority
-        let threadInfo: LibSession.ThreadUpdateInfo? = try? SessionThread
-            .filter(id: userSessionId.hexString)
-            .select(LibSession.ThreadUpdateInfo.threadColumns)
-            .asRequest(of: LibSession.ThreadUpdateInfo.self)
-            .fetchOne(db)
+        // Extract the 'Note to Self' conversation settings
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
-        
-        // Create the 'Note to Self' thread if it doesn't exist
-        if let threadInfo: LibSession.ThreadUpdateInfo = threadInfo {
-            let threadChanges: [ConfigColumnAssignment] = [
-                ((threadInfo.shouldBeVisible == LibSession.shouldBeVisible(priority: targetPriority)) ? nil :
-                    SessionThread.Columns.shouldBeVisible.set(to: LibSession.shouldBeVisible(priority: targetPriority))
-                ),
-                (threadInfo.pinnedPriority == targetPriority ? nil :
-                    SessionThread.Columns.pinnedPriority.set(to: targetPriority)
-                )
-            ].compactMap { $0 }
-            
-            if !threadChanges.isEmpty {
-                try SessionThread
-                    .filter(id: userSessionId.hexString)
-                    .updateAllAndConfig(
-                        db,
-                        threadChanges,
-                        using: dependencies
-                    )
-            }
-            
-            if threadInfo.pinnedPriority != targetPriority {
-                db.addConversationEvent(
-                    id: userSessionId.hexString,
-                    type: .updated(.pinnedPriority(targetPriority))
-                )
-            }
-            
-            if threadInfo.shouldBeVisible != LibSession.shouldBeVisible(priority: targetPriority) {
-                db.addConversationEvent(
-                    id: userSessionId.hexString,
-                    type: .updated(.shouldBeVisible(LibSession.shouldBeVisible(priority: targetPriority)))
-                )
-            }
-        }
-        else {
-            // If the 'Note to Self' conversation is hidden then we should trigger the proper
-            // `deleteOrLeave` behaviour
-            if !LibSession.shouldBeVisible(priority: targetPriority) {
-                try SessionThread.deleteOrLeave(
-                    db,
-                    type: .hideContactConversation,
-                    threadId: userSessionId.hexString,
-                    threadVariant: .contact,
-                    using: dependencies
-                )
-            }
-            else {
-                try SessionThread.upsert(
-                    db,
-                    id: userSessionId.hexString,
-                    variant: .contact,
-                    values: SessionThread.TargetValues(
-                        shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
-                        pinnedPriority: .setTo(targetPriority)
-                    ),
-                    using: dependencies
-                )
-            }
-        }
-        
-        // Update the 'Note to Self' disappearing messages configuration
         let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)
         let targetIsEnable: Bool = targetExpiry > 0
         let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
@@ -152,19 +84,20 @@ internal extension LibSessionCacheType {
             durationSeconds: TimeInterval(targetExpiry),
             type: targetIsEnable ? .disappearAfterSend : .unknown
         )
-        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-            .fetchOne(db, id: userSessionId.hexString)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userSessionId.hexString))
         
-        if targetConfig != localConfig {
-            try targetConfig
-                .saved(db)
-                .clearUnrelatedControlMessages(
-                    db,
-                    threadVariant: .contact,
-                    using: dependencies
-                )
-        }
+        // The 'Note to Self' conversation should always exist so all we need to do is create/update
+        // it to match the desired state
+        _ = try SessionThread.upsert(
+            db,
+            id: userSessionId.hexString,
+            variant: .contact,
+            values: SessionThread.TargetValues(
+                shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
+                pinnedPriority: .setTo(targetPriority),
+                disappearingMessagesConfig: .setTo(targetConfig)
+            ),
+            using: dependencies
+        )
         
         // Notify of settings change if needed
         let checkForCommunityMessageRequestsKey: ObservableKey = .setting(Setting.BoolKey.checkForCommunityMessageRequests)

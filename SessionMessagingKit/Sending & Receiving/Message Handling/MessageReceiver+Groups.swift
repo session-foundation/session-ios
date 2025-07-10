@@ -1027,6 +1027,7 @@ extension MessageReceiver {
                 
                 if !suppressNotifications {
                     try? dependencies[singleton: .notificationsManager].notifyUser(
+                        cat: .messageReceiver,
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,

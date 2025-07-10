@@ -317,7 +317,7 @@ extension ConversationVC:
                     confirmTitle: "theContinue".localized()
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies.setAsync(.isGiphyEnabled, true) {
-                        Task { @MainActor in self?.handleGIFButtonTapped() }
+                        self?.handleGIFButtonTapped()
                     }
                 }
             )
@@ -745,7 +745,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
                 dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                    Task { @MainActor in self?.snInputView.autoGenerateLinkPreview() }
+                    self?.snInputView.autoGenerateLinkPreview()
                 }
             }
         )

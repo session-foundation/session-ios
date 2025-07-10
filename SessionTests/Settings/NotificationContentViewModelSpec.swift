@@ -153,7 +153,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
             context("when tapping an item") {
                 // MARK: ---- updates the saved preference
                 it("updates the saved preference") {
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
                     await expect(mockLibSessionCache).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
@@ -169,7 +169,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
                     await expect(didDismissScreen).toEventually(beTrue())
                 }

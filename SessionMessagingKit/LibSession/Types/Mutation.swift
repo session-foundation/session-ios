@@ -62,8 +62,8 @@ public extension LibSession {
                 
                 /// If we needed to dump then we should replicate it
                 if needsDump {
-                    Task.detached(priority: .medium) {
-                        dependencies[singleton: .extensionHelper].replicate(dump: dump)
+                    Task.detached(priority: .medium) { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                        extensionHelper.replicate(dump: dump)
                     }
                 }
             }

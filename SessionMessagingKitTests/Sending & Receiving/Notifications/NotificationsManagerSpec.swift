@@ -726,6 +726,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     try mockNotificationsManager.notificationTitle(
+                        cat: .mock,
                         message: message,
                         threadId: threadId,
                         threadVariant: .contact,
@@ -742,6 +743,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns the app name if the message is for a message request") {
                 expect {
                     try mockNotificationsManager.notificationTitle(
+                        cat: .mock,
                         message: message,
                         threadId: threadId,
                         threadVariant: .contact,
@@ -760,6 +762,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     try mockNotificationsManager.notificationTitle(
+                        cat: .mock,
                         message: message,
                         threadId: threadId,
                         threadVariant: .contact,
@@ -776,6 +779,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns the name returned by the displayNameRetriever") {
                 expect {
                     try mockNotificationsManager.notificationTitle(
+                        cat: .mock,
                         message: message,
                         threadId: threadId,
                         threadVariant: .contact,
@@ -792,6 +796,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns the truncated sender id when the displayNameRetriever returns null") {
                 expect {
                     try mockNotificationsManager.notificationTitle(
+                        cat: .mock,
                         message: message,
                         threadId: threadId,
                         threadVariant: .contact,
@@ -811,6 +816,7 @@ class NotificationsManagerSpec: QuickSpec {
                     it("returns the formatted string containing the retrieved name and group name") {
                         expect {
                             try mockNotificationsManager.notificationTitle(
+                                cat: .mock,
                                 message: message,
                                 threadId: threadId,
                                 threadVariant: variant,
@@ -834,6 +840,7 @@ class NotificationsManagerSpec: QuickSpec {
                         
                         expect {
                             try mockNotificationsManager.notificationTitle(
+                                cat: .mock,
                                 message: message,
                                 threadId: threadId,
                                 threadVariant: variant,
@@ -855,6 +862,7 @@ class NotificationsManagerSpec: QuickSpec {
                     it("returns the formatted string containing the retrieved name and default group name when the retriever fails to return a group name") {
                         expect {
                             try mockNotificationsManager.notificationTitle(
+                                cat: .mock,
                                 message: message,
                                 threadId: threadId,
                                 threadVariant: variant,
@@ -878,6 +886,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("throws for legacy groups") {
                 expect {
                     try mockNotificationsManager.notificationTitle(
+                        cat: .mock,
                         message: message,
                         threadId: threadId,
                         threadVariant: .legacyGroup,
@@ -897,6 +906,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns the expected string for a message request") {
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: true,
@@ -916,6 +926,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -933,6 +944,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns a generic message when the preview type does not include the body") {
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -951,6 +963,7 @@ class NotificationsManagerSpec: QuickSpec {
                 }.to(equal("messageNewYouveGot".putNumber(1).localized()))
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -984,6 +997,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -1001,6 +1015,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns the message preview text for a visible message") {
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -1024,6 +1039,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -1041,6 +1057,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("returns a generic message if no interaction variant is provided") {
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -1070,6 +1087,7 @@ class NotificationsManagerSpec: QuickSpec {
                 it("returns a missed call message") {
                     expect {
                         mockNotificationsManager.notificationBody(
+                            cat: .mock,
                             message: message,
                             threadVariant: .contact,
                             isMessageRequest: false,
@@ -1087,6 +1105,7 @@ class NotificationsManagerSpec: QuickSpec {
                 it("includes the senders display name if retrieved") {
                     expect {
                         mockNotificationsManager.notificationBody(
+                            cat: .mock,
                             message: message,
                             threadVariant: .contact,
                             isMessageRequest: false,
@@ -1104,6 +1123,7 @@ class NotificationsManagerSpec: QuickSpec {
                 it("defaults to the truncated id if it cannot retrieve a display name") {
                     expect {
                         mockNotificationsManager.notificationBody(
+                            cat: .mock,
                             message: message,
                             threadVariant: .contact,
                             isMessageRequest: false,
@@ -1134,6 +1154,7 @@ class NotificationsManagerSpec: QuickSpec {
                 it("returns a missed call message") {
                     expect {
                         mockNotificationsManager.notificationBody(
+                            cat: .mock,
                             message: message,
                             threadVariant: .contact,
                             isMessageRequest: false,
@@ -1151,6 +1172,7 @@ class NotificationsManagerSpec: QuickSpec {
                 it("includes the senders display name if retrieved") {
                     expect {
                         mockNotificationsManager.notificationBody(
+                            cat: .mock,
                             message: message,
                             threadVariant: .contact,
                             isMessageRequest: false,
@@ -1172,6 +1194,7 @@ class NotificationsManagerSpec: QuickSpec {
                 it("defaults to the truncated id if it cannot retrieve a display name") {
                     expect {
                         mockNotificationsManager.notificationBody(
+                            cat: .mock,
                             message: message,
                             threadVariant: .contact,
                             isMessageRequest: false,
@@ -1196,6 +1219,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     mockNotificationsManager.notificationBody(
+                        cat: .mock,
                         message: message,
                         threadVariant: .contact,
                         isMessageRequest: false,
@@ -1216,6 +1240,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("checks if the conversation is a message request") {
                 expect {
                     try mockNotificationsManager.notifyUser(
+                        cat: .mock,
                         message: message,
                         threadId: "05\(TestConstants.publicKey)",
                         threadVariant: .contact,
@@ -1240,6 +1265,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("retrieves notification settings from the notification maanager") {
                 expect {
                     try mockNotificationsManager.notifyUser(
+                        cat: .mock,
                         message: message,
                         threadId: "05\(TestConstants.publicKey)",
                         threadVariant: .contact,
@@ -1269,6 +1295,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     try mockNotificationsManager.notifyUser(
+                        cat: .mock,
                         message: message,
                         threadId: "05\(TestConstants.publicKey)",
                         threadVariant: .contact,
@@ -1294,6 +1321,7 @@ class NotificationsManagerSpec: QuickSpec {
             it("adds the notification request") {
                 expect {
                     try mockNotificationsManager.notifyUser(
+                        cat: .mock,
                         message: message,
                         threadId: "05\(TestConstants.publicKey)",
                         threadVariant: .contact,
@@ -1349,6 +1377,7 @@ class NotificationsManagerSpec: QuickSpec {
                 
                 expect {
                     try mockNotificationsManager.notifyUser(
+                        cat: .mock,
                         message: message,
                         threadId: "05\(TestConstants.publicKey)",
                         threadVariant: .contact,

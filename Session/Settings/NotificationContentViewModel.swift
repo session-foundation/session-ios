@@ -49,9 +49,7 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
                                 ),
                                 onTap: {
                                     dependencies.setAsync(.preferencesNotificationPreviewType, previewType) {
-                                        Task { @MainActor in
-                                            self?.dismissScreen()
-                                        }
+                                        self?.dismissScreen()
                                     }
                                 }
                             )

@@ -737,6 +737,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         /// Try to show a notification for the message
         try dependencies[singleton: .notificationsManager].notifyUser(
+            cat: .cat,
             message: messageInfo.message,
             threadId: threadId,
             threadVariant: threadVariant,

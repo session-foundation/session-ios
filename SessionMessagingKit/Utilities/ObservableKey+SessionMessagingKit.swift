@@ -41,6 +41,8 @@ public extension ObservableKey {
     
     // MARK: - Messages
     
+    static let messageCreatedInAnyConversation: ObservableKey = "messageCreatedInAnyConversation"
+    
     static func messageCreated(threadId: String) -> ObservableKey {
         ObservableKey("messageCreated-\(threadId)", .messageCreated)
     }
@@ -190,6 +192,7 @@ public struct ConversationEvent: Hashable {
         case mutedUntilTimestamp(TimeInterval?)
         case onlyNotifyForMentions(Bool)
         case markedAsUnread(Bool)
+        case unreadCountChanged
     }
 }
 
@@ -224,7 +227,13 @@ public extension ObservingDatabase {
         let event: MessageEvent = MessageEvent(id: id, threadId: threadId, change: type.change)
         
         switch type {
-            case .created: addEvent(ObservedEvent(key: .messageCreated(threadId: threadId), value: event))
+            case .created:
+                /// When a message is created we need to emit both a thread-specific event and a generic event as the home screen
+                /// will only observe thread-specific message events for the currently loaded pages (and receiving a message would
+                /// result in a conversation that might be off the screen being moved up into the loaded page range)
+                addEvent(ObservedEvent(key: .messageCreatedInAnyConversation, value: event))
+                addEvent(ObservedEvent(key: .messageCreated(threadId: threadId), value: event))
+                
             case .updated: addEvent(ObservedEvent(key: .messageUpdated(id: id, threadId: threadId), value: event))
             case .deleted: addEvent(ObservedEvent(key: .messageDeleted(id: id, threadId: threadId), value: event))
         }

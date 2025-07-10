@@ -170,55 +170,45 @@ internal extension LibSessionCacheType {
                 
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
-                let threadInfo: LibSession.ThreadUpdateInfo? = try? SessionThread
-                    .filter(id: sessionId)
-                    .select(LibSession.ThreadUpdateInfo.threadColumns)
-                    .asRequest(of: LibSession.ThreadUpdateInfo.self)
-                    .fetchOne(db)
-                let threadExists: Bool = (threadInfo != nil)
-                let updatedShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: data.priority)
+                let threadExists: Bool = ((try? SessionThread.exists(db, id: sessionId)) ?? false)
                 
-                switch (updatedShouldBeVisible, threadExists) {
+                if !LibSession.shouldBeVisible(priority: data.priority) && threadExists {
                     /// If we are hiding the conversation then kick the user from it if it's currently open then delete the thread
-                    case (false, true):
-                        LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId], using: dependencies)
-                        
-                        try SessionThread.deleteOrLeave(
-                            db,
-                            type: .deleteContactConversationAndMarkHidden,
-                            threadId: sessionId,
-                            threadVariant: .contact,
-                            using: dependencies
-                        )
+                    LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId], using: dependencies)
                     
-                    /// We need to create or update the thread
-                    case (true, _):
-                        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                            .fetchOne(db, id: sessionId)
-                            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
-                        let disappearingMessagesConfigChanged: Bool = (
-                            data.config.isValidV2Config() &&
-                            data.config != localConfig
-                        )
-                        
-                        _ = try SessionThread.upsert(
-                            db,
-                            id: sessionId,
-                            variant: .contact,
-                            values: SessionThread.TargetValues(
-                                creationDateTimestamp: .setTo(data.created),
-                                shouldBeVisible: .setTo(updatedShouldBeVisible),
-                                pinnedPriority: .setTo(data.priority),
-                                disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
-                                    .setTo(data.config) :
-                                    .useExisting
-                                )
-                            ),
-                            using: dependencies
-                        )
+                    try SessionThread.deleteOrLeave(
+                        db,
+                        type: .deleteContactConversationAndMarkHidden,
+                        threadId: sessionId,
+                        threadVariant: .contact,
+                        using: dependencies
+                    )
+                }
+                else if LibSession.shouldBeVisible(priority: data.priority) {
+                    /// If the thread should be visible then we should create/update it to match the desired state
+                    let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                        .fetchOne(db, id: sessionId)
+                        .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
+                    let disappearingMessagesConfigChanged: Bool = (
+                        data.config.isValidV2Config() &&
+                        data.config != localConfig
+                    )
                     
-                    /// Thread shouldn't be visible and doesn't exist so no need to do anything
-                    case (false, false): break
+                    _ = try SessionThread.upsert(
+                        db,
+                        id: sessionId,
+                        variant: .contact,
+                        values: SessionThread.TargetValues(
+                            creationDateTimestamp: .setTo(data.created),
+                            shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: data.priority)),
+                            pinnedPriority: .setTo(data.priority),
+                            disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
+                                .setTo(data.config) :
+                                .useExisting
+                            )
+                        ),
+                        using: dependencies
+                    )
                 }
             }
         

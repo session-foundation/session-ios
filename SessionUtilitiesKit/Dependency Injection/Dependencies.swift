@@ -86,6 +86,20 @@ public class Dependencies {
         }
     }
     
+    @discardableResult public func mutateAsyncAware<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) -> R
+    ) async -> R {
+        return mutate(cache: cache, mutation)
+    }
+    
+    @discardableResult public func mutateAsyncAware<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) throws -> R
+    ) async throws -> R {
+        return try mutate(cache: cache, mutation)
+    }
+    
     // MARK: - Random
     
     public func randomUUID() -> UUID {

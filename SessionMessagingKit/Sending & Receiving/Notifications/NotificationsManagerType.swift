@@ -155,6 +155,7 @@ public extension NotificationsManagerType {
     }
     
     func notificationTitle(
+        cat: Log.Category,
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -167,6 +168,7 @@ public extension NotificationsManagerType {
         switch (notificationSettings.previewType, message.sender, isMessageRequest, threadVariant) {
             /// If it's a message request or shouldn't have a title then use something generic
             case (.noNameNoPreview, _, _, _), (_, .none, _, _), (_, _, true, _):
+                Log.info(cat, "Notification content disabled, using generic title.")
                 return Constants.app_name
                 
             case (.nameNoPreview, .some(let sender), _, .contact), (.nameAndPreview, .some(let sender), _, .contact):
@@ -190,6 +192,7 @@ public extension NotificationsManagerType {
     }
     
     func notificationBody(
+        cat: Log.Category,
         message: Message,
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
@@ -208,6 +211,7 @@ public extension NotificationsManagerType {
             let sender: String = message.sender,
             notificationSettings.previewType == .nameAndPreview
         else {
+            Log.info(cat, "Notification content disabled, using generic body.")
             return "messageNewYouveGot"
                 .putNumber(1)
                 .localized()
@@ -220,7 +224,7 @@ public extension NotificationsManagerType {
                     .localized()
                 
             case let visibleMessage as VisibleMessage:
-                return (interactionVariant
+                let bodyText: String? = (interactionVariant
                     .map { variant -> String in
                         Interaction.previewText(
                             variant: variant,
@@ -240,10 +244,15 @@ public extension NotificationsManagerType {
                         currentUserSessionIds: currentUserSessionIds,
                         displayNameRetriever: displayNameRetriever
                     ))
-                    .defaulting(to: "messageNewYouveGot"
-                        .putNumber(1)
-                        .localized()
-                    )
+                
+                switch bodyText {
+                    case .some(let result): return result
+                    case .none:
+                        Log.warn(cat, "Failed to process body for visible message (variant: \(interactionVariant.map { "\($0)" } ?? "NULL")), using generic body.")
+                        return "messageNewYouveGot"
+                            .putNumber(1)
+                            .localized()
+                }
                 
             case let callMessage as CallMessage where callMessage.state == .permissionDenied:
                 let senderName: String = displayNameRetriever(sender)
@@ -261,8 +270,9 @@ public extension NotificationsManagerType {
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
                 
-            /// Fallback to soemthing generic
+            /// Fallback to something generic
             default:
+                Log.error(cat, "Failed to process body for unexpected message type (variant: \(Message.Variant(from: message).map { "\($0)" } ?? "UNKNWON")), using generic body.")
                 return "messageNewYouveGot"
                     .putNumber(1)
                     .localized()
@@ -270,6 +280,7 @@ public extension NotificationsManagerType {
     }
     
     func notifyUser(
+        cat: Log.Category,
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -327,6 +338,7 @@ public extension NotificationsManagerType {
                 }(),
                 category: .incomingMessage,
                 title: try notificationTitle(
+                    cat: cat,
                     message: message,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -337,6 +349,7 @@ public extension NotificationsManagerType {
                     using: dependencies
                 ),
                 body: notificationBody(
+                    cat: cat,
                     message: message,
                     threadVariant: threadVariant,
                     isMessageRequest: isMessageRequest,

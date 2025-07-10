@@ -181,7 +181,10 @@ public extension UIContextualAction {
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "noteToSelfHide".localized(),
-                                            body: .text("hideNoteToSelfDescription".localized()),
+                                            body: .attributedText(
+                                                "hideNoteToSelfDescription"
+                                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                            ),
                                             confirmTitle: "hide".localized(),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,

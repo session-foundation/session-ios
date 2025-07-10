@@ -124,7 +124,7 @@ public extension ProfilePictureView {
                         }
                         .defaulting(
                             to: Info(
-                                source: .image("ic_user_round_fill", UIImage(systemName: "ic_user_round_fill")),
+                                source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(

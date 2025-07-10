@@ -247,7 +247,7 @@ public class NotificationActionHandler {
             for: threadId,
             variant: threadVariant,
             action: .none,
-            dismissing: nil,
+            dismissing: dependencies[singleton: .app].homePresentedViewController,
             animated: (UIApplication.shared.applicationState == .active)
         )
         

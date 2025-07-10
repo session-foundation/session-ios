@@ -576,6 +576,7 @@ public extension Interaction {
             _ = try Interaction
                 .filter(id: interactionId)
                 .updateAll(db, Columns.wasRead.set(to: true))
+            db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
             
             try Interaction.scheduleReadJobs(
                 db,
@@ -629,6 +630,7 @@ public extension Interaction {
         interactionInfoToMarkAsRead.forEach { info in
             db.addMessageEvent(id: info.id, threadId: threadId, type: .updated(.wasRead(true)))
         }
+        db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
         
         // Retrieve the interaction ids we want to update
         try Interaction.scheduleReadJobs(

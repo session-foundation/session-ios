@@ -107,6 +107,7 @@ extension MessageReceiver {
                     message.state = .missed
                     
                     try? dependencies[singleton: .notificationsManager].notifyUser(
+                        cat: .messageReceiver,
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,
@@ -173,6 +174,7 @@ extension MessageReceiver {
                     message.state = state
                     
                     try? dependencies[singleton: .notificationsManager].notifyUser(
+                        cat: .messageReceiver,
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,

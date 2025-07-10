@@ -281,7 +281,6 @@ public extension SessionThread {
                             threadVariant: variant,
                             openGroupUrlInfo: openGroupUrlInfo
                         )
-                        let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
                         
                         shouldBeVisible = .setTo(LibSession.shouldBeVisible(priority: targetPriority))
                         pinnedPriority = .setTo(targetPriority)
@@ -380,6 +379,12 @@ public extension SessionThread {
         switch (variant, resolvedValues.disappearingMessagesConfig) {
             case (.community, _), (_, .useExisting): break      // No need to do anything
             case (_, .setTo(let config)):                       // Save the explicit config
+                // Don't bother doing anything if the config hasn't changed
+                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                    .fetchOne(db, id: id)
+                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(id))
+                guard localConfig != config else { break }
+                
                 try config
                     .upserted(db)
                     .clearUnrelatedControlMessages(
@@ -412,6 +417,9 @@ public extension SessionThread {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
             db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(value)))
+            
+            /// Toggling visibility is the same as "creating"/"deleting" a conversation so send those events as well
+            db.addConversationEvent(id: id, type: (value ? .created : .deleted))
         }
         
         if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
@@ -763,6 +771,9 @@ public extension SessionThread {
         threadIds.forEach { id in
             if currentInfo[id]?.shouldBeVisible != isVisible {
                 db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(isVisible)))
+                
+                /// Toggling visibility is the same as "creating"/"deleting" a conversation
+                db.addConversationEvent(id: id, type: (isVisible ? .created : .deleted))
             }
             
             if currentInfo[id]?.pinnedPriority != targetPriority {

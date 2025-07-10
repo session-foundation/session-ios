@@ -629,7 +629,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         case .initialPageAround(let targetId):
                             // If we want to focus on a specific item then we need to find it's index in
                             // the queried data
-                            let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
+                            let maybeIndex: Int? = PagedData.index(
                                 db,
                                 for: targetId,
                                 tableName: pagedTableName,
@@ -640,7 +640,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                             )
                             
                             // If we couldn't find the targetId then just load the first page
-                            guard let targetIndex: Int = maybeRowInfo?.rowIndex else {
+                            guard let targetIndex: Int = maybeIndex else {
                                 return ((currentPageInfo.pageSize, 0, 0), nil)
                             }
                             
@@ -685,7 +685,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         case .untilInclusive(let targetId, let padding):
                             // If we want to focus on a specific item then we need to find it's index in
                             // the queried data
-                            let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
+                            let maybeIndex: Int? = PagedData.index(
                                 db,
                                 for: targetId,
                                 tableName: pagedTableName,
@@ -698,7 +698,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                             
                             // If we couldn't find the targetId or it's already in the cache then do nothing
                             guard
-                                let targetIndex: Int = maybeRowInfo.map({ max(0, min(totalCount, $0.rowIndex)) }),
+                                let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
                                 (
                                     targetIndex < currentPageInfo.pageOffset ||
                                     targetIndex >= cacheCurrentEndIndex
@@ -735,7 +735,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                         case .jumpTo(let targetId, let paddingForInclusive):
                             // If we want to focus on a specific item then we need to find it's index in
                             // the queried data
-                            let maybeRowInfo: PagedData.RowInfo? = PagedData.rowInfo(
+                            let maybeIndex: Int? = PagedData.index(
                                 db,
                                 for: targetId,
                                 tableName: pagedTableName,
@@ -748,7 +748,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                             
                             // If we couldn't find the targetId or it's already in the cache then do nothing
                             guard
-                                let targetIndex: Int = maybeRowInfo.map({ max(0, min(totalCount, $0.rowIndex)) }),
+                                let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
                                 (
                                     targetIndex < currentPageInfo.pageOffset ||
                                     targetIndex >= cacheCurrentEndIndex

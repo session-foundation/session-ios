@@ -870,45 +870,60 @@ public extension LibSession.Cache {
 // MARK: - Convenience
 
 public extension Dependencies {
-    func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (() -> Void)? = nil) {
-        Task(priority: .userInitiated) { [dependencies = self] in
-            let targetVariant: ConfigDump.Variant
+    func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (@MainActor () -> Void)? = nil) {
+        Task(priority: .userInitiated) { [weak self] in
+            await self?.set(key, value)
             
-            switch key {
-                case .checkForCommunityMessageRequests: targetVariant = .userProfile
-                default: targetVariant = .local
-            }
-            
-            let mutation: LibSession.Mutation? = try? dependencies.mutate(cache: .libSession) { cache in
-                try cache.perform(for: targetVariant) {
-                    cache.set(key, value)
+            if let onComplete {
+                await MainActor.run {
+                    onComplete()
                 }
             }
-
-            dependencies[singleton: .storage].writeAsync(
-                updates: { db in
-                    try mutation?.upsert(db)
-                    db.addEvent(value, forKey: .setting(key))
-                },
-                completion: { _ in onComplete?() }
-            )
         }
     }
     
-    func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (() -> Void)? = nil) {
-        Task(priority: .userInitiated) { [dependencies = self] in
-            let mutation: LibSession.Mutation? = try? dependencies.mutate(cache: .libSession) { cache in
-                try cache.perform(for: .local) {
-                    cache.set(key, value)
+    func setAsync<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?, onComplete: (@MainActor () -> Void)? = nil) {
+        Task(priority: .userInitiated) { [weak self] in
+            await self?.set(key, value)
+            
+            if let onComplete {
+                await MainActor.run {
+                    onComplete()
                 }
             }
-
-            try? await dependencies[singleton: .storage].writeAsync { db in
-                try mutation?.upsert(db)
-                db.addEvent(value, forKey: .setting(key))
+        }
+    }
+    
+    private func set(_ key: Setting.BoolKey, _ value: Bool?) async {
+        let targetVariant: ConfigDump.Variant
+        
+        switch key {
+            case .checkForCommunityMessageRequests: targetVariant = .userProfile
+            default: targetVariant = .local
+        }
+        
+        let mutation: LibSession.Mutation? = try? await self.mutateAsyncAware(cache: .libSession) { cache in
+            try cache.perform(for: targetVariant) {
+                cache.set(key, value)
             }
-            
-            onComplete?()
+        }
+
+        try? await self[singleton: .storage].writeAsync { db in
+            try mutation?.upsert(db)
+            db.addEvent(value, forKey: .setting(key))
+        }
+    }
+    
+    private func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
+        let mutation: LibSession.Mutation? = try? await self.mutateAsyncAware(cache: .libSession) { cache in
+            try cache.perform(for: .local) {
+                cache.set(key, value)
+            }
+        }
+
+        try? await self[singleton: .storage].writeAsync { db in
+            try mutation?.upsert(db)
+            db.addEvent(value, forKey: .setting(key))
         }
     }
 }

@@ -44,7 +44,7 @@ public class HomeViewModel: NavigatableStateHolder {
     private var currentlyHandlingPageLoad: Bool = false
     
     /// This is a cache of the observed data before any processing is done for the UI state to allow us to more easily do diffs
-    private var itemCache: [Int64: SessionThreadViewModel] = [:]
+    private var itemCache: [String: SessionThreadViewModel] = [:]
 
     
     // MARK: - Initialization
@@ -81,7 +81,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .loadPage(HomeViewModel.observationName),
                 .profile(userProfile.id),
                 .setting(Setting.BoolKey.hasViewedSeed),
-                .conversationCreated
+                .conversationCreated,
+                .messageCreatedInAnyConversation
             ]
             
             sections.filter { $0.model == .threads }.first?.elements.forEach { threadViewModel in
@@ -206,7 +207,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 if let databaseEvents: Set<ObservedEvent> = splitEvents[true].map({ Set($0) }) {
                     do {
                         var fetchedConversations: [SessionThreadViewModel] = []
-                        let rowIdsNeedingRequery: Set<Int64> = self.extractRowIdsNeedingRequery(
+                        let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
                             events: databaseEvents,
                             cache: self.itemCache
                         )
@@ -225,6 +226,9 @@ public class HomeViewModel: NavigatableStateHolder {
                                     
                                 case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
                                     insertedIds.insert(event.id)
+                                    
+                                case (GenericObservableKey(.messageCreatedInAnyConversation), let event as MessageEvent):
+                                    insertedIds.insert(event.threadId)
                                     
                                 case (.conversationDeleted, let event as ConversationEvent):
                                     deletedIds.insert(event.id)
@@ -260,25 +264,17 @@ public class HomeViewModel: NavigatableStateHolder {
                                         userSessionId: userSessionId,
                                         groupSQL: SessionThreadViewModel.groupSQL,
                                         orderSQL: SessionThreadViewModel.homeOrderSQL,
-                                        rowIds: Array(rowIdsNeedingRequery) + loadResult.newRowIds
+                                        ids: Array(idsNeedingRequery) + loadResult.newIds
                                     )
                                     .fetchAll(db)
                             )
                         }
                         
                         /// Update the `itemCache` with the newly fetched values
-                        fetchedConversations.forEach { self.itemCache[$0.rowId] = $0 }
+                        fetchedConversations.forEach { self.itemCache[$0.threadId] = $0 }
                         
                         /// Remove any deleted values
-                        deletedIds.forEach { id in
-                            guard
-                                let key: Int64 = self.itemCache
-                                    .first(where: { _, value in value.threadId == id })?
-                                    .key
-                            else { return }
-                            
-                            self.itemCache.removeValue(forKey: key)
-                        }
+                        deletedIds.forEach { id in self.itemCache.removeValue(forKey: id) }
                     } catch {
                         let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
                         Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
@@ -327,7 +323,7 @@ public class HomeViewModel: NavigatableStateHolder {
                     sections: HomeViewModel.process(
                         hasHiddenMessageRequests: hasHiddenMessageRequests,
                         unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
-                        conversations: loadResult.info.currentRowIds.compactMap { self.itemCache[$0] },
+                        conversations: loadResult.info.currentIds.compactMap { self.itemCache[$0] },
                         loadedInfo: loadResult.info,
                         using: dependencies
                     )
@@ -338,11 +334,11 @@ public class HomeViewModel: NavigatableStateHolder {
             .assign { [weak self] updatedValue in self?.state = updatedValue }
     }
     
-    internal func extractRowIdsNeedingRequery(
+    internal func extractIdsNeedingRequery(
         events: Set<ObservedEvent>,
-        cache: [Int64: SessionThreadViewModel]
-    ) -> Set<Int64> {
-        let conversationIds: Set<String> = events.reduce(into: []) { result, event in
+        cache: [String: SessionThreadViewModel]
+    ) -> Set<String> {
+        return events.reduce(into: []) { result, event in
             switch (event.key.generic, event.value) {
                 case (.conversationUpdated, let event as ConversationEvent): result.insert(event.id)
                 case (.typingIndicator, let event as TypingIndicatorEvent): result.insert(event.threadId)
@@ -375,12 +371,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 default: break
             }
         }
-        
-        return Set(conversationIds.compactMap { conversationId in
-            cache.values.first { $0.threadId == conversationId }?.rowId
-        })
     }
-
     
     private static func process(
         hasHiddenMessageRequests: Bool,
@@ -407,35 +398,27 @@ public class HomeViewModel: NavigatableStateHolder {
             [
                 SectionModel(
                     section: .threads,
-                    elements: conversations
-                        .sorted { lhs, rhs -> Bool in
-                            guard lhs.threadPinnedPriority == rhs.threadPinnedPriority else {
-                                return lhs.threadPinnedPriority > rhs.threadPinnedPriority
-                            }
-                            
-                            return lhs.lastInteractionDate > rhs.lastInteractionDate
-                        }
-                        .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingPostQueryData(
-                                recentReactionEmoji: nil,
-                                openGroupCapabilities: nil,
-                                // TODO: [Database Relocation] Do we need all of these????
-                                currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
-                                wasKickedFromGroup: (
-                                    viewModel.threadVariant == .group &&
-                                    dependencies.mutate(cache: .libSession) { cache in
-                                        cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                                    }
-                                ),
-                                groupIsDestroyed: (
-                                    viewModel.threadVariant == .group &&
-                                    dependencies.mutate(cache: .libSession) { cache in
-                                        cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                                    }
-                                ),
-                                threadCanWrite: false  // Irrelevant for the HomeViewModel
-                            )
-                        }
+                    elements: conversations.map { viewModel -> SessionThreadViewModel in
+                        viewModel.populatingPostQueryData(
+                            recentReactionEmoji: nil,
+                            openGroupCapabilities: nil,
+                            // TODO: [Database Relocation] Do we need all of these????
+                            currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                            wasKickedFromGroup: (
+                                viewModel.threadVariant == .group &&
+                                dependencies.mutate(cache: .libSession) { cache in
+                                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                                }
+                            ),
+                            groupIsDestroyed: (
+                                viewModel.threadVariant == .group &&
+                                dependencies.mutate(cache: .libSession) { cache in
+                                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                                }
+                            ),
+                            threadCanWrite: false  // Irrelevant for the HomeViewModel
+                        )
+                    }
                 )
             ],
             (!conversations.isEmpty && loadedInfo.hasNextPage ?
@@ -467,6 +450,7 @@ private extension ObservedEvent {
             case GenericObservableKey(.unreadMessageRequestMessageReceived): return true
             case GenericObservableKey(.messageRequestAccepted): return true
             case GenericObservableKey(.conversationCreated): return true
+            case GenericObservableKey(.messageCreatedInAnyConversation): return true
             case .typingIndicator: return true
                 
             /// We only observe events from records we have explicitly fetched so if we get an event for one of these then we need to

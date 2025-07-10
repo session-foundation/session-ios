@@ -443,6 +443,7 @@ extension MessageReceiver {
         }()
         
         try? dependencies[singleton: .notificationsManager].notifyUser(
+            cat: .messageReceiver,
             message: message,
             threadId: threadId,
             threadVariant: threadVariant,
@@ -566,6 +567,7 @@ extension MessageReceiver {
                     !timestampAlreadyRead
                 {
                     try? dependencies[singleton: .notificationsManager].notifyUser(
+                        cat: .messageReceiver,
                         message: message,
                         threadId: thread.id,
                         threadVariant: thread.variant,
