@@ -209,8 +209,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     contactName: Profile.displayName(
                         db,
                         id: caller,
-                        threadVariant: .contact,
-                        using: dependencies
+                        threadVariant: .contact
                     ),
                     uuid: uuid,
                     mode: mode,

@@ -23,6 +23,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
             }
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
@@ -67,7 +68,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     name: "TestGroup",
                     description: nil,
                     displayPictureUrl: nil,
-                    displayPictureFilename: nil,
                     displayPictureEncryptionKey: nil,
                     members: [],
                     using: dependencies
@@ -80,25 +80,15 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
                 _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
-                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
-                cache.when { $0.config(for: .userGroups, sessionId: .any) }
-                    .thenReturn(.userGroups(conf))
-                cache.when { $0.config(for: .groupInfo, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupInfo])
-                cache.when { $0.config(for: .groupMembers, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupMembers])
-                cache.when { $0.config(for: .groupKeys, sessionId: .any) }
-                    .thenReturn(createGroupOutput.groupState[.groupKeys])
+                cache.defaultInitialSetup(
+                    configs: [
+                        .userGroups: .userGroups(conf),
+                        .groupInfo: createGroupOutput.groupState[.groupInfo],
+                        .groupMembers: createGroupOutput.groupState[.groupMembers],
+                        .groupKeys: createGroupOutput.groupState[.groupKeys]
+                    ]
+                )
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(true)
-                cache.when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }.thenReturn(nil)
-                cache.when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }.thenReturn(nil)
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
-                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
             }
         )
         
@@ -269,8 +259,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 .updateAll(
                                     db,
                                     ClosedGroup.Columns.displayPictureUrl.set(to: "TestUrl"),
-                                    ClosedGroup.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3])),
-                                    ClosedGroup.Columns.displayPictureFilename.set(to: "TestFilename")
+                                    ClosedGroup.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3]))
                                 )
                         }
                         
@@ -288,8 +277,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         }
                         expect(latestGroup?.displayPictureUrl).to(beNil())
                         expect(latestGroup?.displayPictureEncryptionKey).to(beNil())
-                        expect(latestGroup?.displayPictureFilename).to(beNil())
-                        expect(latestGroup?.lastDisplayPictureUpdate).to(equal(1234567891))
                     }
                     
                     // MARK: ------ schedules a display picture download job if there is a new one
@@ -397,8 +384,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                         }
                         
@@ -453,8 +439,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -476,8 +461,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                         }
                         
@@ -537,8 +521,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -606,8 +589,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -687,8 +669,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             let interaction2: Interaction = try Interaction(
                                 serverHash: "1235",
@@ -710,8 +691,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -790,8 +770,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -813,8 +792,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil,
-                                transientDependencies: nil
+                                mostRecentFailureText: nil
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -883,8 +861,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: nil
+                            mostRecentFailureText: nil
                         ).inserted(db)
                     }
                     
@@ -952,8 +929,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil,
-                            transientDependencies: nil
+                            mostRecentFailureText: nil
                         ).inserted(db)
                     }
                     

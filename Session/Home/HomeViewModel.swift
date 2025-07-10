@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
@@ -9,12 +10,13 @@ import SessionUtilitiesKit
 
 // MARK: - Log.Category
 
-private extension Log.Category {
-    static let cat: Log.Category = .create("HomeViewModel", defaultLevel: .warn)
+public extension Log.Category {
+    static let homeViewModel: Log.Category = .create("HomeViewModel", defaultLevel: .warn)
 }
 
 // MARK: - HomeViewModel
 
+@MainActor
 public class HomeViewModel: NavigatableStateHolder {
     public let navigatableState: NavigatableState = NavigatableState()
     
@@ -30,318 +32,364 @@ public class HomeViewModel: NavigatableStateHolder {
     
     // MARK: - Variables
     
-    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
-    
-    public struct State: Equatable {
-        let userSessionId: SessionId
-        let showViewedSeedBanner: Bool
-        let hasHiddenMessageRequests: Bool
-        let unreadMessageRequestThreadCount: Int
-        let userProfile: Profile
-    }
+    nonisolated fileprivate static let observationName: String = "HomeViewModel"    // stringlint:ignore
+    @MainActor public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     public let dependencies: Dependencies
+    private let userSessionId: SessionId
+    
+    /// This flag acts as a lock on the page loading logic, while it's weird to modify state within the `query` that isn't on the `State`
+    /// type, this is a primarily an optimisation to prevent the `loadPage` events from triggering multiple times since that can happen
+    /// due to how the UI is setup
+    private var currentlyHandlingPageLoad: Bool = false
+    
+    /// This is a cache of the observed data before any processing is done for the UI state to allow us to more easily do diffs
+    private var itemCache: [String: SessionThreadViewModel] = [:]
+
     
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
-        let initialState: State? = dependencies[singleton: .storage].read { db -> State in
-            try HomeViewModel.retrieveState(db, excludingMessageRequestThreadCount: true, using: dependencies)
-        }
-        
         self.dependencies = dependencies
-        self.state = State(
-            userSessionId: (initialState?.userSessionId ?? dependencies[cache: .general].sessionId),
-            showViewedSeedBanner: (initialState?.showViewedSeedBanner ?? true),
-            hasHiddenMessageRequests: (initialState?.hasHiddenMessageRequests ?? false),
-            unreadMessageRequestThreadCount: 0,
-            userProfile: (initialState?.userProfile ?? Profile.fetchOrCreateCurrentUser(using: dependencies))
-        )
-        self.pagedDataObserver = nil
+        self.userSessionId = dependencies[cache: .general].sessionId
+        self.state = State.initialState(using: dependencies)
         
-        // Note: Since this references self we need to finish initializing before setting it, we
-        // also want to skip the initial query and trigger it async so that the push animation
-        // doesn't stutter (it should load basically immediately but without this there is a
-        // distinct stutter)
-        let userSessionId: SessionId = self.state.userSessionId
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        self.pagedDataObserver = PagedDatabaseObserver(
-            pagedTable: SessionThread.self,
-            pageSize: HomeViewModel.pageSize,
-            idColumn: .id,
-            observedChanges: [
-                PagedData.ObservedChanges(
-                    table: SessionThread.self,
-                    columns: [
-                        .id,
-                        .shouldBeVisible,
-                        .pinnedPriority,
-                        .mutedUntilTimestamp,
-                        .onlyNotifyForMentions,
-                        .markedAsUnread
-                    ]
-                ),
-                PagedData.ObservedChanges(
-                    table: Interaction.self,
-                    columns: [
-                        .body,
-                        .wasRead,
-                        .state
-                    ],
-                    joinToPagedType: {
-                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: Contact.self,
-                    columns: [.isBlocked],
-                    joinToPagedType: {
-                        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: Profile.self,
-                    columns: [.name, .nickname, .profilePictureFileName],
-                    joinToPagedType: {
-                        let profile: TypedTableAlias<Profile> = TypedTableAlias()
-                        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
-                        let threadVariants: [SessionThread.Variant] = [.legacyGroup, .group]
-                        let targetRole: GroupMember.Role = GroupMember.Role.standard
-                        
-                        return SQL("""
-                            JOIN \(Profile.self) ON (
-                                (   -- Contact profile change
-                                    \(profile[.id]) = \(thread[.id]) AND
-                                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)"))
-                                ) OR ( -- Closed group profile change
-                                    \(SQL("\(thread[.variant]) IN \(threadVariants)")) AND (
-                                        profile.id = (  -- Front profile
-                                            SELECT MIN(\(groupMember[.profileId]))
-                                            FROM \(GroupMember.self)
-                                            JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
-                                            WHERE (
-                                                \(groupMember[.groupId]) = \(thread[.id]) AND
-                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
-                                                \(groupMember[.profileId]) != \(userSessionId.hexString)
-                                            )
-                                        ) OR
-                                        profile.id = (  -- Back profile
-                                            SELECT MAX(\(groupMember[.profileId]))
-                                            FROM \(GroupMember.self)
-                                            JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
-                                            WHERE (
-                                                \(groupMember[.groupId]) = \(thread[.id]) AND
-                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
-                                                \(groupMember[.profileId]) != \(userSessionId.hexString)
-                                            )
-                                        ) OR (  -- Fallback profile
-                                            profile.id = \(userSessionId.hexString) AND
-                                            (
-                                                SELECT COUNT(\(groupMember[.profileId]))
-                                                FROM \(GroupMember.self)
-                                                JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
-                                                WHERE (
-                                                    \(groupMember[.groupId]) = \(thread[.id]) AND
-                                                    \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
-                                                    \(groupMember[.profileId]) != \(userSessionId.hexString)
-                                                )
-                                            ) = 1
-                                        )
-                                    )
-                                )
-                            )
-                        """)
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: ClosedGroup.self,
-                    columns: [.name, .invited, .displayPictureFilename],
-                    joinToPagedType: {
-                        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: OpenGroup.self,
-                    columns: [.name, .displayPictureFilename],
-                    joinToPagedType: {
-                        let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: ThreadTypingIndicator.self,
-                    columns: [.threadId],
-                    joinToPagedType: {
-                        let typingIndicator: TypedTableAlias<ThreadTypingIndicator> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(ThreadTypingIndicator.self) ON \(typingIndicator[.threadId]) = \(thread[.id])")
-                    }()
-                )
-            ],
-            /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed for the query but differs
-            /// from the JOINs that are actually used for performance reasons as the basic logic can be simpler for where it's used
-            joinSQL: SessionThreadViewModel.optimisedJoinSQL,
-            filterSQL: SessionThreadViewModel.homeFilterSQL(userSessionId: userSessionId),
-            groupSQL: SessionThreadViewModel.groupSQL,
-            orderSQL: SessionThreadViewModel.homeOrderSQL,
-            dataQuery: SessionThreadViewModel.baseQuery(
-                userSessionId: userSessionId,
-                groupSQL: SessionThreadViewModel.groupSQL,
-                orderSQL: SessionThreadViewModel.homeOrderSQL
-            ),
-            onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
-                PagedData.processAndTriggerUpdates(
-                    updatedData: self?.process(data: updatedData, for: updatedPageInfo),
-                    currentDataRetriever: { self?.threadData },
-                    onDataChangeRetriever: { self?.onThreadChange },
-                    onUnobservedDataChange: { updatedData in
-                        self?.unobservedThreadDataChanges = updatedData
-                    }
-                )
-                
-                self?.hasReceivedInitialThreadData = true
-            },
-            using: dependencies
-        )
-        
-        // Run the initial query on a background thread so we don't block the main thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // The `.pageBefore` will query from a `0` offset loading the first page
-            self?.pagedDataObserver?.load(.pageBefore)
-        }
+        self.bindState()
     }
     
     // MARK: - State
-    
-    /// This value is the current state of the view
-    public private(set) var state: State
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    public lazy var observableState = ValueObservation
-        .trackingConstantRegion { [dependencies] db -> State in
-            try HomeViewModel.retrieveState(db, using: dependencies)
+
+    public struct State: ObservableKeyProvider {
+        enum ViewState: Equatable {
+            case loading
+            case empty(isNewUser: Bool)
+            case loaded
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { Log.error(.cat, "Observation failed with error: \($0)") })
-    
-    private static func retrieveState(
-        _ db: Database,
-        excludingMessageRequestThreadCount: Bool = false,
-        using dependencies: Dependencies
-    ) throws -> State {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let hasViewedSeed: Bool = db[.hasViewedSeed]
-        let hasHiddenMessageRequests: Bool = db[.hasHiddenMessageRequests]
-        let userProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
-        let unreadMessageRequestThreadCount: Int = (excludingMessageRequestThreadCount ? 0 :
-            try SessionThread
-                .unreadMessageRequestsCountQuery(userSessionId: userSessionId)
-                .fetchOne(db)
-                .defaulting(to: 0)
-        )
         
-        return State(
-            userSessionId: userSessionId,
-            showViewedSeedBanner: !hasViewedSeed,
-            hasHiddenMessageRequests: hasHiddenMessageRequests,
-            unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
-            userProfile: userProfile
-        )
-    }
-    
-    public func updateState(_ updatedState: State) {
-        let oldState: State = self.state
-        self.state = updatedState
+        let viewState: ViewState
+        let userProfile: Profile
+        let showViewedSeedBanner: Bool
+        let hasHiddenMessageRequests: Bool
+        let unreadMessageRequestThreadCount: Int
+        let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
+        let sections: [SectionModel]
         
-        // If the messageRequest content changed then we need to re-process the thread data (assuming
-        // we've received the initial thread data)
-        guard
-            self.hasReceivedInitialThreadData,
-            (
-                oldState.hasHiddenMessageRequests != updatedState.hasHiddenMessageRequests ||
-                oldState.unreadMessageRequestThreadCount != updatedState.unreadMessageRequestThreadCount
-            ),
-            let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo
-        else { return }
-        
-        /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
-        let currentData: [SectionModel] = (self.unobservedThreadDataChanges ?? self.threadData)
-        let updatedThreadData: [SectionModel] = self.process(
-            data: (currentData.first(where: { $0.model == .threads })?.elements ?? []),
-            for: currentPageInfo
-        )
-        
-        PagedData.processAndTriggerUpdates(
-            updatedData: updatedThreadData,
-            currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges ?? self?.threadData) },
-            onDataChangeRetriever: { [weak self] in self?.onThreadChange },
-            onUnobservedDataChange: { [weak self] updatedData in
-                self?.unobservedThreadDataChanges = updatedData
-            }
-        )
-    }
-    
-    // MARK: - Thread Data
-    
-    private var hasReceivedInitialThreadData: Bool = false
-    public private(set) var unobservedThreadDataChanges: [SectionModel]?
-    public private(set) var threadData: [SectionModel] = []
-    public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
-    
-    public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
-        didSet {
-            guard onThreadChange != nil else { return }
+        public var observedKeys: Set<ObservableKey> {
+            var result: Set<ObservableKey> = [
+                .unreadMessageRequestMessageReceived,
+                .messageRequestAccepted,
+                .loadPage(HomeViewModel.observationName),
+                .profile(userProfile.id),
+                .setting(Setting.BoolKey.hasViewedSeed),
+                .conversationCreated,
+                .messageCreatedInAnyConversation
+            ]
             
-            // When starting to observe interaction changes we want to trigger a UI update just in case the
-            // data was changed while we weren't observing
-            if let changes: [SectionModel] = self.unobservedThreadDataChanges {
-                PagedData.processAndTriggerUpdates(
-                    updatedData: changes,
-                    currentDataRetriever: { [weak self] in self?.threadData },
-                    onDataChangeRetriever: { [weak self] in self?.onThreadChange },
-                    onUnobservedDataChange: { [weak self] updatedData in
-                        self?.unobservedThreadDataChanges = updatedData
+            sections.filter { $0.model == .threads }.first?.elements.forEach { threadViewModel in
+                result.insert(contentsOf: [
+                    .conversationUpdated(threadViewModel.threadId),
+                    .conversationDeleted(threadViewModel.threadId),
+                    .messageCreated(threadId: threadViewModel.threadId),
+                    .messageUpdated(
+                        id: threadViewModel.interactionId,
+                        threadId: threadViewModel.threadId
+                    ),
+                    .messageDeleted(
+                        id: threadViewModel.interactionId,
+                        threadId: threadViewModel.threadId
+                    ),
+                    .typingIndicator(threadViewModel.threadId)
+                ])
+            }
+            
+            return result
+        }
+        
+        @MainActor static func initialState(using dependencies: Dependencies) -> State {
+            return State(
+                viewState: .loading,
+                userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
+                showViewedSeedBanner: true,
+                hasHiddenMessageRequests: false,
+                unreadMessageRequestThreadCount: 0,
+                loadedPageInfo: PagedData.LoadedInfo(
+                    record: SessionThreadViewModel.self,
+                    pageSize: HomeViewModel.pageSize,
+                    /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed
+                    /// for the query but differs from the JOINs that are actually used for performance reasons as the
+                    /// basic logic can be simpler for where it's used
+                    requiredJoinSQL: SessionThreadViewModel.optimisedJoinSQL,
+                    filterSQL: SessionThreadViewModel.homeFilterSQL(
+                        userSessionId: dependencies[cache: .general].sessionId
+                    ),
+                    groupSQL: SessionThreadViewModel.groupSQL,
+                    orderSQL: SessionThreadViewModel.homeOrderSQL
+                ),
+                sections: []
+            )
+        }
+    }
+
+    /// This value is the current state of the view
+    @Published private(set) var state: State
+    private var observationTask: Task<Void, Never>?
+    private var previousSections: [SectionModel] = []
+
+    private func bindState() {
+        let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
+        let initialState: State = State.initialState(using: dependencies)
+        
+        observationTask = ObservationBuilder
+            .debounce(for: .milliseconds(250))
+            .using(manager: dependencies[singleton: .observationManager])
+            .query { [weak self, userSessionId, dependencies] previousState, events in
+                guard let self = self else { return initialState }
+                
+                /// Store mutable copies of the data to update
+                let currentState: State = (previousState ?? initialState)
+                var userProfile: Profile = currentState.userProfile
+                var showViewedSeedBanner: Bool = currentState.showViewedSeedBanner
+                var hasHiddenMessageRequests: Bool = currentState.hasHiddenMessageRequests
+                var unreadMessageRequestThreadCount: Int = currentState.unreadMessageRequestThreadCount
+                var loadResult: PagedData.LoadResult = currentState.loadedPageInfo.asResult
+                
+                /// Store a local copy of the events so we can manipulate it based on the state changes
+                var eventsToProcess: [ObservedEvent] = events
+                
+                /// If we have no previous state then we need to fetch the initial state
+                if previousState == nil {
+                    /// Insert a fake event to force the initial page load
+                    eventsToProcess.append(ObservedEvent(
+                        key: .loadPage(HomeViewModel.observationName),
+                        value: LoadPageEvent.initial
+                    ))
+                    
+                    /// Load the values needed from `libSession`
+                    dependencies.mutate(cache: .libSession) { libSession in
+                        userProfile = libSession.profile
+                        showViewedSeedBanner = !libSession.get(.hasViewedSeed)
+                        hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
                     }
+                    
+                    /// If we haven't hidden the message requests banner then we should include that in the initial fetch
+                    if !hasHiddenMessageRequests {
+                        eventsToProcess.append(ObservedEvent(
+                            key: .unreadMessageRequestMessageReceived,
+                            value: nil
+                        ))
+                    }
+                }
+                
+                /// If we have a `loadPage` event then we need to toggle the lock to prevent duplicate page loads from triggering
+                /// queries (if we are already loading a page elsewhere then just remove this event)
+                if eventsToProcess.contains(where: { $0.key.generic == .loadPage }) {
+                    if self.currentlyHandlingPageLoad {
+                        eventsToProcess = eventsToProcess.filter { $0.key.generic != .loadPage }
+                    }
+                    else {
+                        self.currentlyHandlingPageLoad = true
+                    }
+                }
+                defer {
+                    if self.currentlyHandlingPageLoad {
+                        self.currentlyHandlingPageLoad = false
+                    }
+                }
+                
+                /// If there are no events we want to process then just return the current state
+                guard !eventsToProcess.isEmpty else { return currentState }
+                
+                /// Split the events between those that need database access and those that don't
+                let splitEvents: [Bool: [ObservedEvent]] = eventsToProcess
+                    .grouped(by: \.requiresDatabaseQueryForHomeViewModel)
+                
+                /// Handle database events first
+                if let databaseEvents: Set<ObservedEvent> = splitEvents[true].map({ Set($0) }) {
+                    do {
+                        var fetchedConversations: [SessionThreadViewModel] = []
+                        let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
+                            events: databaseEvents,
+                            cache: self.itemCache
+                        )
+                        let loadPageEvent: LoadPageEvent? = databaseEvents
+                            .first(where: { $0.key.generic == .loadPage })?
+                            .value as? LoadPageEvent
+                        
+                        /// Identify any inserted/deleted records
+                        var insertedIds: Set<String> = []
+                        var deletedIds: Set<String> = []
+                        
+                        databaseEvents.forEach { event in
+                            switch (event.key.generic, event.value) {
+                                case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
+                                    insertedIds.insert(threadId)
+                                    
+                                case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
+                                    insertedIds.insert(event.id)
+                                    
+                                case (GenericObservableKey(.messageCreatedInAnyConversation), let event as MessageEvent):
+                                    insertedIds.insert(event.threadId)
+                                    
+                                case (.conversationDeleted, let event as ConversationEvent):
+                                    deletedIds.insert(event.id)
+                                    
+                                default: break
+                            }
+                        }
+                        
+                        try await dependencies[singleton: .storage].readAsync { db in
+                            /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
+                            if databaseEvents.contains(where: { $0.key == .unreadMessageRequestMessageReceived || $0.key == .messageRequestAccepted }) {
+                                unreadMessageRequestThreadCount = try SessionThread
+                                    .unreadMessageRequestsCountQuery(userSessionId: userSessionId)
+                                    .fetchOne(db)
+                                    .defaulting(to: 0)
+                            }
+                            
+                            /// Update loaded page info as needed
+                            if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
+                                loadResult = try loadResult.load(
+                                    db,
+                                    target: (
+                                        loadPageEvent?.target(with: loadResult) ??
+                                        .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
+                                    )
+                                )
+                            }
+                            
+                            /// Fetch any records needed
+                            fetchedConversations.append(
+                                contentsOf: try SessionThreadViewModel
+                                    .query(
+                                        userSessionId: userSessionId,
+                                        groupSQL: SessionThreadViewModel.groupSQL,
+                                        orderSQL: SessionThreadViewModel.homeOrderSQL,
+                                        ids: Array(idsNeedingRequery) + loadResult.newIds
+                                    )
+                                    .fetchAll(db)
+                            )
+                        }
+                        
+                        /// Update the `itemCache` with the newly fetched values
+                        fetchedConversations.forEach { self.itemCache[$0.threadId] = $0 }
+                        
+                        /// Remove any deleted values
+                        deletedIds.forEach { id in self.itemCache.removeValue(forKey: id) }
+                    } catch {
+                        let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                        Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
+                    }
+                }
+                
+                /// Then handle non-database events
+                splitEvents[false]?.forEach { event in
+                    switch (event.key.generic, (event.value as? ProfileEvent)?.change) {
+                        case (.profile, .name(let name)):
+                            userProfile = userProfile.with(name: name)
+                            
+                        case (.profile, .nickname(let nickname)):
+                            userProfile = userProfile.with(nickname: nickname)
+                            
+                        case (.profile, .displayPictureUrl(let url)):
+                            userProfile = userProfile.with(displayPictureUrl: url)
+                            
+                        case (.setting, _) where Setting.BoolKey(rawValue: event.key.rawValue) == .hasViewedSeed:
+                            showViewedSeedBanner = (
+                                (event.value as? Bool).map { hasViewedSeed in !hasViewedSeed } ??
+                                currentState.showViewedSeedBanner
+                            )
+                            
+                        case (.setting, _) where Setting.BoolKey(rawValue: event.key.rawValue) == .hasHiddenMessageRequests:
+                            hasHiddenMessageRequests = (
+                                (event.value as? Bool) ??
+                                currentState.hasHiddenMessageRequests
+                            )
+                            
+                        default: break
+                    }
+                }
+                
+                /// Generate the new state
+                let updatedState: State = State(
+                    viewState: (loadResult.info.totalCount == 0 ?
+                        .empty(isNewUser: (startedAsNewUser && previousState == nil)) :
+                        .loaded
+                    ),
+                    userProfile: userProfile,
+                    showViewedSeedBanner: showViewedSeedBanner,
+                    hasHiddenMessageRequests: hasHiddenMessageRequests,
+                    unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+                    loadedPageInfo: loadResult.info,
+                    sections: HomeViewModel.process(
+                        hasHiddenMessageRequests: hasHiddenMessageRequests,
+                        unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+                        conversations: loadResult.info.currentIds.compactMap { self.itemCache[$0] },
+                        loadedInfo: loadResult.info,
+                        using: dependencies
+                    )
                 )
-                self.unobservedThreadDataChanges = nil
+                
+                return updatedState
+            }
+            .assign { [weak self] updatedValue in self?.state = updatedValue }
+    }
+    
+    internal func extractIdsNeedingRequery(
+        events: Set<ObservedEvent>,
+        cache: [String: SessionThreadViewModel]
+    ) -> Set<String> {
+        return events.reduce(into: []) { result, event in
+            switch (event.key.generic, event.value) {
+                case (.conversationUpdated, let event as ConversationEvent): result.insert(event.id)
+                case (.typingIndicator, let event as TypingIndicatorEvent): result.insert(event.threadId)
+                    
+                case (.messageCreated, let event as MessageEvent),
+                    (.messageUpdated, let event as MessageEvent),
+                    (.messageDeleted, let event as MessageEvent):
+                    result.insert(event.threadId)
+                    
+                case (.profile, let event as ProfileEvent):
+                    result.insert(
+                        contentsOf: Set(cache.values
+                            .filter { threadViewModel -> Bool in
+                                threadViewModel.threadId == event.id ||
+                                threadViewModel.allProfileIds.contains(event.id)
+                            }
+                            .map { $0.threadId })
+                    )
+                
+                case (.contact, let event as ContactEvent):
+                    result.insert(
+                        contentsOf: Set(cache.values
+                            .filter { threadViewModel -> Bool in
+                                threadViewModel.threadId == event.id ||
+                                threadViewModel.allProfileIds.contains(event.id)
+                            }
+                            .map { $0.threadId })
+                    )
+                    
+                default: break
             }
         }
     }
     
-    private func process(data: [SessionThreadViewModel], for pageInfo: PagedData.PageInfo) -> [SectionModel] {
-        let finalUnreadMessageRequestCount: Int = (self.state.hasHiddenMessageRequests ?
-            0 :
-            self.state.unreadMessageRequestThreadCount
-        )
-        let groupedOldData: [String: [SessionThreadViewModel]] = (self.threadData
-            .first(where: { $0.model == .threads })?
-            .elements)
-            .defaulting(to: [])
-            .grouped(by: \.threadId)
-        
+    private static func process(
+        hasHiddenMessageRequests: Bool,
+        unreadMessageRequestThreadCount: Int,
+        conversations: [SessionThreadViewModel],
+        loadedInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>,
+        using dependencies: Dependencies
+    ) -> [SectionModel] {
         return [
-            // If there are no unread message requests then hide the message request banner
-            (finalUnreadMessageRequestCount == 0 ?
+            /// If the message request section is hidden or there are no unread message requests then hide the message request banner
+            (hasHiddenMessageRequests || unreadMessageRequestThreadCount == 0 ?
                 [] :
                 [SectionModel(
                     section: .messageRequests,
                     elements: [
                         SessionThreadViewModel(
                             threadId: SessionThreadViewModel.messageRequestsSectionId,
-                            unreadCount: UInt(finalUnreadMessageRequestCount),
+                            unreadCount: UInt(unreadMessageRequestThreadCount),
                             using: dependencies
                         )
                     ]
@@ -350,54 +398,68 @@ public class HomeViewModel: NavigatableStateHolder {
             [
                 SectionModel(
                     section: .threads,
-                    elements: data
-                        .filter { threadViewModel in
-                            threadViewModel.id != SessionThreadViewModel.invalidId &&
-                            threadViewModel.id != SessionThreadViewModel.messageRequestsSectionId
-                        }
-                        .sorted { lhs, rhs -> Bool in
-                            guard lhs.threadPinnedPriority == rhs.threadPinnedPriority else {
-                                return lhs.threadPinnedPriority > rhs.threadPinnedPriority
-                            }
-                            
-                            return lhs.lastInteractionDate > rhs.lastInteractionDate
-                        }
-                        .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingPostQueryData(
-                                currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                    .first?
-                                    .currentUserBlinded15SessionId,
-                                currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                    .first?
-                                    .currentUserBlinded25SessionId,
-                                wasKickedFromGroup: (
-                                    viewModel.threadVariant == .group &&
-                                    LibSession.wasKickedFromGroup(
-                                        groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                        using: dependencies
-                                    )
-                                ),
-                                groupIsDestroyed: (
-                                    viewModel.threadVariant == .group &&
-                                    LibSession.groupIsDestroyed(
-                                        groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                        using: dependencies
-                                    )
-                                ),
-                                threadCanWrite: false,  // Irrelevant for the HomeViewModel
-                                using: dependencies
-                            )
-                        }
+                    elements: conversations.map { viewModel -> SessionThreadViewModel in
+                        viewModel.populatingPostQueryData(
+                            recentReactionEmoji: nil,
+                            openGroupCapabilities: nil,
+                            // TODO: [Database Relocation] Do we need all of these????
+                            currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                            wasKickedFromGroup: (
+                                viewModel.threadVariant == .group &&
+                                dependencies.mutate(cache: .libSession) { cache in
+                                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                                }
+                            ),
+                            groupIsDestroyed: (
+                                viewModel.threadVariant == .group &&
+                                dependencies.mutate(cache: .libSession) { cache in
+                                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                                }
+                            ),
+                            threadCanWrite: false  // Irrelevant for the HomeViewModel
+                        )
+                    }
                 )
             ],
-            (!data.isEmpty && (pageInfo.pageOffset + pageInfo.currentCount) < pageInfo.totalCount ?
+            (!conversations.isEmpty && loadedInfo.hasNextPage ?
                 [SectionModel(section: .loadMore)] :
                 []
             )
         ].flatMap { $0 }
     }
     
-    public func updateThreadData(_ updatedData: [SectionModel]) {
-        self.threadData = updatedData
+    // MARK: - Functions
+    
+    public func loadNextPage() {
+        Task { [loadedPageInfo = state.loadedPageInfo, observationManager = dependencies[singleton: .observationManager]] in
+            await observationManager.notify(
+                .loadPage(HomeViewModel.observationName),
+                value: LoadPageEvent.nextPage(lastIndex: loadedPageInfo.lastIndex)
+            )
+        }
+    }
+}
+
+// MARK: - Convenience
+
+private extension ObservedEvent {
+    var requiresDatabaseQueryForHomeViewModel: Bool {
+        /// Any event requires a database query
+        switch self.key.generic {
+            case .loadPage: return true
+            case GenericObservableKey(.unreadMessageRequestMessageReceived): return true
+            case GenericObservableKey(.messageRequestAccepted): return true
+            case GenericObservableKey(.conversationCreated): return true
+            case GenericObservableKey(.messageCreatedInAnyConversation): return true
+            case .typingIndicator: return true
+                
+            /// We only observe events from records we have explicitly fetched so if we get an event for one of these then we need to
+            /// trigger an update
+            case .conversationUpdated, .conversationDeleted: return true
+            case .messageCreated, .messageUpdated, .messageDeleted: return true
+            case .profile: return true
+            case .contact: return true
+            default: return false
+        }
     }
 }

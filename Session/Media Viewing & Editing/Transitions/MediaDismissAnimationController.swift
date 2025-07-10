@@ -2,10 +2,12 @@
 
 import UIKit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 class MediaDismissAnimationController: NSObject {
-    private let mediaItem: Media
+    private let dependencies: Dependencies
+    private let attachment: Attachment
     public let interactionController: MediaInteractiveDismiss?
 
     var fromView: UIView?
@@ -15,13 +17,9 @@ class MediaDismissAnimationController: NSObject {
     var fromMediaFrame: CGRect?
     var pendingCompletion: (() -> ())?
 
-    init(galleryItem: MediaGalleryViewModel.Item, interactionController: MediaInteractiveDismiss? = nil, using dependencies: Dependencies) {
-        self.mediaItem = .gallery(galleryItem, dependencies)
-        self.interactionController = interactionController
-    }
-
-    init(image: UIImage, interactionController: MediaInteractiveDismiss? = nil) {
-        self.mediaItem = .image(image)
+    init(attachment: Attachment, interactionController: MediaInteractiveDismiss? = nil, using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        self.attachment = attachment
         self.interactionController = interactionController
     }
 }
@@ -36,14 +34,10 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
         let fromContextProvider: MediaPresentationContextProvider
         let toContextProvider: MediaPresentationContextProvider
 
-        guard let fromVC: UIViewController = transitionContext.viewController(forKey: .from) else {
-            transitionContext.completeTransition(false)
-            return
-        }
-        guard let toVC: UIViewController = transitionContext.viewController(forKey: .to) else {
-            transitionContext.completeTransition(false)
-            return
-        }
+        guard
+            let fromVC: UIViewController = transitionContext.viewController(forKey: .from),
+            let toVC: UIViewController = transitionContext.viewController(forKey: .to)
+        else { return fallbackTransition(context: transitionContext) }
 
         switch fromVC {
             case let contextProvider as MediaPresentationContextProvider:
@@ -54,24 +48,18 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
                     let firstChild: UIViewController = topBannerController.children.first,
                     let navController: UINavigationController = firstChild as? UINavigationController,
                     let contextProvider = navController.topViewController as? MediaPresentationContextProvider
-                else {
-                    transitionContext.completeTransition(false)
-                    return
-                }
+                else { return fallbackTransition(context: transitionContext) }
                 
                 fromContextProvider = contextProvider
 
             case let navController as UINavigationController:
-                guard let contextProvider = navController.topViewController as? MediaPresentationContextProvider else {
-                    transitionContext.completeTransition(false)
-                    return
-                }
+                guard
+                    let contextProvider = navController.topViewController as? MediaPresentationContextProvider
+                else { return fallbackTransition(context: transitionContext) }
 
                 fromContextProvider = contextProvider
 
-            default:
-                transitionContext.completeTransition(false)
-                return
+            default: return fallbackTransition(context: transitionContext)
         }
 
         switch toVC {
@@ -84,38 +72,33 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
                     let firstChild: UIViewController = topBannerController.children.first,
                     let navController: UINavigationController = firstChild as? UINavigationController,
                     let contextProvider = navController.topViewController as? MediaPresentationContextProvider
-                else {
-                    transitionContext.completeTransition(false)
-                    return
-                }
+                else { return fallbackTransition(context: transitionContext) }
                 
                 toVC.view.layoutIfNeeded()
                 toContextProvider = contextProvider
 
             case let navController as UINavigationController:
-                guard let contextProvider = navController.topViewController as? MediaPresentationContextProvider else {
-                    transitionContext.completeTransition(false)
-                    return
-                }
+                guard
+                    let contextProvider = navController.topViewController as? MediaPresentationContextProvider
+                else { return fallbackTransition(context: transitionContext) }
 
                 toVC.view.layoutIfNeeded()
                 toContextProvider = contextProvider
 
-            default:
-                transitionContext.completeTransition(false)
-                return
+            default: return fallbackTransition(context: transitionContext)
         }
 
-        guard let fromMediaContext: MediaPresentationContext = fromContextProvider.mediaPresentationContext(mediaItem: mediaItem, in: containerView) else {
-            transitionContext.completeTransition(false)
-            return
-        }
-
-        guard let presentationImage: UIImage = mediaItem.image else {
-            transitionContext.completeTransition(true)
-            return
-        }
-
+        guard
+            let fromMediaContext: MediaPresentationContext = fromContextProvider.mediaPresentationContext(
+                mediaId: attachment.id,
+                in: containerView
+            ),
+            let presentationSource: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
+                attachment: attachment,
+                using: dependencies
+            )
+        else { return fallbackTransition(context: transitionContext) }
+        
         // fromView will be nil if doing a presentation, in which case we don't want to add the view -
         // it will automatically be added to the view hierarchy, in front of the VC we're presenting from
         if let fromView: UIView = transitionContext.view(forKey: .from) {
@@ -129,19 +112,34 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
             containerView.insertSubview(toView, at: 0)
         }
 
-        let toMediaContext: MediaPresentationContext? = toContextProvider.mediaPresentationContext(mediaItem: mediaItem, in: containerView)
+        let toMediaContext: MediaPresentationContext? = toContextProvider.mediaPresentationContext(mediaId: attachment.id, in: containerView)
         let duration: CGFloat = transitionDuration(using: transitionContext)
 
         fromMediaContext.mediaView.alpha = 0
         toMediaContext?.mediaView.alpha = 0
 
-        let transitionView = UIImageView(image: presentationImage)
+        let transitionView: SessionImageView = SessionImageView(
+            dataManager: dependencies[singleton: .imageDataManager]
+        )
+        transitionView.loadImage(presentationSource)
         transitionView.frame = fromMediaContext.presentationFrame
         transitionView.contentMode = MediaView.contentMode
         transitionView.layer.masksToBounds = true
         transitionView.layer.cornerRadius = fromMediaContext.cornerRadius
         transitionView.layer.maskedCorners = (toMediaContext?.cornerMask ?? fromMediaContext.cornerMask)
         containerView.addSubview(transitionView)
+        
+        // Set the currently loaded image to prevent any odd delay and try to match the animation
+        // state to the source
+        transitionView.image = fromMediaContext.mediaView.image
+        
+        if fromMediaContext.mediaView.isAnimating {
+            transitionView.startAnimationLoop()
+            transitionView.setAnimationPoint(
+                index: fromMediaContext.mediaView.currentFrameIndex,
+                time: fromMediaContext.mediaView.accumulatedTime
+            )
+        }
 
         // Add any UI elements which should appear above the media view
         self.fromTransitionalOverlayView = {
@@ -251,6 +249,29 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
 
         self.pendingCompletion?()
         self.pendingCompletion = nil
+    }
+    
+    private func fallbackTransition(context: UIViewControllerContextTransitioning) {
+        let containerView = context.containerView
+        
+        /// iOS won't automatically handle failure cases so if we can't get the "from" context then we want to just complete
+        /// the change instantly so the user doesn't permanently get stuck on the screen
+        if context.transitionWasCancelled {
+            context.view(forKey: .from)?.isUserInteractionEnabled = true
+        }
+        else {
+            if let toView: UIView = context.view(forKey: .to) {
+                containerView.insertSubview(toView, at: 0)
+            }
+            
+            context.view(forKey: .from)?.removeFromSuperview()
+            
+            // Note: We shouldn't need to do this but for some reason it's not
+            // automatically getting re-enabled so we manually enable it
+            context.view(forKey: .to)?.isUserInteractionEnabled = true
+        }
+
+        context.completeTransition(!context.transitionWasCancelled)
     }
 }
 

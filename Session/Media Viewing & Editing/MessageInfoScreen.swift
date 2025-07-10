@@ -284,7 +284,7 @@ struct MessageInfoScreen: View {
                                         size: .message,
                                         publicKey: messageViewModel.authorId,
                                         threadVariant: .contact,    // Always show the display picture in 'contact' mode
-                                        displayPictureFilename: nil,
+                                        displayPictureUrl: nil,
                                         profile: messageViewModel.profile,
                                         profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                                         using: dependencies
@@ -484,9 +484,7 @@ struct MessageBubble: View {
                                     authorId: quote.authorId,
                                     quotedText: quote.body,
                                     threadVariant: messageViewModel.threadVariant,
-                                    currentUserSessionId: messageViewModel.currentUserSessionId,
-                                    currentUserBlinded15SessionId: messageViewModel.currentUserBlinded15SessionId,
-                                    currentUserBlinded25SessionId: messageViewModel.currentUserBlinded25SessionId,
+                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
                                     direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
                                     attachment: messageViewModel.quoteAttachment
                                 ),
@@ -612,7 +610,10 @@ struct MessageInfoView_Previews: PreviewProvider {
             expiresInSeconds: nil,
             state: .failed,
             isSenderModeratorOrAdmin: false,
-            currentUserProfile: Profile.fetchOrCreateCurrentUser(using: dependencies),
+            currentUserProfile: Profile(
+                id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                name: "TestUser"
+            ),
             quote: nil,
             quoteAttachment: nil,
             linkPreview: nil,

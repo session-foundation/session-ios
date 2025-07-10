@@ -10,6 +10,7 @@ public enum AttachmentError: LocalizedError {
     case notUploaded
     case invalidData
     case encryptionFailed
+    case uploadIsStillPendingDownload
 
     public var errorDescription: String? {
         switch self {
@@ -18,6 +19,7 @@ public enum AttachmentError: LocalizedError {
             case .notUploaded: return "Attachment not uploaded."
             case .invalidData: return "Invalid attachment data."
             case .encryptionFailed: return "Couldn't encrypt file."
+            case .uploadIsStillPendingDownload: return "Upload is still pending download."
         }
     }
 }

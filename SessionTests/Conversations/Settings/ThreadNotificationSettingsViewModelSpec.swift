@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class ThreadNotificationSettingsViewModelSpec: QuickSpec {
+class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -32,8 +32,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
-                    creationDateTimestamp: 0,
-                    using: dependencies
+                    creationDateTimestamp: 0
                 ).insert(db)
             }
         )
@@ -47,8 +46,12 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                     .thenReturn(nil)
             }
         )
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
         @TestState var viewModel: ThreadNotificationSettingsViewModel! = ThreadNotificationSettingsViewModel(
             threadId: "TestId",
+            threadVariant: .contact,
             threadNotificationSettings: .init(
                 threadOnlyNotifyForMentions: nil,
                 threadMutedUntilTimestamp: nil
@@ -142,11 +145,14 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                         .filter(id: "TestId")
                         .updateAll(
                             db,
-                            SessionThread.Columns.mutedUntilTimestamp.set(to: Date.distantFuture.timeIntervalSince1970)
+                            SessionThread.Columns.mutedUntilTimestamp.set(
+                                to: Date.distantFuture.timeIntervalSince1970
+                            )
                         )
                 }
                 viewModel = ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
+                    threadVariant: .contact,
                     threadNotificationSettings: .init(
                         threadOnlyNotifyForMentions: false,
                         threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
@@ -252,6 +258,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 }
                 viewModel = ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
+                    threadVariant: .contact,
                     threadNotificationSettings: .init(
                         threadOnlyNotifyForMentions: false,
                         threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
@@ -268,7 +275,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 )
                 
                 // Change to another setting
-                viewModel.tableData.first?.elements.first?.onTap?()
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 
                 cancellables.append(
                     viewModel.footerButtonInfo
@@ -295,7 +302,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 ))
                 
                 // Change back
-                viewModel.tableData.first?.elements.last?.onTap?()
+                await viewModel.tableData.first?.elements.last?.onTap?()
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -358,7 +365,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                             )
                     )
                     
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
                 // MARK: ---- shows the set button
@@ -396,24 +403,23 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                                 )
                         )
                         
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        expect(didDismissScreen).to(beTrue())
+                        await expect(didDismissScreen).toEventually(beTrue())
                     }
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        let updatedSettings: TimeInterval? = mockStorage.read { db in
-                            try SessionThread
-                                .select(SessionThread.Columns.mutedUntilTimestamp)
-                                .filter(id: "TestId")
-                                .asRequest(of: TimeInterval.self)
-                                .fetchOne(db)
-                        }
-                        
-                        expect(updatedSettings).to(beGreaterThan(0))
+                        await expect(mockNotificationsManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.updateSettings(
+                                threadId: "TestId",
+                                threadVariant: .contact,
+                                mentionsOnly: false,
+                                mutedUntil: Date.distantFuture.timeIntervalSince1970
+                            )
+                        })
                     }
                 }
             }

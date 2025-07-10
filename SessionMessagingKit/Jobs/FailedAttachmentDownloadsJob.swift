@@ -26,18 +26,52 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
-        guard Identity.userExists(using: dependencies) else { return success(job, false) }
+        guard dependencies[cache: .general].userExists else { return success(job, false) }
         
         var changeCount: Int = -1
         
         // Update all 'sending' message states to 'failed'
-        dependencies[singleton: .storage].write { db in
-            changeCount = try Attachment
-                .filter(Attachment.Columns.state == Attachment.State.downloading)
-                .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
-        }
-        
-        Log.info(.cat, "Marked \(changeCount) attachments as failed")
-        success(job, false)
+        dependencies[singleton: .storage]
+            .writePublisher { db in
+                let attachmentIds: Set<String> = try Attachment
+                    .select(.id)
+                    .filter(Attachment.Columns.state == Attachment.State.downloading)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                let interactionAttachment: [InteractionAttachment] = try InteractionAttachment
+                    .filter(attachmentIds.contains(InteractionAttachment.Columns.attachmentId))
+                    .fetchAll(db)
+                
+                try Attachment
+                    .filter(attachmentIds.contains(Attachment.Columns.id))
+                    .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
+                changeCount = attachmentIds.count
+                
+                interactionAttachment.forEach { val in
+                    db.addAttachmentEvent(
+                        id: val.attachmentId,
+                        messageId: val.interactionId,
+                        type: .updated(.state(.failedDownload))
+                    )
+                }
+                
+                /// Shouldn't be possible but just in case
+                if attachmentIds.count != interactionAttachment.count {
+                    let remainingIds: Set<String> = attachmentIds
+                        .removing(contentsOf: Set(interactionAttachment.map { $0.attachmentId }))
+                    
+                    remainingIds.forEach { id in
+                        db.addAttachmentEvent(id: id, messageId: nil, type: .updated(.state(.failedDownload)))
+                    }
+                }
+            }
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
+            .sinkUntilComplete(
+                receiveCompletion: { _ in
+                    Log.info(.cat, "Marked \(changeCount) attachments as failed")
+                    success(job, false)
+                }
+            )
     }
 }

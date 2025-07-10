@@ -29,8 +29,8 @@ extension SessionNetworkScreenContent {
             self.dataModel = DataModel()
             
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            self.observationCancellable = ValueObservation
-                .tracking { [dependencies] db in
+            self.observationCancellable = ObservationBuilderOld
+                .databaseObservation(dependencies) { [dependencies] db in
                     let swarmNodesCount: Int = dependencies[cache: .libSessionNetwork].snodeNumber[userSessionId.hexString] ?? 0
                     let snodeInTotal: Int = {
                         let pathsCount: Int = dependencies[cache: .libSessionNetwork].currentPaths.count
@@ -64,7 +64,6 @@ extension SessionNetworkScreenContent {
                         lastUpdatedTimestampMs: db[.lastUpdatedTimestampMs]
                     )
                 }
-                .publisher(in: dependencies[singleton: .storage], scheduling: .immediate)
                 .sink(
                     receiveCompletion: { _ in /* ignore error */ },
                     receiveValue: { [weak self] dataModel in

@@ -11,7 +11,7 @@ enum _002_SetupStandardJobs: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         /// This job exists in the 'Session' target but that doesn't have it's own migrations
         ///
         /// **Note:** We actually need this job to run both onLaunch and onActive as the logic differs slightly and there are cases
@@ -31,6 +31,6 @@ enum _002_SetupStandardJobs: Migration {
                 )
         """)
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

@@ -12,9 +12,7 @@ public struct QuotedReplyModel {
     public let contentType: String?
     public let sourceFileName: String?
     public let thumbnailDownloadFailed: Bool
-    public let currentUserSessionId: String?
-    public let currentUserBlinded15SessionId: String?
-    public let currentUserBlinded25SessionId: String?
+    public let currentUserSessionIds: Set<String>
     
     // MARK: - Initialization
     
@@ -27,9 +25,7 @@ public struct QuotedReplyModel {
         contentType: String?,
         sourceFileName: String?,
         thumbnailDownloadFailed: Bool,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?
+        currentUserSessionIds: Set<String>
     ) {
         self.attachment = attachment
         self.threadId = threadId
@@ -39,9 +35,7 @@ public struct QuotedReplyModel {
         self.contentType = contentType
         self.sourceFileName = sourceFileName
         self.thumbnailDownloadFailed = thumbnailDownloadFailed
-        self.currentUserSessionId = currentUserSessionId
-        self.currentUserBlinded15SessionId = currentUserBlinded15SessionId
-        self.currentUserBlinded25SessionId = currentUserBlinded25SessionId
+        self.currentUserSessionIds = currentUserSessionIds
     }
     
     public static func quotedReplyForSending(
@@ -52,9 +46,7 @@ public struct QuotedReplyModel {
         timestampMs: Int64,
         attachments: [Attachment]?,
         linkPreviewAttachment: Attachment?,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?
+        currentUserSessionIds: Set<String>
     ) -> QuotedReplyModel? {
         guard variant == .standardOutgoing || variant == .standardIncoming else { return nil }
         guard (body != nil && body?.isEmpty == false) || attachments?.isEmpty == false else { return nil }
@@ -70,9 +62,7 @@ public struct QuotedReplyModel {
             contentType: targetAttachment?.contentType,
             sourceFileName: targetAttachment?.sourceFilename,
             thumbnailDownloadFailed: false,
-            currentUserSessionId: currentUserSessionId,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId
+            currentUserSessionIds: currentUserSessionIds
         )
     }
 }

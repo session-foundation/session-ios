@@ -792,7 +792,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.profile != updatedThreadData.profile ||
             viewModel.threadData.additionalProfile != updatedThreadData.additionalProfile ||
-            viewModel.threadData.displayPictureFilename != updatedThreadData.displayPictureFilename
+            viewModel.threadData.threadDisplayPictureUrl != updatedThreadData.threadDisplayPictureUrl
         {
             updateNavBarButtons(
                 threadData: updatedThreadData,
@@ -1383,7 +1383,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             profilePictureView.update(
                 publicKey: threadData.threadId,  // Contact thread uses the contactId
                 threadVariant: threadData.threadVariant,
-                displayPictureFilename: threadData.displayPictureFilename,
+                displayPictureUrl: threadData.threadDisplayPictureUrl,
                 profile: threadData.profile,
                 additionalProfile: threadData.additionalProfile,
                 using: viewModel.dependencies
@@ -1980,10 +1980,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.searchController.resultsBar.startLoading()
             
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.pagedDataObserver?.load(.jumpTo(
-                    id: interactionInfo.id,
-                    paddingForInclusive: 5
-                ))
+                self?.viewModel.pagedDataObserver?.load(.jumpTo(id: interactionInfo.id, padding: 5))
             }
             return
         }

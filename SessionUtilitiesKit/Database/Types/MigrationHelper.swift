@@ -8,7 +8,7 @@ import GRDB
 /// Since we want to avoid using logic outside of the database during migrations wherever possible these functions provide funcitonality
 /// shared across multiple migrations
 public enum MigrationHelper {
-    public static func userExists(_ db: Database) -> Bool {
+    public static func userExists(_ db: ObservingDatabase) -> Bool {
         let numEdSecretKeys: Int? = try? Int.fetchOne(
             db,
             sql: "SELECT COUNT(*) FROM identity WHERE variant == 'ed25519SecretKey'"
@@ -17,13 +17,13 @@ public enum MigrationHelper {
         return ((numEdSecretKeys ?? 0) > 0)
     }
     
-    public static func userSessionId(_ db: Database) -> SessionId {
+    public static func userSessionId(_ db: ObservingDatabase) -> SessionId {
         let pubkey: Data? = fetchIdentityValue(db, key: "x25519PublicKey")
         
         return SessionId(.standard, publicKey: (pubkey.map { Array($0) } ?? []))
     }
     
-    public static func fetchIdentityValue(_ db: Database, key: String) -> Data? {
+    public static func fetchIdentityValue(_ db: ObservingDatabase, key: String) -> Data? {
         return try? Data.fetchOne(
             db,
             sql: "SELECT data FROM identity WHERE variant == ?",
@@ -31,7 +31,7 @@ public enum MigrationHelper {
         )
     }
     
-    public static func configDump(_ db: Database, for rawVariant: String) -> Data? {
+    public static func configDump(_ db: ObservingDatabase, for rawVariant: String) -> Data? {
         return try? Data.fetchOne(
             db,
             sql: "SELECT data FROM configDump WHERE variant == ?",

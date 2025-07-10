@@ -9,7 +9,7 @@ enum _004_AddJobPriority: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Add `priority` to the job table
         try db.alter(table: "job") { t in
             t.add(column: "priority", .integer).defaults(to: 0)
@@ -35,6 +35,6 @@ enum _004_AddJobPriority: Migration {
             """)
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

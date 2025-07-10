@@ -82,7 +82,12 @@ public class DataSourceValue: DataSource {
     public var isValidVideo: Bool {
         guard let dataUrl: URL = self.dataUrl else { return false }
         
-        return MediaUtils.isValidVideo(path: dataUrl.path, using: dependencies)
+        return MediaUtils.isValidVideo(
+            path: dataUrl.path,
+            mimeType: UTType.sessionMimeType(for: fileExtension),
+            sourceFilename: sourceFilename,
+            using: dependencies
+        )
     }
     
     // MARK: - Initialization
@@ -211,7 +216,12 @@ public class DataSourcePath: DataSource {
     public var isValidVideo: Bool {
         guard let dataUrl: URL = self.dataUrl else { return false }
         
-        return MediaUtils.isValidVideo(path: dataUrl.path, using: dependencies)
+        return MediaUtils.isValidVideo(
+            path: dataUrl.path,
+            mimeType: mimeType,
+            sourceFilename: sourceFilename,
+            using: dependencies
+        )
     }
 
     // MARK: - Initialization

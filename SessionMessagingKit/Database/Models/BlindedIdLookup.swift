@@ -70,7 +70,7 @@ public extension BlindedIdLookup {
     /// If we can't find a match this method will still store a lookup, just with no standard sessionId value (this gives us a method to
     /// link back to the open group the blindedId originated from)
     static func fetchOrCreate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         blindedId: String,
         sessionId: String? = nil,
         openGroupServer: String,
@@ -141,6 +141,8 @@ public extension BlindedIdLookup {
                         Contact.Columns.isApproved.set(to: true),
                         using: dependencies
                     )
+                
+                db.addContactEvent(id: contact.id, change: .isApproved(true))
             }
             
             break

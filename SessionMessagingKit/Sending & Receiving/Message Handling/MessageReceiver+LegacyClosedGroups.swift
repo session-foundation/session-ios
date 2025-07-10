@@ -8,7 +8,7 @@ import SessionSnodeKit
 
 extension MessageReceiver {
     internal static func handleNewLegacyClosedGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         legacyGroupSessionId: String,
         name: String,
         members: [String],
@@ -21,7 +21,6 @@ extension MessageReceiver {
         // approved contact (to prevent spam via closed groups getting around message requests if users are
         // on old or modified clients)
         var hasApprovedAdmin: Bool = false
-        let receivedTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
 
         for adminId in admins {
             if let contact: Contact = try? Contact.fetchOne(db, id: adminId), contact.isApproved {
@@ -35,7 +34,7 @@ extension MessageReceiver {
         guard hasApprovedAdmin || forceApprove else { return }
 
         // Create the group
-        let thread: SessionThread = try SessionThread.upsert(
+        _ = try SessionThread.upsert(
             db,
             id: legacyGroupSessionId,
             variant: .legacyGroup,
@@ -45,7 +44,7 @@ extension MessageReceiver {
             ),
             using: dependencies
         )
-        let closedGroup: ClosedGroup = try ClosedGroup(
+        _ = try ClosedGroup(
             threadId: legacyGroupSessionId,
             name: name,
             formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),

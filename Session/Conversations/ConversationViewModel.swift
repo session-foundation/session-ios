@@ -108,7 +108,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }()
     
     // MARK: - Initialization
-    
+    // TODO: [Database Relocation] Initialise this with the thread data from the home screen (might mean we can avoid some of the `initialData` query?
     init(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -125,8 +125,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             currentUserIsClosedGroupAdmin: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
             threadWasMarkedUnread: Bool,
-            blinded15SessionId: SessionId?,
-            blinded25SessionId: SessionId?
+            currentUserSessionIds: Set<String>
         )
         
         let initialData: InitialData? = dependencies[singleton: .storage].read { db -> InitialData in
@@ -216,20 +215,28 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 .asRequest(of: Bool.self)
                 .fetchOne(db))
                 .defaulting(to: false)
-            let blinded15SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded15,
-                using: dependencies
-            )
-            let blinded25SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded25,
-                using: dependencies
-            )
+            var currentUserSessionIds: Set<String> = Set([userSessionId.hexString])
+            
+            if
+                threadVariant == .community,
+                let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                    .fetchOne(db, id: threadId)
+            {
+                currentUserSessionIds = currentUserSessionIds.inserting(SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded15,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                )?.hexString)
+                currentUserSessionIds = currentUserSessionIds.inserting(SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded25,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                )?.hexString)
+            }
             
             return (
                 userSessionId,
@@ -241,8 +248,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 currentUserIsClosedGroupAdmin,
                 openGroupPermissions,
                 threadWasMarkedUnread,
-                blinded15SessionId,
-                blinded25SessionId
+                currentUserSessionIds
             )
         }
         
@@ -264,18 +270,25 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
         ).populatingPostQueryData(
-            currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,
-            currentUserBlinded25SessionIdForThisThread: initialData?.blinded25SessionId?.hexString,
+            recentReactionEmoji: nil,
+            openGroupCapabilities: nil,
+            currentUserSessionIds: (
+                initialData?.currentUserSessionIds ??
+                [dependencies[cache: .general].sessionId.hexString]
+            ),
             wasKickedFromGroup: (
                 threadVariant == .group &&
-                LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
+                dependencies.mutate(cache: .libSession) { cache in
+                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId))
+                }
             ),
             groupIsDestroyed: (
                 threadVariant == .group &&
-                LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
+                dependencies.mutate(cache: .libSession) { cache in
+                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                }
             ),
-            threadCanWrite: true,   // Assume true
-            using: dependencies
+            threadCanWrite: true   // Assume true
         )
         self.pagedDataObserver = nil
         self.dependencies = dependencies
@@ -287,8 +300,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         self.pagedDataObserver = self.setupPagedObserver(
             for: threadId,
             userSessionId: (initialData?.userSessionId ?? dependencies[cache: .general].sessionId),
-            blinded15SessionId: initialData?.blinded15SessionId,
-            blinded25SessionId: initialData?.blinded25SessionId,
+            currentUserSessionIds: (
+                initialData?.currentUserSessionIds ??
+                [dependencies[cache: .general].sessionId.hexString]
+            ),
             using: dependencies
         )
         
@@ -329,44 +344,50 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public lazy var observableThreadData: ThreadObservation = setupObservableThreadData(for: self.threadId)
     
     private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
-        return ValueObservation
-            .trackingConstantRegion { [weak self, dependencies] db -> SessionThreadViewModel? in
+        return ObservationBuilderOld
+            .databaseObservation(dependencies) { [weak self, dependencies] db -> SessionThreadViewModel? in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userSessionId: userSessionId)
                     .fetchOne(db)
+                let openGroupCapabilities: Set<Capability.Variant>? = (threadViewModel?.threadVariant != .community ?
+                    nil :
+                    try Capability
+                        .select(.variant)
+                        .filter(Capability.Columns.openGroupServer == threadViewModel?.openGroupServer?.lowercased())
+                        .filter(Capability.Columns.isMissing == false)
+                        .asRequest(of: Capability.Variant.self)
+                        .fetchSet(db)
+                )
                 
-                return threadViewModel
-                    .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
-                    .map { viewModel -> SessionThreadViewModel in
-                        let wasKickedFromGroup: Bool = (
-                            viewModel.threadVariant == .group &&
-                            LibSession.wasKickedFromGroup(
-                                groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                using: dependencies
-                            )
-                        )
-                        let groupIsDestroyed: Bool = (
-                            viewModel.threadVariant == .group &&
-                            LibSession.groupIsDestroyed(
-                                groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                using: dependencies
-                            )
-                        )
-                        
-                        return viewModel.populatingPostQueryData(
-                            db,
-                            currentUserBlinded15SessionIdForThisThread: self?.threadData.currentUserBlinded15SessionId,
-                            currentUserBlinded25SessionIdForThisThread: self?.threadData.currentUserBlinded25SessionId,
-                            wasKickedFromGroup: wasKickedFromGroup,
-                            groupIsDestroyed: groupIsDestroyed,
-                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
-                            using: dependencies
-                        )
-                    }
+                return threadViewModel.map { viewModel -> SessionThreadViewModel in
+                    let wasKickedFromGroup: Bool = (
+                        viewModel.threadVariant == .group &&
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                        }
+                    )
+                    let groupIsDestroyed: Bool = (
+                        viewModel.threadVariant == .group &&
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                        }
+                    )
+                    
+                    return viewModel.populatingPostQueryData(
+                        recentReactionEmoji: recentReactionEmoji,
+                        openGroupCapabilities: openGroupCapabilities,
+                        currentUserSessionIds: (
+                            self?.threadData.currentUserSessionIds ??
+                            [userSessionId.hexString]
+                        ),
+                        wasKickedFromGroup: wasKickedFromGroup,
+                        groupIsDestroyed: groupIsDestroyed,
+                        threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies)
+                    )
+                }
             }
-            .removeDuplicates()
             .handleEvents(didFail: { Log.error(.conversation, "Observation failed with error: \($0)") })
     }
 
@@ -436,8 +457,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private func setupPagedObserver(
         for threadId: String,
         userSessionId: SessionId,
-        blinded15SessionId: SessionId?,
-        blinded25SessionId: SessionId?,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
         return PagedDatabaseObserver(
@@ -481,7 +501,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 ),
                 PagedData.ObservedChanges(
                     table: Profile.self,
-                    columns: [.profilePictureFileName],
+                    columns: [.displayPictureUrl],
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
@@ -505,8 +525,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             orderSQL: MessageViewModel.orderSQL,
             dataQuery: MessageViewModel.baseQuery(
                 userSessionId: userSessionId,
-                blinded15SessionId: blinded15SessionId,
-                blinded25SessionId: blinded25SessionId,
+                currentUserSessionIds: currentUserSessionIds,
                 orderSQL: MessageViewModel.orderSQL,
                 groupSQL: MessageViewModel.groupSQL
             ),
@@ -562,14 +581,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     ],
                     dataQuery: MessageViewModel.QuotedInfo.baseQuery(
                         userSessionId: userSessionId,
-                        blinded15SessionId: blinded15SessionId,
-                        blinded25SessionId: blinded25SessionId
+                        currentUserSessionIds: currentUserSessionIds
                     ),
-                    joinToPagedType: MessageViewModel.QuotedInfo.joinToViewModelQuerySQL(
-                        userSessionId: userSessionId,
-                        blinded15SessionId: blinded15SessionId,
-                        blinded25SessionId: blinded25SessionId
-                    ),
+                    joinToPagedType: MessageViewModel.QuotedInfo.joinToViewModelQuerySQL(),
                     retrieveRowIdsForReferencedRowIds: MessageViewModel.QuotedInfo.createReferencedRowIdsRetriever(),
                     associateData: MessageViewModel.QuotedInfo.createAssociateDataClosure()
                 )
@@ -635,16 +649,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                 ),
                                 isLastOutgoing: (
                                     cellViewModel.id == sortedData
-                                        .filter {
-                                            $0.authorId == threadData.currentUserSessionId ||
-                                            $0.authorId == threadData.currentUserBlinded15SessionId ||
-                                            $0.authorId == threadData.currentUserBlinded25SessionId
-                                        }
+                                        .filter { (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                                         .last?
                                         .id
                                 ),
-                                currentUserBlinded15SessionId: threadData.currentUserBlinded15SessionId,
-                                currentUserBlinded25SessionId: threadData.currentUserBlinded25SessionId,
+                                currentUserSessionIds: (threadData.currentUserSessionIds ?? []),
                                 using: dependencies
                             )
                         }
@@ -710,20 +719,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
         let threadData: SessionThreadViewModel = self.internalThreadData
-        let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
+        let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
-            authorId: (threadData.currentUserBlinded15SessionId ?? threadData.currentUserSessionId),
+            authorId: (threadData.currentUserSessionIds ?? [])
+                .first { $0.hasPrefix(SessionId.Prefix.blinded15.rawValue) }
+                .defaulting(to: threadData.currentUserSessionId),
             variant: .standardOutgoing,
             body: text,
             timestampMs: sentTimestampMs,
             hasMention: Interaction.isUserMentioned(
-                publicKeysToCheck: [
-                    threadData.currentUserSessionId,
-                    threadData.currentUserBlinded15SessionId,
-                    threadData.currentUserBlinded25SessionId
-                ].compactMap { $0 },
+                publicKeysToCheck: (threadData.currentUserSessionIds ?? []),
                 body: text
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
@@ -734,7 +741,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             using: dependencies
         )
         let optimisticAttachments: [Attachment]? = attachments
-            .map { Attachment.prepare(attachments: $0, using: dependencies) }
+            .map { AttachmentUploader.prepare(attachments: $0, using: dependencies) }
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(
                 imageData: draft.jpegImageData,
@@ -769,7 +776,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         return dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                             publicKey: threadData.currentUserSessionId,
                             for: threadData.openGroupRoomToken,
-                            on: threadData.openGroupServer
+                            on: threadData.openGroupServer,
+                            currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
                         )
                         
                     default: return false
@@ -782,8 +790,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     interactionId: -1,    // Can't save to db optimistically
                     authorId: model.authorId,
                     timestampMs: model.timestampMs,
-                    body: model.body,
-                    attachmentId: model.attachment?.id
+                    body: model.body
                 )
             },
             quoteAttachment: quoteModel?.attachment,
@@ -915,12 +922,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
                 return (try MentionInfo
                     .query(
-                        userPublicKey: userSessionId.hexString,
                         threadId: threadData.threadId,
                         threadVariant: threadData.threadVariant,
                         targetPrefixes: targetPrefixes,
-                        currentUserBlinded15SessionId: self?.threadData.currentUserBlinded15SessionId,
-                        currentUserBlinded25SessionId: self?.threadData.currentUserBlinded25SessionId,
+                        currentUserSessionIds: (
+                            self?.threadData.currentUserSessionIds ??
+                            [userSessionId.hexString]
+                        ),
                         pattern: pattern
                     )?
                     .fetchAll(db))
@@ -1017,8 +1025,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         self.pagedDataObserver = self.setupPagedObserver(
             for: updatedThreadId,
             userSessionId: dependencies[cache: .general].sessionId,
-            blinded15SessionId: nil,
-            blinded25SessionId: nil,
+            currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
             using: dependencies
         )
         
@@ -1037,6 +1044,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             try Contact
                 .filter(id: threadId)
                 .updateAll(db, Contact.Columns.isTrusted.set(to: true))
+            db.addContactEvent(id: threadId, change: .isTrusted(true))
             
             // Start downloading any pending attachments for this contact (UI will automatically be
             // updated due to the database observation)
@@ -1071,6 +1079,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     Contact.Columns.isBlocked.set(to: false),
                     using: dependencies
                 )
+            db.addContactEvent(id: threadId, change: .isBlocked(false))
         }
     }
     
@@ -1137,8 +1146,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             let attachment: Attachment = viewModel.attachments?.first,
             attachment.isAudio,
             attachment.isValid,
-            let originalFilePath: String = attachment.originalFilePath(using: dependencies),
-            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+            let path: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
+            dependencies[singleton: .fileManager].fileExists(atPath: path)
         else { return nil }
         
         // Create the info with the update callback
@@ -1165,8 +1174,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         
         guard
             let attachment: Attachment = viewModel.attachments?.first,
-            let originalFilePath: String = attachment.originalFilePath(using: dependencies),
-            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+            let filePath: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
+            dependencies[singleton: .fileManager].fileExists(atPath: filePath)
         else { return }
         
         // If the user interacted with the currently playing item
@@ -1205,7 +1214,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         _audioPlayer.set(to: nil)
         
         let newAudioPlayer: OWSAudioPlayer = OWSAudioPlayer(
-            mediaUrl: URL(fileURLWithPath: originalFilePath),
+            mediaUrl: URL(fileURLWithPath: filePath),
             audioBehavior: .audioMessagePlayback,
             delegate: self
         )
@@ -1313,7 +1322,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 .firstIndex(where: { $0.id == interactionId }),
             currentIndex < (messageSection.elements.count - 1),
             messageSection.elements[currentIndex + 1].cellType == .voiceMessage,
-            dependencies[singleton: .storage, key: .shouldAutoPlayConsecutiveAudioMessages]
+            dependencies.mutate(cache: .libSession, { $0.get(.shouldAutoPlayConsecutiveAudioMessages) })
         else { return }
         
         let nextItem: MessageViewModel = messageSection.elements[currentIndex + 1]

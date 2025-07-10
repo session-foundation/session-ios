@@ -109,7 +109,7 @@ public extension LinkPreview {
                 return nil
             }
             guard let image = UIImage(data: imageData) else {
-                Log.error("[LinkPreview] Could not load image: \(imageAttachment?.localRelativeFilePath ?? "unknown")")
+                Log.error("[LinkPreview] Could not load image: \(imageAttachment?.downloadUrl ?? "unknown")")
                 return nil
             }
             

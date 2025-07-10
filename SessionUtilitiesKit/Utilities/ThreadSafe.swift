@@ -80,7 +80,11 @@ public class ThreadSafe<Value: ThreadSafeType> {
 public final class ThreadSafeObject<Value> {
     private var value: Value
     private let lock: ReadWriteLock = ReadWriteLock()
-    @ThreadSafe private var mutationThreadId: UInt32? = nil
+    
+    /// Since this value is a `UInt32` it aligns with the size of a memory address and can't result in a "Torn Read" (which is where
+    /// a crash occurs when one thread reads while another thread is writing), this is because the data change is atomic at the hardware
+    /// level so the reader would always get either the value from before or after the write, and never a partial value
+    private var mutationThreadId: UInt32? = nil
 
     public var wrappedValue: Value {
         guard mutationThreadId != Thread.current.threadId else { return value }

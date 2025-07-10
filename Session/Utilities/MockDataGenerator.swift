@@ -13,7 +13,7 @@ enum MockDataGenerator {
     static var printProgress: Bool = true
     static var hasStartedGenerationThisRun: Bool = false
     
-    static func generateMockData(_ db: Database, using dependencies: Dependencies) throws {
+    static func generateMockData(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Don't re-generate the mock data if it already exists
         guard
             !hasStartedGenerationThisRun &&

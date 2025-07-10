@@ -5,8 +5,10 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct SessionThread: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
     public static var databaseTableName: String { "thread" }
+    public static let idColumn: ColumnExpression = Columns.id
+    
     public static let contact = hasOne(Contact.self, using: Contact.threadForeignKey)
     public static let closedGroup = hasOne(ClosedGroup.self, using: ClosedGroup.threadForeignKey)
     public static let openGroup = hasOne(OpenGroup.self, using: OpenGroup.threadForeignKey)
@@ -26,7 +28,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case variant
         case creationDateTimestamp
         case shouldBeVisible
-        @available(*, deprecated, message: "use 'pinnedPriority > 0' instead") case isPinned
         case messageDraft
         case notificationSound
         case mutedUntilTimestamp
@@ -59,10 +60,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A flag indicating whether the thread should be visible
     public let shouldBeVisible: Bool
-    
-    /// A flag indicating whether the thread is pinned
-    @available(*, deprecated, message: "use 'pinnedPriority > 0' instead")
-    private let isPinned: Bool = false
     
     /// The value the user started entering into the input field before they left the conversation screen
     public let messageDraft: String?
@@ -127,8 +124,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         onlyNotifyForMentions: Bool = false,
         markedAsUnread: Bool? = false,
         pinnedPriority: Int32? = nil,
-        isDraft: Bool? = nil,
-        using dependencies: Dependencies
+        isDraft: Bool? = nil
     ) {
         self.id = id
         self.variant = variant
@@ -147,8 +143,39 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     // MARK: - Custom Database Interaction
     
-    public func willInsert(_ db: Database) throws {
-        db[.hasSavedThread] = true
+    public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {
+        _ = try insert()
+        
+        switch ObservationContext.observingDb {
+            case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
+            case .some(let observingDb):
+                observingDb.dependencies.setAsync(.hasSavedThread, true)
+                observingDb.addConversationEvent(id: id, type: .created)
+        }
+    }
+}
+
+// MARK: - Codable
+
+public extension SessionThread {
+    init(from decoder: any Decoder) throws {
+        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        let pinnedPriority: Int32? = try container.decodeIfPresent(Int32.self, forKey: .pinnedPriority)
+        
+        self = SessionThread(
+            id: try container.decode(String.self, forKey: .id),
+            variant: try container.decode(Variant.self, forKey: .variant),
+            creationDateTimestamp: try container.decode(TimeInterval.self, forKey: .creationDateTimestamp),
+            shouldBeVisible: try container.decode(Bool.self, forKey: .shouldBeVisible),
+            isPinned: ((pinnedPriority ?? 0) > 0),
+            messageDraft: try container.decodeIfPresent(String.self, forKey: .messageDraft),
+            notificationSound: try container.decodeIfPresent(Preferences.Sound.self, forKey: .notificationSound),
+            mutedUntilTimestamp: try container.decodeIfPresent(TimeInterval.self, forKey: .mutedUntilTimestamp),
+            onlyNotifyForMentions: try container.decode(Bool.self, forKey: .onlyNotifyForMentions),
+            markedAsUnread: try container.decodeIfPresent(Bool.self, forKey: .markedAsUnread),
+            pinnedPriority: pinnedPriority,
+            isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft)
+        )
     }
 }
 
@@ -176,6 +203,13 @@ public extension SessionThread {
                     default: return nil
                 }
             }
+            
+            var shouldUseLibSession: Bool {
+                switch self {
+                    case .useLibSession: return true
+                    default: return false
+                }
+            }
         }
         
         let creationDateTimestamp: Value<TimeInterval>
@@ -183,6 +217,8 @@ public extension SessionThread {
         let pinnedPriority: Value<Int32>
         let isDraft: Value<Bool>
         let disappearingMessagesConfig: Value<DisappearingMessagesConfiguration>
+        let mutedUntilTimestamp: Value<TimeInterval?>
+        let onlyNotifyForMentions: Value<Bool>
         
         // MARK: - Convenience
         
@@ -197,13 +233,85 @@ public extension SessionThread {
             shouldBeVisible: Value<Bool>,
             pinnedPriority: Value<Int32> = .useLibSession,
             isDraft: Value<Bool> = .useExisting,
-            disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession
+            disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession,
+            mutedUntilTimestamp: Value<TimeInterval?> = .useExisting,
+            onlyNotifyForMentions: Value<Bool> = .useExisting
         ) {
             self.creationDateTimestamp = creationDateTimestamp
             self.shouldBeVisible = shouldBeVisible
             self.pinnedPriority = pinnedPriority
             self.isDraft = isDraft
             self.disappearingMessagesConfig = disappearingMessagesConfig
+            self.mutedUntilTimestamp = mutedUntilTimestamp
+            self.onlyNotifyForMentions = onlyNotifyForMentions
+        }
+        
+        // MARK: - Functions
+        
+        func resolveLibSessionValues(
+            _ db: ObservingDatabase,
+            id: ID,
+            variant: Variant,
+            using dependencies: Dependencies
+        ) -> TargetValues {
+            guard
+                creationDateTimestamp.shouldUseLibSession ||
+                shouldBeVisible.shouldUseLibSession ||
+                pinnedPriority.shouldUseLibSession ||
+                isDraft.shouldUseLibSession ||
+                disappearingMessagesConfig.shouldUseLibSession ||
+                mutedUntilTimestamp.shouldUseLibSession ||
+                onlyNotifyForMentions.shouldUseLibSession
+            else { return self }
+            
+            let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
+                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+            )
+            
+            return dependencies.mutate(cache: .libSession) { cache in
+                var shouldBeVisible: Value<Bool> = self.shouldBeVisible
+                var pinnedPriority: Value<Int32> = self.pinnedPriority
+                
+                /// The `shouldBeVisible` flag is based on `pinnedPriority` so we need to check these two together if they
+                /// should both be sourced from `libSession`
+                switch (self.pinnedPriority, self.shouldBeVisible) {
+                    case (.useLibSession, .useLibSession):
+                        let targetPriority: Int32 = cache.pinnedPriority(
+                            threadId: id,
+                            threadVariant: variant,
+                            openGroupUrlInfo: openGroupUrlInfo
+                        )
+                        
+                        shouldBeVisible = .setTo(LibSession.shouldBeVisible(priority: targetPriority))
+                        pinnedPriority = .setTo(targetPriority)
+                        
+                    default: break
+                }
+                
+                /// Sort out the disappearing message conifg setting
+                var disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = self.disappearingMessagesConfig
+                
+                if
+                    variant != .community,
+                    disappearingMessagesConfig.shouldUseLibSession,
+                    let config: DisappearingMessagesConfiguration = cache.disappearingMessagesConfig(
+                        threadId: id,
+                        threadVariant: variant
+                    )
+                {
+                    disappearingMessagesConfig = .setTo(config)
+                }
+                
+                return TargetValues(
+                    creationDateTimestamp: self.creationDateTimestamp,
+                    shouldBeVisible: shouldBeVisible,
+                    pinnedPriority: pinnedPriority,
+                    isDraft: self.isDraft,
+                    disappearingMessagesConfig: disappearingMessagesConfig,
+                    mutedUntilTimestamp: self.mutedUntilTimestamp,
+                    onlyNotifyForMentions: self.onlyNotifyForMentions
+                )
+            }
         }
     }
     
@@ -211,7 +319,7 @@ public extension SessionThread {
     ///
     /// **Note:** This method **will** save the newly created/updated `SessionThread` to the database
     @discardableResult static func upsert(
-        _ db: Database,
+        _ db: ObservingDatabase,
         id: ID,
         variant: Variant,
         values: TargetValues,
@@ -223,9 +331,17 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let targetPriority: Int32 = dependencies
-                    .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
-                    .defaulting(to: LibSession.defaultNewThreadPriority)
+                let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
+                    let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
+                        try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+                    )
+                    
+                    return cache.pinnedPriority(
+                        threadId: id,
+                        threadVariant: variant,
+                        openGroupUrlInfo: openGroupUrlInfo
+                    )
+                }
                 
                 result = try SessionThread(
                     id: id,
@@ -235,16 +351,40 @@ public extension SessionThread {
                         (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
+                    mutedUntilTimestamp: nil,
+                    onlyNotifyForMentions: false,
                     pinnedPriority: targetPriority,
-                    isDraft: (values.isDraft.valueOrNull == true),
-                    using: dependencies
+                    isDraft: (values.isDraft.valueOrNull == true)
                 ).upserted(db)
         }
         
+        /// Apply any changes if the provided `values` don't match the current or default settings
+        var requiredChanges: [ConfigColumnAssignment] = []
+        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
+        var finalShouldBeVisible: Bool = result.shouldBeVisible
+        var finalPinnedPriority: Int32? = result.pinnedPriority
+        var finalIsDraft: Bool? = result.isDraft
+        var finalMutedUntilTimestamp: TimeInterval? = result.mutedUntilTimestamp
+        var finalOnlyNotifyForMentions: Bool = result.onlyNotifyForMentions
+        
+        /// Resolve any settings which should be sourced from `libSession`
+        let resolvedValues: TargetValues = values.resolveLibSessionValues(
+            db,
+            id: id,
+            variant: variant,
+            using: dependencies
+        )
+        
         /// Setup the `DisappearingMessagesConfiguration` as specified
-        switch (variant, values.disappearingMessagesConfig) {
+        switch (variant, resolvedValues.disappearingMessagesConfig) {
             case (.community, _), (_, .useExisting): break      // No need to do anything
             case (_, .setTo(let config)):                       // Save the explicit config
+                // Don't bother doing anything if the config hasn't changed
+                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                    .fetchOne(db, id: id)
+                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(id))
+                guard localConfig != config else { break }
+                
                 try config
                     .upserted(db)
                     .clearUnrelatedControlMessages(
@@ -264,68 +404,45 @@ public extension SessionThread {
                         using: dependencies
                     )
             
-            case (_, .useLibSession):                           // Create and save the config from libSession
-                let disappearingConfig: DisappearingMessagesConfiguration? = dependencies.mutate(cache: .libSession) { cache in
-                    cache.disappearingMessagesConfig(threadId: id, threadVariant: variant)
-                }
-                
-                try disappearingConfig?
-                    .upserted(db)
-                    .clearUnrelatedControlMessages(
-                        db,
-                        threadVariant: variant,
-                        using: dependencies
-                    )
+            case (_, .useLibSession): break                     // Shouldn't happen
         }
         
-        /// Apply any changes if the provided `values` don't match the current or default settings
-        var requiredChanges: [ConfigColumnAssignment] = []
-        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
-        var finalShouldBeVisible: Bool = result.shouldBeVisible
-        var finalPinnedPriority: Int32? = result.pinnedPriority
-        var finalIsDraft: Bool? = result.isDraft
-        
-        /// The `shouldBeVisible` flag is based on `pinnedPriority` so we need to check these two together if they
-        /// should both be sourced from `libSession`
-        switch (values.pinnedPriority, values.shouldBeVisible) {
-            case (.useLibSession, .useLibSession):
-                let targetPriority: Int32 = dependencies
-                    .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
-                    .defaulting(to: LibSession.defaultNewThreadPriority)
-                let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
-                
-                if targetPriority != result.pinnedPriority {
-                    requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: targetPriority))
-                    finalPinnedPriority = targetPriority
-                }
-                
-                if libSessionShouldBeVisible != result.shouldBeVisible {
-                    requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: libSessionShouldBeVisible))
-                    finalShouldBeVisible = libSessionShouldBeVisible
-                }
-                
-            default: break
-        }
-        
-        /// Otherwise we can just handle the explicit `setTo` cases for these
+        /// And update any explicit `setTo` cases
         if case .setTo(let value) = values.creationDateTimestamp, value != result.creationDateTimestamp {
             requiredChanges.append(SessionThread.Columns.creationDateTimestamp.set(to: value))
             finalCreationDateTimestamp = value
         }
         
-        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
-            requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
-            finalPinnedPriority = value
-        }
-        
         if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
+            db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(value)))
+            
+            /// Toggling visibility is the same as "creating"/"deleting" a conversation so send those events as well
+            db.addConversationEvent(id: id, type: (value ? .created : .deleted))
+        }
+        
+        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
+            requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
+            finalPinnedPriority = value
+            db.addConversationEvent(id: id, type: .updated(.pinnedPriority(value)))
         }
         
         if case .setTo(let value) = values.isDraft, value != result.isDraft {
             requiredChanges.append(SessionThread.Columns.isDraft.set(to: value))
             finalIsDraft = value
+        }
+        
+        if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
+            requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
+            finalMutedUntilTimestamp = value
+            db.addConversationEvent(id: id, type: .updated(.mutedUntilTimestamp(value)))
+        }
+        
+        if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
+            requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
+            finalOnlyNotifyForMentions = value
+            db.addConversationEvent(id: id, type: .updated(.onlyNotifyForMentions(value)))
         }
         
         /// If no changes were needed we can just return the existing/default thread
@@ -352,15 +469,16 @@ public extension SessionThread {
                     variant: variant,
                     creationDateTimestamp: finalCreationDateTimestamp,
                     shouldBeVisible: finalShouldBeVisible,
+                    mutedUntilTimestamp: finalMutedUntilTimestamp,
+                    onlyNotifyForMentions: finalOnlyNotifyForMentions,
                     pinnedPriority: finalPinnedPriority,
-                    isDraft: finalIsDraft,
-                    using: dependencies
+                    isDraft: finalIsDraft
                 ).upserted(db)
             )
     }
     
     static func canSendReadReceipt(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant maybeThreadVariant: SessionThread.Variant? = nil,
         isBlocked maybeIsBlocked: Bool? = nil,
@@ -403,7 +521,7 @@ public extension SessionThread {
     }
     
     @available(*, unavailable, message: "should not be used until pin re-ordering is built")
-    static func refreshPinnedPriorities(_ db: Database, adding threadId: String) throws {
+    static func refreshPinnedPriorities(_ db: ObservingDatabase, adding threadId: String) throws {
         struct PinnedPriority: TableRecord, ColumnExpressible {
             public typealias Columns = CodingKeys
             public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -455,7 +573,7 @@ public extension SessionThread {
     }
     
     static func deleteOrLeave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         type: SessionThread.DeletionType,
         threadId: String,
         threadVariant: Variant,
@@ -471,7 +589,7 @@ public extension SessionThread {
     }
     
     static func deleteOrLeave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         type: SessionThread.DeletionType,
         threadIds: [String],
         threadVariant: Variant,
@@ -482,14 +600,12 @@ public extension SessionThread {
         
         switch type {
             case .hideContactConversation:
-                _ = try SessionThread
-                    .filter(ids: threadIds)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false),
-                        using: dependencies
-                    )
+                try SessionThread.updateVisibility(
+                    db,
+                    threadIds: threadIds,
+                    isVisible: false,
+                    using: dependencies
+                )
                 
             case .hideContactConversationAndDeleteContentDirectly:
                 // Clear any interactions for the deleted thread
@@ -498,19 +614,24 @@ public extension SessionThread {
                     .deleteAll(db)
                 
                 // Hide the threads
-                _ = try SessionThread
-                    .filter(ids: threadIds)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false),
-                        using: dependencies
-                    )
+                try SessionThread.updateVisibility(
+                    db,
+                    threadIds: threadIds,
+                    isVisible: false,
+                    using: dependencies
+                )
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             case .deleteContactConversationAndMarkHidden:
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
+                
+                remainingThreadIds.forEach { id in
+                    db.addConversationEvent(id: id, type: .deleted)
+                }
                 
                 // We need to custom handle the 'Note to Self' conversation (it should just be
                 // hidden locally rather than deleted)
@@ -520,15 +641,16 @@ public extension SessionThread {
                         .filter(Interaction.Columns.threadId == userSessionId.hexString)
                         .deleteAll(db)
                     
-                    _ = try SessionThread
-                        .filter(id: userSessionId.hexString)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false),
-                            using: dependencies
-                        )
+                    try SessionThread.updateVisibility(
+                        db,
+                        threadIds: threadIds,
+                        isVisible: false,
+                        using: dependencies
+                    )
                 }
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
                 
                 // Update any other threads to be hidden
                 try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
@@ -549,6 +671,13 @@ public extension SessionThread {
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
+                
+                remainingThreadIds.forEach { id in
+                    db.addConversationEvent(id: id, type: .deleted)
+                }
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
                 
             case .leaveGroupAsync:
                 try threadIds.forEach { threadId in
@@ -578,27 +707,79 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
-    static func isMessageRequest(
-        _ db: Database,
+    static func updateVisibility(
+        _ db: ObservingDatabase,
         threadId: String,
-        userSessionId: SessionId,
-        includeNonVisible: Bool = false
-    ) -> Bool {
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
-        let request: SQLRequest<String> = """
-            SELECT \(thread[.id])
-            FROM \(SessionThread.self)
-            LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
-            LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
-            WHERE (
-                \(thread[.id]) = \(threadId) AND
-                \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
-            )
-        """
+        isVisible: Bool,
+        customPriority: Int32? = nil,
+        additionalChanges: [ConfigColumnAssignment] = [],
+        using dependencies: Dependencies
+    ) throws {
+        try updateVisibility(
+            db,
+            threadIds: [threadId],
+            isVisible: isVisible,
+            customPriority: customPriority,
+            additionalChanges: additionalChanges,
+            using: dependencies
+        )
+    }
+    
+    static func updateVisibility(
+        _ db: ObservingDatabase,
+        threadIds: [String],
+        isVisible: Bool,
+        customPriority: Int32? = nil,
+        additionalChanges: [ConfigColumnAssignment] = [],
+        using dependencies: Dependencies
+    ) throws {
+        struct ThreadInfo: Decodable, FetchableRecord {
+            var id: String
+            var shouldBeVisible: Bool
+            var pinnedPriority: Int32
+        }
         
-        return ((try? request.fetchOne(db)) != nil)
+        let targetPriority: Int32
+        
+        switch (customPriority, isVisible) {
+            case (.some(let priority), _): targetPriority = priority
+            case (.none, true): targetPriority = LibSession.visiblePriority
+            case (.none, false): targetPriority = LibSession.hiddenPriority
+        }
+        
+        let currentInfo: [String: ThreadInfo] = try SessionThread
+            .select(.id, .shouldBeVisible, .pinnedPriority)
+            .filter(ids: threadIds)
+            .asRequest(of: ThreadInfo.self)
+            .fetchAll(db)
+            .reduce(into: [:]) { result, next in
+                result[next.id] = next
+            }
+        
+        _ = try SessionThread
+            .filter(ids: threadIds)
+            .updateAllAndConfig(
+                db,
+                [
+                    SessionThread.Columns.pinnedPriority.set(to: targetPriority),
+                    SessionThread.Columns.shouldBeVisible.set(to: isVisible)
+                ].appending(contentsOf: additionalChanges),
+                using: dependencies
+            )
+        
+        /// Emit events for any changes
+        threadIds.forEach { id in
+            if currentInfo[id]?.shouldBeVisible != isVisible {
+                db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(isVisible)))
+                
+                /// Toggling visibility is the same as "creating"/"deleting" a conversation
+                db.addConversationEvent(id: id, type: (isVisible ? .created : .deleted))
+            }
+            
+            if currentInfo[id]?.pinnedPriority != targetPriority {
+                db.addConversationEvent(id: id, type: .updated(.pinnedPriority(targetPriority)))
+            }
+        }
     }
     
     static func unreadMessageRequestsCountQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<Int> {
@@ -653,69 +834,21 @@ public extension SessionThread {
         ).sqlExpression
     }
     
-    func isNoteToSelf(_ db: Database? = nil, using dependencies: Dependencies) -> Bool {
+    func isNoteToSelf(using dependencies: Dependencies) -> Bool {
         return (
             variant == .contact &&
             id == dependencies[cache: .general].sessionId.hexString
         )
     }
     
-    func shouldShowNotification(
-        _ db: Database,
-        for interaction: Interaction,
-        isMessageRequest: Bool,
-        using dependencies: Dependencies
-    ) -> Bool {
-        // Ensure that the thread isn't muted and either the thread isn't only notifying for mentions
-        // or the user was actually mentioned
-        guard
-            Date().timeIntervalSince1970 > (self.mutedUntilTimestamp ?? 0) &&
-            (!self.onlyNotifyForMentions || interaction.hasMention)
-        else { return false }
-        
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        // No need to notify the user for self-send messages
-        guard interaction.authorId != userSessionId.hexString else { return false }
-        
-        // If the thread is a message request then we only want to notify for the first message
-        if (self.variant == .contact || self.variant == .group) && isMessageRequest {
-            let numInteractions: Int = {
-                switch interaction.serverHash {
-                    case .some(let serverHash):
-                        return (try? self.interactions
-                            .filter(Interaction.Columns.serverHash != serverHash)
-                            .fetchCount(db))
-                            .defaulting(to: 0)
-                    
-                    case .none:
-                        return (try? self.interactions
-                            .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
-                            .fetchCount(db))
-                            .defaulting(to: 0)
-                }
-            }()
-            
-            // We only want to show a notification for the first interaction in the thread
-            guard numInteractions == 0 else { return false }
-            
-            // Need to re-show the message requests section if it had been hidden
-            if db[.hasHiddenMessageRequests] {
-                db[.hasHiddenMessageRequests] = false
-            }
-        }
-        
-        return true
-    }
-    
     static func displayName(
         threadId: String,
         variant: Variant,
-        closedGroupName: String? = nil,
-        openGroupName: String? = nil,
-        isNoteToSelf: Bool = false,
-        ignoringNickname: Bool = false,
-        profile: Profile? = nil
+        closedGroupName: String?,
+        openGroupName: String?,
+        isNoteToSelf: Bool,
+        ignoringNickname: Bool,
+        profile: Profile?
     ) -> String {
         switch variant {
             case .legacyGroup, .group: return (closedGroupName ?? "groupUnknown".localized())
@@ -731,57 +864,30 @@ public extension SessionThread {
     }
     
     static func getCurrentUserBlindedSessionId(
-        _ db: Database? = nil,
         threadId: String,
         threadVariant: Variant,
         blindingPrefix: SessionId.Prefix,
+        openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo?,
         using dependencies: Dependencies
     ) -> SessionId? {
-        guard threadVariant == .community else { return nil }
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in
-                getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: blindingPrefix,
-                    using: dependencies
-                )
-            }
-        }
-        
-        // Retrieve the relevant open group info
-        struct OpenGroupInfo: Decodable, FetchableRecord {
-            let publicKey: String
-            let server: String
-        }
-        
         guard
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-            let openGroupInfo: OpenGroupInfo = try? OpenGroup
-                .filter(id: threadId)
-                .select(.publicKey, .server)
-                .asRequest(of: OpenGroupInfo.self)
-                .fetchOne(db)
+            threadVariant == .community,
+            let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = openGroupCapabilityInfo
         else { return nil }
         
         // Check the capabilities to ensure the SOGS is blinded (or whether we have no capabilities)
-        let capabilities: Set<Capability.Variant> = (try? Capability
-            .select(.variant)
-            .filter(Capability.Columns.openGroupServer == openGroupInfo.server.lowercased())
-            .asRequest(of: Capability.Variant.self)
-            .fetchSet(db))
-            .defaulting(to: [])
-        
-        guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
+        guard
+            openGroupCapabilityInfo.capabilities.isEmpty ||
+            openGroupCapabilityInfo.capabilities.contains(.blind)
+        else { return nil }
         
         switch blindingPrefix {
             case .blinded15:
                 return dependencies[singleton: .crypto]
                     .generate(
                         .blinded15KeyPair(
-                            serverPublicKey: openGroupInfo.publicKey,
-                            ed25519SecretKey: userEdKeyPair.secretKey
+                            serverPublicKey: openGroupCapabilityInfo.publicKey,
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
                     .map { SessionId(.blinded15, publicKey: $0.publicKey) }
@@ -790,8 +896,8 @@ public extension SessionThread {
                 return dependencies[singleton: .crypto]
                     .generate(
                         .blinded25KeyPair(
-                            serverPublicKey: openGroupInfo.publicKey,
-                            ed25519SecretKey: userEdKeyPair.secretKey
+                            serverPublicKey: openGroupCapabilityInfo.publicKey,
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
                     .map { SessionId(.blinded25, publicKey: $0.publicKey) }

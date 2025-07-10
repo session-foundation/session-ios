@@ -82,31 +82,13 @@ public final class GroupPoller: SwarmPoller {
     
     // MARK: - Abstract Methods
 
-    override public func nextPollDelay() -> TimeInterval {
-        // Get the received date of the last message in the thread. If we don't have
-        // any messages yet, pick some reasonable fake time interval to use instead
-        // FIXME: Update this to be based on `active_at` once it gets added to libSession
-        let lastMessageDate: Date = dependencies[singleton: .storage]
-            .read { [pollerDestination] db in
-                try Interaction
-                    .filter(Interaction.Columns.threadId == pollerDestination.target)
-                    .select(.receivedAtTimestampMs)
-                    .order(Interaction.Columns.timestampMs.desc)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db)
-            }
-            .map { receivedAtTimestampMs -> Date? in
-                guard receivedAtTimestampMs > 0 else { return nil }
-                
-                return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
-            }
-            .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
+    override public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
         let lastReadDate: Date = dependencies
             .mutate(cache: .libSession) { cache in
                 cache.conversationLastRead(
                     threadId: pollerDestination.target,
                     threadVariant: .group,
-                    openGroup: nil
+                    openGroupUrlInfo: nil
                 )
             }
             .map { lastReadTimestampMs in
@@ -116,13 +98,35 @@ public final class GroupPoller: SwarmPoller {
             }
             .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
-        let timeSinceLastMessage: TimeInterval = dependencies.dateNow
-            .timeIntervalSince(max(lastMessageDate, lastReadDate))
-        let limit: Double = (12 * 60 * 60)
-        let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
-        let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
-        
-        return nextPollInterval
+        // Get the received date of the last message in the thread. If we don't have
+        // any messages yet, pick some reasonable fake time interval to use instead
+        return dependencies[singleton: .storage]
+            .readPublisher { [pollerDestination] db in
+                try Interaction
+                    .filter(Interaction.Columns.threadId == pollerDestination.target)
+                    .select(.receivedAtTimestampMs)
+                    .order(Interaction.Columns.timestampMs.desc)
+                    .asRequest(of: Int64.self)
+                    .fetchOne(db)
+            }
+            .map { [dependencies] receivedAtTimestampMs -> Date in
+                guard
+                    let receivedAtTimestampMs: Int64 = receivedAtTimestampMs,
+                    receivedAtTimestampMs > 0
+                else { return dependencies.dateNow.addingTimeInterval(-5 * 60) }
+                
+                return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
+            }
+            .map { [maxPollInterval, minPollInterval, dependencies] lastMessageDate in
+                let timeSinceLastMessage: TimeInterval = dependencies.dateNow
+                    .timeIntervalSince(max(lastMessageDate, lastReadDate))
+                let limit: Double = (12 * 60 * 60)
+                let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
+                let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
+                
+                return nextPollInterval
+            }
+            .eraseToAnyPublisher()
     }
 
     override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
@@ -152,9 +156,9 @@ public extension GroupPoller {
         
         public func startAllPollers() {
             // On the group poller queue fetch all closed groups which should poll and start the pollers
-            Threading.groupPollerQueue.async(using: dependencies) { [dependencies] in
-                dependencies[singleton: .storage]
-                    .read { db -> Set<String> in
+            Threading.groupPollerQueue.async(using: dependencies) { [weak self, dependencies] in
+                dependencies[singleton: .storage].readAsync(
+                    retrieve: { db -> Set<String> in
                         try ClosedGroup
                             .select(.threadId)
                             .filter(ClosedGroup.Columns.shouldPoll == true)
@@ -164,10 +168,19 @@ public extension GroupPoller {
                             )
                             .asRequest(of: String.self)
                             .fetchSet(db)
-                    }?
-                    .forEach { [weak self] swarmPublicKey in
-                        self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+                    },
+                    completion: { [weak self] result in
+                        switch result {
+                            case .failure: break
+                            case .success(let publicKeys):
+                                Threading.groupPollerQueue.async(using: dependencies) { [weak self] in
+                                    publicKeys.forEach { swarmPublicKey in
+                                        self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+                                    }
+                                }
+                        }
                     }
+                )
             }
         }
         

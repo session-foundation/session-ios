@@ -10,10 +10,10 @@ import SessionSnodeKit
 
 extension MessageReceiver {
     internal static func handleMessageRequestResponse(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: MessageRequestResponse,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         let userSessionId = dependencies[cache: .general].sessionId
         var blindedContactIds: [String] = []
         
@@ -32,18 +32,7 @@ extension MessageReceiver {
                 db,
                 publicKey: senderId,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .none }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
                 sentTimestamp: messageSentTimestamp,
                 using: dependencies
             )
@@ -170,7 +159,7 @@ extension MessageReceiver {
         ///   if the sender deletes and re-accepts message requests from the current user)
         /// - This will always appear in the un-blinded thread
         if !senderHadAlreadyApprovedMe {
-            _ = try Interaction(
+            let interaction: Interaction = try Interaction(
                 serverHash: message.serverHash,
                 threadId: unblindedThread.id,
                 threadVariant: unblindedThread.variant,
@@ -182,11 +171,17 @@ extension MessageReceiver {
                 ),
                 using: dependencies
             ).inserted(db)
+            
+            return interaction.id.map {
+                (unblindedThread.id, unblindedThread.variant, $0, .infoMessageRequestAccepted, true, 0)
+            }
         }
+        
+        return nil
     }
     
     internal static func updateContactApprovalStatusIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         senderSessionId: String,
         threadId: String?,
         using dependencies: Dependencies
@@ -200,7 +195,7 @@ extension MessageReceiver {
             guard
                 let threadId: String = threadId,
                 let thread: SessionThread = try? SessionThread.fetchOne(db, id: threadId),
-                !thread.isNoteToSelf(db, using: dependencies)
+                !thread.isNoteToSelf(using: dependencies)
             else { return }
             
             // Sending a message to someone flags them as approved so create the contact record if
@@ -217,6 +212,7 @@ extension MessageReceiver {
                     Contact.Columns.isApproved.set(to: true),
                     using: dependencies
                 )
+            db.addContactEvent(id: threadId, change: .isApproved(true))
         }
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
@@ -233,6 +229,7 @@ extension MessageReceiver {
                     Contact.Columns.didApproveMe.set(to: true),
                     using: dependencies
                 )
+            db.addContactEvent(id: senderSessionId, change: .didApproveMe(true))
         }
     }
 }

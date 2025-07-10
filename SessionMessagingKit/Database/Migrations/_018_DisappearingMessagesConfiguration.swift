@@ -10,7 +10,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "disappearingMessagesConfiguration") { t in
             t.add(column: "type", .integer)
         }
@@ -33,7 +33,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
         guard
             MigrationHelper.userExists(db),
             let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
-        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        else { return MigrationExecution.updateProgress(1) }
         
         // Set the disappearing messages type per conversation
         let userSessionId: SessionId = MigrationHelper.userSessionId(db)
@@ -115,7 +115,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
                     $0["variant"] == SessionThread.Variant.contact.rawValue
                 }
                 .map {
-                    LibSession.SyncedContactInfo(
+                    LibSession.ContactUpdateInfo(
                         id: $0["id"],
                         disappearingMessagesConfig: DisappearingMessagesConfiguration(
                             threadId: $0["id"],
@@ -167,7 +167,6 @@ enum _018_DisappearingMessagesConfiguration: Migration {
             )
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
-

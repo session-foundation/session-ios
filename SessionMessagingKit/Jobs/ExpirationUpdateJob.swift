@@ -46,11 +46,11 @@ public enum ExpirationUpdateJob: JobExecutor {
                 guard
                     let results: [UpdateExpiryResponseResult] = response
                         .compactMap({ _, value in value.didError ? nil : value })
-                        .nullIfEmpty(),
+                        .nullIfEmpty,
                     let unchangedMessages: [UInt64: [String]] = results
                         .reduce([:], { result, next in result.updated(with: next.unchanged) })
                         .groupedByValue()
-                        .nullIfEmpty()
+                        .nullIfEmpty
                 else { return [:] }
                 
                 return unchangedMessages
