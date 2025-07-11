@@ -10,16 +10,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
-    private static let minVersionBannerInfo: InfoBanner.Info = InfoBanner.Info(
-        font: .systemFont(ofSize: Values.verySmallFontSize),
-        message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
-        icon: .none,
-        tintColor: .black,
-        backgroundColor: .explicitPrimary(.orange),
-        accessibility: Accessibility(identifier: "Version warning banner")
-    )
-    
+class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSourceOld {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let editableState: EditableState<TableItem> = EditableState()
@@ -91,14 +82,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     }
     
     let title: String = "groupEdit".localized()
-    
-    var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> {
-        guard (try? SessionId.Prefix(from: threadId)) == .group else {
-            return Just(nil).eraseToAnyPublisher()
-        }
-        
-        return Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher()
-    }
     
     lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [dependencies, threadId, userSessionId] db -> State in
@@ -438,9 +421,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             SessionTableViewController(
                 viewModel: UserListViewModel<Contact>(
                     title: "membersInvite".localized(),
-                    infoBanner: ((try? SessionId.Prefix(from: threadId)) != .group ? nil :
-                        EditGroupViewModel.minVersionBannerInfo
-                    ),
                     emptyState: "contactNone".localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""

@@ -155,7 +155,7 @@ class PhotoCollectionContents {
             let options = PHImageRequestOptions()
             
             switch size {
-                case .small: options.deliveryMode = .fastFormat
+                case .small: options.deliveryMode = .opportunistic
                 case .medium, .large: options.deliveryMode = .highQualityFormat
             }
             

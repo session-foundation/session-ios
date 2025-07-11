@@ -7,7 +7,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     typealias TableItem = Section
     
     public let dependencies: Dependencies

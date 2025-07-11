@@ -16,7 +16,7 @@ private extension Log.Category {
 
 // MARK: - HelpViewModel
 
-class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     typealias TableItem = Section
     
     public let dependencies: Dependencies

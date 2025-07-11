@@ -588,13 +588,13 @@ public enum MessageReceiver {
         if isMessageRequest && !info.wasRead {
             db.addEvent(
                 MessageEvent(id: info.interactionId, threadId: info.threadId, change: nil),
-                forKey: .unreadMessageRequestMessageReceived
+                forKey: .messageRequestUnreadMessageReceived
             )
         }
         
         /// Need to re-show the message requests section if we received a new message request
         if isMessageRequest && info.numPreviousInteractionsForMessageRequest == 0 {
-            dependencies.setAsync(.hasHiddenMessageRequests, false)
+            dependencies.set(db, .hasHiddenMessageRequests, false)
         }
     }
 }

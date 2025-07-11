@@ -521,17 +521,17 @@ public extension UIContextualAction {
                                     case (.group, true):
                                         return "groupLeaveDescriptionAdmin"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     case (.legacyGroup, true):
                                         return "groupLeaveDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     default:
                                         return "groupLeaveDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
                             }()
                             
@@ -642,19 +642,19 @@ public extension UIContextualAction {
                                 
                                 switch threadInfo {
                                     case (.contact, _):
-                                        return "conversationsDeleteDescription"
+                                        return "deleteConversationDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                         
                                     case (.group, true):
                                         return "groupDeleteDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     default:
                                         return "groupDeleteDescriptionMember"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
                             }()
                             
@@ -718,7 +718,7 @@ public extension UIContextualAction {
                                     body: .attributedText(
                                         "contactDeleteDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     ),
                                     confirmTitle: "delete".localized(),
                                     confirmStyle: .danger,

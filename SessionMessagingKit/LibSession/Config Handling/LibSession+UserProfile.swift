@@ -100,7 +100,7 @@ internal extension LibSessionCacheType {
         )
         
         // Notify of settings change if needed
-        let checkForCommunityMessageRequestsKey: ObservableKey = .setting(Setting.BoolKey.checkForCommunityMessageRequests)
+        let checkForCommunityMessageRequestsKey: ObservableKey = .setting(.checkForCommunityMessageRequests)
         let oldCheckForCommunityMessageRequests: Bool? = oldState[checkForCommunityMessageRequestsKey] as? Bool
         let newCheckForCommunityMessageRequests: Bool = get(.checkForCommunityMessageRequests)
         

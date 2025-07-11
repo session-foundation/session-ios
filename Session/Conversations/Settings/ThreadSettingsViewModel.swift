@@ -11,7 +11,7 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()

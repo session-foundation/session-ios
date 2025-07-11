@@ -79,21 +79,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         return result
     }()
     
-    private lazy var minVersionBanner: InfoBanner = {
-        let result: InfoBanner = InfoBanner(
-            info: InfoBanner.Info(
-                font: .systemFont(ofSize: Values.verySmallFontSize),
-                message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
-                icon: .none,
-                tintColor: .black,
-                backgroundColor: .explicitPrimary(.orange),
-                accessibility: Accessibility(label: "Version warning banner")
-            )
-        )
-        
-        return result
-    }()
-    
     private lazy var nameTextField: SNTextField = {
         let result = SNTextField(
             placeholder: "groupNameEnter".localized(),
@@ -241,7 +226,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         contentStackView.pin(.trailing, to: .trailing, of: view)
         contentStackView.pin(.bottom, to: .bottom, of: view)
         
-        contentStackView.addArrangedSubview(minVersionBanner)
         contentStackView.addArrangedSubview(tableView)
         
         view.addSubview(fadeView)

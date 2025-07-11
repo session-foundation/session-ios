@@ -268,6 +268,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 context("when updating the nickname") {
                     @TestState var onChange: ((String) -> ())?
                     @TestState var modal: ConfirmationModal?
+                    @TestState var modalInfo: ConfirmationModal.Info?
                     
                     beforeEach {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
@@ -278,6 +279,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             .toEventually(beAKindOf(ConfirmationModal.self))
                         
                         modal = (screenTransitions.first?.destination as? ConfirmationModal)
+                        modalInfo = await modal?.info
                         switch await modal?.info.body {
                             case .input(_, _, let onChange_): onChange = onChange_
                             default: break
@@ -286,8 +288,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ has the correct content
                     it("has the correct content") {
-                        expect(modal?.info.title).to(equal("nicknameSet".localized()))
-                        expect(modal?.info.body).to(equal(
+                        expect(modalInfo?.title).to(equal("nicknameSet".localized()))
+                        expect(modalInfo?.body).to(equal(
                             .input(
                                 explanation: "nicknameDescription"
                                     .put(key: "name", value: "TestUser")
@@ -300,8 +302,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 onChange: { _ in }
                             )
                         ))
-                        expect(modal?.info.confirmTitle).to(equal("save".localized()))
-                        expect(modal?.info.cancelTitle).to(equal("remove".localized()))
+                        expect(modalInfo?.confirmTitle).to(equal("save".localized()))
+                        expect(modalInfo?.cancelTitle).to(equal("remove".localized()))
                     }
                     
                     // MARK: ------ does nothing if the name contains only white space
@@ -318,8 +320,9 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         await modal?.confirmationPressed()
                         
                         await expect(screenTransitions.count).toEventually(equal(1))
-                        expect(modal?.textFieldErrorLabel.text)
-                            .to(equal("nicknameErrorShorter".localized()))
+                        
+                        let text: String? = await modal?.textFieldErrorLabel.text
+                        expect(text).to(equal("nicknameErrorShorter".localized()))
                     }
                     
                     // MARK: ------ updates the contacts nickname when valid
@@ -682,8 +685,9 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect(screenTransitions.count).toEventually(equal(1))
-                            expect(modal?.textFieldErrorLabel.text)
-                                .to(equal("groupNameEnterShorter".localized()))
+                            
+                            let text: String? = await modal?.textFieldErrorLabel.text
+                            expect(text).to(equal("groupNameEnterShorter".localized()))
                         }
                         
                         // MARK: -------- updates the modal with an error when the updated description is too long
@@ -692,8 +696,9 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect(screenTransitions.count).toEventually(equal(1))
-                            expect(modal?.textViewErrorLabel.text)
-                                .to(equal("updateGroupInformationEnterShorterDescription".localized()))
+                            
+                            let text: String? = await modal?.textViewErrorLabel.text
+                            expect(text).to(equal("updateGroupInformationEnterShorterDescription".localized()))
                         }
                         
                         // MARK: -------- updates the group name when valid

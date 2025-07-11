@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     struct ThreadNotificationSettings: Equatable {
         let threadOnlyNotifyForMentions: Bool?
         let threadMutedUntilTimestamp: TimeInterval?

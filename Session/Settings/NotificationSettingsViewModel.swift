@@ -52,30 +52,98 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     // MARK: - Content
     
-    private struct State: Equatable {
+    private struct State: ObservableKeyProvider {
         let isUsingFullAPNs: Bool
         let notificationSound: Preferences.Sound
         let playNotificationSoundInForeground: Bool
         let previewType: Preferences.NotificationPreviewType
+        let sections: [SectionModel]
+        
+        public let observedKeys: Set<ObservableKey> = [
+            .userDefault(.isUsingFullAPNs),
+            .setting(.defaultNotificationSound),
+            .setting(.playNotificationSoundInForeground),
+            .setting(.preferencesNotificationPreviewType)
+        ]
+        
+        static func initialState() -> State {
+            return State(
+                isUsingFullAPNs: false,
+                notificationSound: .defaultNotificationSound,
+                playNotificationSoundInForeground: false,
+                previewType: .defaultPreviewType,
+                sections: []
+            )
+        }
     }
     
     let title: String = "sessionNotifications".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilderOld
-        .libSessionObservation(self) { [dependencies] cache -> State in
-            /// Listen for `isUsingFullAPNs` changes
-            cache.register(.isUsingFullAPNs)
+    /// The new `ObservationBuilder` shouldn't cancel it's observations when leaving the screen (this is handled better when built
+    /// around `@Published` but _shouldn't_ have too big of a performance cost using the `SessionTableViewController` either)
+    public var shouldCancelPublisherOnLeave: Bool = false
+    lazy var tableDataPublisher: TargetPublisher = ObservationBuilder
+        .debounce(for: .milliseconds(250))
+        .using(manager: dependencies[singleton: .observationManager])
+        .query { [dependencies] previousState, events -> State in
+            let currentState: State = (previousState ?? State.initialState())
+            var isUsingFullAPNs: Bool = currentState.isUsingFullAPNs
+            var notificationSound: Preferences.Sound = currentState.notificationSound
+            var playNotificationSoundInForeground: Bool = currentState.playNotificationSoundInForeground
+            var previewType: Preferences.NotificationPreviewType = currentState.previewType
+            
+            /// If we have no previous state then we need to fetch the initial state
+            if previousState == nil {
+                isUsingFullAPNs = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+                
+                dependencies.mutate(cache: .libSession) { libSession in
+                    notificationSound = libSession.get(.defaultNotificationSound)
+                        .defaulting(to: Preferences.Sound.defaultNotificationSound)
+                    playNotificationSoundInForeground = libSession.get(.playNotificationSoundInForeground)
+                    previewType = libSession.get(.preferencesNotificationPreviewType)
+                        .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
+                }
+            }
+            
+            /// Process any event changes
+            events.forEach { event in
+                switch event.key {
+                    case .userDefault(.isUsingFullAPNs):
+                        isUsingFullAPNs = ((event.value as? Bool) ?? currentState.isUsingFullAPNs)
+                        
+                    case .setting(.defaultNotificationSound):
+                        notificationSound = (
+                            (event.value as? Preferences.Sound) ??
+                            currentState.notificationSound
+                        )
+                        
+                    case .setting(.playNotificationSoundInForeground):
+                        playNotificationSoundInForeground = (
+                            (event.value as? Bool) ??
+                            currentState.playNotificationSoundInForeground
+                        )
+                        
+                    case .setting(.preferencesNotificationPreviewType):
+                        previewType = (
+                            (event.value as? Preferences.NotificationPreviewType) ??
+                            currentState.previewType
+                        )
+                        
+                    default: break
+                }
+            }
             
             return State(
-                isUsingFullAPNs: dependencies[defaults: .standard, key: .isUsingFullAPNs],
-                notificationSound: cache.get(.defaultNotificationSound)
-                    .defaulting(to: Preferences.Sound.defaultNotificationSound),
-                playNotificationSoundInForeground: cache.get(.playNotificationSoundInForeground),
-                previewType: cache.get(.preferencesNotificationPreviewType)
-                    .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
+                isUsingFullAPNs: isUsingFullAPNs,
+                notificationSound: notificationSound,
+                playNotificationSoundInForeground: playNotificationSoundInForeground,
+                previewType: previewType,
+                sections: []
             )
         }
-        .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
+        .publisher()
+        .withPrevious()
+        .map { [dependencies] previousState, state -> [SectionModel] in
             return [
                 SectionModel(
                     model: .strategy,
@@ -85,8 +153,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             title: "useFastMode".localized(),
                             subtitle: "notificationsFastModeDescriptionIos".localized(),
                             trailingAccessory: .toggle(
-                                current.isUsingFullAPNs,
-                                oldValue: previous?.isUsingFullAPNs,
+                                state.isUsingFullAPNs,
+                                oldValue: previousState?.isUsingFullAPNs,
                                 accessibility: Accessibility(
                                     identifier: "Use Fast Mode - Switch"
                                 )
@@ -97,9 +165,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             ),
                             // stringlint:ignore_contents
                             onTap: { [weak self] in
-                                let updatedValue: Bool = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
-                                dependencies[defaults: .standard, key: .isUsingFullAPNs] = updatedValue
-                                dependencies.notifyAsync(.isUsingFullAPNs, value: updatedValue)
+                                dependencies[defaults: .standard, key: .isUsingFullAPNs] = !state.isUsingFullAPNs
+                                dependencies.notifyAsync(.isUsingFullAPNs, value: !state.isUsingFullAPNs)
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob
@@ -129,7 +196,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .styleSound,
                             title: "notificationsSound".localized(),
-                            trailingAccessory: .dropDown { current.notificationSound.displayName },
+                            trailingAccessory: .dropDown { state.notificationSound.displayName },
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
                                     SessionTableViewController(
@@ -142,8 +209,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .styleSoundWhenAppIsOpen,
                             title: "notificationsSoundDescription".localized(),
                             trailingAccessory: .toggle(
-                                current.playNotificationSoundInForeground,
-                                oldValue: previous?.playNotificationSoundInForeground,
+                                state.playNotificationSoundInForeground,
+                                oldValue: previousState?.playNotificationSoundInForeground,
                                 accessibility: Accessibility(
                                     identifier: "Sound when App is open - Switch"
                                 )
@@ -151,7 +218,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             onTap: {
                                 dependencies.setAsync(
                                     .playNotificationSoundInForeground,
-                                    !current.playNotificationSoundInForeground
+                                    !state.playNotificationSoundInForeground
                                 )
                             }
                         )
@@ -164,7 +231,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .content,
                             title: "notificationsContent".localized(),
                             subtitle: "notificationsContentDescription".localized(),
-                            trailingAccessory: .dropDown { current.previewType.name },
+                            trailingAccessory: .dropDown { state.previewType.name },
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
                                     SessionTableViewController(
@@ -177,4 +244,6 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                 )
             ]
         }
+        .setFailureType(to: Error.self)
+        .mapToSessionTableViewData(for: self)
 }

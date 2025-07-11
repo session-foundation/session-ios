@@ -738,7 +738,7 @@ public extension LibSession {
                                 case .userProfile:
                                     return [
                                         .profile(profile.id): profile,
-                                        .setting(Setting.BoolKey.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests)
+                                        .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests)
                                     ]
                                     
                                 case .contacts(let conf):

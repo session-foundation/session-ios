@@ -8,7 +8,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSourceOld {
     typealias TableItem = Preferences.Sound
     
     public let dependencies: Dependencies

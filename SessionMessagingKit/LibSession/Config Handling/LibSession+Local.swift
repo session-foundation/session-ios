@@ -207,7 +207,7 @@ extension Preferences.Sound: LibSessionConvertibleEnum {
     public var libSessionValue: LibSessionType { Int64(rawValue) }
     
     public init(_ libSessionValue: LibSessionType) {
-        self = (Preferences.Sound(rawValue: Int(libSessionValue)) ?? Preferences.Sound.default)
+        self = (Preferences.Sound(rawValue: Int(libSessionValue)) ?? Preferences.Sound.defaultNotificationSound)
     }
 }
 

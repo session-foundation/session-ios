@@ -83,6 +83,56 @@ public extension UserDefaults {
     }
 }
 
+// MARK: - UserDefaults Convenience
+
+public extension Dependencies {
+    fileprivate func notify(key: ObservableKey, value: AnyHashable?) {
+        Task(priority: .medium) { [observationManager = self[singleton: .observationManager]] in
+            await observationManager.notify(key, value: value)
+        }
+    }
+    
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.BoolKey) -> Bool {
+        get { return self[defaults: defaults].bool(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notify(key: .userDefault(key), value: newValue)
+        }
+    }
+
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DateKey) -> Date? {
+        get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notify(key: .userDefault(key), value: newValue)
+        }
+    }
+    
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DoubleKey) -> Double {
+        get { return self[defaults: defaults].double(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notify(key: .userDefault(key), value: newValue)
+        }
+    }
+
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.IntKey) -> Int {
+        get { return self[defaults: defaults].integer(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notify(key: .userDefault(key), value: newValue)
+        }
+    }
+    
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.StringKey) -> String? {
+        get { return self[defaults: defaults].string(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notify(key: .userDefault(key), value: newValue)
+        }
+    }
+}
+
 // MARK: - UserDefault Values
 
 public extension UserDefaults.BoolKey {
@@ -168,53 +218,68 @@ public extension UserDefaults.StringKey {
 // MARK: - Keys
 
 public extension UserDefaults {
-    struct BoolKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
-        public let rawValue: String
-        
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
+    protocol Key: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+        var rawValue: String { get }
+        init(_ rawValue: String)
     }
     
-    struct DateKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct BoolKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct DoubleKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct DateKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct IntKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct DoubleKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct StringKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct IntKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
+    
+    struct StringKey: Key {
+        public let rawValue: String
+        public init(_ rawValue: String) { self.rawValue = rawValue }
+    }
+}
+
+public extension UserDefaults.Key {
+    init?(rawValue: String) { self.init(rawValue) }
+    init(stringLiteral value: String) { self.init(value) }
+    init(unicodeScalarLiteral value: String) { self.init(value) }
+    init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
+}
+
+// MARK: - Observable Keys
+
+public extension ObservableKey {
+    static func userDefault(_ key: UserDefaults.BoolKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.DateKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.DoubleKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.IntKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.StringKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+}
+
+public extension GenericObservableKey {
+    static let userDefault: GenericObservableKey = "userDefault"
 }

@@ -78,9 +78,9 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
         return stream
     }
     
-    public func publisher(initialValue: Output) -> AnyPublisher<Output, Never> {
+    public func publisher() -> AnyPublisher<Output, Never> {
         let stream: AsyncStream<Output> = stream()
-        let subject: CurrentValueSubject<Output, Never> = CurrentValueSubject(initialValue)
+        let subject: CurrentValueSubject<Output?, Never> = CurrentValueSubject(nil)
         let streamConsumingTask: Task<Void, Never> = Task {
             for await value in stream {
                 if Task.isCancelled { break }
@@ -89,11 +89,14 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
         }
         
         /// When the publisher subscription is cancelled, we cancel the task that's consuming the stream
-        return subject.handleEvents(
-            receiveCancel: {
-                streamConsumingTask.cancel()
-            }
-        ).eraseToAnyPublisher()
+        return subject
+            .handleEvents(
+                receiveCancel: {
+                    streamConsumingTask.cancel()
+                }
+            )
+            .compactMap { $0 }
+            .eraseToAnyPublisher()
     }
     
     public func assign(using update: @escaping @MainActor (Output) -> Void) -> Task<Void, Never> {
@@ -151,10 +154,10 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
     }
     
     private func requery(changes: [ObservedEvent]) async {
-        let previousValue: Output? = self.lastValue
+        let previousValueForQuery: Output? = self.lastValue
         
         /// Capture the updated data and new keys to observe
-        let newResult: Output = await self.query(previousValue, changes)
+        let newResult: Output = await self.query(previousValueForQuery, changes)
         let newKeys: Set<ObservableKey> = newResult.observedKeys
 
         /// If the keys have changed then we need to restart the observation
@@ -169,7 +172,7 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         }
         
         /// Prevent redundant updates if the output hasn't changed.
-        guard newResult != previousValue else { return }
+        guard newResult != self.lastValue else { return }
         
         /// Publish the new result
         self.lastValue = newResult

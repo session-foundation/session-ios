@@ -7,7 +7,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     typealias TableItem = Preferences.NotificationPreviewType
     
     public let dependencies: Dependencies

@@ -9,7 +9,7 @@ import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource, PagedObservationSource {
+public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld, PagedObservationSource {
     public static let pageSize: Int = 30
     
     public let dependencies: Dependencies

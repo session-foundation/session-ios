@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 @MainActor
-class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource, PagedObservationSource {
+class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld, PagedObservationSource {
     typealias TableItem = SessionThreadViewModel
     typealias PagedTable = SessionThread
     typealias PagedDataModel = SessionThreadViewModel
@@ -84,8 +84,9 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
-                .unreadMessageRequestMessageReceived,
+                .messageRequestUnreadMessageReceived,
                 .messageRequestAccepted,
+                .messageRequestDeleted,
                 .loadPage(MessageRequestsViewModel.observationName),
                 .conversationCreated,
                 .messageCreatedInAnyConversation
@@ -480,17 +481,18 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
 private extension ObservedEvent {
     var requiresDatabaseQueryForMessageRequestsViewModel: Bool {
         /// Any event requires a database query
-        switch self.key.generic {
-            case .loadPage: return true
-            case GenericObservableKey(.unreadMessageRequestMessageReceived): return true
-            case GenericObservableKey(.messageRequestAccepted): return true
-            case GenericObservableKey(.conversationCreated): return true
-            case GenericObservableKey(.messageCreatedInAnyConversation): return true
+        switch (key, key.generic) {
+            case (_, .loadPage): return true
+            case (.messageRequestUnreadMessageReceived, _): return true
+            case (.messageRequestAccepted, _): return true
+            case (.messageRequestDeleted, _): return true
+            case (.conversationCreated, _): return true
+            case (.messageCreatedInAnyConversation, _): return true
                 
             /// We only observe events from records we have explicitly fetched so if we get an event for one of these then we need to
             /// trigger an update
-            case .conversationUpdated, .conversationDeleted: return true
-            case .messageCreated, .messageUpdated, .messageDeleted: return true
+            case (_, .conversationUpdated), (_, .conversationDeleted): return true
+            case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return true
             default: return false
         }
     }

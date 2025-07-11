@@ -13,7 +13,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
@@ -1063,6 +1063,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
+        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+        
         dependencies[singleton: .storage].write { [dependencies] db in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
@@ -1098,9 +1100,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         Onboarding.Cache(
             ed25519KeyPair: identityData.ed25519KeyPair,
             x25519KeyPair: identityData.x25519KeyPair,
-            displayName: dependencies
-                .mutate(cache: .libSession) { $0.profile }
-                .name
+            displayName: existingProfile.name
                 .nullIfEmpty
                 .defaulting(to: "Anonymous"),
             using: dependencies

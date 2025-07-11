@@ -8,9 +8,8 @@ import SessionUtilitiesKit
 public extension ObservableKey {
     static let isUsingFullAPNs: ObservableKey = "isUsingFullAPNs"
     
-    static func setting(_ key: any Setting.Key) -> ObservableKey {
-        ObservableKey(key.rawValue)
-    }
+    static func setting(_ key: Setting.BoolKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
+    static func setting(_ key: Setting.EnumKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     
     static func loadPage(_ observationName: String) -> ObservableKey {
         ObservableKey("loadPage-\(observationName)", .loadPage)
@@ -66,7 +65,9 @@ public extension ObservableKey {
     // MARK: - Message Requests
     
     static let messageRequestAccepted: ObservableKey = "messageRequestAccepted"
-    static let unreadMessageRequestMessageReceived: ObservableKey = "unreadMessageRequestMessageReceived"
+    static let messageRequestDeleted: ObservableKey = "messageRequestDeleted"
+    static let messageRequestMessageRead: ObservableKey = "messageRequestMessageRead"
+    static let messageRequestUnreadMessageReceived: ObservableKey = "messageRequestUnreadMessageReceived"
 }
 
 public extension GenericObservableKey {

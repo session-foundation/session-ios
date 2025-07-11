@@ -217,7 +217,8 @@ extension SessionCell {
                 case is SessionCell.AccessoryConfig.Search: layoutSearchView(view)
                     
                 case is SessionCell.AccessoryConfig.Button: layoutButtonView(view)
-                case is SessionCell.AccessoryConfig.AnyCustom: layoutCustomView(view)
+                case let accessory as SessionCell.AccessoryConfig.AnyCustom:
+                    layoutCustomView(view, size: accessory.size)
                     
                 // If we get an unknown case then just hide again
                 default: self.isHidden = true
@@ -745,11 +746,30 @@ extension SessionCell {
             
         // MARK: -- Custom
         
-        private func layoutCustomView(_ view: UIView?) {
+        private func layoutCustomView(_ view: UIView?, size: SessionCell.Accessory.Size) {
             guard let view: UIView = view else { return }
             
-            view.pin(to: self)
-            minWidthConstraint.isActive = true
+            switch size {
+                case .fixed(let width, let height):
+                    view.set(.width, to: width)
+                    view.set(.height, to: height)
+                    fixedWidthConstraint.isActive = (width <= fixedWidthConstraint.constant)
+                    minWidthConstraint.isActive = !fixedWidthConstraint.isActive
+                    
+                case .fillWidth(let height):
+                    view.set(.width, to: .width, of: self)
+                    view.set(.height, to: height)
+                    minWidthConstraint.isActive = true
+                    
+                case .fillWidthWrapHeight:
+                    view.set(.width, to: .width, of: self)
+                    view.setContentHugging(.vertical, to: .required)
+                    view.setCompressionResistance(.vertical, to: .required)
+                    minWidthConstraint.isActive = true
+            }
+            
+            view.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
+            view.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
         }
         
         private func configureCustomView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.AnyCustom) {

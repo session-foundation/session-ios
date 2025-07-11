@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
     typealias TableItem = String
     
     public let dependencies: Dependencies

@@ -266,6 +266,11 @@ public extension ClosedGroup {
                 .asRequest(of: ThreadIdVariant.self)
                 .fetchAll(db)
         }()
+        let messageRequestMap: [String: Bool] = dependencies.mutate(cache: .libSession) { libSession in
+            threadVariants
+                .map { ($0.id, libSession.isMessageRequest(threadId: $0.id, threadVariant: $0.variant)) }
+                .reduce(into: [:]) { result, next in result[next.0] = next.1 }
+        }
         
         // This data isn't located in the database so we can't perform bulk actions
         if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
@@ -382,6 +387,11 @@ public extension ClosedGroup {
             
             threadIds.forEach { id in
                 db.addConversationEvent(id: id, type: .deleted)
+                
+                /// Need an explicit event for deleting a message request to trigger a home screen update
+                if messageRequestMap[id] == true {
+                    db.addEvent(.messageRequestDeleted)
+                }
             }
         }
         

@@ -18,13 +18,11 @@ private extension Log.Category {
 // MARK: - ObservableTableSource
 
 public protocol ObservableTableSource: AnyObject, SectionedTableData {
-    typealias TargetObservation = TableObservation<[SectionModel]>
     typealias TargetPublisher = AnyPublisher<[SectionModel], Error>
     
     var dependencies: Dependencies { get }
-    var state: TableDataState<Section, TableItem> { get }
-    var observableState: ObservableTableSourceState<Section, TableItem> { get }
-    var observation: TargetObservation { get }
+    var tableDataPublisher: TargetPublisher { get }
+    var shouldCancelPublisherOnLeave: Bool { get }
     
     // MARK: - Functions
     
@@ -37,17 +35,30 @@ public enum ObservableTableSourceRefreshType {
 }
 
 extension ObservableTableSource {
-    public var pendingTableDataSubject: CurrentValueSubject<[SectionModel], Never> {
+    public func didReturnFromBackground() {}
+    public func forceRefresh(type: ObservableTableSourceRefreshType = .databaseQuery) {}
+}
+
+public protocol ObservableTableSourceOld: ObservableTableSource {
+    typealias TargetObservation = TableObservation<[SectionModel]>
+    
+    var state: TableDataState<Section, TableItem> { get }
+    var observableState: ObservableTableSourceState<Section, TableItem> { get }
+    var observation: TargetObservation { get }
+}
+
+public extension ObservableTableSourceOld {
+    var pendingTableDataSubject: CurrentValueSubject<[SectionModel], Never> {
         self.observableState.pendingTableDataSubject
     }
-    public var observation: TargetObservation {
+    var observation: TargetObservation {
         ObservationBuilderOld.subject(self.observableState.pendingTableDataSubject)
     }
     
-    public var tableDataPublisher: TargetPublisher { self.observation.finalPublisher(self, using: dependencies) }
+    var tableDataPublisher: TargetPublisher { self.observation.finalPublisher(self, using: dependencies) }
+    var shouldCancelPublisherOnLeave: Bool { true }
     
-    public func didReturnFromBackground() {}
-    public func forceRefresh(type: ObservableTableSourceRefreshType = .databaseQuery) {
+    func forceRefresh(type: ObservableTableSourceRefreshType = .databaseQuery) {
         switch type {
             case .databaseQuery: self.observableState._forcedRequery.send(())
             case .postDatabaseQuery: self.observableState._forcedPostQueryRefresh.send(())
@@ -96,7 +107,7 @@ public struct TableObservation<T> {
         }
     }
     
-    fileprivate func finalPublisher<S: ObservableTableSource>(
+    fileprivate func finalPublisher<S: ObservableTableSourceOld>(
         _ source: S,
         using dependencies: Dependencies
     ) -> S.TargetPublisher {
@@ -175,7 +186,7 @@ public enum ObservationBuilderOld {
     
     /// The `ValueObserveration` will trigger whenever any of the data fetched in the closure is updated, please see the following link for tips
     /// to help optimise performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> T) -> TableObservation<T> {
+    static func databaseObservation<S: ObservableTableSourceOld, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> T) -> TableObservation<T> {
         /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
         /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
         /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
@@ -238,7 +249,7 @@ public enum ObservationBuilderOld {
         }
     }
     
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> [T]) -> TableObservation<[T]> {
+    static func databaseObservation<S: ObservableTableSourceOld, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> [T]) -> TableObservation<[T]> {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?
@@ -312,7 +323,7 @@ public enum ObservationBuilderOld {
             .removeDuplicates()
     }
     
-    static func refreshableData<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping () -> T) -> TableObservation<T> {
+    static func refreshableData<S: ObservableTableSourceOld, T: Equatable>(_ source: S, fetch: @escaping () -> T) -> TableObservation<T> {
         return TableObservation { viewModel, dependencies in
             source.observableState.forcedRequery
                 .prepend(())
@@ -322,7 +333,7 @@ public enum ObservationBuilderOld {
         }
     }
     
-    static func libSessionObservation<S: ObservableTableSource, T: Equatable>(
+    static func libSessionObservation<S: ObservableTableSourceOld, T: Equatable>(
         _ source: S,
         debounceInterval: DispatchTimeInterval = .milliseconds(10),
         fetch: @escaping (ObservationCollector) throws -> T

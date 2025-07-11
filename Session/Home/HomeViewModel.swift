@@ -76,11 +76,14 @@ public class HomeViewModel: NavigatableStateHolder {
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
-                .unreadMessageRequestMessageReceived,
                 .messageRequestAccepted,
+                .messageRequestDeleted,
+                .messageRequestMessageRead,
+                .messageRequestUnreadMessageReceived,
                 .loadPage(HomeViewModel.observationName),
                 .profile(userProfile.id),
-                .setting(Setting.BoolKey.hasViewedSeed),
+                .setting(.hasViewedSeed),
+                .setting(.hasHiddenMessageRequests),
                 .conversationCreated,
                 .messageCreatedInAnyConversation
             ]
@@ -174,7 +177,7 @@ public class HomeViewModel: NavigatableStateHolder {
                     /// If we haven't hidden the message requests banner then we should include that in the initial fetch
                     if !hasHiddenMessageRequests {
                         eventsToProcess.append(ObservedEvent(
-                            key: .unreadMessageRequestMessageReceived,
+                            key: .messageRequestUnreadMessageReceived,
                             value: nil
                         ))
                     }
@@ -200,11 +203,19 @@ public class HomeViewModel: NavigatableStateHolder {
                 guard !eventsToProcess.isEmpty else { return currentState }
                 
                 /// Split the events between those that need database access and those that don't
-                let splitEvents: [Bool: [ObservedEvent]] = eventsToProcess
-                    .grouped(by: \.requiresDatabaseQueryForHomeViewModel)
+                let splitEvents: [EventDataRequirement: Set<ObservedEvent>] = eventsToProcess
+                    .reduce(into: [:]) { result, next in
+                        switch next.dataRequirement {
+                            case .databaseQuery: result[.databaseQuery, default: []].insert(next)
+                            case .other: result[.other, default: []].insert(next)
+                            case .bothDatabaseQueryAndOther:
+                                result[.databaseQuery, default: []].insert(next)
+                                result[.other, default: []].insert(next)
+                        }
+                    }
                 
                 /// Handle database events first
-                if let databaseEvents: Set<ObservedEvent> = splitEvents[true].map({ Set($0) }) {
+                if let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
                     do {
                         var fetchedConversations: [SessionThreadViewModel] = []
                         let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
@@ -239,7 +250,7 @@ public class HomeViewModel: NavigatableStateHolder {
                         
                         try await dependencies[singleton: .storage].readAsync { db in
                             /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
-                            if databaseEvents.contains(where: { $0.key == .unreadMessageRequestMessageReceived || $0.key == .messageRequestAccepted }) {
+                            if databaseEvents.contains(where: { $0.requiresMessageRequestCountUpdate }) {
                                 unreadMessageRequestThreadCount = try SessionThread
                                     .unreadMessageRequestsCountQuery(userSessionId: userSessionId)
                                     .fetchOne(db)
@@ -282,24 +293,27 @@ public class HomeViewModel: NavigatableStateHolder {
                 }
                 
                 /// Then handle non-database events
-                splitEvents[false]?.forEach { event in
-                    switch (event.key.generic, (event.value as? ProfileEvent)?.change) {
-                        case (.profile, .name(let name)):
-                            userProfile = userProfile.with(name: name)
-                            
-                        case (.profile, .nickname(let nickname)):
-                            userProfile = userProfile.with(nickname: nickname)
-                            
-                        case (.profile, .displayPictureUrl(let url)):
-                            userProfile = userProfile.with(displayPictureUrl: url)
-                            
-                        case (.setting, _) where Setting.BoolKey(rawValue: event.key.rawValue) == .hasViewedSeed:
+                let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
+                    .reduce(into: [:]) { result, event in
+                        result[event.key.generic, default: []].insert(event)
+                    }
+                groupedOtherEvents?[.profile]?.forEach { event in
+                    switch (event.value as? ProfileEvent)?.change {
+                        case .name(let name): userProfile = userProfile.with(name: name)
+                        case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
+                        case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
+                        default: break
+                    }
+                }
+                groupedOtherEvents?[.setting]?.forEach { event in
+                    switch event.key {
+                        case .setting(.hasViewedSeed):
                             showViewedSeedBanner = (
                                 (event.value as? Bool).map { hasViewedSeed in !hasViewedSeed } ??
                                 currentState.showViewedSeedBanner
                             )
                             
-                        case (.setting, _) where Setting.BoolKey(rawValue: event.key.rawValue) == .hasHiddenMessageRequests:
+                        case .setting(.hasHiddenMessageRequests):
                             hasHiddenMessageRequests = (
                                 (event.value as? Bool) ??
                                 currentState.hasHiddenMessageRequests
@@ -442,23 +456,39 @@ public class HomeViewModel: NavigatableStateHolder {
 
 // MARK: - Convenience
 
+private enum EventDataRequirement {
+    case databaseQuery
+    case other
+    case bothDatabaseQueryAndOther
+}
+
 private extension ObservedEvent {
-    var requiresDatabaseQueryForHomeViewModel: Bool {
-        /// Any event requires a database query
-        switch self.key.generic {
-            case .loadPage: return true
-            case GenericObservableKey(.unreadMessageRequestMessageReceived): return true
-            case GenericObservableKey(.messageRequestAccepted): return true
-            case GenericObservableKey(.conversationCreated): return true
-            case GenericObservableKey(.messageCreatedInAnyConversation): return true
-            case .typingIndicator: return true
+    var dataRequirement: EventDataRequirement {
+        switch (key, key.generic) {
+            case (.setting(.hasHiddenMessageRequests), _): return .bothDatabaseQueryAndOther
                 
-            /// We only observe events from records we have explicitly fetched so if we get an event for one of these then we need to
-            /// trigger an update
-            case .conversationUpdated, .conversationDeleted: return true
-            case .messageCreated, .messageUpdated, .messageDeleted: return true
-            case .profile: return true
-            case .contact: return true
+            case (_, .profile): return .other
+            case (.setting(.hasViewedSeed), _): return .other
+                
+            case (.messageRequestUnreadMessageReceived, _), (.messageRequestAccepted, _),
+                (.messageRequestDeleted, _), (.messageRequestMessageRead, _):
+                return .databaseQuery
+            case (_, .loadPage): return .databaseQuery
+            case (.conversationCreated, _): return .databaseQuery
+            case (.messageCreatedInAnyConversation, _): return .databaseQuery
+            case (_, .typingIndicator): return .databaseQuery
+            case (_, .conversationUpdated), (_, .conversationDeleted): return .databaseQuery
+            case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery
+            default: return .other
+        }
+    }
+    
+    var requiresMessageRequestCountUpdate: Bool {
+        switch self.key {
+            case .messageRequestUnreadMessageReceived, .messageRequestAccepted, .messageRequestDeleted,
+                .messageRequestMessageRead:
+                return true
+                
             default: return false
         }
     }

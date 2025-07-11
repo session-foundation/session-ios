@@ -578,6 +578,11 @@ public extension Interaction {
                 .updateAll(db, Columns.wasRead.set(to: true))
             db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
             
+            /// Need to trigger an unread message request count update as well
+            if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
+                db.addEvent(.messageRequestMessageRead)
+            }
+            
             try Interaction.scheduleReadJobs(
                 db,
                 threadId: threadId,
@@ -631,6 +636,11 @@ public extension Interaction {
             db.addMessageEvent(id: info.id, threadId: threadId, type: .updated(.wasRead(true)))
         }
         db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
+        
+        /// Need to trigger an unread message request count update as well
+        if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
+            db.addEvent(.messageRequestMessageRead)
+        }
         
         // Retrieve the interaction ids we want to update
         try Interaction.scheduleReadJobs(

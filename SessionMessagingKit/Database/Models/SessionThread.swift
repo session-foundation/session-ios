@@ -420,6 +420,11 @@ public extension SessionThread {
             
             /// Toggling visibility is the same as "creating"/"deleting" a conversation so send those events as well
             db.addConversationEvent(id: id, type: (value ? .created : .deleted))
+            
+            /// Need an explicit event for deleting a message request to trigger a home screen update
+            if !value && dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: id, threadVariant: variant) }) {
+                db.addEvent(.messageRequestDeleted)
+            }
         }
         
         if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
@@ -629,8 +634,18 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
+                let messageRequestMap: [String: Bool] = dependencies.mutate(cache: .libSession) { libSession in
+                    remainingThreadIds
+                        .map { ($0, libSession.isMessageRequest(threadId: $0, threadVariant: threadVariant)) }
+                        .reduce(into: [:]) { result, next in result[next.0] = next.1 }
+                }
                 remainingThreadIds.forEach { id in
                     db.addConversationEvent(id: id, type: .deleted)
+                    
+                    /// Need an explicit event for deleting a message request to trigger a home screen update
+                    if messageRequestMap[id] == true {
+                        db.addEvent(.messageRequestDeleted)
+                    }
                 }
                 
                 // We need to custom handle the 'Note to Self' conversation (it should just be
@@ -672,8 +687,18 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
+                let messageRequestMap: [String: Bool] = dependencies.mutate(cache: .libSession) { libSession in
+                    remainingThreadIds
+                        .map { ($0, libSession.isMessageRequest(threadId: $0, threadVariant: threadVariant)) }
+                        .reduce(into: [:]) { result, next in result[next.0] = next.1 }
+                }
                 remainingThreadIds.forEach { id in
                     db.addConversationEvent(id: id, type: .deleted)
+                    
+                    /// Need an explicit event for deleting a message request to trigger a home screen update
+                    if messageRequestMap[id] == true {
+                        db.addEvent(.messageRequestDeleted)
+                    }
                 }
                 
                 // Remove desired deduplication records

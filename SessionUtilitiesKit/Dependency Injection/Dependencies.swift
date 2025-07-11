@@ -231,35 +231,6 @@ public extension Dependencies {
     }
 }
 
-// MARK: - UserDefaults Convenience
-
-public extension Dependencies {
-    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.BoolKey) -> Bool {
-        get { return self[defaults: defaults].bool(forKey: key.rawValue) }
-        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
-    }
-
-    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DateKey) -> Date? {
-        get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
-        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
-    }
-    
-    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DoubleKey) -> Double {
-        get { return self[defaults: defaults].double(forKey: key.rawValue) }
-        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
-    }
-
-    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.IntKey) -> Int {
-        get { return self[defaults: defaults].integer(forKey: key.rawValue) }
-        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
-    }
-    
-    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.StringKey) -> String? {
-        get { return self[defaults: defaults].string(forKey: key.rawValue) }
-        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
-    }
-}
-
 // MARK: - DependenciesError
 
 public enum DependenciesError: Error {

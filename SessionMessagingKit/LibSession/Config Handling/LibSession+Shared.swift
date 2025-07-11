@@ -870,6 +870,33 @@ public extension LibSession.Cache {
 // MARK: - Convenience
 
 public extension Dependencies {
+    func set(_ db: ObservingDatabase, _ key: Setting.BoolKey, _ value: Bool?) {
+        let targetVariant: ConfigDump.Variant
+        
+        switch key {
+            case .checkForCommunityMessageRequests: targetVariant = .userProfile
+            default: targetVariant = .local
+        }
+        
+        let mutation: LibSession.Mutation? = try? self.mutate(cache: .libSession) { cache in
+            try cache.perform(for: targetVariant) {
+                cache.set(key, value)
+            }
+        }
+
+        try? mutation?.upsert(db)
+    }
+    
+    private func set<T: LibSessionConvertibleEnum>(_ db: ObservingDatabase, _ key: Setting.EnumKey, _ value: T?) {
+        let mutation: LibSession.Mutation? = try? self.mutate(cache: .libSession) { cache in
+            try cache.perform(for: .local) {
+                cache.set(key, value)
+            }
+        }
+
+        try? mutation?.upsert(db)
+    }
+    
     func setAsync(_ key: Setting.BoolKey, _ value: Bool?, onComplete: (@MainActor () -> Void)? = nil) {
         Task(priority: .userInitiated) { [weak self] in
             await self?.set(key, value)
@@ -910,7 +937,6 @@ public extension Dependencies {
 
         try? await self[singleton: .storage].writeAsync { db in
             try mutation?.upsert(db)
-            db.addEvent(value, forKey: .setting(key))
         }
     }
     
@@ -923,7 +949,6 @@ public extension Dependencies {
 
         try? await self[singleton: .storage].writeAsync { db in
             try mutation?.upsert(db)
-            db.addEvent(value, forKey: .setting(key))
         }
     }
 }

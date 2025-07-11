@@ -717,6 +717,8 @@ public extension SessionCell.AccessoryConfig {
     class Custom<T: SessionCell.Accessory.CustomViewInfo>: SessionCell.Accessory, AnyCustom {
         override public var viewIdentifier: String { "custom" }
         
+        public var size: SessionCell.Accessory.Size { T.View.size }
+        
         public let info: T
         
         fileprivate init(
@@ -749,6 +751,7 @@ public extension SessionCell.AccessoryConfig {
     }
     
     protocol AnyCustom {
+        var size: SessionCell.Accessory.Size { get }
         var accessibility: Accessibility? { get }
         
         func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView

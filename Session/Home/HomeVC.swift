@@ -400,19 +400,16 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         switch state.viewState {
             case .loading:
                 loadingConversationsLabel.isHidden = false
-                tableView.isHidden = true
                 emptyStateStackView.isHidden = true
                 
             case .empty(let isNewUser):
                 loadingConversationsLabel.isHidden = true
-                tableView.isHidden = true
                 emptyStateStackView.isHidden = false
                 accountCreatedView.isHidden = !isNewUser
                 emptyStateLogoView.isHidden = isNewUser
                 
             case .loaded:
                 loadingConversationsLabel.isHidden = true
-                tableView.isHidden = false
                 emptyStateStackView.isHidden = true
         }
         

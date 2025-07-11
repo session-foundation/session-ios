@@ -249,6 +249,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     // MARK: - Updating
     
     private func startObservingChanges() {
+        guard dataChangeCancellable == nil else { return }
+        
         // Start observing for data changes
         dataChangeCancellable = viewModel.tableDataPublisher
             .receive(on: DispatchQueue.main)
@@ -279,6 +281,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     private func stopObservingChanges() {
+        guard viewModel.shouldCancelPublisherOnLeave else { return }
+        
         // Stop observing database changes
         dataChangeCancellable?.cancel()
         dataChangeCancellable = nil
