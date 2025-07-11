@@ -192,6 +192,12 @@
 		9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */; };
 		9499E68B2DF92F4E00091434 /* ThreadNotificationSettingsViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */; };
 		94A6B9DB2DD6BF7C00DB4B44 /* Constants+URLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A6B9DA2DD6BF6E00DB4B44 /* Constants+URLs.swift */; };
+		94AAB14B2E1E198200A6FA18 /* Modal+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */; };
+		94AAB14D2E1F39B500A6FA18 /* ProCTAModal+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB14C2E1F39AB00A6FA18 /* ProCTAModal+SwiftUI.swift */; };
+		94AAB14F2E1F6CC100A6FA18 /* SessionProBadge+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */; };
+		94AAB1512E1F753500A6FA18 /* CyclicGradientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */; };
+		94AAB1532E1F8AE200A6FA18 /* ShineButton+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1522E1F8AD900A6FA18 /* ShineButton+SwiftUI.swift */; };
+		94AAB1552E20E66800A6FA18 /* SessionAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1542E20E66800A6FA18 /* SessionAsyncImage.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
 		94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BA2E08D9D40097754D /* SessionProBadge.swift */; };
@@ -1510,6 +1516,12 @@
 		9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandableLabel.swift; sourceTree = "<group>"; };
 		9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModelSpec.swift; sourceTree = "<group>"; };
 		94A6B9DA2DD6BF6E00DB4B44 /* Constants+URLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Constants+URLs.swift"; sourceTree = "<group>"; };
+		94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Modal+SwiftUI.swift"; sourceTree = "<group>"; };
+		94AAB14C2E1F39AB00A6FA18 /* ProCTAModal+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProCTAModal+SwiftUI.swift"; sourceTree = "<group>"; };
+		94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProBadge+SwiftUI.swift"; sourceTree = "<group>"; };
+		94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclicGradientView.swift; sourceTree = "<group>"; };
+		94AAB1522E1F8AD900A6FA18 /* ShineButton+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ShineButton+SwiftUI.swift"; sourceTree = "<group>"; };
+		94AAB1542E20E66800A6FA18 /* SessionAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionAsyncImage.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		94CD95BA2E08D9D40097754D /* SessionProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBadge.swift; sourceTree = "<group>"; };
@@ -2721,6 +2733,11 @@
 		942256932C23F8DD00C0FDBF /* SwiftUI */ = {
 			isa = PBXGroup;
 			children = (
+				94AAB1522E1F8AD900A6FA18 /* ShineButton+SwiftUI.swift */,
+				94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */,
+				94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */,
+				94AAB14C2E1F39AB00A6FA18 /* ProCTAModal+SwiftUI.swift */,
+				94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */,
 				FD8A5B1F2DC03332004C689B /* AdaptiveText.swift */,
 				FD8A5B212DC0489B004C689B /* AdaptiveHStack.swift */,
 				947D7FE42D51837200E8E413 /* ArrowCapsule.swift */,
@@ -2732,6 +2749,7 @@
 				942256902C23F8DD00C0FDBF /* SessionSearchBar.swift */,
 				942256912C23F8DD00C0FDBF /* SessionTextField.swift */,
 				942256922C23F8DD00C0FDBF /* Toast.swift */,
+				94AAB1542E20E66800A6FA18 /* SessionAsyncImage.swift */,
 			);
 			path = SwiftUI;
 			sourceTree = "<group>";
@@ -5919,6 +5937,7 @@
 				FD2272E42C35134B004D8A6C /* Data+Utilities.swift in Sources */,
 				C331FFE72558FB0000070591 /* SNTextField.swift in Sources */,
 				942256962C23F8DD00C0FDBF /* CompatibleScrollingVStack.swift in Sources */,
+				94AAB1552E20E66800A6FA18 /* SessionAsyncImage.swift in Sources */,
 				FD71165B28E6DDBC00B47552 /* StyledNavigationController.swift in Sources */,
 				C331FFE32558FB0000070591 /* TabBar.swift in Sources */,
 				FD37E9D528A1FCE8003AE748 /* Theme+OceanLight.swift in Sources */,
@@ -5937,6 +5956,7 @@
 				FD37EA0128A60473003AE748 /* UIKit+Theme.swift in Sources */,
 				FD37E9CF28A1EB1B003AE748 /* Theme.swift in Sources */,
 				9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */,
+				94AAB14D2E1F39B500A6FA18 /* ProCTAModal+SwiftUI.swift in Sources */,
 				FDE754BA2C9B97B8002A2623 /* UIDevice+Utilities.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
@@ -5944,6 +5964,7 @@
 				FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */,
 				FD8A5B0D2DBF2CA1004C689B /* Localization.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
+				94AAB1512E1F753500A6FA18 /* CyclicGradientView.swift in Sources */,
 				FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */,
 				FD2272E62C351378004D8A6C /* SUIKImageFormat.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
@@ -5964,6 +5985,9 @@
 				FD8A5B202DC03337004C689B /* AdaptiveText.swift in Sources */,
 				947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */,
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
+				94AAB14F2E1F6CC100A6FA18 /* SessionProBadge+SwiftUI.swift in Sources */,
+				94AAB14B2E1E198200A6FA18 /* Modal+SwiftUI.swift in Sources */,
+				94AAB1532E1F8AE200A6FA18 /* ShineButton+SwiftUI.swift in Sources */,
 				FD37E9D728A20B5D003AE748 /* UIColor+Utilities.swift in Sources */,
 				94A6B9DB2DD6BF7C00DB4B44 /* Constants+URLs.swift in Sources */,
 				FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */,
