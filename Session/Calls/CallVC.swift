@@ -570,10 +570,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             try Profile.fetchOne(db, id: call.sessionId)
         }
         
-        switch profile?.profilePictureFileName {
-            case .some(let fileName): profilePictureView.loadImage(from: fileName)
+        switch profile?.profilePictureFileName.map({ try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }) {
+            case .some(let filePath): profilePictureView.loadImage(from: filePath)
             case .none:
-                profilePictureView.image = PlaceholderIcon.generate(
+                profilePictureView.loadPlaceholder(
                     seed: call.sessionId,
                     text: call.contactName,
                     size: 300

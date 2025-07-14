@@ -1641,7 +1641,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 info: ConfirmationModal.Info(
                     title: "groupSetDisplayPicture".localized(),
                     body: .image(
-                        identifier: (currentFileName ?? iconName),
                         source: currentFileName
                             .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
                             .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
@@ -1663,7 +1662,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
@@ -1673,7 +1672,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateGroupDisplayPicture(
