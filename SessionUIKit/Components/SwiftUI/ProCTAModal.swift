@@ -35,8 +35,20 @@ public struct ProCTAModal: View {
         ) { close in
             VStack(spacing: 0) {
                 ZStack {
-                    if let animatedAvatarImageName = touchPoint.animatedAvatarImageName {
-                        // TODO: Merge SessionAsyncImage
+                    if let animatedAvatarImageURL = touchPoint.animatedAvatarImageURL {
+                        SessionAsyncImage(
+                            source: .url(animatedAvatarImageURL),
+                            dataManager: dataManager,
+                            content: { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio((1522.0/1258.0), contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                            },
+                            placeholder: {
+                                EmptyView()
+                            }
+                        )
                     }
                     
                     Image(uiImage: UIImage(named: touchPoint.backgroundImageName) ?? UIImage())
@@ -139,7 +151,7 @@ public struct ProCTAModal: View {
                                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                     .framing(
                                         maxWidth: .infinity,
-                                        height: Values.largeButtonHeight,
+                                        height: Values.largeButtonHeight
                                     )
                             }
                             .frame(height: Values.largeButtonHeight)
@@ -157,7 +169,7 @@ public struct ProCTAModal: View {
                                     .foregroundColor(themeColor: .textPrimary)
                                     .framing(
                                         maxWidth: .infinity,
-                                        height: Values.largeButtonHeight,
+                                        height: Values.largeButtonHeight
                                     )
                             }
                             .backgroundColor(themeColor: .inputButton_background)
@@ -198,9 +210,10 @@ public enum TouchPoint {
         }
     }
     // stringlint:ignore_contents
-    public var animatedAvatarImageName: String? {
+    public var animatedAvatarImageURL: URL? {
         switch self {
-            case .generic: return "GenericCTAAnimation"
+            case .generic: 
+                return Bundle.main.url(forResource: "GenericCTAAnimation", withExtension: "webp")
             default: return nil
         }
     }
