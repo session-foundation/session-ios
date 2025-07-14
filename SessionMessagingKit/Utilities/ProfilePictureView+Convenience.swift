@@ -51,7 +51,6 @@ public extension ProfilePictureView {
                 .filepath(for: displayPictureFilename)
         {
             return (Info(
-                identifier: displayPictureFilename,
                 source: .url(URL(fileURLWithPath: path)),
                 icon: profileIcon
             ), nil)
@@ -62,7 +61,6 @@ public extension ProfilePictureView {
             case .community:
                 return (
                     Info(
-                        identifier: "\(publicKey)-placeholder",
                         source: {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
@@ -87,22 +85,17 @@ public extension ProfilePictureView {
                 
                 return (
                     Info(
-                        identifier: (profile?.profilePictureFileName)
-                            .defaulting(to: "\(profile?.id ?? publicKey)-placeholder"),
                         source: (
                             profile?.profilePictureFileName
                                 .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
                                 .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .image(
-                                "\(profile?.id ?? publicKey)-placeholder",
-                                PlaceholderIcon.generate(
-                                    seed: (profile?.id ?? publicKey),
-                                    text: (profile?.displayName(for: threadVariant))
-                                        .defaulting(to: publicKey),
-                                    size: (additionalProfile != nil ?
-                                           size.multiImageSize :
-                                            size.viewSize
-                                          )
+                            .placeholderIcon(
+                                seed: (profile?.id ?? publicKey),
+                                text: (profile?.displayName(for: threadVariant))
+                                    .defaulting(to: publicKey),
+                                size: (additionalProfile != nil ?
+                                    size.multiImageSize :
+                                    size.viewSize
                                 )
                             )
                         ),
@@ -111,8 +104,6 @@ public extension ProfilePictureView {
                     additionalProfile
                         .map { other in
                             Info(
-                                identifier: (other.profilePictureFileName)
-                                    .defaulting(to: "\(other.id)-placeholder"),
                                 source: (
                                     other.profilePictureFileName
                                         .map { fileName in
@@ -120,13 +111,10 @@ public extension ProfilePictureView {
                                                 .filepath(for: fileName)
                                         }
                                         .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                                    .image(
-                                        "\(other.id)-placeholder",
-                                        PlaceholderIcon.generate(
-                                            seed: other.id,
-                                            text: other.displayName(for: threadVariant),
-                                            size: size.multiImageSize
-                                        )
+                                    .placeholderIcon(
+                                        seed: other.id,
+                                        text: other.displayName(for: threadVariant),
+                                        size: size.multiImageSize
                                     )
                                 ),
                                 icon: additionalProfileIcon
@@ -134,8 +122,7 @@ public extension ProfilePictureView {
                         }
                         .defaulting(
                             to: Info(
-                                identifier: "GroupFallbackIcon",    // stringlint:ignore
-                                source: .image("person.fill", UIImage(named: "ic_user_round_fill")),
+                                source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -154,20 +141,15 @@ public extension ProfilePictureView {
                 
                 return (
                     Info(
-                        identifier: (profile?.profilePictureFileName)
-                            .defaulting(to: "\(publicKey)-placeholder"),
                         source: (
                             profile?.profilePictureFileName
                                 .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
                                 .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .image(
-                                "\(profile?.id ?? publicKey)-placeholder",
-                                PlaceholderIcon.generate(
-                                    seed: publicKey,
-                                    text: (profile?.displayName(for: threadVariant))
-                                        .defaulting(to: publicKey),
-                                    size: size.viewSize
-                                )
+                            .placeholderIcon(
+                                seed: publicKey,
+                                text: (profile?.displayName(for: threadVariant))
+                                    .defaulting(to: publicKey),
+                                size: size.viewSize
                             )
                         ),
                         icon: profileIcon

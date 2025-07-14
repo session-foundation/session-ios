@@ -172,7 +172,7 @@ public class DisplayPictureManager {
     public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
         return Just(())
             .setFailureType(to: DisplayPictureError.self)
-            .tryMap { [weak self, dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data, Data) in
+            .tryMap { [weak self, dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, String, Data, Data) in
                 // If the profile avatar was updated or removed then encrypt with a new profile key
                 // to ensure that other users know that our profile picture was updated
                 let newEncryptionKey: Data
@@ -283,12 +283,12 @@ public class DisplayPictureManager {
                     throw DisplayPictureError.uploadFailed
                 }
                 
-                return (preparedUpload, fileName, newEncryptionKey, finalImageData)
+                return (preparedUpload, filePath, fileName, newEncryptionKey, finalImageData)
             }
-            .flatMap { [dependencies] preparedUpload, fileName, newEncryptionKey, finalImageData -> AnyPublisher<(FileUploadResponse, String, Data, Data), Error> in
+            .flatMap { [dependencies] preparedUpload, finalFilePath, fileName, newEncryptionKey, finalImageData -> AnyPublisher<(FileUploadResponse, String, String, Data, Data), Error> in
                 preparedUpload.send(using: dependencies)
-                    .map { _, response -> (FileUploadResponse, String, Data, Data) in
-                        (response, fileName, newEncryptionKey, finalImageData)
+                    .map { _, response -> (FileUploadResponse, String, String, Data, Data) in
+                        (response, finalFilePath, fileName, newEncryptionKey, finalImageData)
                     }
                     .eraseToAnyPublisher()
             }
@@ -301,19 +301,15 @@ public class DisplayPictureManager {
                     default: return DisplayPictureError.uploadFailed
                 }
             }
-            .map { [dependencies] fileUploadResponse, fileName, newEncryptionKey, finalImageData -> UploadResult in
+            .map { [dependencies] fileUploadResponse, finalFilePath, fileName, newEncryptionKey, finalImageData -> UploadResult in
                 let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
                 
                 /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
-                let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                Task {
-                    await dependencies[singleton: .imageDataManager].loadImageData(
-                        identifier: fileName,
-                        source: .data(finalImageData)
+                Task(priority: .userInitiated) {
+                    await dependencies[singleton: .imageDataManager].load(
+                        .url(URL(fileURLWithPath: finalFilePath))
                     )
-                    semaphore.signal()
                 }
-                semaphore.wait()
                 
                 Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
                 return (downloadUrl, fileName, newEncryptionKey)
