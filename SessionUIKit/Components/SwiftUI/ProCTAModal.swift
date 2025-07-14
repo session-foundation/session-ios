@@ -108,38 +108,63 @@ public struct ProCTAModal: View {
                     }
                     // Buttons
                     HStack(spacing: Values.smallSpacing) {
-                        // Upgrade Button
-                        ShineButton {
-                            delegate?.upgradeToPro {
+                        if case .groupLimit(let isAdmin) = touchPoint, !isAdmin {
+                            Button {
                                 close()
+                            } label: {
+                                GeometryReader { geometry in
+                                    Text("close".localized())
+                                        .font(.system(size: Values.mediumFontSize))
+                                        .foregroundColor(themeColor: .textPrimary)
+                                        .frame(
+                                            width: (geometry.size.width - Values.smallSpacing) / 2,
+                                            height: Values.largeButtonHeight
+                                        )
+                                }
+                                .frame(height: Values.largeButtonHeight)
                             }
-                        } label: {
-                            Text("theContinue".localized())
-                                .font(.system(size: Values.mediumFontSize))
-                                .foregroundColor(themeColor: .sessionButton_primaryFilledText)
-                                .frame(height: Values.largeButtonHeight)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .frame(height: Values.largeButtonHeight)
-                        .backgroundColor(themeColor: .sessionButton_primaryFilledBackground)
-                        .cornerRadius(6)
-                        .clipped()
-                        .buttonStyle(PlainButtonStyle()) // prevents default blue highlight
+                            .backgroundColor(themeColor: .inputButton_background)
+                            .cornerRadius(6)
+                            .clipped()
+                            .buttonStyle(PlainButtonStyle())
+                        } else {
+                            // Upgrade Button
+                            ShineButton {
+                                delegate?.upgradeToPro {
+                                    close()
+                                }
+                            } label: {
+                                Text("theContinue".localized())
+                                    .font(.system(size: Values.mediumFontSize))
+                                    .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                                    .framing(
+                                        maxWidth: .infinity,
+                                        height: Values.largeButtonHeight,
+                                    )
+                            }
+                            .frame(height: Values.largeButtonHeight)
+                            .backgroundColor(themeColor: .sessionButton_primaryFilledBackground)
+                            .cornerRadius(6)
+                            .clipped()
+                            .buttonStyle(PlainButtonStyle()) // prevents default blue highlight
 
-                        // Cancel Button
-                        Button {
-                            close()
-                        } label: {
-                            Text("cancel".localized())
-                                .font(.system(size: Values.mediumFontSize))
-                                .foregroundColor(themeColor: .textPrimary)
-                                .frame(height: Values.largeButtonHeight)
-                                .frame(maxWidth: .infinity)
+                            // Cancel Button
+                            Button {
+                                close()
+                            } label: {
+                                Text("cancel".localized())
+                                    .font(.system(size: Values.mediumFontSize))
+                                    .foregroundColor(themeColor: .textPrimary)
+                                    .framing(
+                                        maxWidth: .infinity,
+                                        height: Values.largeButtonHeight,
+                                    )
+                            }
+                            .backgroundColor(themeColor: .inputButton_background)
+                            .cornerRadius(6)
+                            .clipped()
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .backgroundColor(themeColor: .inputButton_background)
-                        .cornerRadius(6)
-                        .clipped()
-                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding(Values.mediumSpacing)
@@ -192,7 +217,7 @@ public enum TouchPoint {
                 return isGrandfathered ?
                     "proCallToActionPinnedConversations".localized() :
                     "proCallToActionPinnedConversationsMoreThan".localized()
-            case .groupLimit(let isAdmin):
+            case .groupLimit:
                 return "proUserProfileModalCallToAction".localized()
         }
     }
