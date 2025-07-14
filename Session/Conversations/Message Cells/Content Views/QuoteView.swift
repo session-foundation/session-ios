@@ -141,8 +141,7 @@ final class QuoteView: UIView {
                 let thumbnailPath: String = attachment.thumbnailPath(for: Attachment.ThumbnailSize.medium.dimension)
                 
                 imageView.loadImage(
-                    identifier: thumbnailPath,
-                    from: { [weak self] () -> Data? in
+                    .closure(thumbnailPath, { [weak self] () -> Data? in
                         guard let self = self else { return nil }
                         
                         var data: Data?
@@ -160,8 +159,12 @@ final class QuoteView: UIView {
                         semaphore.wait()
                         
                         return data
-                    },
-                    onComplete: { [weak imageView] in imageView?.contentMode = .scaleAspectFill }
+                    }),
+                    onComplete: { [weak imageView] success in
+                        guard success else { return }
+                        
+                        imageView?.contentMode = .scaleAspectFill
+                    }
                 )
             }
         }

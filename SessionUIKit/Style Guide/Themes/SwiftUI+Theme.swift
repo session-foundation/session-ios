@@ -51,6 +51,16 @@ public extension Text {
     }
 }
 
+public extension LinearGradient {
+    init(themeColors: [ThemeValue], startPoint: UnitPoint, endPoint: UnitPoint) {
+        self.init(
+            colors: themeColors.map { ThemeManager.color(for: $0) ?? .clear },
+            startPoint: startPoint,
+            endPoint: endPoint
+        )
+    }
+}
+
 // MARK: - Convenience
 
 private extension ThemeManager {
