@@ -44,7 +44,6 @@ extension SessionCell {
             tintColor: ThemeValue,
             isEnabled: Bool,
             maxContentWidth: CGFloat,
-            isManualReload: Bool,
             using dependencies: Dependencies
         ) {
             guard let accessory: Accessory = accessory else { return }
@@ -57,7 +56,6 @@ extension SessionCell {
                     tintColor: tintColor,
                     isEnabled: isEnabled,
                     maxContentWidth: maxContentWidth,
-                    isManualReload: isManualReload,
                     using: dependencies
                 )
                 return
@@ -85,7 +83,6 @@ extension SessionCell {
                 tintColor: tintColor,
                 isEnabled: isEnabled,
                 maxContentWidth: maxContentWidth,
-                isManualReload: isManualReload,
                 using: dependencies
             )
             
@@ -231,7 +228,6 @@ extension SessionCell {
             tintColor: ThemeValue,
             isEnabled: Bool,
             maxContentWidth: CGFloat,
-            isManualReload: Bool,
             using dependencies: Dependencies
         ) {
             switch accessory {
@@ -242,12 +238,7 @@ extension SessionCell {
                     configureIconView(view, accessory, tintColor: tintColor)
                     
                 case let accessory as SessionCell.AccessoryConfig.Toggle:
-                    configureToggleView(
-                        view,
-                        accessory,
-                        isEnabled: isEnabled,
-                        isManualReload: isManualReload
-                    )
+                    configureToggleView(view, accessory, isEnabled: isEnabled)
                     
                 case let accessory as SessionCell.AccessoryConfig.DropDown:
                     configureDropDown(view, accessory)
@@ -366,23 +357,20 @@ extension SessionCell {
         private func configureToggleView(
             _ view: UIView?,
             _ accessory: SessionCell.AccessoryConfig.Toggle,
-            isEnabled: Bool,
-            isManualReload: Bool
+            isEnabled: Bool
         ) {
             guard let toggleSwitch: UISwitch = view as? UISwitch else { return }
             
             toggleSwitch.accessibilityIdentifier = accessory.accessibility?.identifier
             toggleSwitch.accessibilityLabel = accessory.accessibility?.label
             toggleSwitch.isEnabled = isEnabled
+            toggleSwitch.setOn(accessory.oldValue, animated: false)
             
-            if !isManualReload {
-                toggleSwitch.setOn(accessory.oldValue, animated: false)
-                
-                // Dispatch so the cell reload doesn't conflict with the setting change animation
-                if accessory.oldValue != accessory.value {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) { [weak toggleSwitch] in
-                        toggleSwitch?.setOn(accessory.value, animated: true)
-                    }
+            // Dispatch so the cell reload doesn't conflict with the setting change animation
+            if accessory.oldValue != accessory.value {
+                Task { @MainActor [weak toggleSwitch] in
+                    try? await Task.sleep(for: .microseconds(10))
+                    toggleSwitch?.setOn(accessory.value, animated: true)
                 }
             }
         }

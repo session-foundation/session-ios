@@ -33,7 +33,10 @@ public actor DebounceTaskManager<Event: Sendable> {
             guard let self = self else { return }
 
             do {
-                try await Task.sleep(for: self.debounceInterval)
+                /// Only debounce if we want to
+                if debounceInterval != .never {
+                    try await Task.sleep(for: self.debounceInterval)
+                }
                 guard !Task.isCancelled else { return }
                 
                 let eventsToProcess: [Event] = await self.clearPendingEvents()
@@ -41,6 +44,17 @@ public actor DebounceTaskManager<Event: Sendable> {
             } catch {
                 // Task was cancelled so no need to do anything
             }
+        }
+    }
+    
+    fileprivate func flushPendingEvents() {
+        debounceTask?.cancel()
+        
+        debounceTask = Task { [weak self] in
+            guard let self = self else { return }
+            
+            let eventsToProcess: [Event] = await self.clearPendingEvents()
+            await self.action?(eventsToProcess)
         }
     }
     
@@ -57,12 +71,22 @@ public extension DebounceTaskManager where Event == Void {
         pendingEvents.append(())
         scheduleSignal()
     }
+    
+    func flush() {
+        pendingEvents.append(())
+        flushPendingEvents()
+    }
 }
 
 public extension DebounceTaskManager {
     func signal(event: Event) {
         pendingEvents.append(event)
         scheduleSignal()
+    }
+    
+    func flush(event: Event) {
+        pendingEvents.append(event)
+        flushPendingEvents()
     }
 }
 
@@ -74,5 +98,14 @@ public extension DebounceTaskManager where Event: Hashable {
         pendingEvents.append(event)
         pendingEventSet.insert(event)
         scheduleSignal()
+    }
+    
+    func flush(event: Event) {
+        /// Ignore duplicate events
+        guard !pendingEventSet.contains(event) else { return }
+        
+        pendingEvents.append(event)
+        pendingEventSet.insert(event)
+        flushPendingEvents()
     }
 }

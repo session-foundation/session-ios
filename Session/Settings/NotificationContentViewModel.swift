@@ -7,7 +7,8 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
+@MainActor
+class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = Preferences.NotificationPreviewType
     
     public let dependencies: Dependencies
@@ -15,10 +16,17 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
+    /// This value is the current state of the view
+    private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
+    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.internalState = State.initialState()
+        
+        bindState()
     }
     
     // MARK: - Section
@@ -29,32 +37,76 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     
     // MARK: - Content
     
+    public struct State: ObservableKeyProvider {
+        let previewType: Preferences.NotificationPreviewType
+        
+        @MainActor public func sections(viewModel: NotificationContentViewModel) -> [SectionModel] {
+            NotificationContentViewModel.sections(state: self, viewModel: viewModel)
+        }
+        
+        /// No observations as we dismiss the screen when selecting an option
+        public let observedKeys: Set<ObservableKey> = []
+        
+        static func initialState() -> State {
+            return State(
+                previewType: .defaultPreviewType
+            )
+        }
+    }
+    
     let title: String = "notificationsContent".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilderOld
-        .libSessionObservation(self) { cache -> Preferences.NotificationPreviewType in
-            cache.get(.preferencesNotificationPreviewType).defaulting(to: .defaultPreviewType)
-        }
-        .map { [weak self, dependencies] currentSelection -> [SectionModel] in
-            return [
-                SectionModel(
-                    model: .content,
-                    elements: Preferences.NotificationPreviewType.allCases
-                        .map { previewType in
-                            SessionCell.Info(
-                                id: previewType,
-                                title: previewType.name,
-                                trailingAccessory: .radio(
-                                    isSelected: (currentSelection == previewType)
-                                ),
-                                onTap: {
-                                    dependencies.setAsync(.preferencesNotificationPreviewType, previewType) {
-                                        self?.dismissScreen()
-                                    }
-                                }
-                            )
-                        }
+    private func bindState() {
+        let initialState: State = self.internalState
+        
+        observationTask = ObservationBuilder
+            .debounce(for: .never)
+            .using(manager: dependencies[singleton: .observationManager])
+            .query { [dependencies] previousState, events in
+                /// Store mutable copies of the data to update
+                let currentState: State = (previousState ?? initialState)
+                var previewType: Preferences.NotificationPreviewType = currentState.previewType
+                
+                if previousState == nil {
+                    dependencies.mutate(cache: .libSession) { libSession in
+                        previewType = (libSession.get(.preferencesNotificationPreviewType) ?? previewType)
+                    }
+                }
+                
+                /// Generate the new state
+                return State(
+                    previewType: previewType
                 )
-            ]
-        }
+            }
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
+            }
+    }
+    
+    private static func sections(state: State, viewModel: NotificationContentViewModel) -> [SectionModel] {
+        return [
+            SectionModel(
+                model: .content,
+                elements: Preferences.NotificationPreviewType.allCases
+                    .map { previewType in
+                        SessionCell.Info(
+                            id: previewType,
+                            title: previewType.name,
+                            trailingAccessory: .radio(
+                                isSelected: (state.previewType == previewType)
+                            ),
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                dependencies.setAsync(.preferencesNotificationPreviewType, previewType) { [weak viewModel] in
+                                    viewModel?.dismissScreen()
+                                }
+                            }
+                        )
+                    }
+            )
+        ]
+    }
 }

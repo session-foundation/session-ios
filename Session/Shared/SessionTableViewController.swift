@@ -249,8 +249,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     // MARK: - Updating
     
     private func startObservingChanges() {
-        guard dataChangeCancellable == nil else { return }
-        
         // Start observing for data changes
         dataChangeCancellable = viewModel.tableDataPublisher
             .receive(on: DispatchQueue.main)
@@ -281,8 +279,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     private func stopObservingChanges() {
-        guard viewModel.shouldCancelPublisherOnLeave else { return }
-        
         // Stop observing database changes
         dataChangeCancellable?.cancel()
         dataChangeCancellable = nil
@@ -639,36 +635,9 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             }
         }()
         
-        let maybeOldSelection: (Int, SessionCell.Info<TableItem>)? = section.elements
-            .enumerated()
-            .first(where: { index, info in
-                switch (info.leadingAccessory, info.trailingAccessory) {
-                    case (_, let accessory as SessionCell.AccessoryConfig.Radio): return accessory.liveIsSelected()
-                    case (let accessory as SessionCell.AccessoryConfig.Radio, _): return accessory.liveIsSelected()
-                    case (_, let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
-                        return accessory.liveIsSelected()
-                    case (let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
-                        return accessory.liveIsSelected()
-                    default: return false
-                }
-            })
-        
-        let performAction: () -> Void = { [weak self, weak tappedView] in
+        let performAction: () -> Void = { [weak tappedView] in
             info.onTap?()
             info.onTapView?(tappedView)
-            self?.manuallyReload(indexPath: indexPath, section: section, info: info)
-            
-            // Update the old selection as well
-            if let oldSelection: (index: Int, info: SessionCell.Info<TableItem>) = maybeOldSelection {
-                self?.manuallyReload(
-                    indexPath: IndexPath(
-                        row: oldSelection.index,
-                        section: indexPath.section
-                    ),
-                    section: section,
-                    info: oldSelection.info
-                )
-            }
         }
         
         guard
@@ -704,25 +673,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         }
         else {
             present(confirmationModal, animated: true, completion: nil)
-        }
-    }
-    
-    private func manuallyReload(
-        indexPath: IndexPath,
-        section: SectionModel,
-        info: SessionCell.Info<TableItem>
-    ) {
-        // Try update the existing cell to have a nice animation instead of reloading the cell
-        if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {
-            existingCell.update(
-                with: info,
-                tableSize: tableView.bounds.size,
-                isManualReload: true,
-                using: viewModel.dependencies
-            )
-        }
-        else {
-            tableView.reloadRows(at: [indexPath], with: .none)
         }
     }
     

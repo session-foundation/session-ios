@@ -15,13 +15,6 @@ public enum ObservationBuilder {
     public static func debounce<Output: ObservableKeyProvider>(for interval: DispatchTimeInterval) -> ObservationDebounceBuilder<Output> {
         return ObservationDebounceBuilder(debounceInterval: interval)
     }
-    
-    public static func using<Output: Sendable & Equatable>(manager: ObservationManager) -> ObservationManagerBuilder<Output> {
-        return ObservationManagerBuilder(
-            debounceInterval: .milliseconds(250),
-            observationManager: manager
-        )
-    }
 }
 
 public struct ObservationDebounceBuilder<Output: ObservableKeyProvider> {
@@ -190,7 +183,11 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
                         
                         for await event in stream {
                             try Task.checkCancellation()
-                            await self.debouncer.signal(event: event)
+                            
+                            switch event.priority {
+                                case .standard: await self.debouncer.signal(event: event.event)
+                                case .immediate: await self.debouncer.flush(event: event.event)
+                            }
                         }
                     }
                     catch {

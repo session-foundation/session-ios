@@ -9,7 +9,8 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSourceOld {
+@MainActor
+class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let editableState: EditableState<TableItem> = EditableState()
@@ -18,12 +19,19 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     private let shouldShowCloseButton: Bool
     private let shouldAutomaticallyShowCallModal: Bool
     
+    /// This value is the current state of the view
+    private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
+    
     // MARK: - Initialization
     
     init(shouldShowCloseButton: Bool = false, shouldAutomaticallyShowCallModal: Bool = false, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.shouldShowCloseButton = shouldShowCloseButton
         self.shouldAutomaticallyShowCallModal = shouldAutomaticallyShowCallModal
+        self.internalState = State.initialState()
+        
+        bindState()
     }
     
     // MARK: - Config
@@ -83,7 +91,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     
     // MARK: - Content
     
-    private struct State: Equatable {
+    public struct State: ObservableKeyProvider {
         let isScreenLockEnabled: Bool
         let checkForCommunityMessageRequests: Bool
         let areReadReceiptsEnabled: Bool
@@ -91,23 +99,112 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let areLinkPreviewsEnabled: Bool
         let areCallsEnabled: Bool
         let localNetworkPermission: Bool
+        
+        @MainActor public func sections(viewModel: PrivacySettingsViewModel, previousState: State) -> [SectionModel] {
+            PrivacySettingsViewModel.sections(
+                state: self,
+                previousState: previousState,
+                viewModel: viewModel
+            )
+        }
+        
+        public let observedKeys: Set<ObservableKey> = [
+            .setting(.isScreenLockEnabled),
+            .setting(.checkForCommunityMessageRequests),
+            .setting(.areReadReceiptsEnabled),
+            .setting(.typingIndicatorsEnabled),
+            .setting(.areLinkPreviewsEnabled),
+            .setting(.areCallsEnabled),
+            .setting(.lastSeenHasLocalNetworkPermission)
+        ]
+        
+        static func initialState() -> State {
+            return State(
+                isScreenLockEnabled: false,
+                checkForCommunityMessageRequests: false,
+                areReadReceiptsEnabled: false,
+                typingIndicatorsEnabled: false,
+                areLinkPreviewsEnabled: false,
+                areCallsEnabled: false,
+                localNetworkPermission: false
+            )
+        }
     }
     
     let title: String = "sessionPrivacy".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilderOld
-        .libSessionObservation(self) { cache -> State in
-            State(
-                isScreenLockEnabled: cache.get(.isScreenLockEnabled),
-                checkForCommunityMessageRequests: cache.get(.checkForCommunityMessageRequests),
-                areReadReceiptsEnabled: cache.get(.areReadReceiptsEnabled),
-                typingIndicatorsEnabled: cache.get(.typingIndicatorsEnabled),
-                areLinkPreviewsEnabled: cache.get(.areLinkPreviewsEnabled),
-                areCallsEnabled: cache.get(.areCallsEnabled),
-                localNetworkPermission: cache.get(.lastSeenHasLocalNetworkPermission)
-            )
-        }
-        .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
+    private func bindState() {
+        let initialState: State = self.internalState
+        
+        observationTask = ObservationBuilder
+            .debounce(for: .never)
+            .using(manager: dependencies[singleton: .observationManager])
+            .query { [dependencies] previousState, events -> State in
+                let currentState: State = (previousState ?? initialState)
+                var isScreenLockEnabled: Bool = currentState.isScreenLockEnabled
+                var checkForCommunityMessageRequests: Bool = currentState.checkForCommunityMessageRequests
+                var areReadReceiptsEnabled: Bool = currentState.areReadReceiptsEnabled
+                var typingIndicatorsEnabled: Bool = currentState.typingIndicatorsEnabled
+                var areLinkPreviewsEnabled: Bool = currentState.areLinkPreviewsEnabled
+                var areCallsEnabled: Bool = currentState.areCallsEnabled
+                var localNetworkPermission: Bool = currentState.localNetworkPermission
+                
+                /// If we have no previous state then we need to fetch the initial state
+                if previousState == nil {
+                    dependencies.mutate(cache: .libSession) { libSession in
+                        isScreenLockEnabled = libSession.get(.isScreenLockEnabled)
+                        checkForCommunityMessageRequests = libSession.get(.checkForCommunityMessageRequests)
+                        areReadReceiptsEnabled = libSession.get(.areReadReceiptsEnabled)
+                        typingIndicatorsEnabled = libSession.get(.typingIndicatorsEnabled)
+                        areLinkPreviewsEnabled = libSession.get(.areLinkPreviewsEnabled)
+                        areCallsEnabled = libSession.get(.areCallsEnabled)
+                        localNetworkPermission = libSession.get(.lastSeenHasLocalNetworkPermission)
+                    }
+                }
+                
+                /// Process any event changes
+                events.forEach { event in
+                    guard let updatedValue: Bool = event.value as? Bool else { return }
+                    
+                    switch event.key {
+                        case .setting(.isScreenLockEnabled): isScreenLockEnabled = updatedValue
+                        case .setting(.checkForCommunityMessageRequests):
+                            checkForCommunityMessageRequests = updatedValue
+                        case .setting(.areReadReceiptsEnabled): areReadReceiptsEnabled = updatedValue
+                        case .setting(.typingIndicatorsEnabled): typingIndicatorsEnabled = updatedValue
+                        case .setting(.areLinkPreviewsEnabled): areLinkPreviewsEnabled = updatedValue
+                        case .setting(.areCallsEnabled): areCallsEnabled = updatedValue
+                        case .setting(.lastSeenHasLocalNetworkPermission): localNetworkPermission = updatedValue
+                            
+                        default: break
+                    }
+                }
+                
+                return State(
+                    isScreenLockEnabled: isScreenLockEnabled,
+                    checkForCommunityMessageRequests: checkForCommunityMessageRequests,
+                    areReadReceiptsEnabled: areReadReceiptsEnabled,
+                    typingIndicatorsEnabled: typingIndicatorsEnabled,
+                    areLinkPreviewsEnabled: areLinkPreviewsEnabled,
+                    areCallsEnabled: areCallsEnabled,
+                    localNetworkPermission: localNetworkPermission
+                )
+            }
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                let oldState: State = self.internalState
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+            }
+    }
+    
+    private static func sections(
+        state: State,
+        previousState: State,
+        viewModel: PrivacySettingsViewModel
+    ) -> [SectionModel] {
             var sections: [SectionModel] = []
             
             var callsSection = SectionModel(model: .calls, elements: [])
@@ -117,8 +214,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     title: "callsVoiceAndVideo".localized(),
                     subtitle: "callsVoiceAndVideoToggleDescription".localized(),
                     trailingAccessory: .toggle(
-                        current.areCallsEnabled,
-                        oldValue: (previous ?? current).areCallsEnabled,
+                        state.areCallsEnabled,
+                        oldValue: previousState.areCallsEnabled,
                         accessibility: Accessibility(
                             identifier: "Voice and Video Calls - Switch"
                         )
@@ -133,17 +230,17 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         confirmTitle: "theContinue".localized(),
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
-                        onConfirm: { _ in
+                        onConfirm: { [dependencies = viewModel.dependencies] _ in
                             Permissions.requestPermissionsForCalls(using: dependencies)
                         }
                     ),
-                    onTap: {
-                        dependencies.setAsync(.areCallsEnabled, !current.areCallsEnabled)
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.setAsync(.areCallsEnabled, !state.areCallsEnabled)
                     }
                 )
             )
                 
-            if current.areCallsEnabled {
+            if state.areCallsEnabled {
                 callsSection.elements.append(
                     SessionCell.Info(
                         id: .microphone,
@@ -161,13 +258,13 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: (
-                                current.localNetworkPermission ?
+                                state.localNetworkPermission ?
                                 "permissionChange".localized() :
                                     "permissionsRequired".localized()
                             ),
                             body: .text(
                                 (
-                                    current.localNetworkPermission ?
+                                    state.localNetworkPermission ?
                                     "permissionsMicrophoneChangeDescriptionIos".localized() :
                                         "permissionsMicrophoneAccessRequiredCallsIos".localized()
                                 )
@@ -196,13 +293,13 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: (
-                                current.localNetworkPermission ?
+                                state.localNetworkPermission ?
                                 "permissionChange".localized() :
                                 "permissionsRequired".localized()
                             ),
                             body: .text(
                                 (
-                                    current.localNetworkPermission ?
+                                    state.localNetworkPermission ?
                                     "permissionsCameraChangeDescriptionIos".localized() :
                                     "permissionsCameraAccessRequiredCallsIos".localized()
                                 )
@@ -220,8 +317,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         title: "permissionsLocalNetworkIos".localized(),
                         subtitle: "permissionsLocalNetworkDescriptionIos".localized(),
                         trailingAccessory: .toggle(
-                            current.localNetworkPermission,
-                            oldValue: (previous ?? current).localNetworkPermission,
+                            state.localNetworkPermission,
+                            oldValue: previousState.localNetworkPermission,
                             accessibility: Accessibility(
                                 identifier: "Local Network Permission - Switch"
                             )
@@ -231,13 +328,13 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: (
-                                current.localNetworkPermission ?
+                                state.localNetworkPermission ?
                                 "permissionChange".localized() :
                                 "permissionsRequired".localized()
                             ),
                             body: .text(
                                 (
-                                    current.localNetworkPermission ?
+                                    state.localNetworkPermission ?
                                     "permissionsLocalNetworkChangeDescriptionIos".localized() :
                                     "permissionsLocalNetworkAccessRequiredCallsIos".localized()
                                 )
@@ -263,17 +360,17 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 .put(key: "app_name", value: Constants.app_name)
                                 .localized(),
                             trailingAccessory: .toggle(
-                                current.isScreenLockEnabled,
-                                oldValue: previous?.isScreenLockEnabled,
+                                state.isScreenLockEnabled,
+                                oldValue: previousState.isScreenLockEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Lock App - Switch"
                                 )
                             ),
-                            onTap: { [weak self] in
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 // Make sure the device has a passcode set before allowing screen lock to
                                 // be enabled (Note: This will always return true on a simulator)
                                 guard LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
-                                    self?.transitionToScreen(
+                                    viewModel?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "lockAppEnablePasscode".localized(),
@@ -286,7 +383,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     return
                                 }
                                 
-                                dependencies.setAsync(.isScreenLockEnabled, !current.isScreenLockEnabled)
+                                dependencies.setAsync(.isScreenLockEnabled, !state.isScreenLockEnabled)
                             }
                         )
                     ]
@@ -301,16 +398,16 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "messageRequestsCommunities".localized(),
                             subtitle: "messageRequestsCommunitiesDescription".localized(),
                             trailingAccessory: .toggle(
-                                current.checkForCommunityMessageRequests,
-                                oldValue: previous?.checkForCommunityMessageRequests,
+                                state.checkForCommunityMessageRequests,
+                                oldValue: previousState.checkForCommunityMessageRequests,
                                 accessibility: Accessibility(
                                     identifier: "Community Message Requests - Switch"
                                 )
                             ),
-                            onTap: {
+                            onTap: { [dependencies = viewModel.dependencies] in
                                 dependencies.setAsync(
                                     .checkForCommunityMessageRequests,
-                                    !current.checkForCommunityMessageRequests
+                                    !state.checkForCommunityMessageRequests
                                 )
                             }
                         )
@@ -326,14 +423,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "readReceipts".localized(),
                             subtitle: "readReceiptsDescription".localized(),
                             trailingAccessory: .toggle(
-                                current.areReadReceiptsEnabled,
-                                oldValue: previous?.areReadReceiptsEnabled,
+                                state.areReadReceiptsEnabled,
+                                oldValue: previousState.areReadReceiptsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Read Receipts - Switch"
                                 )
                             ),
-                            onTap: {
-                                dependencies.setAsync(.areReadReceiptsEnabled, !current.areReadReceiptsEnabled)
+                            onTap: { [dependencies = viewModel.dependencies] in
+                                dependencies.setAsync(.areReadReceiptsEnabled, !state.areReadReceiptsEnabled)
                             }
                         )
                     ]
@@ -383,14 +480,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 }
                             ),
                             trailingAccessory: .toggle(
-                                current.typingIndicatorsEnabled,
-                                oldValue: previous?.typingIndicatorsEnabled,
+                                state.typingIndicatorsEnabled,
+                                oldValue: previousState.typingIndicatorsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Typing Indicators - Switch"
                                 )
                             ),
-                            onTap: {
-                                dependencies.setAsync(.typingIndicatorsEnabled, !current.typingIndicatorsEnabled)
+                            onTap: { [dependencies = viewModel.dependencies] in
+                                dependencies.setAsync(.typingIndicatorsEnabled, !state.typingIndicatorsEnabled)
                             }
                         )
                     ]
@@ -405,14 +502,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "linkPreviewsSend".localized(),
                             subtitle: "linkPreviewsDescription".localized(),
                             trailingAccessory: .toggle(
-                                current.areLinkPreviewsEnabled,
-                                oldValue: previous?.areLinkPreviewsEnabled,
+                                state.areLinkPreviewsEnabled,
+                                oldValue: previousState.areLinkPreviewsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Send Link Previews - Switch"
                                 )
                             ),
-                            onTap: {
-                                dependencies.setAsync(.areLinkPreviewsEnabled, !current.areLinkPreviewsEnabled)
+                            onTap: { [dependencies = viewModel.dependencies] in
+                                dependencies.setAsync(.areLinkPreviewsEnabled, !state.areLinkPreviewsEnabled)
                             }
                         )
                     ]
@@ -422,7 +519,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             return sections
         }
     
-    func onAppear(targetViewController: BaseVC) {
+    @MainActor func onAppear(targetViewController: BaseVC) {
         if self.shouldAutomaticallyShowCallModal {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(

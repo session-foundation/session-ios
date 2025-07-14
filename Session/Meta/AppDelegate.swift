@@ -128,16 +128,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
                 /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
                 /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
-                SNUIKit.configure(
-                    with: SessionSNUIKitConfig(using: dependencies),
-                    themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
-                        (
-                            cache.get(.theme),
-                            cache.get(.themePrimaryColor),
-                            cache.get(.themeMatchSystemDayNightCycle)
-                        )
-                    }
-                )
+                Task { @MainActor in
+                    SNUIKit.configure(
+                        with: SessionSNUIKitConfig(using: dependencies),
+                        themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                            (
+                                cache.get(.theme),
+                                cache.get(.themePrimaryColor),
+                                cache.get(.themeMatchSystemDayNightCycle)
+                            )
+                        }
+                    )
+                }
                 
                 /// Adding this to prevent new users being asked for local network permission in the wrong order in the permission chain.
                 /// We need to check the local nework permission status every time the app is activated to refresh the UI in Settings screen.

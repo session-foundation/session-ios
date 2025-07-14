@@ -393,10 +393,7 @@ extension Onboarding {
                                 
                                 /// Update the `displayName` and trigger a dump/push of the config
                                 try? cache.performAndPushChange(db, for: .userProfile) {
-                                    db.addEventIfNotNull(
-                                        try? cache.updateProfile(displayName: displayName),
-                                        forKey: .profile(userSessionId.hexString)
-                                    )
+                                    try? cache.updateProfile(displayName: displayName)
                                 }
                             }
                             

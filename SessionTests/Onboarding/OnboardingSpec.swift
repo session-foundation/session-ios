@@ -107,7 +107,7 @@ class OnboardingSpec: AsyncSpec {
                     userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
                     groupEd25519SecretKey: nil
                 )
-                _ = try? cache.updateProfile(displayName: "TestPolledName")
+                try? cache.updateProfile(displayName: "TestPolledName")
                 let pendingPushes: LibSession.PendingPushes? = try? cache.pendingPushes(
                     swarmPublicKey: cache.userSessionId.hexString
                 )

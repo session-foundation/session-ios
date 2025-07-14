@@ -91,10 +91,6 @@ public enum ThemeManager {
     }
     
     @MainActor public static func applyNavigationStyling() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { applyNavigationStyling() }
-        }
-        
         let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme) ?? .white)
         let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme)
         
@@ -206,10 +202,6 @@ public enum ThemeManager {
     }
     
     @MainActor public static func applyWindowStyling() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { applyWindowStyling() }
-        }
-        
         SNUIKit.mainWindow?.overrideUserInterfaceStyle = {
             guard !ThemeManager.matchSystemNightModeSetting else { return .unspecified }
             
@@ -235,10 +227,6 @@ public enum ThemeManager {
     // MARK: -  Internal Functions
     
     @MainActor private static func updateAllUI() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { updateAllUI() }
-        }
-        
         ThemeManager.uiRegistry.objectEnumerator()?.forEach { applier in
             (applier as? ThemeApplier)?.apply(theme: currentTheme)
         }

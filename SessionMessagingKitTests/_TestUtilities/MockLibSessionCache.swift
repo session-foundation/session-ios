@@ -183,8 +183,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         mockNoReturn(generics: [T.self], args: [key, value])
     }
     
-    @discardableResult func updateProfile(displayName: String, displayPictureUrl: String?, displayPictureEncryptionKey: Data?) throws -> Profile? {
-        return try mockThrowing(args: [displayName, displayPictureUrl, displayPictureEncryptionKey])
+    func updateProfile(displayName: String, displayPictureUrl: String?, displayPictureEncryptionKey: Data?) throws {
+        try mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey])
     }
     
     func canPerformChange(

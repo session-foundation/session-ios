@@ -11,7 +11,7 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
+class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
@@ -138,9 +138,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 disappearingMessagesConfig: disappearingMessagesConfig
             )
         }
-        .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
+        .compactMap { [weak self] current -> [SectionModel]? in self?.content(current) }
     
-    private func content(_ previous: State?, _ current: State) -> [SectionModel] {
+    private func content(_ current: State) -> [SectionModel] {
         // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
         // so dismiss the screen
         guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
@@ -546,10 +546,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     viewModel: ThreadNotificationSettingsViewModel(
                                         threadId: threadViewModel.threadId,
                                         threadVariant: threadViewModel.threadVariant,
-                                        threadNotificationSettings: .init(
-                                            threadOnlyNotifyForMentions: threadViewModel.threadOnlyNotifyForMentions,
-                                            threadMutedUntilTimestamp: threadViewModel.threadMutedUntilTimestamp
-                                        ),
+                                        threadOnlyNotifyForMentions: threadViewModel.threadOnlyNotifyForMentions,
+                                        threadMutedUntilTimestamp: threadViewModel.threadMutedUntilTimestamp,
                                         using: dependencies
                                     )
                                 )

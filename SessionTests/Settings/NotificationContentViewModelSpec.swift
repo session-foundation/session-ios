@@ -45,9 +45,9 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 )
             }
         )
-        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
-            using: dependencies
-        )
+        @TestState var viewModel: NotificationContentViewModel! = TestState.create {
+            await NotificationContentViewModel(using: dependencies)
+        }
         @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
             .sink(
                 receiveCompletion: { _ in },
@@ -63,7 +63,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("notificationsContent".localized()))
+                await expect { await viewModel.title }.toEventually(equal("notificationsContent".localized()))
             }
 
             // MARK: -- has the correct number of items
@@ -110,7 +110,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 mockLibSessionCache
                     .when { $0.get(.preferencesNotificationPreviewType) }
                     .thenReturn(Preferences.NotificationPreviewType.nameNoPreview)
-                viewModel = NotificationContentViewModel(using: dependencies)
+                viewModel = await NotificationContentViewModel(using: dependencies)
                 dataChangeCancellable = viewModel.tableDataPublisher
                     .sink(
                         receiveCompletion: { _ in },
@@ -164,7 +164,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 it("dismisses the screen") {
                     var didDismissScreen: Bool = false
                     
-                    dismissCancellable = viewModel.navigatableState.dismissScreen
+                    dismissCancellable = await viewModel.navigatableState.dismissScreen
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }

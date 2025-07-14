@@ -419,7 +419,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Reload the table content (update without animations on the first render)
         guard initialConversationLoadComplete else {
-            sections = state.sections
+            sections = state.sections(viewModel: viewModel)
             
             UIView.performWithoutAnimation {
                 tableView.reloadData()
@@ -431,7 +431,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         }
         
         tableView.reload(
-            using: StagedChangeset(source: self.sections, target: state.sections),
+            using: StagedChangeset(source: self.sections, target: state.sections(viewModel: viewModel)),
             deleteSectionsAnimation: .none,
             insertSectionsAnimation: .none,
             reloadSectionsAnimation: .none,

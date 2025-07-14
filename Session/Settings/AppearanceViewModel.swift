@@ -7,16 +7,24 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
+@MainActor
+class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
+    /// This value is the current state of the view
+    private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
+    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.internalState = State.initialState()
+        
+        bindState()
     }
     
     // MARK: - Section
@@ -55,23 +63,104 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     
     // MARK: - Content
     
-    private struct State: Equatable {
+    public struct State: ObservableKeyProvider {
         let theme: Theme
         let primaryColor: Theme.PrimaryColor
-        let authDarkModeEnabled: Bool
+        let autoDarkModeEnabled: Bool
+        
+        @MainActor public func sections(viewModel: AppearanceViewModel, previousState: State) -> [SectionModel] {
+            AppearanceViewModel.sections(
+                state: self,
+                previousState: previousState,
+                viewModel: viewModel
+            )
+        }
+        
+        public let observedKeys: Set<ObservableKey> = [
+            .setting(.theme),
+            .setting(.themePrimaryColor),
+            .setting(.themeMatchSystemDayNightCycle)
+        ]
+        
+        static func initialState() -> State {
+            return State(
+                theme: .defaultTheme,
+                primaryColor: .defaultPrimaryColor,
+                autoDarkModeEnabled: false
+            )
+        }
     }
     
     let title: String = "sessionAppearance".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilderOld
-        .libSessionObservation(self) { cache -> State in
-            State(
-                theme: cache.get(.theme).defaulting(to: .classicDark),
-                primaryColor: cache.get(.themePrimaryColor).defaulting(to: .green),
-                authDarkModeEnabled: cache.get(.themeMatchSystemDayNightCycle)
-            )
-        }
-        .map { [weak self, dependencies] state -> [SectionModel] in
+    private func bindState() {
+        let initialState: State = self.internalState
+        
+        observationTask = ObservationBuilder
+            .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
+            .using(manager: dependencies[singleton: .observationManager])
+            .query { [dependencies] previousState, events in
+                /// Store mutable copies of the data to update
+                let currentState: State = (previousState ?? initialState)
+                var theme: Theme = currentState.theme
+                var primaryColor: Theme.PrimaryColor = currentState.primaryColor
+                var autoDarkModeEnabled: Bool = currentState.autoDarkModeEnabled
+                
+                if previousState == nil {
+                    dependencies.mutate(cache: .libSession) { libSession in
+                        theme = (libSession.get(.theme) ?? theme)
+                        primaryColor = (libSession.get(.themePrimaryColor) ?? primaryColor)
+                        autoDarkModeEnabled = libSession.get(.themeMatchSystemDayNightCycle)
+                    }
+                }
+                
+                /// Process any event changes
+                events.forEach { event in
+                    switch event.key {
+                        case .setting(.theme):
+                            theme = (
+                                (event.value as? Theme) ??
+                                currentState.theme
+                            )
+                        
+                        case .setting(.themePrimaryColor):
+                            primaryColor = (
+                                (event.value as? Theme.PrimaryColor) ??
+                                currentState.primaryColor
+                            )
+                            
+                        case .setting(.themeMatchSystemDayNightCycle):
+                            autoDarkModeEnabled = (
+                                (event.value as? Bool) ??
+                                currentState.autoDarkModeEnabled
+                            )
+                        
+                        default: break
+                    }
+                }
+                
+                /// Generate the new state
+                return State(
+                    theme: theme,
+                    primaryColor: primaryColor,
+                    autoDarkModeEnabled: autoDarkModeEnabled
+                )
+            }
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                let oldState: State = self.internalState
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+            }
+    }
+    
+    private static func sections(
+        state: State,
+        previousState: State,
+        viewModel: AppearanceViewModel
+    ) -> [SectionModel] {
             return [
                 SectionModel(
                     model: .themes,
@@ -86,7 +175,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 isSelected: (state.theme == theme)
                             ),
                             onTap: {
-                                Task { @MainActor in ThemeManager.updateThemeState(theme: theme) }
+                                ThemeManager.updateThemeState(theme: theme)
                             }
                         )
                     }
@@ -111,7 +200,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 info: PrimaryColorSelectionView.Info(
                                     primaryColor: state.primaryColor,
                                     onChange: { color in
-                                        Task { @MainActor in ThemeManager.updateThemeState(primaryColor: color) }
+                                        ThemeManager.updateThemeState(primaryColor: color)
                                     }
                                 )
                             ),
@@ -132,15 +221,13 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 font: .titleRegular
                             ),
                             trailingAccessory: .toggle(
-                                state.authDarkModeEnabled,
-                                oldValue: ThemeManager.matchSystemNightModeSetting
+                                state.autoDarkModeEnabled,
+                                oldValue: previousState.autoDarkModeEnabled
                             ),
                             onTap: {
-                                Task { @MainActor in
-                                    ThemeManager.updateThemeState(
-                                        matchSystemNightModeSetting: !state.authDarkModeEnabled
-                                    )
-                                }
+                                ThemeManager.updateThemeState(
+                                    matchSystemNightModeSetting: !state.autoDarkModeEnabled
+                                )
                             }
                         )
                     ]
@@ -155,8 +242,8 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 font: .titleRegular
                             ),
                             trailingAccessory: .icon(.chevronRight),
-                            onTap: { [weak self, dependencies] in
-                                self?.transitionToScreen(
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                viewModel?.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: AppIconViewModel(using: dependencies)
                                     )

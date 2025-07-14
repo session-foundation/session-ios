@@ -207,7 +207,15 @@ extension Preferences.Sound: LibSessionConvertibleEnum {
     public var libSessionValue: LibSessionType { Int64(rawValue) }
     
     public init(_ libSessionValue: LibSessionType) {
-        self = (Preferences.Sound(rawValue: Int(libSessionValue)) ?? Preferences.Sound.defaultNotificationSound)
+        guard
+            libSessionValue != Preferences.Sound.defaultLibSessionValue,
+            let targetSound: Preferences.Sound = Preferences.Sound(rawValue: Int(libSessionValue))
+        else {
+            self = Preferences.Sound.defaultNotificationSound
+            return
+        }
+        
+        self = targetSound
     }
 }
 

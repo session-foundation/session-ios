@@ -80,7 +80,6 @@ internal extension LibSessionCacheType {
                     profile.nickname != data.profile.nickname ||
                     profilePictureShouldBeUpdated
                 {
-                    db.addEvent(profile, forKey: .profile(profile.id))
                     try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
@@ -517,13 +516,10 @@ internal extension LibSession {
         if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                    db.addEventIfNotNull(
-                        try cache.updateProfile(
-                            displayName: updatedUserProfile.name,
-                            displayPictureUrl: updatedUserProfile.displayPictureUrl,
-                            displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey
-                        ),
-                        forKey: .profile(userSessionId.hexString)
+                    try cache.updateProfile(
+                        displayName: updatedUserProfile.name,
+                        displayPictureUrl: updatedUserProfile.displayPictureUrl,
+                        displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey
                     )
                 }
             }

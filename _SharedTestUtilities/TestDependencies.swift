@@ -267,4 +267,18 @@ internal extension TestState {
             return value
         }())
     }
+    
+    static func create(
+        closure: @escaping () async -> T?
+    ) -> T? {
+        var value: T?
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        Task {
+            value = await closure()
+            semaphore.signal()
+        }
+        semaphore.wait()
+        
+        return value
+    }
 }

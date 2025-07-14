@@ -50,12 +50,6 @@ public extension ObservingDatabase {
     func addEvent(_ value: AnyHashable?, forKey key: ObservableKey) {
         addEvent(ObservedEvent(key: key, value: value))
     }
-    
-    func addEventIfNotNull(_ value: AnyHashable?, forKey key: ObservableKey) {
-        guard let value: AnyHashable = value else { return }
-        
-        addEvent(ObservedEvent(key: key, value: value))
-    }
 }
 
 // MARK: - ObservationContext

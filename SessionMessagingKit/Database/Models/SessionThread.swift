@@ -37,7 +37,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
         case isDraft
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
+    public enum Variant: Int, Sendable, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
         case contact
         case legacyGroup
         case community

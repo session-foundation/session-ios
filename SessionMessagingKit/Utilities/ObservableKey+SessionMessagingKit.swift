@@ -15,6 +15,10 @@ public extension ObservableKey {
         ObservableKey("loadPage-\(observationName)", .loadPage)
     }
     
+    static func updateScreen(_ screenType: Any.Type) -> ObservableKey {
+        ObservableKey("updateScreen-\(screenType)", .updateScreen)
+    }
+    
     static func typingIndicator(_ threadId: String) -> ObservableKey {
         ObservableKey("typingIndicator-\(threadId)", .typingIndicator)
     }
@@ -73,6 +77,7 @@ public extension ObservableKey {
 public extension GenericObservableKey {
     static let setting: GenericObservableKey = "setting"
     static let loadPage: GenericObservableKey = "loadPage"
+    static let updateScreen: GenericObservableKey = "updateScreen"
     static let typingIndicator: GenericObservableKey = "typingIndicator"
     static let profile: GenericObservableKey = "profile"
     static let contact: GenericObservableKey = "contact"

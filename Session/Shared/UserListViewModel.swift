@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableViewModel, NavigatableStateHolder, ObservableTableSourceOld {
+class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()

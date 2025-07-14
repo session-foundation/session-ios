@@ -14,7 +14,7 @@ public extension Singleton {
 // MARK: - ObservationManager
 
 public actor ObservationManager {
-    private var store: [ObservableKey: [UUID: AsyncStream<ObservedEvent>.Continuation]] = [:]
+    private var store: [ObservableKey: [UUID: AsyncStream<(event: ObservedEvent, priority: Priority)>.Continuation]] = [:]
     
     deinit {
         store.values.forEach { $0.values.forEach { $0.finish() } }
@@ -22,7 +22,7 @@ public actor ObservationManager {
     
     // MARK: - Functions
     
-    public func observe(_ key: ObservableKey) -> AsyncStream<ObservedEvent> {
+    public func observe(_ key: ObservableKey) -> AsyncStream<(event: ObservedEvent, priority: Priority)> {
         let id: UUID = UUID()
         
         return AsyncStream { continuation in
@@ -34,15 +34,15 @@ public actor ObservationManager {
         }
     }
     
-    public func notify(_ changes: [ObservedEvent]) async {
+    public func notify(_ changes: [ObservedEvent], priority: Priority = .standard) async {
         changes.forEach { event in
-            store[event.key]?.values.forEach { $0.yield(event) }
+            store[event.key]?.values.forEach { $0.yield((event: event, priority: priority)) }
         }
     }
     
     // MARK: - Internal Functions
     
-    private func addContinuation(_ continuation: AsyncStream<ObservedEvent>.Continuation, for key: ObservableKey, id: UUID) {
+    private func addContinuation(_ continuation: AsyncStream<(event: ObservedEvent, priority: Priority)>.Continuation, for key: ObservableKey, id: UUID) {
         store[key, default: [:]][id] = continuation
     }
     
@@ -55,14 +55,23 @@ public actor ObservationManager {
     }
 }
 
+// MARK: - ObservationManager.Priority
+
+public extension ObservationManager {
+    enum Priority {
+        case standard   /// Goes through the standard debouncer
+        case immediate  /// Flushes the debouncer forcing an immediate update with any pending events
+    }
+}
+
 // MARK: - Convenience
 
 public extension ObservationManager {
-    func notify(_ change: ObservedEvent) async {
-        await notify([change])
+    func notify(_ change: ObservedEvent, priority: Priority = .standard) async {
+        await notify([change], priority: priority)
     }
         
-    func notify(_ key: ObservableKey, value: AnyHashable? = nil) async {
-        await notify([ObservedEvent(key: key, value: value)])
+    func notify(_ key: ObservableKey, value: AnyHashable? = nil, priority: Priority = .standard) async {
+        await notify([ObservedEvent(key: key, value: value)], priority: priority)
     }
 }

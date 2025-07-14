@@ -17,7 +17,7 @@ fileprivate typealias ViewModel = SessionThreadViewModel
 /// **Note:** When updating the UI make sure to check the actual queries being run as some fields will have incorrect default values
 /// in order to optimise their queries to only include the required data
 // TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
-public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible, ThreadSafeType {
+public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, Decodable, Sendable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible, ThreadSafeType {
     public typealias PagedDataType = SessionThread
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {

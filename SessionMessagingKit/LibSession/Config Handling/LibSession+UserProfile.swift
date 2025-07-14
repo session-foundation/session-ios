@@ -45,11 +45,14 @@ internal extension LibSessionCacheType {
             displayPictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.displayPictureUrl
         )
         
-        if
-            let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile,
-            profile != updatedProfile
-        {
-            db.addEvent(updatedProfile, forKey: .profile(updatedProfile.id))
+        if let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile {
+            if profile.name != updatedProfile.name {
+                db.addProfileEvent(id: updatedProfile.id, change: .name(updatedProfile.name))
+            }
+            
+            if profile.displayPictureUrl != updatedProfile.displayPictureUrl {
+                db.addProfileEvent(id: updatedProfile.id, change: .displayPictureUrl(updatedProfile.displayPictureUrl))
+            }
         }
         
         // Handle user profile changes
@@ -202,11 +205,11 @@ public extension LibSession.Cache {
         return String(cString: profileNamePtr)
     }
     
-    @discardableResult func updateProfile(
+    func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?
-    ) throws -> Profile? {
+    ) throws {
         guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
             throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: nil)
         }
@@ -234,15 +237,19 @@ public extension LibSession.Cache {
         try LibSessionError.throwIfNeeded(conf)
         
         /// Add a pending observation to notify any observers of the change once it's committed
-        if displayName != oldName || displayPictureUrl != oldDisplayPictureUrl {
-            return Profile(
-                id: userSessionId.hexString,
-                name: displayName,
-                displayPictureUrl: displayPictureUrl
+        if displayName != oldName {
+            addEvent(
+                key: .profile(userSessionId.hexString),
+                value: ProfileEvent(id: userSessionId.hexString, change: .name(displayName))
             )
         }
         
-        return nil
+        if displayPictureUrl != oldDisplayPictureUrl {
+            addEvent(
+                key: .profile(userSessionId.hexString),
+                value: ProfileEvent(id: userSessionId.hexString, change: .displayPictureUrl(displayPictureUrl))
+            )
+        }
     }
 }
 

@@ -5,7 +5,7 @@ import SwiftUI
 
 // MARK: - Theme
 
-public enum Theme: Int, CaseIterable, Codable {
+public enum Theme: Int, Sendable, CaseIterable, Codable {
     public static var defaultTheme: Theme = .classicDark
     
     case classicDark

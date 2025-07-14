@@ -737,7 +737,7 @@ public extension LibSession {
                             switch config {
                                 case .userProfile:
                                     return [
-                                        .profile(profile.id): profile,
+                                        .profile(userSessionId.hexString): profile,
                                         .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests)
                                     ]
                                     
@@ -938,7 +938,7 @@ public protocol LibSessionImmutableCacheType: ImmutableCacheType {
 
 /// The majority `libSession` functions can only be accessed via the mutable cache because `libSession` isn't thread safe so if we try
 /// to read/write values while another thread is touching the same data then the app can crash due to bad memory issues
-public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType, ValueFetcher {
+public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType {
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
@@ -1036,11 +1036,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
-    @discardableResult func updateProfile(
+    func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?
-    ) throws -> Profile?
+    ) throws
     
     func canPerformChange(
         threadId: String,
@@ -1165,7 +1165,6 @@ public extension LibSessionCacheType {
         loadState(db, requestId: nil)
     }
     
-    
     func addEvent(key: ObservableKey, value: AnyHashable?) {
         addEvent(ObservedEvent(key: key, value: value))
     }
@@ -1178,8 +1177,17 @@ public extension LibSessionCacheType {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
-    @discardableResult func updateProfile(displayName: String) throws -> Profile? {
-        return try updateProfile(displayName: displayName, displayPictureUrl: nil, displayPictureEncryptionKey: nil)
+    func updateProfile(displayName: String) throws {
+        try updateProfile(displayName: displayName, displayPictureUrl: nil, displayPictureEncryptionKey: nil)
+    }
+    
+    var profile: Profile {
+        return profile(contactId: userSessionId.hexString, threadId: nil, threadVariant: nil, visibleMessage: nil)
+            .defaulting(to: Profile.defaultFor(userSessionId.hexString))
+    }
+
+    func profile(contactId: String) -> Profile? {
+        return profile(contactId: contactId, threadId: nil, threadVariant: nil, visibleMessage: nil)
     }
 }
 
@@ -1300,11 +1308,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
-    @discardableResult func updateProfile(
+    func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?
-    ) throws -> Profile? { return nil }
+    ) throws {}
     
     func canPerformChange(
         threadId: String,

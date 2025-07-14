@@ -803,7 +803,6 @@
 		FD78E9F62DDD43AD00D55B50 /* Mutation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9F52DDD43AB00D55B50 /* Mutation.swift */; };
 		FD78E9FA2DDD74D200D55B50 /* _027_MoveSettingsToLibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9F72DDD742100D55B50 /* _027_MoveSettingsToLibSession.swift */; };
 		FD78E9FD2DDD97F200D55B50 /* Setting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9FC2DDD97F000D55B50 /* Setting.swift */; };
-		FD78EA002DDDA21100D55B50 /* ValueFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9FE2DDDA1AF00D55B50 /* ValueFetcher.swift */; };
 		FD78EA022DDEBC3200D55B50 /* DebounceTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA012DDEBC2C00D55B50 /* DebounceTaskManager.swift */; };
 		FD78EA042DDEC3C500D55B50 /* MultiTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */; };
 		FD78EA062DDEC8F600D55B50 /* AsyncSequence+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */; };
@@ -2071,7 +2070,6 @@
 		FD78E9F52DDD43AB00D55B50 /* Mutation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mutation.swift; sourceTree = "<group>"; };
 		FD78E9F72DDD742100D55B50 /* _027_MoveSettingsToLibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _027_MoveSettingsToLibSession.swift; sourceTree = "<group>"; };
 		FD78E9FC2DDD97F000D55B50 /* Setting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Setting.swift; sourceTree = "<group>"; };
-		FD78E9FE2DDDA1AF00D55B50 /* ValueFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValueFetcher.swift; sourceTree = "<group>"; };
 		FD78EA012DDEBC2C00D55B50 /* DebounceTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebounceTaskManager.swift; sourceTree = "<group>"; };
 		FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiTaskManager.swift; sourceTree = "<group>"; };
 		FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AsyncSequence+Utilities.swift"; sourceTree = "<group>"; };
@@ -4709,7 +4707,6 @@
 				FD78E9F52DDD43AB00D55B50 /* Mutation.swift */,
 				FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */,
 				FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */,
-				FD78E9FE2DDDA1AF00D55B50 /* ValueFetcher.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -6447,7 +6444,6 @@
 				FD245C662850665900B966DD /* OpenGroupAPI.swift in Sources */,
 				FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */,
 				FD428B1F2B4B758B006D0888 /* AppReadiness.swift in Sources */,
-				FD78EA002DDDA21100D55B50 /* ValueFetcher.swift in Sources */,
 				FD22726B2C32911C004D8A6C /* SendReadReceiptsJob.swift in Sources */,
 				B8F5F60325EDE16F003BF8D4 /* DataExtractionNotification.swift in Sources */,
 				C3A71D1E25589AC30043A11F /* WebSocketProto.swift in Sources */,

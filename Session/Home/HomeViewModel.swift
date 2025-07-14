@@ -42,10 +42,10 @@ public class HomeViewModel: NavigatableStateHolder {
     /// type, this is a primarily an optimisation to prevent the `loadPage` events from triggering multiple times since that can happen
     /// due to how the UI is setup
     private var currentlyHandlingPageLoad: Bool = false
-    
-    /// This is a cache of the observed data before any processing is done for the UI state to allow us to more easily do diffs
-    private var itemCache: [String: SessionThreadViewModel] = [:]
 
+    /// This value is the current state of the view
+    @Published private(set) var state: State
+    private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
@@ -72,7 +72,11 @@ public class HomeViewModel: NavigatableStateHolder {
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
         let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
-        let sections: [SectionModel]
+        let itemCache: [String: SessionThreadViewModel]
+        
+        @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
+            HomeViewModel.sections(state: self, viewModel: viewModel)
+        }
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
@@ -88,7 +92,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageCreatedInAnyConversation
             ]
             
-            sections.filter { $0.model == .threads }.first?.elements.forEach { threadViewModel in
+            itemCache.values.forEach { threadViewModel in
                 result.insert(contentsOf: [
                     .conversationUpdated(threadViewModel.threadId),
                     .conversationDeleted(threadViewModel.threadId),
@@ -128,15 +132,10 @@ public class HomeViewModel: NavigatableStateHolder {
                     groupSQL: SessionThreadViewModel.groupSQL,
                     orderSQL: SessionThreadViewModel.homeOrderSQL
                 ),
-                sections: []
+                itemCache: [:]
             )
         }
     }
-
-    /// This value is the current state of the view
-    @Published private(set) var state: State
-    private var observationTask: Task<Void, Never>?
-    private var previousSections: [SectionModel] = []
 
     private func bindState() {
         let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
@@ -155,6 +154,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 var hasHiddenMessageRequests: Bool = currentState.hasHiddenMessageRequests
                 var unreadMessageRequestThreadCount: Int = currentState.unreadMessageRequestThreadCount
                 var loadResult: PagedData.LoadResult = currentState.loadedPageInfo.asResult
+                var itemCache: [String: SessionThreadViewModel] = currentState.itemCache
                 
                 /// Store a local copy of the events so we can manipulate it based on the state changes
                 var eventsToProcess: [ObservedEvent] = events
@@ -220,7 +220,7 @@ public class HomeViewModel: NavigatableStateHolder {
                         var fetchedConversations: [SessionThreadViewModel] = []
                         let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
                             events: databaseEvents,
-                            cache: self.itemCache
+                            cache: itemCache
                         )
                         let loadPageEvent: LoadPageEvent? = databaseEvents
                             .first(where: { $0.key.generic == .loadPage })?
@@ -282,10 +282,10 @@ public class HomeViewModel: NavigatableStateHolder {
                         }
                         
                         /// Update the `itemCache` with the newly fetched values
-                        fetchedConversations.forEach { self.itemCache[$0.threadId] = $0 }
+                        fetchedConversations.forEach { itemCache[$0.threadId] = $0 }
                         
                         /// Remove any deleted values
-                        deletedIds.forEach { id in self.itemCache.removeValue(forKey: id) }
+                        deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
                     } catch {
                         let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
                         Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
@@ -306,19 +306,11 @@ public class HomeViewModel: NavigatableStateHolder {
                     }
                 }
                 groupedOtherEvents?[.setting]?.forEach { event in
+                    guard let updatedValue: Bool = event.value as? Bool else { return }
+                    
                     switch event.key {
-                        case .setting(.hasViewedSeed):
-                            showViewedSeedBanner = (
-                                (event.value as? Bool).map { hasViewedSeed in !hasViewedSeed } ??
-                                currentState.showViewedSeedBanner
-                            )
-                            
-                        case .setting(.hasHiddenMessageRequests):
-                            hasHiddenMessageRequests = (
-                                (event.value as? Bool) ??
-                                currentState.hasHiddenMessageRequests
-                            )
-                            
+                        case .setting(.hasViewedSeed): showViewedSeedBanner = !updatedValue // Inverted
+                        case .setting(.hasHiddenMessageRequests): hasHiddenMessageRequests = updatedValue
                         default: break
                     }
                 }
@@ -334,18 +326,12 @@ public class HomeViewModel: NavigatableStateHolder {
                     hasHiddenMessageRequests: hasHiddenMessageRequests,
                     unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
                     loadedPageInfo: loadResult.info,
-                    sections: HomeViewModel.process(
-                        hasHiddenMessageRequests: hasHiddenMessageRequests,
-                        unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
-                        conversations: loadResult.info.currentIds.compactMap { self.itemCache[$0] },
-                        loadedInfo: loadResult.info,
-                        using: dependencies
-                    )
+                    itemCache: itemCache
                 )
                 
                 return updatedState
             }
-            .assign { [weak self] updatedValue in self?.state = updatedValue }
+            .assign { [weak self] updatedState in self?.state = updatedState }
     }
     
     internal func extractIdsNeedingRequery(
@@ -387,24 +373,18 @@ public class HomeViewModel: NavigatableStateHolder {
         }
     }
     
-    private static func process(
-        hasHiddenMessageRequests: Bool,
-        unreadMessageRequestThreadCount: Int,
-        conversations: [SessionThreadViewModel],
-        loadedInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>,
-        using dependencies: Dependencies
-    ) -> [SectionModel] {
+    private static func sections(state: State, viewModel: HomeViewModel) -> [SectionModel] {
         return [
             /// If the message request section is hidden or there are no unread message requests then hide the message request banner
-            (hasHiddenMessageRequests || unreadMessageRequestThreadCount == 0 ?
+            (state.hasHiddenMessageRequests || state.unreadMessageRequestThreadCount == 0 ?
                 [] :
                 [SectionModel(
                     section: .messageRequests,
                     elements: [
                         SessionThreadViewModel(
                             threadId: SessionThreadViewModel.messageRequestsSectionId,
-                            unreadCount: UInt(unreadMessageRequestThreadCount),
-                            using: dependencies
+                            unreadCount: UInt(state.unreadMessageRequestThreadCount),
+                            using: viewModel.dependencies
                         )
                     ]
                 )]
@@ -412,30 +392,36 @@ public class HomeViewModel: NavigatableStateHolder {
             [
                 SectionModel(
                     section: .threads,
-                    elements: conversations.map { viewModel -> SessionThreadViewModel in
-                        viewModel.populatingPostQueryData(
-                            recentReactionEmoji: nil,
-                            openGroupCapabilities: nil,
-                            // TODO: [Database Relocation] Do we need all of these????
-                            currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
-                            wasKickedFromGroup: (
-                                viewModel.threadVariant == .group &&
-                                dependencies.mutate(cache: .libSession) { cache in
-                                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                                }
-                            ),
-                            groupIsDestroyed: (
-                                viewModel.threadVariant == .group &&
-                                dependencies.mutate(cache: .libSession) { cache in
-                                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                                }
-                            ),
-                            threadCanWrite: false  // Irrelevant for the HomeViewModel
-                        )
-                    }
+                    elements: state.loadedPageInfo.currentIds
+                        .compactMap { state.itemCache[$0] }
+                        .map { conversation -> SessionThreadViewModel in
+                            conversation.populatingPostQueryData(
+                                recentReactionEmoji: nil,
+                                openGroupCapabilities: nil,
+                                // TODO: [Database Relocation] Do we need all of these????
+                                currentUserSessionIds: [viewModel.dependencies[cache: .general].sessionId.hexString],
+                                wasKickedFromGroup: (
+                                    conversation.threadVariant == .group &&
+                                    viewModel.dependencies.mutate(cache: .libSession) { cache in
+                                        cache.wasKickedFromGroup(
+                                            groupSessionId: SessionId(.group, hex: conversation.threadId)
+                                        )
+                                    }
+                                ),
+                                groupIsDestroyed: (
+                                    conversation.threadVariant == .group &&
+                                    viewModel.dependencies.mutate(cache: .libSession) { cache in
+                                        cache.groupIsDestroyed(
+                                            groupSessionId: SessionId(.group, hex: conversation.threadId)
+                                        )
+                                    }
+                                ),
+                                threadCanWrite: false  // Irrelevant for the HomeViewModel
+                            )
+                        }
                 )
             ],
-            (!conversations.isEmpty && loadedInfo.hasNextPage ?
+            (!state.loadedPageInfo.currentIds.isEmpty && state.loadedPageInfo.hasNextPage ?
                 [SectionModel(section: .loadMore)] :
                 []
             )

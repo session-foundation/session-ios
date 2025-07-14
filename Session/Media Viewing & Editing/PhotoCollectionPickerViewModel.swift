@@ -8,7 +8,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSourceOld {
+class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSource {
     public let dependencies: Dependencies
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()

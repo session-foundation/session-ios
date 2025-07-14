@@ -49,15 +49,15 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
-        @TestState var viewModel: ThreadNotificationSettingsViewModel! = ThreadNotificationSettingsViewModel(
-            threadId: "TestId",
-            threadVariant: .contact,
-            threadNotificationSettings: .init(
+        @TestState var viewModel: ThreadNotificationSettingsViewModel! = TestState.create {
+            await ThreadNotificationSettingsViewModel(
+                threadId: "TestId",
+                threadVariant: .contact,
                 threadOnlyNotifyForMentions: nil,
-                threadMutedUntilTimestamp: nil
-            ),
-            using: dependencies
-        )
+                threadMutedUntilTimestamp: nil,
+                using: dependencies
+            )
+        }
         
         @TestState var cancellables: [AnyCancellable]! = [
             viewModel.tableDataPublisher
@@ -70,9 +70,14 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         
         // MARK: - a ThreadNotificationSettingsViewModel
         describe("a ThreadNotificationSettingsViewModel") {
+            beforeEach {
+                // Wait for the state to load
+                await expect(viewModel.tableData).toEventuallyNot(beEmpty())
+            }
+            
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("sessionNotifications".localized()))
+                await expect { await viewModel.title }.toEventually(equal("sessionNotifications".localized()))
             }
             
             // MARK: -- has the correct number of items
@@ -150,13 +155,11 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             )
                         )
                 }
-                viewModel = ThreadNotificationSettingsViewModel(
+                viewModel = await ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    threadNotificationSettings: .init(
-                        threadOnlyNotifyForMentions: false,
-                        threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
-                    ),
+                    threadOnlyNotifyForMentions: false,
+                    threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970,
                     using: dependencies
                 )
                 cancellables.append(
@@ -167,6 +170,9 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
+                
+                // Wait for the state to load
+                await expect(viewModel.tableData).toEventuallyNot(beEmpty())
                 
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
@@ -220,7 +226,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    await viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -256,13 +262,11 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             SessionThread.Columns.mutedUntilTimestamp.set(to: Date.distantFuture.timeIntervalSince1970)
                         )
                 }
-                viewModel = ThreadNotificationSettingsViewModel(
+                viewModel = await ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    threadNotificationSettings: .init(
-                        threadOnlyNotifyForMentions: false,
-                        threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
-                    ),
+                    threadOnlyNotifyForMentions: false,
+                    threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970,
                     using: dependencies
                 )
                 cancellables.append(
@@ -273,18 +277,22 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
-                
-                // Change to another setting
-                await viewModel.tableData.first?.elements.first?.onTap?()
-                
-                cancellables.append(
+                await cancellables.append(
                     viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { info in footerButtonInfo = info }
+                            receiveValue: { info in
+                                footerButtonInfo = info
+                            }
                         )
                 )
+                
+                // Wait for the state to load
+                await expect(viewModel.tableData).toEventuallyNot(beEmpty())
+                
+                // Change to another setting
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 
                 // Gets enabled
                 expect(footerButtonInfo).to(equal(
@@ -304,8 +312,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 // Change back
                 await viewModel.tableData.first?.elements.last?.onTap?()
                 
-                expect(viewModel.tableData.first?.elements.last)
-                    .to(
+                await expect(viewModel.tableData.first?.elements.last)
+                    .toEventually(
                         equal(
                             SessionCell.Info(
                                 id: .mute,
@@ -327,7 +335,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    await viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -357,7 +365,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 
                 beforeEach {
                     cancellables.append(
-                        viewModel.footerButtonInfo
+                        await viewModel.footerButtonInfo
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
@@ -366,12 +374,13 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                     
                     await viewModel.tableData.first?.elements.last?.onTap?()
+                    await expect(footerButtonInfo).toEventuallyNot(beNil())
                 }
                 
                 // MARK: ---- shows the set button
                 it("shows the set button") {
-                    expect(footerButtonInfo)
-                        .to(
+                    await expect(footerButtonInfo)
+                        .toEventually(
                             equal(
                                 SessionButton.Info(
                                     style: .bordered,
@@ -395,7 +404,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                         var didDismissScreen: Bool = false
                         
                         cancellables.append(
-                            viewModel.navigatableState.dismissScreen
+                            await viewModel.navigatableState.dismissScreen
                                 .receive(on: ImmediateScheduler.shared)
                                 .sink(
                                     receiveCompletion: { _ in },
@@ -412,14 +421,15 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     it("saves the updated settings") {
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        await expect(mockNotificationsManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.updateSettings(
-                                threadId: "TestId",
-                                threadVariant: .contact,
-                                mentionsOnly: false,
-                                mutedUntil: Date.distantFuture.timeIntervalSince1970
-                            )
-                        })
+                        await expect(mockNotificationsManager)
+                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.updateSettings(
+                                    threadId: "TestId",
+                                    threadVariant: .contact,
+                                    mentionsOnly: false,
+                                    mutedUntil: Date.distantFuture.timeIntervalSince1970
+                                )
+                            })
                     }
                 }
             }

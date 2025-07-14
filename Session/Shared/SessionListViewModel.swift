@@ -20,7 +20,7 @@ extension Listable {
 
 // MARK: - SessionListViewModel<T>
 
-class SessionListViewModel<T: Listable>: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSourceOld {
+class SessionListViewModel<T: Listable>: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = T
     
     public let dependencies: Dependencies
