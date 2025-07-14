@@ -88,7 +88,6 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         
         navigationItem.backButtonTitle = ""
         view.themeBackgroundColor = .clear
-        ThemeManager.applyNavigationStylingIfNeeded(to: self)
 
         setNeedsStatusBarAppearanceUpdate()
         
@@ -128,6 +127,14 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         dimmingView.addGestureRecognizer(tapGestureRecognizer)
         
         populateContentView()
+    }
+    
+    open override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        /// Apply the nav styling in `viewWillAppear` instead of `viewDidLoad` as it's possible the nav stack isn't fully setup
+        /// and could crash when trying to access it (whereas by the time `viewWillAppear` is called it should be setup)
+        ThemeManager.applyNavigationStylingIfNeeded(to: self)
     }
     
     open override func viewDidDisappear(_ animated: Bool) {

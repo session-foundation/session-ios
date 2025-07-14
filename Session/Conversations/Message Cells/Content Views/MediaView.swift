@@ -206,7 +206,7 @@ public class MediaView: UIView {
                     /// Otherwise we want to load a thumbnail instead of the original image
                     let thumbnailPath: String = attachment.thumbnailPath(for: Attachment.ThumbnailSize.medium.dimension)
                     
-                    imageView.loadImage(identifier: thumbnailPath) { [weak self] in
+                    imageView.loadImage(.closure(thumbnailPath, { [weak self] in
                         guard let self = self else { return nil }
                         
                         var data: Data?
@@ -230,7 +230,7 @@ public class MediaView: UIView {
                         }
                         
                         return data
-                    }
+                    }))
                 }
         }
         

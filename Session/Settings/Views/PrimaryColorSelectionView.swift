@@ -102,7 +102,7 @@ extension PrimaryColorSelectionView: SessionCell.Accessory.CustomView {
         typealias View = PrimaryColorSelectionView
         
         let primaryColor: Theme.PrimaryColor
-        let onChange: (Theme.PrimaryColor) -> ()
+        let onChange: @MainActor (Theme.PrimaryColor) -> ()
         
         static func == (lhs: Info, rhs: Info) -> Bool {
             return (lhs.primaryColor == rhs.primaryColor)
