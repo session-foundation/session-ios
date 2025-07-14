@@ -163,7 +163,11 @@ extension MessageReceiver {
         )
         do {
             let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(message.proProof) })
-            let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(message.text, isProMessage: isProMessage)
+            let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(
+                message.text,
+                isProMessage: isProMessage,
+                dependencies: dependencies
+            )
             
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
@@ -538,17 +542,20 @@ extension MessageReceiver {
     
     private static func truncateMessageTextIfNeeded(
         _ text: String?,
-        isProMessage: Bool
+        isProMessage: Bool,
+        dependencies: Dependencies
     ) -> String? {
         guard let text = text else { return nil }
         
         let utf16View = text.utf16
-        guard !isProMessage && utf16View.count > LibSession.CharacterLimit else {
-            return text
-        }
+        let offset: Int = (dependencies[feature: .sessionProEnabled] && !isProMessage) ?
+            LibSession.CharacterLimit :
+            LibSession.ProCharacterLimit
+        
+        guard utf16View.count > offset else { return text }
         
         // Get the index at the maxUnits position in UTF16
-        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: LibSession.CharacterLimit)
+        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: offset)
         
         // Try converting that UTF16 index back to a String.Index
         if let endIndex = String.Index(endUTF16Index, within: text) {
