@@ -241,15 +241,17 @@ public extension UIContextualAction {
                                }),
                                pinnedConversationsNumber >= LibSession.PinnedConversationLimit
                             {
-                                let sessionProModal: ProCTAModal = ProCTAModal(
-                                    delegate: SessionProState(using: dependencies),
-                                    touchPoint: .morePinnedConvos(
-                                        isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
-                                    ),
-                                    dataManager: dependencies[singleton: .imageDataManager],
-                                    afterClosed: {
-                                        completionHandler(true)
-                                    }
+                                let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+                                    modal: ProCTAModal(
+                                        delegate: SessionProState(using: dependencies),
+                                        touchPoint: .morePinnedConvos(
+                                            isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
+                                        ),
+                                        dataManager: dependencies[singleton: .imageDataManager],
+                                        afterClosed: { [completionHandler] in
+                                            completionHandler(true)
+                                        }
+                                    )
                                 )
                                 viewController?.present(sessionProModal, animated: true, completion: nil)
                                 return

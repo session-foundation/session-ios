@@ -635,14 +635,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             return false
         }
         self.hideInputAccessoryView()
-        let sessionProModal: ProCTAModal = ProCTAModal(
-            delegate: self,
-            touchPoint: .longerMessages,
-            dataManager: dependencies[singleton: .imageDataManager],
-            afterClosed: { [weak self] in
-                self?.showInputAccessoryView()
-                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
-            }
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: self,
+                touchPoint: .longerMessages,
+                dataManager: dependencies[singleton: .imageDataManager],
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                    self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+                }
+            )
         )
         present(sessionProModal, animated: true, completion: nil)
         

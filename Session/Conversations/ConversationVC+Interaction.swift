@@ -241,14 +241,16 @@ extension ConversationVC:
             return false
         }
         self.hideInputAccessoryView()
-        let sessionProModal: ProCTAModal = ProCTAModal(
-            delegate: self,
-            touchPoint: .longerMessages,
-            dataManager: viewModel.dependencies[singleton: .imageDataManager],
-            afterClosed: { [weak self] in
-                self?.showInputAccessoryView()
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-            }
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: self,
+                touchPoint: .longerMessages,
+                dataManager: viewModel.dependencies[singleton: .imageDataManager],
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                }
+            )
         )
         present(sessionProModal, animated: true, completion: nil)
         
