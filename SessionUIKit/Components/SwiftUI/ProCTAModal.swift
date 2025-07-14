@@ -180,11 +180,10 @@ public enum TouchPoint {
         }
     }
 
-    // TODO: Localization
     public var subtitle: String {
         switch self {
             case .generic:
-                return "Want to use Session to its fullest potential? Upgrade to Session Pro to gain access to loads exclusive perks and features."
+                return "proUserProfileModalCallToAction".localized()
             case .longerMessages:
                 return "proCallToActionLongerMessages".localized()
             case .animatedProfileImage:
@@ -194,10 +193,10 @@ public enum TouchPoint {
                     "proCallToActionPinnedConversations".localized() :
                     "proCallToActionPinnedConversationsMoreThan".localized()
             case .groupLimit(let isAdmin):
-                return "Want to increase the number of members you can invite to your group? Upgrade to Session Pro to invite up to 300 contacts."
+                return "proUserProfileModalCallToAction".localized()
         }
     }
-    // TODO: Localization
+    
     public var benefits: [String] {
         switch self {
             case .generic:
