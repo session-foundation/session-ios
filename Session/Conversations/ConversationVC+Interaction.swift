@@ -242,7 +242,7 @@ extension ConversationVC:
         }
         self.hideInputAccessoryView()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal_SwiftUI(
+            modal: ProCTAModal(
                 delegate: self,
                 touchPoint: .longerMessages,
                 dataManager: viewModel.dependencies[singleton: .imageDataManager],

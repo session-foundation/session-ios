@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-struct ShineButton_SwiftUI<Label>: View where Label: View {
+struct ShineButton<Label>: View where Label: View {
     let action: () -> Void
     let label: () -> Label
 

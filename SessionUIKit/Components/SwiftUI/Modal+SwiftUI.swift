@@ -36,6 +36,10 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
             .animation(.spring(), value: show)
             
         }
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity
+        )
         .background(.ultraThinMaterial)
         .onTapGesture { close() }
         .gesture(

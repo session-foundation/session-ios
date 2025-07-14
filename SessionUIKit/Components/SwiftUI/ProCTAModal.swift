@@ -3,11 +3,11 @@
 import SwiftUI
 import Lucide
 
-public struct ProCTAModal_SwiftUI: View {
+public struct ProCTAModal: View {
     @EnvironmentObject var host: HostWrapper
     
     private var delegate: SessionProCTADelegate?
-    private let touchPoint: ProCTAModal.TouchPoint
+    private let touchPoint: TouchPoint
     private var dataManager: ImageDataManagerType
     
     let dismissType: Modal.DismissType
@@ -15,7 +15,7 @@ public struct ProCTAModal_SwiftUI: View {
     
     public init(
         delegate: SessionProCTADelegate?,
-        touchPoint: ProCTAModal.TouchPoint,
+        touchPoint: TouchPoint,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
         afterClosed: (() -> Void)?
@@ -28,11 +28,15 @@ public struct ProCTAModal_SwiftUI: View {
     }
     
     public var body: some View {
-        Modal_SwiftUI(host: host, dismissType: dismissType, afterClosed: afterClosed) { close in
+        Modal_SwiftUI(
+            host: host,
+            dismissType: dismissType,
+            afterClosed: afterClosed
+        ) { close in
             VStack(spacing: 0) {
                 ZStack {
                     if let animatedAvatarImageName = touchPoint.animatedAvatarImageName {
-                        
+                        // TODO: Merge SessionAsyncImage
                     }
                     
                     Image(uiImage: UIImage(named: touchPoint.backgroundImageName) ?? UIImage())
@@ -105,7 +109,7 @@ public struct ProCTAModal_SwiftUI: View {
                     // Buttons
                     HStack(spacing: Values.smallSpacing) {
                         // Upgrade Button
-                        ShineButton_SwiftUI {
+                        ShineButton {
                             delegate?.upgradeToPro {
                                 close()
                             }
@@ -142,4 +146,97 @@ public struct ProCTAModal_SwiftUI: View {
             }
         }
     }
+}
+
+// MARK: - Touch Point
+
+public enum TouchPoint {
+    case generic
+    case longerMessages
+    case animatedProfileImage
+    case morePinnedConvos(isGrandfathered: Bool)
+    case groupLimit(isAdmin: Bool)
+
+    // stringlint:ignore_contents
+    public var backgroundImageName: String {
+        switch self {
+            case .generic:
+                return "GenericCTA.webp"
+            case .longerMessages:
+                return "HigherCharLimitCTA.webp"
+            case .animatedProfileImage:
+                return "session_pro_modal_background_animated_profile_image"
+            case .morePinnedConvos:
+                return "PinnedConversationsCTA.webp"
+            case .groupLimit(let isAdmin):
+                return isAdmin ? "" : ""
+        }
+    }
+    // stringlint:ignore_contents
+    public var animatedAvatarImageName: String? {
+        switch self {
+            case .generic: return "GenericCTAAnimation"
+            default: return nil
+        }
+    }
+
+    // TODO: Localization
+    public var subtitle: String {
+        switch self {
+            case .generic:
+                return "Want to use Session to its fullest potential? Upgrade to Session Pro to gain access to loads exclusive perks and features."
+            case .longerMessages:
+                return "proCallToActionLongerMessages".localized()
+            case .animatedProfileImage:
+                return "proAnimatedDisplayPictureCallToActionDescription".localized()
+            case .morePinnedConvos(let isGrandfathered):
+                return isGrandfathered ?
+                    "proCallToActionPinnedConversations".localized() :
+                    "proCallToActionPinnedConversationsMoreThan".localized()
+            case .groupLimit(let isAdmin):
+                return "Want to increase the number of members you can invite to your group? Upgrade to Session Pro to invite up to 300 contacts."
+        }
+    }
+    // TODO: Localization
+    public var benefits: [String] {
+        switch self {
+            case .generic:
+                return  [
+                    "proFeatureListLargerGroups".localized(),
+                    "proFeatureListLongerMessages".localized(),
+                    "proFeatureListLoadsMore".localized()
+                ]
+            case .longerMessages:
+                return [
+                    "proFeatureListLongerMessages".localized(),
+                    "proFeatureListLargerGroups".localized(),
+                    "proFeatureListLoadsMore".localized()
+                ]
+            case .animatedProfileImage:
+                return [
+                    "proFeatureListAnimatedDisplayPicture".localized(),
+                    "proFeatureListLargerGroups".localized(),
+                    "proFeatureListLoadsMore".localized()
+                ]
+            case .morePinnedConvos:
+                return [
+                    "proFeatureListPinnedConversations".localized(),
+                    "proFeatureListLargerGroups".localized(),
+                    "proFeatureListLoadsMore".localized()
+                ]
+            case .groupLimit(let isAdmin):
+                return !isAdmin ? [] :
+                    [
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListLoadsMore".localized()
+                    ]
+        }
+    }
+}
+
+// MARK: - SessionProCTADelegate
+
+public protocol SessionProCTADelegate: AnyObject {
+    func upgradeToPro(completion: (() -> Void)?)
 }
