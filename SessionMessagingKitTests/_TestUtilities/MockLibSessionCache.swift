@@ -11,6 +11,7 @@ import GRDB
 class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     var userSessionId: SessionId { mock() }
     var isEmpty: Bool { mock() }
+    var allDumpSessionIds: Set<SessionId> { mock() }
     
     // MARK: - State Management
     

@@ -75,7 +75,12 @@ public enum AppSetup {
             onComplete: { originalResult in
                 // Now that the migrations are complete there are a few more states which need
                 // to be setup
-                typealias UserInfo = (sessionId: SessionId, ed25519SecretKey: [UInt8], unreadCount: Int?)
+                typealias UserInfo = (
+                    sessionId: SessionId,
+                    ed25519SecretKey: [UInt8],
+                    dumpSessionIds: Set<SessionId>,
+                    unreadCount: Int?
+                )
                 dependencies[singleton: .storage].readAsync(
                     retrieve: { db -> UserInfo? in
                         guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
@@ -99,6 +104,7 @@ public enum AppSetup {
                         return (
                             userSessionId,
                             ed25519KeyPair.secretKey,
+                            cache.allDumpSessionIds,
                             try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
                         )
                     },
@@ -115,7 +121,8 @@ public enum AppSetup {
                                 
                                 Task.detached(priority: .medium) {
                                     dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
-                                        userSessionId: userInfo.sessionId
+                                        userSessionId: userInfo.sessionId,
+                                        allDumpSessionIds: userInfo.dumpSessionIds
                                     )
                                 }
                         }

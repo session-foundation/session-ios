@@ -53,8 +53,8 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         mockNoReturn(args: [dump, replaceExisting])
     }
     
-    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId) {
-        mockNoReturn(args: [userSessionId])
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) {
+        mockNoReturn(args: [userSessionId, allDumpSessionIds])
     }
     
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {

@@ -290,20 +290,6 @@ fileprivate func generateCallInfo<M, T, R>(
     var allFunctionsCalled: [FunctionConsumer.Key] = []
     var allCallDetails: [CallDetails] = []
     var caughtError: Error? = nil
-    let builderCreator: ((M) -> MockFunctionBuilder<T, R>) = { validInstance in
-        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(functionBlock, mockInit: type(of: validInstance).init)
-        builder.returnValueGenerator = { name, generics, parameterCount, parameterSummary, allParameterSummaryCombinations in
-            validInstance.functionConsumer
-                .firstFunction(
-                    for: FunctionConsumer.Key(name: name, generics: generics, paramCount: parameterCount),
-                    matchingParameterSummaryIfPossible: parameterSummary,
-                    allParameterSummaryCombinations: allParameterSummaryCombinations
-                )?
-                .returnValue as? R
-        }
-        
-        return builder
-    }
     
     // Just hope for the best and if there is a force-cast there's not much we can do
     do {
@@ -317,9 +303,8 @@ fileprivate func generateCallInfo<M, T, R>(
         // call (if there weren't any this will likely throw errors when attempting
         // to build)
         if !allFunctionsCalled.isEmpty {
-            let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
             validInstance.functionConsumer.trackCalls = false
-            maybeTargetFunction = try builder.build()
+            maybeTargetFunction = try MockFunctionBuilder.mockFunctionWith(validInstance, functionBlock)
             
             let key: FunctionConsumer.Key = FunctionConsumer.Key(
                 name: (maybeTargetFunction?.name ?? ""),

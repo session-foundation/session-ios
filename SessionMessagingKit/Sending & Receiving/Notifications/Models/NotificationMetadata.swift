@@ -4,7 +4,7 @@ import Foundation
 import SessionSnodeKit
 
 extension PushNotificationAPI {
-    public struct NotificationMetadata: Codable {
+    public struct NotificationMetadata: Codable, Equatable {
         private enum CodingKeys: String, CodingKey {
             case accountId = "@"
             case hash = "#"

@@ -271,19 +271,80 @@ public class ExtensionHelper: ExtensionHelperType {
         catch { Log.error(.cat, "Failed to replicate \(dump.variant) dump for \(dump.sessionId.hexString).") }
     }
     
-    public func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId) {
-        /// We can be reasonably sure that if the `userProfile` config dump is missing then we probably haven't replicated any
-        /// config dumps yet and should do so, if the `userProfile` config dump is there but we can't read it for some reason then
-        /// we should also replicate
-        guard
-            let path: String = dumpFilePath(for: userSessionId, variant: .userProfile),
-            ((try? read(from: path)) == nil)
-        else { return }
+    public func replicateAllConfigDumpsIfNeeded(
+        userSessionId: SessionId,
+        allDumpSessionIds: Set<SessionId>
+    ) {
+        struct ReplicatedDumpInfo {
+            struct DumpState {
+                let variant: ConfigDump.Variant
+                let filePathGenerated: Bool
+                let fileExists: Bool
+            }
+            
+            let sessionId: SessionId
+            let states: [DumpState]
+        }
+        
+        /// In order to ensure the dump replication process is as robust as possible we want a self-healing mechanism to restore
+        /// any dumps which have somehow been lost of failed to replicate
+        ///
+        /// If a single dump is missing from the expected set for that `SessionId` then we re-replicate the entire set just in case the
+        /// state is somehow invalid
+        let missingReplicatedDumpInfo: [ReplicatedDumpInfo] = [(userSessionId, ConfigDump.Variant.userVariants)]
+            .appending(
+                contentsOf: allDumpSessionIds
+                    .filter { $0 != userSessionId }
+                    .map { ($0, ConfigDump.Variant.groupVariants) }
+            )
+            .reduce(into: []) { result, next in
+                result.append(
+                    ReplicatedDumpInfo(
+                        sessionId: next.0,
+                        states: next.1.map { variant in
+                            let maybePath: String? = dumpFilePath(for: next.0, variant: variant)
+                            
+                            return ReplicatedDumpInfo.DumpState(
+                                variant: variant,
+                                filePathGenerated: (maybePath != nil),
+                                fileExists: (
+                                    maybePath.map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ??
+                                    false
+                                )
+                            )
+                        }
+                    )
+                )
+            }
+            .filter { info in info.states.contains(where: { !$0.filePathGenerated || !$0.fileExists })}
+        
+        /// No need to read from the database if there are no missing dumps
+        guard !missingReplicatedDumpInfo.isEmpty else { return }
+        
+        /// Add logs indicating the failures
+        let formatter: ListFormatter = ListFormatter()
+        missingReplicatedDumpInfo.forEach { info in
+            if info.states.contains(where: { !$0.filePathGenerated }) {
+                Log.warn(.cat, "Will replicate dumps for \(info.sessionId.hexString) due to failure to generate dump a file path.")
+                return
+            }
+            
+            let missingDumps: [ConfigDump.Variant] = info.states
+                .filter { !$0.fileExists }
+                .map { $0.variant }
+            Log.warn(.cat, "Found missing replicated dumps (\(formatter.string(from: missingDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
+        }
         
         /// Load the config dumps from the database
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
+        
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in try ConfigDump.fetchAll(db) },
+            retrieve: { db in
+                try ConfigDump
+                    .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
+                    .fetchAll(db)
+            },
             completion: { [weak self] result in
                 guard
                     let self = self,
@@ -784,7 +845,7 @@ public protocol ExtensionHelperType {
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
-    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId)
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>)
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,

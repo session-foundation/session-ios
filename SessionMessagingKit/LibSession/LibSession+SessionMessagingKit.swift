@@ -75,7 +75,7 @@ private class ConfigStore {
     
     private var store: [Key: LibSession.Config] = [:]
     public var isEmpty: Bool { store.isEmpty }
-    public var swarmPublicKeys: Set<String> { Set(store.keys.map { $0.sessionId.hexString }) }
+    public var allIds: Set<SessionId> { Set(store.keys.map { $0.sessionId }) }
     
     subscript (sessionId: SessionId, variant: ConfigDump.Variant) -> LibSession.Config? {
         get { return (store[Key(sessionId: sessionId, variant: variant)] ?? nil) }
@@ -195,6 +195,7 @@ public extension LibSession {
         public let dependencies: Dependencies
         public let userSessionId: SessionId
         public var isEmpty: Bool { configStore.isEmpty }
+        public var allDumpSessionIds: Set<SessionId> { configStore.allIds }
         
         // MARK: - Initialization
         
@@ -491,8 +492,8 @@ public extension LibSession {
         // MARK: - Pushes
         
         public func syncAllPendingPushes(_ db: ObservingDatabase) {
-            configStore.swarmPublicKeys.forEach { swarmPublicKey in
-                ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+            configStore.allIds.forEach { sessionId in
+                ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
             }
         }
         
@@ -932,6 +933,7 @@ public extension LibSession {
 public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
+    var allDumpSessionIds: Set<SessionId> { get }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
 }
@@ -942,6 +944,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
+    var allDumpSessionIds: Set<SessionId> { get }
     
     // MARK: - State Management
     
@@ -1195,6 +1198,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
     let isEmpty: Bool = true
+    let allDumpSessionIds: Set<SessionId> = []
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies

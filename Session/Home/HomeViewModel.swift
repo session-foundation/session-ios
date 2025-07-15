@@ -68,6 +68,8 @@ public class HomeViewModel: NavigatableStateHolder {
         
         let viewState: ViewState
         let userProfile: Profile
+        let hasSavedThread: Bool
+        let hasSavedMessage: Bool
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
@@ -86,6 +88,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageRequestUnreadMessageReceived,
                 .loadPage(HomeViewModel.observationName),
                 .profile(userProfile.id),
+                .setting(.hasSavedThread),
+                .setting(.hasSavedMessage),
                 .setting(.hasViewedSeed),
                 .setting(.hasHiddenMessageRequests),
                 .conversationCreated,
@@ -116,6 +120,8 @@ public class HomeViewModel: NavigatableStateHolder {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
+                hasSavedThread: false,
+                hasSavedMessage: false,
                 showViewedSeedBanner: true,
                 hasHiddenMessageRequests: false,
                 unreadMessageRequestThreadCount: 0,
@@ -150,6 +156,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 /// Store mutable copies of the data to update
                 let currentState: State = (previousState ?? initialState)
                 var userProfile: Profile = currentState.userProfile
+                var hasSavedThread: Bool = currentState.hasSavedThread
+                var hasSavedMessage: Bool = currentState.hasSavedMessage
                 var showViewedSeedBanner: Bool = currentState.showViewedSeedBanner
                 var hasHiddenMessageRequests: Bool = currentState.hasHiddenMessageRequests
                 var unreadMessageRequestThreadCount: Int = currentState.unreadMessageRequestThreadCount
@@ -309,6 +317,8 @@ public class HomeViewModel: NavigatableStateHolder {
                     guard let updatedValue: Bool = event.value as? Bool else { return }
                     
                     switch event.key {
+                        case .setting(.hasSavedThread): hasSavedThread = (updatedValue || hasSavedThread)
+                        case .setting(.hasSavedMessage): hasSavedMessage = (updatedValue || hasSavedMessage)
                         case .setting(.hasViewedSeed): showViewedSeedBanner = !updatedValue // Inverted
                         case .setting(.hasHiddenMessageRequests): hasHiddenMessageRequests = updatedValue
                         default: break
@@ -318,10 +328,12 @@ public class HomeViewModel: NavigatableStateHolder {
                 /// Generate the new state
                 let updatedState: State = State(
                     viewState: (loadResult.info.totalCount == 0 ?
-                        .empty(isNewUser: (startedAsNewUser && previousState == nil)) :
+                        .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
                         .loaded
                     ),
                     userProfile: userProfile,
+                    hasSavedThread: hasSavedThread,
+                    hasSavedMessage: hasSavedMessage,
                     showViewedSeedBanner: showViewedSeedBanner,
                     hasHiddenMessageRequests: hasHiddenMessageRequests,
                     unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,

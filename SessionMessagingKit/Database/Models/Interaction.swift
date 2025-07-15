@@ -380,6 +380,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         switch ObservationContext.observingDb {
             case .none: Log.error("[Interaction] Could not process 'aroundInsert' due to missing observingDb.")
             case .some(let observingDb):
+                observingDb.dependencies.setAsync(.hasSavedMessage, true)
                 observingDb.addMessageEvent(id: id, threadId: threadId, type: .created)
                 
                 if self.expiresStartedAtMs != nil {

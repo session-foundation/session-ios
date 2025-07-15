@@ -1090,8 +1090,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.flush()
         Log.reset()
         
+        /// Attach the metadata to the notification (if we got far enough to get it - use the explicit `threadVariant` provided, otherwise
+        /// try to infer it based on the `accountId` the notification was received from)
         info.content.title = Constants.app_name
-        info.content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
+        info.content.userInfo = (info.metadata != PushNotificationAPI.NotificationMetadata.invalid ?
+             dependencies[singleton: .notificationsManager].notificationUserInfo(
+                threadId: info.metadata.accountId,
+                threadVariant: (
+                    threadVariant ??
+                    ((try? SessionId.Prefix(from: info.metadata.accountId)) == .group ?
+                        .group :
+                        .contact
+                    )
+                )
+             ) :
+             [ NotificationUserInfoKey.isFromRemote: true ]
+        )
         
         /// If it's a notification for a group conversation, the notification preferences are right and we have a name for the group
         /// then we should include it in the notification content

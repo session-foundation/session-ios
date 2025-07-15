@@ -60,6 +60,9 @@ public extension Setting.BoolKey {
     /// A flag indicating whether the user has ever saved a thread
     static let hasSavedThread: Setting.BoolKey = "hasSavedThread"
     
+    /// A flag indicating whether the user has ever received or tried to send a message (whether succesffully or not)
+    static let hasSavedMessage: Setting.BoolKey = "hasSavedMessage"
+    
     /// A flag indicating whether the user has ever send a message
     static let hasSentAMessage: Setting.BoolKey = "hasSentAMessageKey"
     

@@ -103,12 +103,15 @@ public extension LibSession.Cache {
             }
         }()
         
+        var currentValue: Int32?
+        
         switch key {
             case .checkForCommunityMessageRequests:
                 guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
                     return Log.critical(.libSession, "Failed to set \(key) because there is no Local config")
                 }
                 
+                currentValue = user_profile_get_blinded_msgreqs(conf)
                 user_profile_set_blinded_msgreqs(conf, valueAsInt)
                 
             default:
@@ -116,11 +119,14 @@ public extension LibSession.Cache {
                     return Log.critical(.libSession, "Failed to set \(key) because there is no Local config")
                 }
                 
+                currentValue = local_get_setting(conf, key.rawValue)
                 local_set_setting(conf, key.rawValue, valueAsInt)
         }
         
-        /// Add an event to notify any observers of the change once it's committed
-        addEvent(key: key, value: value)
+        /// Add an event to notify any observers of the change once it's committed (only if the value was changed)
+        if valueAsInt != currentValue {
+            addEvent(key: key, value: value)
+        }
     }
     
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {
@@ -129,6 +135,7 @@ public extension LibSession.Cache {
         }
         
         let libSessionValue: T.LibSessionType = (value?.libSessionValue ?? T.defaultLibSessionValue)
+        let currentLibSessionValue: T? = get(key)
         
         switch key {
             case .defaultNotificationSound:
@@ -162,8 +169,10 @@ public extension LibSession.Cache {
             default: Log.critical(.libSession, "Failed to set unknown \(key) due to missing libSesison function")
         }
         
-        /// Add an event to notify any observers of the change once it's committed
-        addEvent(key: key, value: value)
+        /// Add an event to notify any observers of the change once it's committed (only if the value was changed)
+        if value != currentLibSessionValue {
+            addEvent(key: key, value: value)
+        }
     }
 }
 

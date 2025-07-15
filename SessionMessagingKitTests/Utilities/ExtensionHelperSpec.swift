@@ -656,11 +656,47 @@ class ExtensionHelperSpec: AsyncSpec {
             
             // MARK: -- when replicating all config dumps
             context("when replicating all config dumps") {
-                @TestState var mockValues: [String: [UInt8]]! = [
-                    "ConvoIdSalt-05\(TestConstants.publicKey)": [1, 2, 3],
-                    "DumpSalt-\(ConfigDump.Variant.userProfile)": [2, 3, 4],
-                    "ConvoIdSalt-03\(TestConstants.publicKey)": [4, 5, 6],
-                    "DumpSalt-\(ConfigDump.Variant.groupInfo)": [5, 6, 7]
+                struct DumpReplicationValues {
+                    let key: String
+                    let sessionId: String?
+                    let variant: ConfigDump.Variant?
+                    let hashValue: [UInt8]
+                    let plaintext: Data
+                    let ciphertext: Data
+                    
+                    init(_ key: String, _ value: [UInt8]) {
+                        self.key = key
+                        self.sessionId = nil
+                        self.variant = nil
+                        self.hashValue = value
+                        self.plaintext = Data(value + value)
+                        self.ciphertext = Data(value)
+                    }
+                    
+                    init(_ variant: ConfigDump.Variant, _ value: [UInt8]) {
+                        self.key = "DumpSalt-\(variant)"
+                        self.sessionId = (ConfigDump.Variant.userVariants.contains(variant) ?
+                            "05\(TestConstants.publicKey)" :
+                            "03\(TestConstants.publicKey)"
+                        )
+                        self.variant = variant
+                        self.hashValue = value
+                        self.plaintext = Data(value + value)
+                        self.ciphertext = Data(value)
+                    }
+                }
+                
+                @TestState var mockValues: [DumpReplicationValues]! = [
+                    DumpReplicationValues("ConvoIdSalt-05\(TestConstants.publicKey)", [1, 2, 3]),
+                    DumpReplicationValues(ConfigDump.Variant.userProfile, [2, 3, 4]),
+                    DumpReplicationValues(ConfigDump.Variant.contacts, [3, 4, 5]),
+                    DumpReplicationValues(ConfigDump.Variant.convoInfoVolatile, [4, 5, 6]),
+                    DumpReplicationValues(ConfigDump.Variant.userGroups, [5, 6, 7]),
+                    DumpReplicationValues(ConfigDump.Variant.local, [6, 7, 8]),
+                    DumpReplicationValues("ConvoIdSalt-03\(TestConstants.publicKey)", [9, 8, 7]),
+                    DumpReplicationValues(ConfigDump.Variant.groupInfo, [8, 7, 6]),
+                    DumpReplicationValues(ConfigDump.Variant.groupMembers, [7, 6, 5]),
+                    DumpReplicationValues(ConfigDump.Variant.groupKeys, [6, 5, 4])
                 ]
                 
                 beforeEach {
@@ -668,118 +704,180 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
-                    mockValues.forEach { key, value in
-                        mockCrypto
-                            .when { $0.generate(.hash(message: Array(key.data(using: .utf8)!))) }
-                            .thenReturn(value)
-                    }
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
-                    mockCrypto
-                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
-                        .thenReturn(Data([2, 3, 4]))
-                    mockCrypto
-                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
-                        .thenReturn(Data([5, 6, 7]))
+                    mockValues.forEach { value in
+                        mockCrypto
+                            .when { $0.generate(.hash(message: Array(value.key.data(using: .utf8)!))) }
+                            .thenReturn(value.hashValue)
+                        mockCrypto
+                            .when { $0.generate(.ciphertextWithXChaCha20(plaintext: value.plaintext, encKey: .any)) }
+                            .thenReturn(value.ciphertext)
+                    }
                     
                     mockStorage.write { db in
-                        try ConfigDump(
-                            variant: .userProfile,
-                            sessionId: "05\(TestConstants.publicKey)",
-                            data: Data([2, 3, 4]),
-                            timestampMs: 1234567890
-                        ).insert(db)
-                        try ConfigDump(
-                            variant: .groupInfo,
-                            sessionId: "03\(TestConstants.publicKey)",
-                            data: Data([5, 6, 7]),
-                            timestampMs: 1234567890
-                        ).insert(db)
+                        try mockValues.forEach { values in
+                            guard
+                                let sessionId: String = values.sessionId,
+                                let variant: ConfigDump.Variant = values.variant
+                            else { return }
+                            
+                            try ConfigDump(
+                                variant: variant,
+                                sessionId: sessionId,
+                                data: values.plaintext,
+                                timestampMs: 1234567890
+                            ).insert(db)
+                        }
                     }
                 }
                 
                 // MARK: ---- replicates successfully
                 it("replicates successfully") {
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "AgME"))
-                    })
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/dumps/020304"
-                        )
-                    })
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BQYH"))
-                    })
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/040506/dumps/050607"
-                        )
-                    })
+                    
+                    let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
+                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
+                        .toEventually(haveCount(5))
+                        .retrieveValue()
+                    let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
+                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) })
+                        .toEventually(haveCount(5))
+                        .retrieveValue()
+                    
+                    expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                        .to(equal([
+                            "[tmpFile, Data(base64Encoded: AgME), nil]",
+                            "[tmpFile, Data(base64Encoded: AwQF), nil]",
+                            "[tmpFile, Data(base64Encoded: BAUG), nil]",
+                            "[tmpFile, Data(base64Encoded: BQYH), nil]",
+                            "[tmpFile, Data(base64Encoded: BgcI), nil]"
+                        ]))
+                    expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                        .to(equal([
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/020304]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/030405]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/040506]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/050607]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/060708]"
+                        ]))
                 }
                 
-                // MARK: ---- replicates if the existing user profile dump cannot be decrypted
-                it("replicates if the existing user profile dump cannot be decrypted") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
-                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
-                        .thenReturn(nil)
+                // MARK: ---- replicates all user configs if they cannot be found
+                it("replicates all user configs if they cannot be found") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "AgME"))
-                    })
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/dumps/020304"
-                        )
-                    })
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BQYH"))
-                    })
-                    await expect(mockFileManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/040506/dumps/050607"
-                        )
-                    })
+                    let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
+                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
+                        .toEventually(haveCount(5))
+                        .retrieveValue()
+                    let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
+                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) })
+                        .toEventually(haveCount(5))
+                        .retrieveValue()
+                    
+                    expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                        .to(equal([
+                            "[tmpFile, Data(base64Encoded: AgME), nil]",
+                            "[tmpFile, Data(base64Encoded: AwQF), nil]",
+                            "[tmpFile, Data(base64Encoded: BAUG), nil]",
+                            "[tmpFile, Data(base64Encoded: BQYH), nil]",
+                            "[tmpFile, Data(base64Encoded: BgcI), nil]"
+                        ]))
+                    expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                        .to(equal([
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/020304]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/030405]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/040506]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/050607]",
+                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/060708]"
+                        ]))
+                }
+                
+                // MARK: ---- replicates all configs for a group if one cannot be found
+                fit("replicates all configs for a group if one cannot be found") {
+                    mockValues.forEach { value in
+                        guard let variant: ConfigDump.Variant = value.variant else { return }
+                        
+                        let isGroupVariant: Bool = ConfigDump.Variant.groupVariants.contains(variant)
+                        let convo: String = (isGroupVariant ? "090807" : "010203")
+                        let dump: String = value.hashValue.toHexString()
+                        mockFileManager
+                            .when {
+                                $0.fileExists(
+                                    atPath: "/test/extensionCache/conversations/\(convo)/dumps/\(dump)"
+                                )
+                            }
+                            .thenReturn(!isGroupVariant)
+                    }
+                    
+                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [
+                            SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                            SessionId(.group, hex: "03\(TestConstants.publicKey)"),
+                        ]
+                    )
+                    
+                    let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
+                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
+                        .toEventually(haveCount(3))
+                        .retrieveValue()
+                    let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
+                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) })
+                        .toEventually(haveCount(3))
+                        .retrieveValue()
+                
+                    expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                        .to(equal([
+                            "[tmpFile, Data(base64Encoded: BgUE), nil]",
+                            "[tmpFile, Data(base64Encoded: BwYF), nil]",
+                            "[tmpFile, Data(base64Encoded: CAcG), nil]"
+                        ]))
+                    expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                        .to(equal([
+                            "[tmpFile, /test/extensionCache/conversations/090807/dumps/060504]",
+                            "[tmpFile, /test/extensionCache/conversations/090807/dumps/070605]",
+                            "[tmpFile, /test/extensionCache/conversations/090807/dumps/080706]"
+                        ]))
                 }
                 
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
-                    mockValues.forEach { key, value in
+                    mockValues.forEach { value in
                         mockCrypto
-                            .when { $0.generate(.hash(message: Array(key.data(using: .utf8)!))) }
+                            .when { $0.generate(.hash(message: Array(value.key.data(using: .utf8)!))) }
                             .thenReturn(nil)
                     }
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
                     expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
                 }
                 
-                // MARK: ---- does nothing if a valid user profile dump already exists
-                it("does nothing if a valid user profile dump already exists") {
+                // MARK: ---- does nothing if valid dumps already exist
+                it("does nothing if valid dumps already exist") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
@@ -791,7 +889,8 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockStorage.write { db in try ConfigDump.deleteAll(db) }
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: []
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
@@ -807,7 +906,8 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567891)])
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
@@ -824,7 +924,8 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenThrow(TestError.mock)
                     
                     extensionHelper.replicateAllConfigDumpsIfNeeded(
-                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)")
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })

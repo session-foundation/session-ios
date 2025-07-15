@@ -131,6 +131,17 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
         return builder
     }
     
+    internal func allCalls<R>(_ functionBlock: @escaping (inout T) async throws -> R) -> [CallDetails]? {
+        let maybeTargetFunction: MockFunction? = try? MockFunctionBuilder.mockFunctionWith(self, functionBlock)
+        let key: FunctionConsumer.Key = FunctionConsumer.Key(
+            name: (maybeTargetFunction?.name ?? ""),
+            generics: (maybeTargetFunction?.generics ?? []),
+            paramCount: (maybeTargetFunction?.parameterCount ?? 0)
+        )
+        
+        return functionConsumer.calls[key]
+    }
+    
     // MARK: - Convenience
     
     private func summaries(for argument: Any) -> [ParameterCombination] {
@@ -397,6 +408,24 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     init(_ callBlock: @escaping (inout T) async throws -> R, mockInit: @escaping (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>) {
         self.callBlock = callBlock
         self.mockInit = mockInit
+    }
+    
+    static func mockFunctionWith<M>(
+        _ validInstance: M,
+        _ functionBlock: @escaping (inout T) async throws -> R
+    ) throws -> MockFunction? where M: Mock<T> {
+        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(functionBlock, mockInit: type(of: validInstance).init)
+        builder.returnValueGenerator = { name, generics, parameterCount, parameterSummary, allParameterSummaryCombinations in
+            validInstance.functionConsumer
+                .firstFunction(
+                    for: FunctionConsumer.Key(name: name, generics: generics, paramCount: parameterCount),
+                    matchingParameterSummaryIfPossible: parameterSummary,
+                    allParameterSummaryCombinations: allParameterSummaryCombinations
+                )?
+                .returnValue as? R
+        }
+        
+        return try builder.build()
     }
     
     // MARK: - Behaviours
