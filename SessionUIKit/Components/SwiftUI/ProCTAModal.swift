@@ -34,6 +34,7 @@ public struct ProCTAModal: View {
             afterClosed: afterClosed
         ) { close in
             VStack(spacing: 0) {
+                // Background images
                 ZStack {
                     if let animatedAvatarImageURL = touchPoint.animatedAvatarImageURL {
                         SessionAsyncImage(
@@ -46,7 +47,14 @@ public struct ProCTAModal: View {
                                     .frame(maxWidth: .infinity)
                             },
                             placeholder: {
-                                EmptyView()
+                                if let data = try? Data(contentsOf: animatedAvatarImageURL) {
+                                    Image(uiImage: UIImage(data: data) ?? UIImage())
+                                        .resizable()
+                                        .aspectRatio((1522.0/1258.0), contentMode: .fit)
+                                        .frame(maxWidth: .infinity)
+                                } else {
+                                    EmptyView()
+                                }
                             }
                         )
                     }
@@ -75,71 +83,110 @@ public struct ProCTAModal: View {
                     maxWidth: .infinity,
                     alignment: .bottom
                 )
-            
+                // Content
                 VStack(spacing: Values.largeSpacing) {
                     // Title
-                    HStack(spacing: Values.smallSpacing) {
-                        Text("upgradeTo".localized())
-                            .font(.system(size: Values.largeFontSize))
-                            .bold()
-                            .foregroundColor(themeColor: .textPrimary)
-                        
-                        SessionProBadge_SwiftUI(size: .large)
+                    if case .animatedProfileImage(let isSessionProActivated) = touchPoint, isSessionProActivated {
+                        HStack(spacing: Values.smallSpacing) {
+                            SessionProBadge_SwiftUI(size: .large)
+                            
+                            Text("proActivated".localized())
+                                .font(.system(size: Values.largeFontSize))
+                                .bold()
+                                .foregroundColor(themeColor: .textPrimary)
+                        }
+                    } else {
+                        HStack(spacing: Values.smallSpacing) {
+                            Text("upgradeTo".localized())
+                                .font(.system(size: Values.largeFontSize))
+                                .bold()
+                                .foregroundColor(themeColor: .textPrimary)
+                            
+                            SessionProBadge_SwiftUI(size: .large)
+                        }
                     }
+                    
                     // Description, Subtitle
-                    VStack(spacing: Values.smallSpacing) {
+                    VStack(spacing: 0) {
+                        if case .animatedProfileImage(let isSessionProActivated) = touchPoint, isSessionProActivated {
+                            HStack(spacing: Values.verySmallSpacing) {
+                                Text("proAlreadyPurchased".localized())
+                                    .font(.system(size: Values.smallFontSize))
+                                    .foregroundColor(themeColor: .textSecondary)
+                                
+                                SessionProBadge_SwiftUI(size: .small)
+                            }
+                        }
+                        
                         Text(touchPoint.subtitle)
                             .font(.system(size: Values.smallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    
                     // Benefits
-                    VStack(alignment: .leading, spacing: Values.mediumSmallSpacing) {
-                        ForEach(
-                            0..<touchPoint.benefits.count,
-                            id: \.self
-                        ) { index in
-                            HStack(spacing: Values.smallSpacing) {
-                                if index < touchPoint.benefits.count - 1 {
-                                    AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
-                                        .font(.system(size: 17))
-                                        .foregroundColor(themeColor: .primary)
-                                } else {
-                                    CyclicGradientView {
-                                        AttributedText(Lucide.Icon.sparkles.attributedString(size: 17))
+                    if !touchPoint.benefits.isEmpty {
+                        VStack(alignment: .leading, spacing: Values.mediumSmallSpacing) {
+                            ForEach(
+                                0..<touchPoint.benefits.count,
+                                id: \.self
+                            ) { index in
+                                HStack(spacing: Values.smallSpacing) {
+                                    if index < touchPoint.benefits.count - 1 {
+                                        AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
                                             .font(.system(size: 17))
+                                            .foregroundColor(themeColor: .primary)
+                                    } else {
+                                        CyclicGradientView {
+                                            AttributedText(Lucide.Icon.sparkles.attributedString(size: 17))
+                                                .font(.system(size: 17))
+                                        }
                                     }
+                                    
+                                    Text(touchPoint.benefits[index])
+                                        .font(.system(size: Values.smallFontSize))
+                                        .foregroundColor(themeColor: .textPrimary)
                                 }
-                                
-                                Text(touchPoint.benefits[index])
-                                    .font(.system(size: Values.smallFontSize))
-                                    .foregroundColor(themeColor: .textPrimary)
                             }
                         }
                     }
+                    
                     // Buttons
-                    HStack(spacing: Values.smallSpacing) {
-                        if case .groupLimit(let isAdmin) = touchPoint, !isAdmin {
-                            Button {
-                                close()
-                            } label: {
-                                GeometryReader { geometry in
+                    let onlyShowCloseButton: Bool = {
+                        if case .groupLimit(let isAdmin) = touchPoint, !isAdmin { return true }
+                        if case .animatedProfileImage(let isSessionProActivated) = touchPoint, isSessionProActivated { return true }
+                        return false
+                    }()
+                    
+                    if onlyShowCloseButton {
+                        GeometryReader { geometry in
+                            HStack {
+                                Button {
+                                    close()
+                                } label: {
                                     Text("close".localized())
                                         .font(.system(size: Values.mediumFontSize))
                                         .foregroundColor(themeColor: .textPrimary)
-                                        .frame(
-                                            width: (geometry.size.width - Values.smallSpacing) / 2,
-                                            height: Values.largeButtonHeight
-                                        )
                                 }
-                                .frame(height: Values.largeButtonHeight)
+                                .frame(
+                                    width: (geometry.size.width - Values.smallSpacing) / 2,
+                                    height: Values.largeButtonHeight
+                                )
+                                .backgroundColor(themeColor: .inputButton_background)
+                                .cornerRadius(6)
+                                .clipped()
+                                .buttonStyle(PlainButtonStyle())
                             }
-                            .backgroundColor(themeColor: .inputButton_background)
-                            .cornerRadius(6)
-                            .clipped()
-                            .buttonStyle(PlainButtonStyle())
-                        } else {
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height,
+                                alignment: .center
+                            )
+                        }
+                        .frame(height: Values.largeButtonHeight)
+                    } else {
+                        HStack(spacing: Values.smallSpacing) {
                             // Upgrade Button
                             ShineButton {
                                 delegate?.upgradeToPro {
@@ -190,7 +237,7 @@ public struct ProCTAModal: View {
 public enum TouchPoint {
     case generic
     case longerMessages
-    case animatedProfileImage
+    case animatedProfileImage(isSessionProActivated: Bool)
     case morePinnedConvos(isGrandfathered: Bool)
     case groupLimit(isAdmin: Bool)
 
@@ -202,7 +249,7 @@ public enum TouchPoint {
             case .longerMessages:
                 return "HigherCharLimitCTA.webp"
             case .animatedProfileImage:
-                return "session_pro_modal_background_animated_profile_image"
+                return "AnimatedProfileCTA.webp"
             case .morePinnedConvos:
                 return "PinnedConversationsCTA.webp"
             case .groupLimit(let isAdmin):
@@ -214,6 +261,8 @@ public enum TouchPoint {
         switch self {
             case .generic: 
                 return Bundle.main.url(forResource: "GenericCTAAnimation", withExtension: "webp")
+            case .animatedProfileImage:
+                return Bundle.main.url(forResource: "AnimatedProfileCTAAnimation", withExtension: "webp")
             default: return nil
         }
     }
@@ -224,8 +273,10 @@ public enum TouchPoint {
                 return "proUserProfileModalCallToAction".localized()
             case .longerMessages:
                 return "proCallToActionLongerMessages".localized()
-            case .animatedProfileImage:
-                return "proAnimatedDisplayPictureCallToActionDescription".localized()
+            case .animatedProfileImage(let isSessionProActivated):
+                return isSessionProActivated ?
+                    "proAnimatedDisplayPicture".localized() :
+                    "proAnimatedDisplayPictureCallToActionDescription".localized()
             case .morePinnedConvos(let isGrandfathered):
                 return isGrandfathered ?
                     "proCallToActionPinnedConversations".localized() :
@@ -249,12 +300,13 @@ public enum TouchPoint {
                     "proFeatureListLargerGroups".localized(),
                     "proFeatureListLoadsMore".localized()
                 ]
-            case .animatedProfileImage:
-                return [
-                    "proFeatureListAnimatedDisplayPicture".localized(),
-                    "proFeatureListLargerGroups".localized(),
-                    "proFeatureListLoadsMore".localized()
-                ]
+            case .animatedProfileImage(let isSessionProActivated):
+                return isSessionProActivated ? [] :
+                    [
+                        "proFeatureListAnimatedDisplayPicture".localized(),
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
+                    ]
             case .morePinnedConvos:
                 return [
                     "proFeatureListPinnedConversations".localized(),

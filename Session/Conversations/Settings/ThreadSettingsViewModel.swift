@@ -1642,11 +1642,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         },
                         icon: .rightPlus,
                         style: .circular,
+                        showPro: false,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
+                        onProBageTapped: nil,
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -1655,7 +1657,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
@@ -1665,7 +1667,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateGroupDisplayPicture(

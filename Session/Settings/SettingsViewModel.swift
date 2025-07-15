@@ -554,16 +554,34 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         source: currentFileName
                             .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
                             .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
-                        placeholder: UIImage(named: iconName).map {
-                            ImageDataManager.DataSource.image(iconName, $0)
+                        placeholder: Lucide.image(icon: .image, size: 40).map { image in
+                            ImageDataManager.DataSource.image(
+                                iconName,
+                                image
+                                    .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
+                                    .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
+                            )
                         },
                         icon: .rightPlus,
                         style: .circular,
+                        showPro: true,
                         accessibility: Accessibility(
                             identifier: "Upload",
                             label: "Upload"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
+                        onProBageTapped: { [weak self, dependencies] in
+                            let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+                                modal: ProCTAModal(
+                                    delegate: SessionProState(using: dependencies),
+                                    touchPoint: .animatedProfileImage(
+                                        isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                    ),
+                                    dataManager: dependencies[singleton: .imageDataManager]
+                                )
+                            )
+                            self?.transitionToScreen(sessionProModal, transitionType: .present)
+                        },
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -572,7 +590,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
@@ -582,7 +600,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateProfile(
