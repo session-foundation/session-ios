@@ -732,7 +732,7 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: false,
                         notificationSettings: notificationSettings,
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
@@ -749,7 +749,7 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: true,
                         notificationSettings: notificationSettings,
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
@@ -768,7 +768,7 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: false,
                         notificationSettings: notificationSettings,
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
@@ -785,7 +785,7 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: false,
                         notificationSettings: notificationSettings,
-                        displayNameRetriever: { _ in "TestName" },
+                        displayNameRetriever: { _, _ in "TestName" },
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
@@ -802,7 +802,7 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .contact,
                         isMessageRequest: false,
                         notificationSettings: notificationSettings,
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
@@ -822,7 +822,7 @@ class NotificationsManagerSpec: QuickSpec {
                                 threadVariant: variant,
                                 isMessageRequest: false,
                                 notificationSettings: notificationSettings,
-                                displayNameRetriever: { _ in "TestName" },
+                                displayNameRetriever: { _, _ in "TestName" },
                                 groupNameRetriever: { _, _ in "TestGroup" },
                                 using: dependencies
                             )
@@ -846,7 +846,7 @@ class NotificationsManagerSpec: QuickSpec {
                                 threadVariant: variant,
                                 isMessageRequest: false,
                                 notificationSettings: notificationSettings,
-                                displayNameRetriever: { _ in nil },
+                                displayNameRetriever: { _, _ in nil },
                                 groupNameRetriever: { _, _ in "TestGroup" },
                                 using: dependencies
                             )
@@ -868,7 +868,7 @@ class NotificationsManagerSpec: QuickSpec {
                                 threadVariant: variant,
                                 isMessageRequest: false,
                                 notificationSettings: notificationSettings,
-                                displayNameRetriever: { _ in "TestName" },
+                                displayNameRetriever: { _, _ in "TestName" },
                                 groupNameRetriever: { _, _ in nil },
                                 using: dependencies
                             )
@@ -892,7 +892,7 @@ class NotificationsManagerSpec: QuickSpec {
                         threadVariant: .legacyGroup,
                         isMessageRequest: false,
                         notificationSettings: notificationSettings,
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
@@ -914,7 +914,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("messageRequestsNew".localized()))
@@ -934,7 +934,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("messageNewYouveGot".putNumber(1).localized()))
@@ -957,7 +957,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("messageNewYouveGot".putNumber(1).localized()))
@@ -976,7 +976,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("messageNewYouveGot".putNumber(1).localized()))
@@ -1005,7 +1005,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("emojiReactsNotification".put(key: "emoji", value: "A").localized()))
@@ -1023,7 +1023,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("Test"))
@@ -1047,7 +1047,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in "TestMention" },
+                        displayNameRetriever: { _, _ in "TestMention" },
                         using: dependencies
                     )
                 }.to(equal("Hey @TestMention"))
@@ -1065,7 +1065,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: nil,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("messageNewYouveGot".putNumber(1).localized()))
@@ -1095,7 +1095,7 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: nil,
                             attachmentDescriptionInfo: nil,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _ in "TestName" },
+                            displayNameRetriever: { _, _ in "TestName" },
                             using: dependencies
                         )
                     }.to(equal("callsYouMissedCallPermissions".put(key: "name", value: "TestName").localizedDeformatted()))
@@ -1113,7 +1113,7 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: nil,
                             attachmentDescriptionInfo: nil,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _ in "TestName" },
+                            displayNameRetriever: { _, _ in "TestName" },
                             using: dependencies
                         )
                     }.to(equal("callsYouMissedCallPermissions".put(key: "name", value: "TestName").localizedDeformatted()))
@@ -1131,7 +1131,7 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: nil,
                             attachmentDescriptionInfo: nil,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _ in nil },
+                            displayNameRetriever: { _, _ in nil },
                             using: dependencies
                         )
                     }.to(equal("callsYouMissedCallPermissions".put(key: "name", value: "0588...c65b").localizedDeformatted()))
@@ -1162,7 +1162,7 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: nil,
                             attachmentDescriptionInfo: nil,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _ in "TestName" },
+                            displayNameRetriever: { _, _ in "TestName" },
                             using: dependencies
                         )
                     }.to(equal("callsMissedCallFrom".put(key: "name", value: "TestName").localizedDeformatted()))
@@ -1180,7 +1180,7 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: nil,
                             attachmentDescriptionInfo: nil,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _ in "TestName" },
+                            displayNameRetriever: { _, _ in "TestName" },
                             using: dependencies
                         )
                     }.to(equal(
@@ -1202,7 +1202,7 @@ class NotificationsManagerSpec: QuickSpec {
                             interactionVariant: nil,
                             attachmentDescriptionInfo: nil,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _ in nil },
+                            displayNameRetriever: { _, _ in nil },
                             using: dependencies
                         )
                     }.to(equal(
@@ -1227,7 +1227,7 @@ class NotificationsManagerSpec: QuickSpec {
                         interactionVariant: .standardIncoming,
                         attachmentDescriptionInfo: nil,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
                 }.to(equal("messageNewYouveGot".putNumber(1).localized()))
@@ -1251,7 +1251,7 @@ class NotificationsManagerSpec: QuickSpec {
                         applicationState: .background,
                         extensionBaseUnreadCount: 1,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         shouldShowForMessageRequest: { false }
                     )
@@ -1276,7 +1276,7 @@ class NotificationsManagerSpec: QuickSpec {
                         applicationState: .background,
                         extensionBaseUnreadCount: 1,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         shouldShowForMessageRequest: { false }
                     )
@@ -1306,7 +1306,7 @@ class NotificationsManagerSpec: QuickSpec {
                         applicationState: .background,
                         extensionBaseUnreadCount: 1,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         shouldShowForMessageRequest: {
                             didCallShouldShowForMessageRequest = true
@@ -1332,7 +1332,7 @@ class NotificationsManagerSpec: QuickSpec {
                         applicationState: .background,
                         extensionBaseUnreadCount: 1,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         shouldShowForMessageRequest: { false }
                     )
@@ -1388,7 +1388,7 @@ class NotificationsManagerSpec: QuickSpec {
                         applicationState: .background,
                         extensionBaseUnreadCount: 1,
                         currentUserSessionIds: [],
-                        displayNameRetriever: { _ in nil },
+                        displayNameRetriever: { _, _ in nil },
                         groupNameRetriever: { _, _ in nil },
                         shouldShowForMessageRequest: { false }
                     )

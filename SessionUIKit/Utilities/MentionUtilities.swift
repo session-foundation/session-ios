@@ -16,7 +16,7 @@ public enum MentionUtilities {
     public static func highlightMentionsNoAttributes(
         in string: String,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String) -> String?
+        displayNameRetriever: (String, Bool) -> String?
     ) -> String {
         /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
         return highlightMentions(
@@ -37,7 +37,7 @@ public enum MentionUtilities {
         location: MentionLocation,
         textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
-        displayNameRetriever: (String) -> String?
+        displayNameRetriever: (String, Bool) -> String?
     ) -> ThemedAttributedString {
         guard
             let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
@@ -61,7 +61,7 @@ public enum MentionUtilities {
             
             guard let targetString: String = {
                 guard !isCurrentUser else { return "you".localized() }
-                guard let displayName: String = displayNameRetriever(sessionId) else {
+                guard let displayName: String = displayNameRetriever(sessionId, true) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil
                 }
@@ -135,7 +135,7 @@ public enum MentionUtilities {
 public extension String {
     func replacingMentions(
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String) -> String?
+        displayNameRetriever: (String, Bool) -> String?
     ) -> String {
         return MentionUtilities.highlightMentionsNoAttributes(
             in: self,

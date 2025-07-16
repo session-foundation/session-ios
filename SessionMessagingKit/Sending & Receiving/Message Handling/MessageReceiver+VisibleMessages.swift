@@ -454,7 +454,7 @@ extension MessageReceiver {
             applicationState: (isMainAppActive ? .active : .background),
             extensionBaseUnreadCount: nil,
             currentUserSessionIds: generateCurrentUserSessionIds(),
-            displayNameRetriever: { sessionId in
+            displayNameRetriever: { sessionId, _ in
                 Profile.displayNameNoFallback(
                     db,
                     id: sessionId,
@@ -578,7 +578,7 @@ extension MessageReceiver {
                         applicationState: (isMainAppActive ? .active : .background),
                         extensionBaseUnreadCount: nil,
                         currentUserSessionIds: currentUserSessionIds,
-                        displayNameRetriever: { sessionId in
+                        displayNameRetriever: { sessionId, _ in
                             Profile.displayNameNoFallback(
                                 db,
                                 id: sessionId,

@@ -1038,7 +1038,7 @@ extension MessageReceiver {
                         applicationState: (isMainAppActive ? .active : .background),
                         extensionBaseUnreadCount: nil,
                         currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
-                        displayNameRetriever: { sessionId in
+                        displayNameRetriever: { sessionId, _ in
                             Profile.displayNameNoFallback(
                                 db,
                                 id: sessionId,

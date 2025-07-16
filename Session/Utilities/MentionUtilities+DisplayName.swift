@@ -16,7 +16,7 @@ public extension MentionUtilities {
         return MentionUtilities.highlightMentionsNoAttributes(
             in: string,
             currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: { sessionId in
+            displayNameRetriever: { sessionId, _ in
                 // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
                 return Profile.displayNameNoFallback(
                     id: sessionId,
@@ -42,7 +42,7 @@ public extension MentionUtilities {
             location: location,
             textColor: textColor,
             attributes: attributes,
-            displayNameRetriever: { sessionId in
+            displayNameRetriever: { sessionId, _ in
                 // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
                 return Profile.displayNameNoFallback(
                     id: sessionId,

@@ -379,7 +379,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let currentUserSessionIds: Set<String> = [userSessionId.hexString]
         
         /// Define the `displayNameRetriever` so it can be reused
-        let displayNameRetriever: (String) -> String? = { [dependencies] sessionId in
+        let displayNameRetriever: (String, Bool) -> String? = { [dependencies] sessionId, isInMessageBody in
             (dependencies
                 .mutate(cache: .libSession) { cache in
                     cache.profile(
@@ -389,7 +389,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         visibleMessage: (messageInfo.message as? VisibleMessage)
                     )
                 }?
-                .displayName(for: threadVariant))
+                .displayName(
+                    for: threadVariant,
+                    suppressId: !isInMessageBody  /// Don't want to show the id in a PN unless it's part of the body
+                ))
                 .defaulting(to: Profile.truncated(id: sessionId, threadVariant: threadVariant))
         }
         
@@ -993,7 +996,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         callMessage: CallMessage,
         sender: String,
         sentTimestampMs: UInt64,
-        displayNameRetriever: @escaping (String) -> String?
+        displayNameRetriever: @escaping (String, Bool) -> String?
     ) {
         guard Preferences.isCallKitSupported else {
             return handleFailureForVoIP(
@@ -1008,7 +1011,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             VoipPayloadKey.uuid.rawValue: callMessage.uuid,
             VoipPayloadKey.caller.rawValue: sender,
             VoipPayloadKey.timestamp.rawValue: sentTimestampMs,
-            VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender)
+            VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender, false)
                 .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
         ]
         
@@ -1033,13 +1036,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadVariant: SessionThread.Variant,
         callMessage: CallMessage,
-        displayNameRetriever: (String) -> String?
+        displayNameRetriever: (String, Bool) -> String?
     ) {
         let content: UNMutableNotificationContent = UNMutableNotificationContent()
         content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
         content.title = Constants.app_name
         content.body = callMessage.sender
-            .map { sender in displayNameRetriever(sender) }
+            .map { sender in displayNameRetriever(sender, false) }
             .map { senderDisplayName in
                 "callsIncoming"
                     .put(key: "name", value: senderDisplayName)

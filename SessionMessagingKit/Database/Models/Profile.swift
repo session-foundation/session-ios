@@ -367,14 +367,15 @@ public extension Profile {
     func displayName(
         for threadVariant: SessionThread.Variant = .contact,
         messageProfile: VisibleMessage.VMProfile? = nil,
-        ignoringNickname: Bool = false
+        ignoringNickname: Bool = false,
+        suppressId: Bool = false
     ) -> String {
         return Profile.displayName(
             for: threadVariant,
             id: id,
             name: (messageProfile?.displayName?.nullIfEmpty ?? name),
             nickname: (ignoringNickname ? nil : nickname),
-            suppressId: false
+            suppressId: suppressId
         )
     }
     

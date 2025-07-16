@@ -161,7 +161,7 @@ public extension NotificationsManagerType {
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
         notificationSettings: Preferences.NotificationSettings,
-        displayNameRetriever: (String) -> String?,
+        displayNameRetriever: (String, Bool) -> String?,
         groupNameRetriever: (String, SessionThread.Variant) -> String?,
         using dependencies: Dependencies
     ) throws -> String {
@@ -172,12 +172,12 @@ public extension NotificationsManagerType {
                 return Constants.app_name
                 
             case (.nameNoPreview, .some(let sender), _, .contact), (.nameAndPreview, .some(let sender), _, .contact):
-                return displayNameRetriever(sender)
+                return displayNameRetriever(sender, false)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
                 
             case (.nameNoPreview, .some(let sender), _, .group), (.nameAndPreview, .some(let sender), _, .group),
                 (.nameNoPreview, .some(let sender), _, .community), (.nameAndPreview, .some(let sender), _, .community):
-                let senderName: String = displayNameRetriever(sender)
+                let senderName: String = displayNameRetriever(sender, false)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
                 let groupName: String = groupNameRetriever(threadId, threadVariant)
                     .defaulting(to: "groupUnknown".localized())
@@ -200,7 +200,7 @@ public extension NotificationsManagerType {
         interactionVariant: Interaction.Variant?,
         attachmentDescriptionInfo: [Attachment.DescriptionInfo]?,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String) -> String?,
+        displayNameRetriever: (String, Bool) -> String?,
         using dependencies: Dependencies
     ) -> String {
         /// If it's a message request  then use something generic
@@ -229,7 +229,7 @@ public extension NotificationsManagerType {
                         Interaction.previewText(
                             variant: variant,
                             body: visibleMessage.text,
-                            authorDisplayName: displayNameRetriever(sender)
+                            authorDisplayName: displayNameRetriever(sender, true)
                                 .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant)),
                             attachmentDescriptionInfo: attachmentDescriptionInfo?.first,
                             attachmentCount: (attachmentDescriptionInfo?.count ?? 0),
@@ -255,7 +255,7 @@ public extension NotificationsManagerType {
                 }
                 
             case let callMessage as CallMessage where callMessage.state == .permissionDenied:
-                let senderName: String = displayNameRetriever(sender)
+                let senderName: String = displayNameRetriever(sender, false)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
                 
                 return "callsYouMissedCallPermissions"
@@ -263,7 +263,7 @@ public extension NotificationsManagerType {
                     .localizedDeformatted()
             
             case is CallMessage:
-                let senderName: String = displayNameRetriever(sender)
+                let senderName: String = displayNameRetriever(sender, false)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
                 
                 return "callsMissedCallFrom"
@@ -291,7 +291,7 @@ public extension NotificationsManagerType {
         applicationState: UIApplication.State,
         extensionBaseUnreadCount: Int?,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String) -> String?,
+        displayNameRetriever: (String, Bool) -> String?,
         groupNameRetriever: (String, SessionThread.Variant) -> String?,
         shouldShowForMessageRequest: () -> Bool
     ) throws {
