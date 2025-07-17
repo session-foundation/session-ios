@@ -52,6 +52,7 @@ public extension ProfilePictureView {
         {
             return (Info(
                 source: .url(URL(fileURLWithPath: path)),
+                shouldAnimated: (threadVariant == .community),
                 icon: profileIcon
             ), nil)
         }
@@ -68,6 +69,7 @@ public extension ProfilePictureView {
                                 case .hero: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
+                        shouldAnimated: true,
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -99,6 +101,7 @@ public extension ProfilePictureView {
                                 )
                             )
                         ),
+                        shouldAnimated: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }),
                         icon: profileIcon
                     ),
                     additionalProfile
@@ -117,12 +120,14 @@ public extension ProfilePictureView {
                                         size: size.multiImageSize
                                     )
                                 ),
+                                shouldAnimated: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: other) }),
                                 icon: additionalProfileIcon
                             )
                         }
                         .defaulting(
                             to: Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
+                                shouldAnimated: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -152,6 +157,7 @@ public extension ProfilePictureView {
                                 size: size.viewSize
                             )
                         ),
+                        shouldAnimated: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }),
                         icon: profileIcon
                     ),
                     nil

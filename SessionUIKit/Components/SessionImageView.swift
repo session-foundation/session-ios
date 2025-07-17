@@ -32,29 +32,43 @@ public class SessionImageView: UIImageView {
         }
     }
     
+    public var shouldAnimateImage: Bool {
+        didSet {
+            if shouldAnimateImage {
+                startAnimationLoop()
+            } else {
+                stopAnimationLoop()
+            }
+        }
+    }
+    
     // MARK: - Initialization
     
     /// Use the `init(dataManager:)` initializer where possible to avoid explicitly needing to add the `dataManager` instance
     public init() {
         self.dataManager = nil
+        self.shouldAnimateImage = false
         
         super.init(frame: .zero)
     }
     
-    public init(dataManager: ImageDataManagerType) {
+    public init(dataManager: ImageDataManagerType, shouldAnimateImage: Bool = true) {
         self.dataManager = dataManager
+        self.shouldAnimateImage = shouldAnimateImage
         
         super.init(frame: .zero)
     }
     
-    public init(frame: CGRect, dataManager: ImageDataManagerType) {
+    public init(frame: CGRect, dataManager: ImageDataManagerType, shouldAnimateImage: Bool = true) {
         self.dataManager = dataManager
+        self.shouldAnimateImage = shouldAnimateImage
         
         super.init(frame: frame)
     }
     
-    public init(image: UIImage?, dataManager: ImageDataManagerType) {
+    public init(image: UIImage?, dataManager: ImageDataManagerType, shouldAnimateImage: Bool = true) {
         self.dataManager = dataManager
+        self.shouldAnimateImage = shouldAnimateImage
         
         /// If we are given a `UIImage` directly then it's a static image so just use it directly and don't worry about using `dataManager`
         super.init(image: image)
@@ -175,6 +189,7 @@ public class SessionImageView: UIImageView {
     @MainActor
     public func startAnimationLoop() {
         guard
+            shouldAnimateImage,
             let frames: [UIImage] = animationFrames,
             let durations: [TimeInterval] = animationFrameDurations,
             frames.count > 1,

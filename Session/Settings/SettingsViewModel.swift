@@ -570,17 +570,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             label: "Upload"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
-                        onProBageTapped: { [weak self, dependencies] in
-                            let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                                modal: ProCTAModal(
-                                    delegate: SessionProState(using: dependencies),
-                                    touchPoint: .animatedProfileImage(
-                                        isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                                    ),
-                                    dataManager: dependencies[singleton: .imageDataManager]
-                                )
-                            )
-                            self?.transitionToScreen(sessionProModal, transitionType: .present)
+                        onProBageTapped: { [weak self] in
+                            self?.showSessionProCTAIfNeeded()
                         },
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
@@ -598,16 +589,26 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     cancelEnabled: .bool(currentFileName != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
+                    onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
                             case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
-                                
-                                self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(imageData),
-                                    onComplete: { [weak modal] in modal?.close() }
-                                )
-                                
+                            
+                                let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(imageData)
+                                guard isAnimatedImage && !dependencies[cache: .libSession].isSessionPro else {
+                                    self?.updateProfile(
+                                        displayPictureUpdate: .currentUserUploadImageData(
+                                            data: imageData,
+                                            sessionProProof: !isAnimatedImage ? nil :
+                                                dependencies.mutate(cache: .libSession, { $0.getProProof() })
+                                        ),
+                                        onComplete: { [weak modal] in modal?.close() }
+                                    )
+                                    return
+                                }
+                            
+                                self?.showSessionProCTAIfNeeded()
+                            
                             default: modal.close()
                         }
                     },
@@ -621,6 +622,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             transitionType: .present
         )
+    }
+    
+    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+        guard dependencies[feature: .sessionProEnabled] else { return false }
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: SessionProState(using: dependencies),
+                touchPoint: .animatedProfileImage(
+                    isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                ),
+                dataManager: dependencies[singleton: .imageDataManager]
+            )
+        )
+        self.transitionToScreen(sessionProModal, transitionType: .present)
+        return true
     }
     
     private func showPhotoLibraryForAvatar() {

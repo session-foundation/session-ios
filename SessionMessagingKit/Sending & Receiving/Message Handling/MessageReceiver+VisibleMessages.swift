@@ -40,7 +40,8 @@ extension MessageReceiver {
                     return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
-                        fileName: nil
+                        fileName: nil,
+                        contactProProof: profile.sessionProProof
                     )
                 }(),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
@@ -162,7 +163,7 @@ extension MessageReceiver {
             using: dependencies
         )
         do {
-            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(message.proProof) })
+            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(for: message) })
             let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(
                 message.text,
                 isProMessage: isProMessage,

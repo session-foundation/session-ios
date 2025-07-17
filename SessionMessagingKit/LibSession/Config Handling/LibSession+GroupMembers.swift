@@ -141,7 +141,8 @@ internal extension LibSessionCacheType {
                     return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
-                        fileName: nil
+                        fileName: nil,
+                        contactProProof: profile.sessionProProof
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),

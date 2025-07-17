@@ -546,6 +546,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 profileView.update(
                     ProfilePictureView.Info(
                         source: (source ?? placeholder),
+                        shouldAnimated: true,
                         icon: icon
                     )
                 )

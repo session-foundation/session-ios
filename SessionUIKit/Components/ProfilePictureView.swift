@@ -6,6 +6,7 @@ import Combine
 public final class ProfilePictureView: UIView {
     public struct Info {
         let source: ImageDataManager.DataSource?
+        let shouldAnimated: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -15,6 +16,7 @@ public final class ProfilePictureView: UIView {
         
         public init(
             source: ImageDataManager.DataSource?,
+            shouldAnimated: Bool,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -23,6 +25,7 @@ public final class ProfilePictureView: UIView {
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
+            self.shouldAnimated = shouldAnimated
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -431,11 +434,13 @@ public final class ProfilePictureView: UIView {
     
     private func prepareForReuse() {
         imageView.image = nil
+        imageView.shouldAnimateImage = true
         imageView.contentMode = .scaleAspectFill
         imageContainerView.clipsToBounds = clipsToBounds
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
+        additionalImageView.shouldAnimateImage = true
         additionalImageContainerView.clipsToBounds = clipsToBounds
         
         imageViewTopConstraint.isActive = false
@@ -479,7 +484,9 @@ public final class ProfilePictureView: UIView {
             case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _): imageView.loadImage(source)
+            case (.some(let source), _):
+                imageView.shouldAnimateImage = info.shouldAnimated
+                imageView.loadImage(source)
                 
             default: imageView.image = nil
         }
@@ -525,6 +532,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
+                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimated
                 additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 

@@ -31,11 +31,11 @@ public class DisplayPictureManager {
         case none
         
         case contactRemove
-        case contactUpdateTo(url: String, key: Data, fileName: String?)
+        case contactUpdateTo(url: String, key: Data, fileName: String?, contactProProof: String?)
         
         case currentUserRemove
-        case currentUserUploadImageData(Data)
-        case currentUserUpdateTo(url: String, key: Data, fileName: String?)
+        case currentUserUploadImageData(data: Data, sessionProProof: String?)
+        case currentUserUpdateTo(url: String, key: Data, fileName: String?, sessionProProof: String?)
         
         case groupRemove
         case groupUploadImageData(Data)

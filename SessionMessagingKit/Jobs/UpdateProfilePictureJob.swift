@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
+import SessionUIKit
 
 // MARK: - Log.Category
 
@@ -54,7 +55,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
         let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
         let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
             .map { dependencies[singleton: .displayPictureManager].loadDisplayPictureFromDisk(for: $0) }
-            .map { .currentUserUploadImageData($0) }
+            .map { data in
+                let isAnimated: Bool = ImageDataManager.isAnimatedImage(data)
+                return .currentUserUploadImageData(
+                    data: data,
+                    sessionProProof: !isAnimated ? nil :
+                        dependencies.mutate(cache: .libSession, { $0.getProProof() })
+                )
+            }
             .defaulting(to: .none)
         
         Profile

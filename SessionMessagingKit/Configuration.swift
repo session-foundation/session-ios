@@ -45,7 +45,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _025_DropLegacyClosedGroupKeyPairTable.self
                 ],
                 [
-                    _026_AddProMessageFlag.self
+                    _026_AddProMessageFlag.self,
+                    _027_AddProfileProProof.self
                 ]
             ]
         )

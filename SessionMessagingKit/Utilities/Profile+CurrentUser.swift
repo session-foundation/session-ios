@@ -91,7 +91,7 @@ public extension Profile {
                     .mapError { _ in DisplayPictureError.databaseChangesFailed }
                     .eraseToAnyPublisher()
                 
-            case .currentUserUploadImageData(let data):
+            case .currentUserUploadImageData(let data, let sessionProProof):
                 return dependencies[singleton: .displayPictureManager]
                     .prepareAndUploadDisplayPicture(imageData: data)
                     .mapError { $0 as Error }
@@ -103,7 +103,8 @@ public extension Profile {
                             displayPictureUpdate: .currentUserUpdateTo(
                                 url: result.downloadUrl,
                                 key: result.encryptionKey,
-                                fileName: result.fileName
+                                fileName: result.fileName,
+                                sessionProProof: sessionProProof
                             ),
                             sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                             using: dependencies
@@ -181,8 +182,8 @@ public extension Profile {
                 profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
                 profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
             
-            case (.contactUpdateTo(let url, let key, let fileName), false),
-                (.currentUserUpdateTo(let url, let key, let fileName), true):
+            case (.contactUpdateTo(let url, let key, let fileName, let proProof), false),
+                (.currentUserUpdateTo(let url, let key, let fileName, let proProof), true):
                 if url != profile.profilePictureUrl {
                     profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
                 }
@@ -237,6 +238,9 @@ public extension Profile {
                         canStartJob: dependencies[singleton: .appContext].isMainApp
                     )
                 }
+            
+                // Update Pro Proof
+                profileChanges.append(Profile.Columns.sessionProProof.set(to: proProof))
                 
                 // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
                 profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))

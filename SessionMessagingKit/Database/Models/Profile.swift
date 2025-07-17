@@ -31,6 +31,8 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         
         case blocksCommunityMessageRequests
         case lastBlocksCommunityMessageRequests
+        
+        case sessionProProof
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -63,6 +65,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     /// The timestamp (in seconds since epoch) that the `blocksCommunityMessageRequests` setting was last updated
     public let lastBlocksCommunityMessageRequests: TimeInterval?
     
+    /// The Pro Proof for when this profile is updated
+    public let sessionProProof: String?
+    
     // MARK: - Initialization
     
     public init(
@@ -75,7 +80,8 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         profileEncryptionKey: Data? = nil,
         lastProfilePictureUpdate: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        lastBlocksCommunityMessageRequests: TimeInterval? = nil
+        lastBlocksCommunityMessageRequests: TimeInterval? = nil,
+        sessionProProof: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -87,6 +93,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         self.lastProfilePictureUpdate = lastProfilePictureUpdate
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
+        self.sessionProProof = sessionProProof
     }
 }
 
@@ -116,6 +123,7 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             lastProfilePictureUpdate: \(lastProfilePictureUpdate.map { "\($0)" } ?? "null"),
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
+            sessionProProof: \(sessionProProof.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -149,7 +157,8 @@ public extension Profile {
             profileEncryptionKey: profileKey,
             lastProfilePictureUpdate: try? container.decode(TimeInterval?.self, forKey: .lastProfilePictureUpdate),
             blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
-            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests)
+            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests),
+            sessionProProof: try? container.decode(String?.self, forKey: .sessionProProof)
         )
     }
     
@@ -166,6 +175,7 @@ public extension Profile {
         try container.encodeIfPresent(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
+        try container.encodeIfPresent(sessionProProof, forKey: .sessionProProof)
     }
 }
 
@@ -180,6 +190,7 @@ public extension Profile {
         if let profileKey: Data = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
             dataMessageProto.setProfileKey(profileKey)
             profileProto.setProfilePicture(profilePictureUrl)
+            // TODO: Add ProProof if needed
         }
         
         do {

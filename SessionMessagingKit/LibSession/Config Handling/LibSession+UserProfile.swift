@@ -62,7 +62,8 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdateTo(
                     url: profilePictureUrl,
                     key: profilePic.get(\.key),
-                    fileName: nil
+                    fileName: nil,
+                    sessionProProof: getProProof() // TODO: double check if this is needed
                 )
             }(),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
