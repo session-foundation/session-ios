@@ -560,7 +560,6 @@ extension Color: ColorType {
 
 // MARK: - Previews
 
-#if DEBUG
 private struct PreviewThemeKey: EnvironmentKey {
     static let defaultValue: (Theme, Theme.PrimaryColor)? = nil
 }
@@ -571,7 +570,6 @@ extension EnvironmentValues {
         set { self[PreviewThemeKey.self] = newValue }
     }
 }
-#endif
 
 public struct PreviewThemeWrapper<Content: View>: View {
     let theme: Theme
