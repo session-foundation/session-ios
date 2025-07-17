@@ -321,11 +321,11 @@ extension MessageReceiver {
         message.attachmentIds = attachments.map { $0.id }
         
         // Persist quote if needed
-        let quote: Quote? = try? Quote(
+        try? Quote(
             proto: dataMessage,
             interactionId: interactionId,
             thread: thread
-        )?.inserted(db)
+        )?.insert(db)
         
         // Parse link preview if needed
         let linkPreview: LinkPreview? = try? LinkPreview(
