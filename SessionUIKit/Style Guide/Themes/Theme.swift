@@ -68,6 +68,21 @@ public enum Theme: String, CaseIterable, Codable {
         }
     }
     
+    internal var defaultPrimary: Theme.PrimaryColor {
+        let maybeTargetColor: Color? = {
+            switch self {
+                case .classicDark: return Theme_ClassicDark.themeSwiftUI[.defaultPrimary]
+                case .classicLight: return Theme_ClassicLight.themeSwiftUI[.defaultPrimary]
+                case .oceanDark: return Theme_OceanDark.themeSwiftUI[.defaultPrimary]
+                case .oceanLight: return Theme_OceanLight.themeSwiftUI[.defaultPrimary]
+            }
+        }()
+        
+        guard let targetColor: Color = maybeTargetColor else { return .green }
+        
+        return (Theme.PrimaryColor.allCases.first(where: { $0.colorSwiftUI == targetColor }) ?? .green)
+    }
+    
     public func color(for value: ThemeValue) -> UIColor? { return colors[value] }
     public func color(for value: ThemeValue) -> Color? { return colorsSwiftUI[value] }
 }

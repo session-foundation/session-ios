@@ -35,30 +35,32 @@ public struct ProCTAModal: View {
         ) { close in
             VStack(spacing: 0) {
                 ZStack {
-                    if let animatedAvatarImageURL = touchPoint.animatedAvatarImageURL {
-                        SessionAsyncImage(
-                            source: .url(animatedAvatarImageURL),
-                            dataManager: dataManager,
-                            content: { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio((1522.0/1258.0), contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                            },
-                            placeholder: {
-                                EmptyView()
-                            }
-                        )
-                    }
-                    
-                    Image(uiImage: UIImage(named: touchPoint.backgroundImageName) ?? UIImage())
-                        .resizable()
-                        .aspectRatio((1522.0/1258.0), contentMode: .fit)
-                        .frame(maxWidth: .infinity)
+                    SessionAsyncImage(
+                        source: (
+                            touchPoint.animatedAvatarImageURL.map { .url($0) } ??
+                            .image(
+                                touchPoint.backgroundImageName,
+                                UIImage(named: touchPoint.backgroundImageName) ??
+                                UIImage()
+                            )
+                        ),
+                        dataManager: dataManager,
+                        content: { image in
+                            image
+                                .resizable()
+                                .aspectRatio((1522.0/1258.0), contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                        },
+                        placeholder: {
+                            ThemeColor(.alert_background)
+                                .aspectRatio((1522.0/1258.0), contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                        }
+                    )
                 }
                 .backgroundColor(themeColor: .primary)
                 .overlay(alignment: .bottom, content: {
-                    LinearGradient(
+                    ThemeLinearGradient(
                         themeColors: [
                             .clear,
                             .alert_background
@@ -276,4 +278,58 @@ public enum TouchPoint {
 
 public protocol SessionProCTADelegate: AnyObject {
     func upgradeToPro(completion: (() -> Void)?)
+}
+
+struct ProCTAModal_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            PreviewThemeWrapper(theme: .classicDark) {
+                ProCTAModal(
+                    delegate: nil,
+                    touchPoint: .generic,
+                    dataManager: ImageDataManager(),
+                    dismissType: .single,
+                    afterClosed: nil
+                )
+                .environmentObject(HostWrapper())
+                .previewDisplayName("Classic Dark")
+            }
+            
+            PreviewThemeWrapper(theme: .classicLight) {
+                ProCTAModal(
+                    delegate: nil,
+                    touchPoint: .generic,
+                    dataManager: ImageDataManager(),
+                    dismissType: .single,
+                    afterClosed: nil
+                )
+                .environmentObject(HostWrapper())
+                .previewDisplayName("Classic Light")
+            }
+            
+            PreviewThemeWrapper(theme: .oceanDark) {
+                ProCTAModal(
+                    delegate: nil,
+                    touchPoint: .generic,
+                    dataManager: ImageDataManager(),
+                    dismissType: .single,
+                    afterClosed: nil
+                )
+                .environmentObject(HostWrapper())
+                .previewDisplayName("Ocean Dark")
+            }
+            
+            PreviewThemeWrapper(theme: .oceanLight) {
+                ProCTAModal(
+                    delegate: nil,
+                    touchPoint: .generic,
+                    dataManager: ImageDataManager(),
+                    dismissType: .single,
+                    afterClosed: nil
+                )
+                .environmentObject(HostWrapper())
+                .previewDisplayName("Ocean Light")
+            }
+        }
+    }
 }
