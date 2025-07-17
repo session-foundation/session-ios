@@ -638,7 +638,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 delegate: self,
-                touchPoint: .longerMessages,
+                variant: .longerMessages,
                 dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()

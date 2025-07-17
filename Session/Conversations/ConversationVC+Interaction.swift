@@ -244,7 +244,7 @@ extension ConversationVC:
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 delegate: self,
-                touchPoint: .longerMessages,
+                variant: .longerMessages,
                 dataManager: viewModel.dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()

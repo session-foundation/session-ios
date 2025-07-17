@@ -209,7 +209,7 @@ final class LinkPreviewView: UIView {
                 searchText: lastSearchText,
                 delegate: delegate,
                 using: dependencies
-            ).0
+            ).label
             
             self.bodyTappableLabel = bodyTappableLabel
             bodyTappableLabelContainer.addSubview(bodyTappableLabel)

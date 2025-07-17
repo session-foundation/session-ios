@@ -1379,7 +1379,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         searchText: String?,
         delegate: TappableLabelDelegate?,
         using dependencies: Dependencies
-    ) -> (TappableLabel, CGFloat) {
+    ) -> (label: TappableLabel, height: CGFloat) {
         let result: TappableLabel = TappableLabel()
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.themeAttributedText = VisibleMessageCell.getBodyAttributedText(
