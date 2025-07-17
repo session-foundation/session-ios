@@ -571,6 +571,7 @@ extension EnvironmentValues {
         set { self[PreviewThemeKey.self] = newValue }
     }
 }
+#endif
 
 public struct PreviewThemeWrapper<Content: View>: View {
     let theme: Theme
@@ -588,4 +589,3 @@ public struct PreviewThemeWrapper<Content: View>: View {
             .environment(\.previewTheme, (theme, primaryColor))
     }
 }
-#endif
