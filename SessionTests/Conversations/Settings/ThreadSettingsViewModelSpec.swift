@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 @testable import SessionMessagingKit
 @testable import Session
 
-class ThreadSettingsViewModelSpec: QuickSpec {
+class ThreadSettingsViewModelSpec: AsyncSpec {
     private typealias Item = SessionCell.Info<ThreadSettingsViewModel.TableItem>
     
     override class func spec() {
@@ -172,7 +172,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             context("with any conversation type") {
                 // MARK: ---- triggers the search callback when tapping search
                 it("triggers the search callback when tapping search") {
-                    item(section: .content, id: .searchConversation)?.onTap?()
+                    await item(section: .content, id: .searchConversation)?.onTap?()
                     
                     expect(didTriggerSearchCallbackTriggered).to(beTrue())
                 }
@@ -220,7 +220,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 // MARK: ---- does nothing when tapped
                 it("does nothing when tapped") {
-                    item(section: .conversationInfo, id: .displayName)?.onTap?()
+                    await item(section: .conversationInfo, id: .displayName)?.onTap?()
                     expect(screenTransitions).to(beEmpty())
                 }
             }
@@ -267,7 +267,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 // MARK: ---- presents a confirmation modal when tapped
                 it("presents a confirmation modal when tapped") {
-                    item(section: .conversationInfo, id: .displayName)?.onTap?()
+                    await item(section: .conversationInfo, id: .displayName)?.onTap?()
                     expect(screenTransitions.first?.destination).to(beAKindOf(ConfirmationModal.self))
                     expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
                 }
@@ -278,9 +278,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     @TestState var modal: ConfirmationModal?
                     
                     beforeEach {
-                        item(section: .conversationInfo, id: .displayName)?.onTap?()
+                        await item(section: .conversationInfo, id: .displayName)?.onTap?()
                         modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                        switch modal?.info.body {
+                        switch await modal?.info.body {
                             case .input(_, _, let onChange_): onChange = onChange_
                             default: break
                         }
@@ -417,7 +417,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
-                        item(section: .conversationInfo, id: .displayName)?.onTap?()
+                        await item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions).to(beEmpty())
                     }
                 }
@@ -456,7 +456,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
-                        item(section: .conversationInfo, id: .displayName)?.onTap?()
+                        await item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions.first?.destination).to(beAKindOf(ConfirmationModal.self))
                         expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
                     }
@@ -528,7 +528,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
-                        item(section: .conversationInfo, id: .displayName)?.onTap?()
+                        await item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions).to(beEmpty())
                     }
                 }
@@ -572,7 +572,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
-                        item(section: .conversationInfo, id: .displayName)?.onTap?()
+                        await item(section: .conversationInfo, id: .displayName)?.onTap?()
                         expect(screenTransitions.first?.destination).to(beAKindOf(ConfirmationModal.self))
                         expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
                     }
@@ -595,7 +595,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             )
                             setupTestSubscriptions()
                             
-                            item(section: .conversationInfo, id: .displayName)?.onTap?()
+                            await item(section: .conversationInfo, id: .displayName)?.onTap?()
                             modal = (screenTransitions.first?.destination as? ConfirmationModal)
                             switch modal?.info.body {
                                 case .input(_, _, let onChange_): onChange = onChange_
@@ -814,7 +814,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 // MARK: ---- does nothing when tapped
                 it("does nothing when tapped") {
-                    item(section: .conversationInfo, id: .displayName)?.onTap?()
+                    await item(section: .conversationInfo, id: .displayName)?.onTap?()
                     expect(screenTransitions).to(beEmpty())
                 }
             }

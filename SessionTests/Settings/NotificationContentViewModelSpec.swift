@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class NotificationContentViewModelSpec: QuickSpec {
+class NotificationContentViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -131,7 +131,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             context("when tapping an item") {
                 // MARK: ---- updates the saved preference
                 it("updates the saved preference") {
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(dependencies[singleton: .storage, key: .preferencesNotificationPreviewType])
                         .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
@@ -146,7 +146,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(didDismissScreen).to(beTrue())
                 }

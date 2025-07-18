@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
+class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -286,9 +286,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 
                 // Change to another setting
-                viewModel.tableData.first?.elements.first?.onTap?()
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 // Change back
-                viewModel.tableData.first?.elements.last?.onTap?()
+                await viewModel.tableData.first?.elements.last?.onTap?()
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -366,7 +366,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             )
                     )
                     
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
                 // MARK: ---- shows the set button
