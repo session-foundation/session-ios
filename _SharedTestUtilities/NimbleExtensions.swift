@@ -394,3 +394,15 @@ fileprivate func generateCallInfo<M, T, R>(
         allCallDetails: allCallDetails
     )
 }
+
+public extension SyncExpectation {
+    func retrieveValue() async -> Value? {
+        return try? expression.evaluate()
+    }
+}
+
+public extension AsyncExpectation {
+    func retrieveValue() async -> Value? {
+        return try? await expression.evaluate()
+    }
+}
