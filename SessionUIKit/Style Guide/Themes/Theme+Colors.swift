@@ -115,10 +115,10 @@ internal extension UIColor {
     static let oceanLight7: UIColor = #colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1)        // #FCFFFF
 }
 
-public extension UIColor {
-    /// This value shouldn't be used dirrectly, it should be resolved via the `ThemeManager.color(for:in:with:)` function, due
-    /// to this the _actual_ colour value is set to an obvious colour to help indicate incorrect usage
-    static let primary: UIColor = UIColor(red: 1, green: 0, blue: 1, alpha: 1)
+internal extension UIColor {
+    static let primary: UIColor = UIColor(dynamicProvider: { _ in
+        return ThemeManager.primaryColor.color
+    })
 }
 
 internal extension Color {
@@ -168,7 +168,7 @@ internal extension Color {
     static let oceanLight7: Color = Color(#colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1))        // #FCFFFF
 }
 
-public extension Color {
+internal extension Color {
     static var primary: Color {
         return Color(UIColor.primary)
     }
