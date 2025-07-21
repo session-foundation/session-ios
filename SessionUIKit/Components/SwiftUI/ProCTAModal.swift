@@ -19,7 +19,7 @@ public struct ProCTAModal: View {
                 case .longerMessages:
                     return "HigherCharLimitCTA.webp"
                 case .animatedProfileImage:
-                    return "session_pro_modal_background_animated_profile_image"
+                    return "AnimatedProfileCTA.webp"
                 case .morePinnedConvos:
                     return "PinnedConversationsCTA.webp"
                 case .groupLimit(let isAdmin):
