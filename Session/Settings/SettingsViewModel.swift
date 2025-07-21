@@ -629,7 +629,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 delegate: SessionProState(using: dependencies),
-                touchPoint: .animatedProfileImage(
+                variant: .animatedProfileImage(
                     isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                 ),
                 dataManager: dependencies[singleton: .imageDataManager]

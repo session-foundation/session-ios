@@ -115,7 +115,7 @@ internal extension UIColor {
     static let oceanLight7: UIColor = #colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1)        // #FCFFFF
 }
 
-public extension UIColor {
+internal extension UIColor {
     static let primary: UIColor = UIColor(dynamicProvider: { _ in
         return ThemeManager.primaryColor.color
     })
@@ -168,7 +168,7 @@ internal extension Color {
     static let oceanLight7: Color = Color(#colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1))        // #FCFFFF
 }
 
-public extension Color {
+internal extension Color {
     static var primary: Color {
         return Color(UIColor.primary)
     }

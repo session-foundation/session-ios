@@ -244,7 +244,7 @@ public extension UIContextualAction {
                                 let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                                     modal: ProCTAModal(
                                         delegate: SessionProState(using: dependencies),
-                                        touchPoint: .morePinnedConvos(
+                                        variant: .morePinnedConvos(
                                             isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
                                         ),
                                         dataManager: dependencies[singleton: .imageDataManager],
