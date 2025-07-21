@@ -301,6 +301,9 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             viewModel.updateTableData(updatedData)
             filteredTableData = filterTableDataIfNeeded()
             tableView.reloadData()
+            /// tableView.reloadData() won't trigger any layout refresh.
+            /// Normally we want to perform the changes between tableView.beginUpdates() and tableView.endUpdates(),
+            /// but if there is no changes, it will just trigger a layout refresh for the row height without reloading any data.
             tableView.beginUpdates()
             tableView.endUpdates()
             hasLoadedInitialTableData = true
