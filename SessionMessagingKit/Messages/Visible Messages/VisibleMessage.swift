@@ -229,6 +229,7 @@ public final class VisibleMessage: Message {
 public extension VisibleMessage {
     static func from(_ db: Database, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
+        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > LibSession.CharacterLimit)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
@@ -260,7 +261,7 @@ public extension VisibleMessage {
             expiresInSeconds: interaction.expiresInSeconds,
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
-        .with(proProof: proProof)
+        .with(proProof: (shouldAttachProProof ? proProof : nil))
         
         return visibleMessage
     }

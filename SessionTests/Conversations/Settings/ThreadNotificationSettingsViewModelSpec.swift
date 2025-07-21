@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class ThreadNotificationSettingsViewModelSpec: QuickSpec {
+class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -268,7 +268,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 )
                 
                 // Change to another setting
-                viewModel.tableData.first?.elements.first?.onTap?()
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 
                 cancellables.append(
                     viewModel.footerButtonInfo
@@ -295,7 +295,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                 ))
                 
                 // Change back
-                viewModel.tableData.first?.elements.last?.onTap?()
+                await viewModel.tableData.first?.elements.last?.onTap?()
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -358,7 +358,7 @@ class ThreadNotificationSettingsViewModelSpec: QuickSpec {
                             )
                     )
                     
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
                 // MARK: ---- shows the set button

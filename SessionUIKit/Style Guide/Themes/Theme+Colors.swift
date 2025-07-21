@@ -116,9 +116,9 @@ internal extension UIColor {
 }
 
 public extension UIColor {
-    static let primary: UIColor = UIColor(dynamicProvider: { _ in
-        return ThemeManager.primaryColor.color
-    })
+    /// This value shouldn't be used dirrectly, it should be resolved via the `ThemeManager.color(for:in:with:)` function, due
+    /// to this the _actual_ colour value is set to an obvious colour to help indicate incorrect usage
+    static let primary: UIColor = UIColor(red: 1, green: 0, blue: 1, alpha: 1)
 }
 
 internal extension Color {
