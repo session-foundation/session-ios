@@ -548,7 +548,9 @@ extension MessageReceiver {
         guard let text = text else { return nil }
         
         let utf16View = text.utf16
-        let offset: Int = (dependencies[feature: .sessionProEnabled] && !isProMessage) ?
+        // TODO: Remove after Session Pro is enabled
+        let isSessionProEnabled: Bool = (dependencies.hasSet(feature: .sessionProEnabled) && dependencies[feature: .sessionProEnabled])
+        let offset: Int = (isSessionProEnabled && !isProMessage) ?
             LibSession.CharacterLimit :
             LibSession.ProCharacterLimit
         

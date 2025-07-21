@@ -174,7 +174,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 it("triggers the search callback when tapping search") {
                     await item(section: .content, id: .searchConversation)?.onTap?()
                     
-                    expect(didTriggerSearchCallbackTriggered).to(beTrue())
+                    await expect(didTriggerSearchCallbackTriggered).toEventually(beTrue())
                 }
             }
             
@@ -221,7 +221,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 // MARK: ---- does nothing when tapped
                 it("does nothing when tapped") {
                     await item(section: .conversationInfo, id: .displayName)?.onTap?()
-                    expect(screenTransitions).to(beEmpty())
+                    await expect(screenTransitions).toEventually(beEmpty())
                 }
             }
             
@@ -268,19 +268,21 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 // MARK: ---- presents a confirmation modal when tapped
                 it("presents a confirmation modal when tapped") {
                     await item(section: .conversationInfo, id: .displayName)?.onTap?()
-                    expect(screenTransitions.first?.destination).to(beAKindOf(ConfirmationModal.self))
-                    expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                    await expect(screenTransitions.first?.destination).toEventually(beAKindOf(ConfirmationModal.self))
+                    await expect(screenTransitions.first?.transition).toEventually(equal(TransitionType.present))
                 }
                 
                 // MARK: ---- when updating the nickname
                 context("when updating the nickname") {
                     @TestState var onChange: ((String) -> ())?
                     @TestState var modal: ConfirmationModal?
+                    @TestState var modalInfo: ConfirmationModal.Info?
                     
                     beforeEach {
                         await item(section: .conversationInfo, id: .displayName)?.onTap?()
                         modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                        switch await modal?.info.body {
+                        modalInfo = await modal?.info
+                        switch modalInfo?.body {
                             case .input(_, _, let onChange_): onChange = onChange_
                             default: break
                         }
@@ -288,8 +290,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ has the correct content
                     it("has the correct content") {
-                        expect(modal?.info.title).to(equal("nicknameSet".localized()))
-                        expect(modal?.info.body).to(equal(
+                        expect(modalInfo?.title).to(equal("nicknameSet".localized()))
+                        await expect(modalInfo?.body).to(equal(
                             .input(
                                 explanation: "nicknameDescription"
                                     .put(key: "name", value: "TestUser")
@@ -302,32 +304,32 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 onChange: { _ in }
                             )
                         ))
-                        expect(modal?.info.confirmTitle).to(equal("save".localized()))
-                        expect(modal?.info.cancelTitle).to(equal("remove".localized()))
+                        expect(modalInfo?.confirmTitle).to(equal("save".localized()))
+                        expect(modalInfo?.cancelTitle).to(equal("remove".localized()))
                     }
                     
                     // MARK: ------ does nothing if the name contains only white space
                     it("does nothing if the name contains only white space") {
                         onChange?("   ")
-                        modal?.confirmationPressed()
+                        await modal?.confirmationPressed()
                         
-                        expect(screenTransitions.count).to(equal(1))
+                        await expect(screenTransitions.count).toEventually(equal(1))
                     }
                     
                     // MARK: ------ shows an error modal when the updated nickname is too long
                     it("shows an error modal when the updated nickname is too long") {
                         onChange?([String](Array(repeating: "1", count: 101)).joined())
-                        modal?.confirmationPressed()
+                        await modal?.confirmationPressed()
                         
-                        expect(screenTransitions.count).to(equal(1))
-                        expect(modal?.textFieldErrorLabel.text)
-                            .to(equal("nicknameErrorShorter".localized()))
+                        await expect(screenTransitions.count).toEventually(equal(1))
+                        let text: String? = await modal?.textFieldErrorLabel.text
+                        expect(text).to(equal("nicknameErrorShorter".localized()))
                     }
                     
                     // MARK: ------ updates the contacts nickname when valid
                     it("updates the contacts nickname when valid") {
                         onChange?("TestNickname")
-                        modal?.confirmationPressed()
+                        await modal?.confirmationPressed()
                         
                         let profiles: [Profile]? = mockStorage.read { db in try Profile.fetchAll(db) }
                         expect(profiles?.map { $0.nickname }.asSet()).to(equal([nil, "TestNickname"]))
@@ -340,7 +342,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 .filter(id: "TestId")
                                 .updateAll(db, Profile.Columns.nickname.set(to: "TestOldNickname"))
                         }
-                        modal?.cancel()
+                        await modal?.cancel()
                         
                         let profiles: [Profile]? = mockStorage.read { db in try Profile.fetchAll(db) }
                         expect(profiles?.map { $0.nickname }.asSet()).to(equal([nil, nil]))
@@ -582,6 +584,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         @TestState var onChange: ((String) -> ())?
                         @TestState var onChange2: ((String, String) -> ())?
                         @TestState var modal: ConfirmationModal?
+                        @TestState var modalInfo: ConfirmationModal.Info?
                         
                         beforeEach {
                             dependencies[feature: .updatedGroupsAllowDescriptionEditing] = true
@@ -597,7 +600,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             
                             await item(section: .conversationInfo, id: .displayName)?.onTap?()
                             modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                            switch modal?.info.body {
+                            modalInfo = await modal?.info
+                            switch modalInfo?.body {
                                 case .input(_, _, let onChange_): onChange = onChange_
                                 case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
                                 default: break
@@ -606,8 +610,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         
                         // MARK: -------- has the correct content
                         it("has the correct content") {
-                            expect(modal?.info.title).to(equal("updateGroupInformation".localized()))
-                            expect(modal?.info.body).to(equal(
+                            expect(modalInfo?.title).to(equal("updateGroupInformation".localized()))
+                            await expect(modalInfo?.body).toEventually(equal(
                                 .dualInput(
                                     explanation: "updateGroupInformationDescription"
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
@@ -628,14 +632,14 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     onChange: { _, _ in }
                                 )
                             ))
-                            expect(modal?.info.confirmTitle).to(equal("save".localized()))
-                            expect(modal?.info.cancelTitle).to(equal("cancel".localized()))
+                            expect(modalInfo?.confirmTitle).to(equal("save".localized()))
+                            expect(modalInfo?.cancelTitle).to(equal("cancel".localized()))
                         }
                         
                         // MARK: -------- does nothing if the name contains only white space
                         it("does nothing if the name contains only white space") {
                             onChange2?("   ", "Test")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             expect(screenTransitions.count).to(equal(1))
                         }
@@ -643,27 +647,27 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         // MARK: -------- updates the modal with an error when the updated name is too long
                         it("updates the modal with an error when the updated name is too long") {
                             onChange2?([String](Array(repeating: "1", count: 101)).joined(), "Test")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             expect(screenTransitions.count).to(equal(1))
-                            expect(modal?.textFieldErrorLabel.text)
-                                .to(equal("groupNameEnterShorter".localized()))
+                            let text: String? = await modal?.textFieldErrorLabel.text
+                            expect(text).to(equal("groupNameEnterShorter".localized()))
                         }
                         
                         // MARK: -------- updates the modal with an error when the updated description is too long
                         it("updates the modal with an error when the updated description is too long") {
                             onChange2?("Test", [String](Array(repeating: "1", count: 2001)).joined())
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             expect(screenTransitions.count).to(equal(1))
-                            expect(modal?.textViewErrorLabel.text)
-                                .to(equal("updateGroupInformationEnterShorterDescription".localized()))
+                            let text: String? = await modal?.textFieldErrorLabel.text
+                            expect(text).to(equal("updateGroupInformationEnterShorterDescription".localized()))
                         }
                         
                         // MARK: -------- updates the group name when valid
                         it("updates the group name when valid") {
                             onChange2?("TestNewGroupName", "Test")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                             expect(groups?.map { $0.name }.asSet()).to(equal(["TestNewGroupName"]))
@@ -672,7 +676,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         // MARK: -------- updates the group description when valid
                         it("updates the group description when valid") {
                             onChange2?("Test", "TestNewGroupDescription")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                             expect(groups?.map { $0.groupDescription }.asSet()).to(equal(["TestNewGroupDescription"]))
@@ -681,7 +685,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         // MARK: -------- inserts a control message
                         it("inserts a control message") {
                             onChange2?("TestNewGroupName", "")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                             expect(interactions?.first?.variant).to(equal(.infoGroupInfoUpdated))
@@ -696,7 +700,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         // MARK: -------- schedules a control message to be sent
                         it("schedules a control message to be sent") {
                             onChange2?("TestNewGroupName", "")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             expect(mockJobRunner)
                                 .to(call(matchingParameters: .all) {
@@ -735,7 +739,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 .thenReturn(true)
                             
                             onChange2?("Test", "TestNewGroupDescription")
-                            modal?.confirmationPressed()
+                            await modal?.confirmationPressed()
                             
                             expect(mockLibSessionCache)
                                 .to(call(matchingParameters: .all) {
