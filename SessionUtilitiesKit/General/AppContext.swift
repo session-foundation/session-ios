@@ -17,12 +17,12 @@ public protocol AppContext: AnyObject {
     var isValid: Bool { get }
     var appLaunchTime: Date { get }
     var isMainApp: Bool { get }
-    var isMainAppAndActive: Bool { get }
+    @MainActor var isMainAppAndActive: Bool { get }
     var isShareExtension: Bool { get }
     var reportedApplicationState: UIApplication.State { get }
     var mainWindow: UIWindow? { get }
-    var frontMostViewController: UIViewController? { get }
-    var backgroundTimeRemaining: TimeInterval { get }
+    @MainActor var frontMostViewController: UIViewController? { get }
+    @MainActor var backgroundTimeRemaining: TimeInterval { get }
     
     @MainActor func setMainWindow(_ mainWindow: UIWindow)
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])

@@ -10,28 +10,16 @@ final class MainAppContext: AppContext {
     
     var appLaunchTime: Date = Date()
     let isMainApp: Bool = true
-    var isMainAppAndActive: Bool {
-        var result: Bool = false
-        
-        switch Thread.isMainThread {
-            case true: result = (UIApplication.shared.applicationState == .active)
-            case false:
-                DispatchQueue.main.sync {
-                    result = (UIApplication.shared.applicationState == .active)
-                }
-        }
-        
-        return result
-    }
-    var frontMostViewController: UIViewController? {
+    @MainActor var isMainAppAndActive: Bool { UIApplication.shared.applicationState == .active }
+    @MainActor var frontMostViewController: UIViewController? {
         UIApplication.shared.frontMostViewController(ignoringAlerts: true, using: dependencies)
     }
-    var backgroundTimeRemaining: TimeInterval { UIApplication.shared.backgroundTimeRemaining }
+    @MainActor var backgroundTimeRemaining: TimeInterval { UIApplication.shared.backgroundTimeRemaining }
     
     var mainWindow: UIWindow?
     var wasWokenUpByPushNotification: Bool = false
     
-    var statusBarHeight: CGFloat { UIApplication.shared.statusBarFrame.size.height }
+    @MainActor var statusBarHeight: CGFloat { UIApplication.shared.statusBarFrame.size.height }
     var openSystemSettingsAction: UIAlertAction? {
         let result = UIAlertAction(
             title: "sessionSettings".localized(),

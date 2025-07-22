@@ -339,28 +339,84 @@ class ExtensionHelperSpec: AsyncSpec {
         
         // MARK: - an ExtensionHelper - Deduping
         describe("an ExtensionHelper") {
-            // MARK: -- when checking whether a single dedupe record exists
-            context("when checking whether a single dedupe record exists") {
-                // MARK: ---- returns true when at least one record exists
-                it("returns true when at least one record exists") {
-                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
+            // MARK: -- when checking whether it has a dedupe record since the last clear
+            context("when checking whether it has a dedupe record since the last clear") {
+                // MARK: ---- returns true when at least one record exists that is newer than the last cleared timestamp
+                it("returns true when at least one record exists that is newer than the last cleared timestamp") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
-                    expect(extensionHelper.hasAtLeastOneDedupeRecord(threadId: "threadId")).to(beTrue())
+                    expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beTrue())
+                }
+                
+                // MARK: ---- returns false when it cannot get the conversation path
+                it("returns false when it cannot get the conversation path") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beFalse())
                 }
                 
                 // MARK: ---- returns false when a record does not exist
                 it("returns false when a record does not exist") {
-                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
                     
-                    expect(extensionHelper.hasAtLeastOneDedupeRecord(threadId: "threadId")).to(beFalse())
+                    expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beFalse())
                 }
                 
-                // MARK: ---- returns false when failing to generate a hash
-                it("returns false when failing to generate a hash") {
-                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                // MARK: ---- returns false when a record exists but is too old
+                it("returns false when a record exists but is too old") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
                     
-                    expect(extensionHelper.hasAtLeastOneDedupeRecord(threadId: "threadId")).to(beFalse())
+                    expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beFalse())
+                }
+                
+                // MARK: ---- ignores the lastCleared file when comparing dedupe records
+                it("ignores the lastCleared file when comparing dedupe records") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: .any) }
+                        .thenReturn(["010203"])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    
+                    expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beFalse())
+                }
+                
+                // MARK: ---- returns true when at least one record exists and there is no last cleared timestamp
+                it("returns true when at least one record exists and there is no last cleared timestamp") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                        .thenReturn([:])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    
+                    expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beTrue())
                 }
             }
             
@@ -505,6 +561,55 @@ class ExtensionHelperSpec: AsyncSpec {
                             threadId: "threadId",
                             uniqueIdentifier: "uniqueId"
                         )
+                    }.to(throwError(TestError.mock))
+                }
+            }
+            
+            // MARK: -- when upserting a last cleared record
+            context("when upserting a last cleared record") {
+                // MARK: ---- creates the file successfully
+                it("creates the file successfully") {
+                    mockCrypto
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                        .thenReturn(Data())
+                    
+                    expect {
+                        try extensionHelper.upsertLastClearedRecord(threadId: "threadId")
+                    }.toNot(throwError())
+                    
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.createFile(atPath: "tmpFile", contents: Data())
+                    })
+                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.moveItem(
+                            atPath: "tmpFile",
+                            toPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                        )
+                    })
+                }
+                
+                // MARK: ---- throws when failing to generate a hash
+                it("throws when failing to generate a hash") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    expect {
+                        try extensionHelper.upsertLastClearedRecord(threadId: "threadId")
+                    }.to(throwError(ExtensionHelperError.failedToUpdateLastClearedRecord))
+                    expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
+                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
+                    })
+                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                }
+                
+                // MARK: ---- throws when failing to write the file
+                it("throws when failing to write the file") {
+                    mockFileManager
+                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .thenThrow(TestError.mock)
+                    
+                    expect {
+                        try extensionHelper.upsertLastClearedRecord(threadId: "threadId")
                     }.to(throwError(TestError.mock))
                 }
             }
@@ -804,7 +909,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- replicates all configs for a group if one cannot be found
-                fit("replicates all configs for a group if one cannot be found") {
+                it("replicates all configs for a group if one cannot be found") {
                     mockValues.forEach { value in
                         guard let variant: ConfigDump.Variant = value.variant else { return }
                         
@@ -1482,7 +1587,26 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn(["b", "c", "d", "e", "f"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockCrypto
+                        .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
+                        .thenReturn([3, 4, 5])
+                    let validPaths: [String] = [
+                        "/test/extensionCache/conversations/a/unread",
+                        "/test/extensionCache/conversations/a/unread/b",
+                        "/test/extensionCache/conversations/a/unread/c",
+                        "/test/extensionCache/conversations/a/unread/d",
+                        "/test/extensionCache/conversations/a/unread/e",
+                        "/test/extensionCache/conversations/a/unread/f"
+                    ]
+                    validPaths.forEach { path in
+                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    }
+                    mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
+                        .thenReturn(false)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
                     expect(extensionHelper.unreadMessageCount()).to(equal(5))
                 }
@@ -1506,9 +1630,74 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn(["f", "g", "h"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    let validPaths: [String] = [
+                        "/test/extensionCache/conversations/a/unread",
+                        "/test/extensionCache/conversations/a/unread/c",
+                        "/test/extensionCache/conversations/a/unread/d",
+                        "/test/extensionCache/conversations/a/unread/e",
+                        "/test/extensionCache/conversations/b/unread",
+                        "/test/extensionCache/conversations/b/unread/f",
+                        "/test/extensionCache/conversations/b/unread/g",
+                        "/test/extensionCache/conversations/b/unread/h"
+                    ]
+                    validPaths.forEach { path in
+                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    }
+                    mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
+                        .thenReturn(false)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
                     expect(extensionHelper.unreadMessageCount()).to(equal(6))
+                }
+                
+                // MARK: ---- only counts message requests as a single item even with multiple unread messages
+                it("only counts message requests as a single item even with multiple unread messages") {
+                    mockFileManager.removeMocksFor { try $0.contentsOfDirectory(atPath: .any) }
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["030405", "b", "c", "d"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/dedupe"
+                            )
+                        }
+                        .thenReturn(["b1", "b1-legacy", "c1", "c1-legacy", "d1", "d1-legacy"])
+                    mockCrypto
+                        .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
+                        .thenReturn([3, 4, 5])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    let validPaths: [String] = [
+                        "/test/extensionCache/conversations/a/unread/b",
+                        "/test/extensionCache/conversations/a/unread/c",
+                        "/test/extensionCache/conversations/a/unread/d",
+                        "/test/extensionCache/conversations/a/dedupe/b1",
+                        "/test/extensionCache/conversations/a/dedupe/b1-legacy",
+                        "/test/extensionCache/conversations/a/dedupe/c1",
+                        "/test/extensionCache/conversations/a/dedupe/c1-legacy",
+                        "/test/extensionCache/conversations/a/dedupe/d1",
+                        "/test/extensionCache/conversations/a/dedupe/d1-legacy"
+                    ]
+                    validPaths.forEach { path in
+                        mockFileManager
+                            .when { try $0.attributesOfItem(atPath: path) }
+                            .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    }
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/030405") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234560000)])
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(1))
                 }
                 
                 // MARK: ---- ignores hidden files in the conversations directory
@@ -1523,7 +1712,24 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn(["b", "c", "d", "e", "f"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    let validPaths: [String] = [
+                        "/test/extensionCache/conversations/a/unread",
+                        "/test/extensionCache/conversations/a/unread/b",
+                        "/test/extensionCache/conversations/a/unread/c",
+                        "/test/extensionCache/conversations/a/unread/d",
+                        "/test/extensionCache/conversations/a/unread/e",
+                        "/test/extensionCache/conversations/a/unread/f",
+                        "/test/extensionCache/conversations/a/unread/g"
+                    ]
+                    validPaths.forEach { path in
+                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    }
+                    mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
+                        .thenReturn(false)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
                     expect(extensionHelper.unreadMessageCount()).to(equal(5))
                 }
@@ -1540,7 +1746,24 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn([".test", "b", "c", "d", "e", "f"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    let validPaths: [String] = [
+                        "/test/extensionCache/conversations/a/unread",
+                        "/test/extensionCache/conversations/a/unread/b",
+                        "/test/extensionCache/conversations/a/unread/c",
+                        "/test/extensionCache/conversations/a/unread/d",
+                        "/test/extensionCache/conversations/a/unread/e",
+                        "/test/extensionCache/conversations/a/unread/f",
+                        "/test/extensionCache/conversations/a/unread/g"
+                    ]
+                    validPaths.forEach { path in
+                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    }
+                    mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
+                        .thenReturn(false)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567890)])
                     
                     expect(extensionHelper.unreadMessageCount()).to(equal(5))
                 }
@@ -1570,8 +1793,49 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/b/unread") }
                         .thenReturn(false)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
                     expect(extensionHelper.unreadMessageCount()).to(equal(3))
+                }
+                
+                // MARK: ---- ignores message request conversations if the user has seen the message requests stub
+                it("ignores message request conversations if the user has seen the message requests stub") {
+                    mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["b", "c", "d", "e", "f"])
+                    mockCrypto
+                        .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
+                        .thenReturn([3, 4, 5])
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/b") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567600)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/c") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567700)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/d") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/e") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/f") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234568000)])
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/030405") }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    
+                    expect(extensionHelper.unreadMessageCount()).to(equal(0))
                 }
                 
                 // MARK: ---- returns null if retrieving the conversation hashes throws
@@ -1619,7 +1883,9 @@ class ExtensionHelperSpec: AsyncSpec {
                                     timestampMs: 1234567890
                                 )
                             ),
-                            isUnread: false
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: false,
+                            isMessageRequest: false
                         )
                     }.toNot(throwError())
                 }
@@ -1639,7 +1905,9 @@ class ExtensionHelperSpec: AsyncSpec {
                                     timestampMs: 1234567890
                                 )
                             ),
-                            isUnread: false
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: false,
+                            isMessageRequest: false
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
@@ -1665,7 +1933,9 @@ class ExtensionHelperSpec: AsyncSpec {
                                     timestampMs: 1234567890
                                 )
                             ),
-                            isUnread: true
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: true,
+                            isMessageRequest: false
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
@@ -1674,6 +1944,47 @@ class ExtensionHelperSpec: AsyncSpec {
                             toPath: "/test/extensionCache/conversations/010203/unread/010203"
                         )
                     })
+                }
+                
+                // MARK: ---- writes the message request stub file for unread message request messages
+                it("writes the message request stub file for unread message request messages") {
+                    mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
+                    mockCrypto
+                        .when { $0.generate(.hash(message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".utf8))) }
+                        .thenReturn([1, 2, 3])
+                    mockCrypto
+                        .when { $0.generate(.hash(message: Array("UnreadMessageSalt-TestHash".utf8))) }
+                        .thenReturn([2, 3, 4])
+                    mockCrypto
+                        .when { $0.generate(.hash(message: [1, 2, 3] + Array("messageRequest".utf8))) }
+                        .thenReturn([3, 4, 5])
+                    
+                    expect {
+                        try extensionHelper.saveMessage(
+                            SnodeReceivedMessage(
+                                snode: nil,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                namespace: .default,
+                                rawMessage: GetMessagesResponse.RawMessage(
+                                    base64EncodedDataString: "TestData",
+                                    expirationMs: nil,
+                                    hash: "TestHash",
+                                    timestampMs: 1234567890
+                                )
+                            ),
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: true,
+                            isMessageRequest: true
+                        )
+                    }.toNot(throwError())
+                    expect(mockFileManager
+                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) }?
+                        .map { $0.parameterSummary }
+                    )
+                    .to(equal([
+                        "[tmpFile, /test/extensionCache/conversations/010203/unread/030405]",
+                        "[tmpFile, /test/extensionCache/conversations/010203/unread/020304]"
+                    ]))
                 }
                 
                 // MARK: ---- saves read standard messages to the correct path
@@ -1691,7 +2002,9 @@ class ExtensionHelperSpec: AsyncSpec {
                                     timestampMs: 1234567890
                                 )
                             ),
-                            isUnread: false
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: false,
+                            isMessageRequest: false
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
@@ -1719,7 +2032,9 @@ class ExtensionHelperSpec: AsyncSpec {
                                     timestampMs: 1234567890
                                 )
                             ),
-                            isUnread: false
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: false,
+                            isMessageRequest: false
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).toNot(call {
@@ -1746,7 +2061,9 @@ class ExtensionHelperSpec: AsyncSpec {
                                     timestampMs: 1234567890
                                 )
                             ),
-                            isUnread: false
+                            threadId: "05\(TestConstants.publicKey)",
+                            isUnread: false,
+                            isMessageRequest: false
                         )
                     }.to(throwError(TestError.mock))
                 }

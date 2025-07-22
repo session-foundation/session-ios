@@ -32,7 +32,7 @@ class NotificationsManagerSpec: QuickSpec {
         )
         @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
             initialSetup: { helper in
-                helper.when { $0.hasAtLeastOneDedupeRecord(threadId: .any) }.thenReturn(false)
+                helper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
             }
         )
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(

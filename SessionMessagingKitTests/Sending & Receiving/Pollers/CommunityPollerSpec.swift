@@ -71,7 +71,7 @@ class CommunityPollerSpec: AsyncSpec {
         )
         @TestState(singleton: .appContext, in: dependencies) var mockAppContext: MockAppContext! = MockAppContext(
             initialSetup: { context in
-                context.when { $0.isMainAppAndActive }.thenReturn(false)
+                context.when { @MainActor in $0.isMainAppAndActive }.thenReturn(false)
             }
         )
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults()
@@ -126,7 +126,7 @@ class CommunityPollerSpec: AsyncSpec {
             // MARK: -- when starting polling
             context("when starting polling") {
                 beforeEach {
-                    mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
+                    mockAppContext.when { @MainActor in $0.isMainAppAndActive }.thenReturn(true)
                 }
                 
                 // MARK: ---- creates pollers for all of the communities

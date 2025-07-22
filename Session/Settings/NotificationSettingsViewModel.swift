@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-@MainActor
 class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
@@ -15,12 +14,12 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.internalState = State.initialState()
         
@@ -93,68 +92,12 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     let title: String = "sessionNotifications".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .never)
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [dependencies] previousState, events -> State in
-                let currentState: State = (previousState ?? initialState)
-                var isUsingFullAPNs: Bool = currentState.isUsingFullAPNs
-                var notificationSound: Preferences.Sound = currentState.notificationSound
-                var playNotificationSoundInForeground: Bool = currentState.playNotificationSoundInForeground
-                var previewType: Preferences.NotificationPreviewType = currentState.previewType
-                
-                /// If we have no previous state then we need to fetch the initial state
-                if previousState == nil {
-                    isUsingFullAPNs = dependencies[defaults: .standard, key: .isUsingFullAPNs]
-                    
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        notificationSound = libSession.get(.defaultNotificationSound)
-                            .defaulting(to: Preferences.Sound.defaultNotificationSound)
-                        playNotificationSoundInForeground = libSession.get(.playNotificationSoundInForeground)
-                        previewType = libSession.get(.preferencesNotificationPreviewType)
-                            .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
-                    }
-                }
-                
-                /// Process any event changes
-                events.forEach { event in
-                    switch event.key {
-                        case .userDefault(.isUsingFullAPNs):
-                            isUsingFullAPNs = ((event.value as? Bool) ?? currentState.isUsingFullAPNs)
-                            
-                        case .setting(.defaultNotificationSound):
-                            notificationSound = (
-                                (event.value as? Preferences.Sound) ??
-                                currentState.notificationSound
-                            )
-                            
-                        case .setting(.playNotificationSoundInForeground):
-                            playNotificationSoundInForeground = (
-                                (event.value as? Bool) ??
-                                currentState.playNotificationSoundInForeground
-                            )
-                            
-                        case .setting(.preferencesNotificationPreviewType):
-                            previewType = (
-                                (event.value as? Preferences.NotificationPreviewType) ??
-                                currentState.previewType
-                            )
-                            
-                        default: break
-                    }
-                }
-                
-                return State(
-                    isUsingFullAPNs: isUsingFullAPNs,
-                    notificationSound: notificationSound,
-                    playNotificationSoundInForeground: playNotificationSoundInForeground,
-                    previewType: previewType
-                )
-            }
-            .assign { [weak self, dependencies] updatedState in
+            .using(dependencies: dependencies)
+            .query(NotificationSettingsViewModel.queryState)
+            .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
                 // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
@@ -162,6 +105,57 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
             }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var isUsingFullAPNs: Bool = previousState.isUsingFullAPNs
+        var notificationSound: Preferences.Sound = previousState.notificationSound
+        var playNotificationSoundInForeground: Bool = previousState.playNotificationSoundInForeground
+        var previewType: Preferences.NotificationPreviewType = previousState.previewType
+        
+        /// If this is the initial query then we need to fetch the initial state
+        if isInitialQuery {
+            isUsingFullAPNs = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+            
+            dependencies.mutate(cache: .libSession) { libSession in
+                notificationSound = libSession.get(.defaultNotificationSound)
+                    .defaulting(to: Preferences.Sound.defaultNotificationSound)
+                playNotificationSoundInForeground = libSession.get(.playNotificationSoundInForeground)
+                previewType = libSession.get(.preferencesNotificationPreviewType)
+                    .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
+            }
+        }
+        
+        /// Process any event changes
+        events.forEach { event in
+            switch (event.key, event.value) {
+                case (.userDefault(.isUsingFullAPNs), let updatedValue as Bool):
+                    isUsingFullAPNs = updatedValue
+                    
+                case (.setting(.defaultNotificationSound), let updatedValue as Preferences.Sound):
+                    notificationSound = updatedValue
+                    
+                case (.setting(.playNotificationSoundInForeground), let updatedValue as Bool):
+                    playNotificationSoundInForeground = updatedValue
+                    
+                case (.setting(.preferencesNotificationPreviewType), let updatedValue as Preferences.NotificationPreviewType):
+                    previewType = updatedValue
+                    
+                default: break
+            }
+        }
+        
+        return State(
+            isUsingFullAPNs: isUsingFullAPNs,
+            notificationSound: notificationSound,
+            playNotificationSoundInForeground: playNotificationSoundInForeground,
+            previewType: previewType
+        )
     }
     
     private static func sections(

@@ -331,6 +331,7 @@ final class NukeDataModal: Modal {
             // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
             // accounts on Testnet without issue
             dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            dependencies.notifyAsync(.feature(.serviceNetwork), value: serviceNetwork)
         }
     }
 }

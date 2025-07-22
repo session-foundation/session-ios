@@ -155,7 +155,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     
     // MARK: - Functions
     
-    public static func shareLogs(
+    @MainActor public static func shareLogs(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
@@ -205,7 +205,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         #endif
     }
     
-    private static func shareLogsInternal(
+    @MainActor private static func shareLogsInternal(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,

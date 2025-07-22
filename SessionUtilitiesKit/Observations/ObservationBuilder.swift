@@ -11,31 +11,44 @@ public protocol ObservableKeyProvider: Sendable, Equatable {
 
 // MARK: - ObservationBuilder DSL
 
-public enum ObservationBuilder {
-    public static func debounce<Output: ObservableKeyProvider>(for interval: DispatchTimeInterval) -> ObservationDebounceBuilder<Output> {
-        return ObservationDebounceBuilder(debounceInterval: interval)
+public struct ObservationBuilder<Output: ObservableKeyProvider> {
+    private let initialValue: Output
+    
+    public init(initialValue: Output) {
+        self.initialValue = initialValue
+    }
+
+    public func debounce(for interval: DispatchTimeInterval) -> ObservationDebounceBuilder<Output> {
+        return ObservationDebounceBuilder(initialValue: initialValue, debounceInterval: interval)
     }
 }
 
 public struct ObservationDebounceBuilder<Output: ObservableKeyProvider> {
+    fileprivate let initialValue: Output
     fileprivate let debounceInterval: DispatchTimeInterval
     
-    public func using(manager: ObservationManager) -> ObservationManagerBuilder<Output> {
+    public func using(dependencies: Dependencies) -> ObservationManagerBuilder<Output> {
         return ObservationManagerBuilder(
+            initialValue: initialValue,
             debounceInterval: debounceInterval,
-            observationManager: manager
+            observationManager: dependencies[singleton: .observationManager],
+            dependencies: dependencies
         )
     }
 }
 
 public struct ObservationManagerBuilder<Output: ObservableKeyProvider> {
+    fileprivate let initialValue: Output
     fileprivate let debounceInterval: DispatchTimeInterval
     fileprivate let observationManager: ObservationManager
+    fileprivate let dependencies: Dependencies
 
     public func query(
-        _ query: @escaping (_ previousValue: Output?, _ events: [ObservedEvent]) async -> Output
+        _ query: @escaping @Sendable (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output
     ) -> ConfiguredObservationBuilder<Output> {
         return ConfiguredObservationBuilder(
+            dependencies: dependencies,
+            initialValue: initialValue,
             debounceInterval: debounceInterval,
             observationManager: observationManager,
             query: query
@@ -46,9 +59,11 @@ public struct ObservationManagerBuilder<Output: ObservableKeyProvider> {
 // MARK: - ConfiguredObservationBuilder
 
 public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
+    fileprivate let dependencies: Dependencies
+    fileprivate let initialValue: Output
     fileprivate let debounceInterval: DispatchTimeInterval
     fileprivate let observationManager: ObservationManager
-    fileprivate let query: (_ previousValue: Output?, _ events: [ObservedEvent]) async -> Output
+    fileprivate let query: @Sendable (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output
     
     // MARK: - Outputs
     
@@ -56,11 +71,13 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
         let (stream, continuation) = AsyncStream.makeStream(of: Output.self)
         let runner: QueryRunner = QueryRunner(
             observationManager: observationManager,
+            initialValue: initialValue,
             debounceInterval: debounceInterval,
             continuation: continuation,
-            query: query
+            query: query,
+            using: dependencies
         )
-        let observationTask: Task<Void, Never> = Task.detached {
+        let observationTask: Task<Void, Never> = Task {
             await runner.run()
         }
         
@@ -73,7 +90,7 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
     
     public func publisher() -> AnyPublisher<Output, Never> {
         let stream: AsyncStream<Output> = stream()
-        let subject: CurrentValueSubject<Output?, Never> = CurrentValueSubject(nil)
+        let subject: CurrentValueSubject<Output, Never> = CurrentValueSubject(initialValue)
         let streamConsumingTask: Task<Void, Never> = Task {
             for await value in stream {
                 if Task.isCancelled { break }
@@ -108,27 +125,35 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
 // MARK: - QueryRunner
 
 private actor QueryRunner<Output: ObservableKeyProvider> {
+    private let dependencies: Dependencies
     private let observationManager: ObservationManager
     private let debouncer: DebounceTaskManager<ObservedEvent>
     private let continuation: AsyncStream<Output>.Continuation
-    private let query: (_ previousValue: Output?, _ events: [ObservedEvent]) async -> Output
+    private let query: (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output
     
     private var activeKeys: Set<ObservableKey> = []
     private var listenerTask: Task<Void, Never>?
-    private var lastValue: Output?
+    private var lastValue: Output
+    private var isRunningQuery: Bool = false
+    private var pendingEvents: [ObservedEvent] = []
+    private var hasPerformedInitialQuery: Bool = false
     
     // MARK: - Initialization
 
     init(
         observationManager: ObservationManager,
+        initialValue: Output,
         debounceInterval: DispatchTimeInterval,
         continuation: AsyncStream<Output>.Continuation,
-        query: @escaping (_ previousValue: Output?, _ events: [ObservedEvent]) async -> Output
+        query: @escaping (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output,
+        using dependencies: Dependencies
     ) {
+        self.dependencies = dependencies
         self.query = query
         self.observationManager = observationManager
         self.continuation = continuation
         self.debouncer = DebounceTaskManager(debounceInterval: debounceInterval)
+        self.lastValue = initialValue
     }
     
     // MARK: - Functions
@@ -136,21 +161,38 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
     func run() async {
         /// Setup the debouncer to trigger a requery when events come through
         await debouncer.setAction { [weak self] events in
-            await self?.requery(changes: events)
+            await self?.process(events: events, isInitialQuery: false)
         }
         
         /// Perform initial query
-        await requery(changes: [])
+        await process(events: [], isInitialQuery: true)
         
         /// Keep the `QueryRunner` alive until it's parent task is cancelled
         await TaskCancellation.wait()
     }
     
-    private func requery(changes: [ObservedEvent]) async {
-        let previousValueForQuery: Output? = self.lastValue
+    private func process(events: [ObservedEvent], isInitialQuery: Bool) async {
+        pendingEvents.append(contentsOf: events)
+        
+        /// If the query is already running then just stop here, it'll automatically requery if there are any pending events remaining
+        guard (isInitialQuery || !pendingEvents.isEmpty) && !isRunningQuery else { return }
+        
+        /// Not running a query so kick one off
+        await runQueryLoop(isInitialQuery: isInitialQuery)
+    }
+    
+    private func runQueryLoop(isInitialQuery: Bool) async {
+        /// Sanity checks
+        guard (isInitialQuery || !pendingEvents.isEmpty) && !isRunningQuery else { return }
+        
+        /// Store the state for this query
+        let previousValueForQuery: Output = self.lastValue
+        let eventsToProcess: [ObservedEvent] = pendingEvents
+        pendingEvents.removeAll()
+        isRunningQuery = true
         
         /// Capture the updated data and new keys to observe
-        let newResult: Output = await self.query(previousValueForQuery, changes)
+        let newResult: Output = await self.query(previousValueForQuery, eventsToProcess, isInitialQuery, dependencies)
         let newKeys: Set<ObservableKey> = newResult.observedKeys
 
         /// If the keys have changed then we need to restart the observation
@@ -164,12 +206,19 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
             oldListenerTask?.cancel()
         }
         
-        /// Prevent redundant updates if the output hasn't changed.
-        guard newResult != self.lastValue else { return }
+        /// Only yielf the new result if the value has changed to prevent redundant updates
+        if isInitialQuery || newResult != self.lastValue {
+            self.lastValue = newResult
+            continuation.yield(newResult)
+        }
         
-        /// Publish the new result
-        self.lastValue = newResult
-        continuation.yield(newResult)
+        /// We've finished running the query
+        isRunningQuery = false
+        
+        /// If there are still events then we need to kick off another query
+        if !pendingEvents.isEmpty {
+            await runQueryLoop(isInitialQuery: false)
+        }
     }
     
     private func observe(keys: Set<ObservableKey>) async {

@@ -302,7 +302,9 @@ extension MessageReceiver {
         guard sender != dependencies[cache: .general].sessionId.hexString else {
             guard currentCall.mode == .answer && !currentCall.hasStartedConnecting else { return }
             
-            dependencies[singleton: .callManager].dismissAllCallUI()
+            Task { @MainActor [callManager = dependencies[singleton: .callManager]] in
+                callManager.dismissAllCallUI()
+            }
             dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .answeredElsewhere)
             return
         }
@@ -311,7 +313,10 @@ extension MessageReceiver {
         let sdpDescription: RTCSessionDescription = RTCSessionDescription(type: .answer, sdp: sdp)
         currentCall.hasStartedConnecting = true
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
-        dependencies[singleton: .callManager].handleAnswerMessage(message)
+        
+        Task { @MainActor [callManager = dependencies[singleton: .callManager]] in
+            callManager.handleAnswerMessage(message)
+        }
     }
     
     private static func handleEndCallMessage(
@@ -329,7 +334,10 @@ extension MessageReceiver {
             let sender: String = message.sender
         else { return }
         
-        dependencies[singleton: .callManager].dismissAllCallUI()
+        Task { @MainActor [callManager = dependencies[singleton: .callManager]] in
+            callManager.dismissAllCallUI()
+        }
+        
         dependencies[singleton: .callManager].reportCurrentCallEnded(
             reason: (sender == dependencies[cache: .general].sessionId.hexString ?
                 .declinedElsewhere :

@@ -942,6 +942,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
         dependencies.set(feature: .logLevel(cat: .default), to: updatedDefaultLogLevel)
+        dependencies.notifyAsync(.feature(.logLevel(cat: .default)), value: updatedDefaultLogLevel)
         forceRefresh(type: .databaseQuery)
     }
     
@@ -952,8 +953,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private func updateLogLevel(of category: Log.Category, to level: Log.Level) {
         switch (level, category.defaultLevel) {
-            case (.default, category.defaultLevel): dependencies.reset(feature: .logLevel(cat: category))
-            default: dependencies.set(feature: .logLevel(cat: category), to: level)
+            case (.default, category.defaultLevel):
+                dependencies.reset(feature: .logLevel(cat: category))
+                dependencies.notifyAsync(.feature(.logLevel(cat: category)), value: nil)
+            default:
+                dependencies.set(feature: .logLevel(cat: category), to: level)
+                dependencies.notifyAsync(.feature(.logLevel(cat: category)), value: level)
         }
         forceRefresh(type: .databaseQuery)
     }
@@ -961,6 +966,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private func resetLoggingCategories() {
         dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
             dependencies.reset(feature: .logLevel(cat: category))
+            dependencies.notifyAsync(.feature(.logLevel(cat: category)), value: nil)
         }
         forceRefresh(type: .databaseQuery)
     }
@@ -987,6 +993,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
                     dependencies.set(feature: .pushNotificationService, to: updatedService)
+                    dependencies.notifyAsync(.feature(.pushNotificationService), value: updatedService)
                     dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
                     dependencies.notifyAsync(.isUsingFullAPNs, value: true)
                     self?.forceRefresh(type: .databaseQuery)
@@ -1059,12 +1066,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Clear the snodeAPI  caches
         dependencies.remove(cache: .snodeAPI)
         
-        /// Remove the libSession state
+        /// Remove the libSession state (store the profile locally to maintain the name between environments)
+        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
-        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-        
         dependencies[singleton: .storage].write { [dependencies] db in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
@@ -1092,6 +1098,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Update to the new `ServiceNetwork`
         dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
+        dependencies.notifyAsync(.feature(.serviceNetwork), value: updatedNetwork)
         
         /// Start the new network cache
         dependencies.warmCache(cache: .libSessionNetwork)
@@ -1105,8 +1112,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 .defaulting(to: "Anonymous"),
             using: dependencies
         ).completeRegistration { [dependencies] in
+            /// Re-enable developer mode
+            dependencies.setAsync(.developerModeEnabled, true)
+            
             /// Restart the current user poller (there won't be any other pollers though)
-            dependencies[singleton: .currentUserPoller].startIfNeeded()
+            Task { @MainActor [currentUserPoller = dependencies[singleton: .currentUserPoller]] in
+                currentUserPoller.startIfNeeded()
+            }
             
             /// Re-sync the push tokens (if there are any)
             SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
@@ -1118,6 +1130,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
+        dependencies.notifyAsync(.feature(feature), value: updatedFlag)
         forceRefresh(type: .databaseQuery)
     }
     

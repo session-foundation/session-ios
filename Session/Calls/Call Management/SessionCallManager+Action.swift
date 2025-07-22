@@ -17,7 +17,7 @@ extension SessionCallManager {
         return true
     }
     
-    public func answerCallAction() {
+    @MainActor public func answerCallAction() {
         guard let call: SessionCall = (self.currentCall as? SessionCall) else { return }
         
         if dependencies[singleton: .appContext].frontMostViewController is CallVC {

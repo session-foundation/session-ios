@@ -87,25 +87,27 @@ public extension PollerType {
     func startIfNeeded() { startIfNeeded(forceStartInBackground: false) }
     
     func startIfNeeded(forceStartInBackground: Bool) {
-        guard
-            forceStartInBackground ||
-            dependencies[singleton: .appContext].isMainAppAndActive
-        else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
-        
-        pollerQueue.async(using: dependencies) { [weak self, pollerName] in
-            guard self?.isPolling != true else { return }
+        Task { @MainActor [weak self, pollerName, pollerQueue, appContext = dependencies[singleton: .appContext], dependencies] in
+            guard
+                forceStartInBackground ||
+                appContext.isMainAppAndActive
+            else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
             
-            // Might be a race condition that the setUpPolling finishes too soon,
-            // and the timer is not created, if we mark the group as is polling
-            // after setUpPolling. So the poller may not work, thus misses messages
-            self?.isPolling = true
-            self?.pollRecursively(nil)
-            
-            if self?.logStartAndStopCalls == true {
-                Log.info(.poller, "Started \(pollerName).")
+            pollerQueue.async(using: dependencies) { [weak self] in
+                guard self?.isPolling != true else { return }
+                
+                // Might be a race condition that the setUpPolling finishes too soon,
+                // and the timer is not created, if we mark the group as is polling
+                // after setUpPolling. So the poller may not work, thus misses messages
+                self?.isPolling = true
+                self?.pollRecursively(nil)
+                
+                if self?.logStartAndStopCalls == true {
+                    Log.info(.poller, "Started \(pollerName).")
+                }
+                
+                self?.pollerDidStart()
             }
-            
-            self?.pollerDidStart()
         }
     }
     

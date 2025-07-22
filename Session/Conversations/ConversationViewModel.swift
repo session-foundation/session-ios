@@ -623,6 +623,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             .appending(contentsOf: (optimisticMessages ?? []))          // Insert latest optimistic updates
             .filter { !$0.cellType.isPostProcessed }                    // Remove headers and other
             .sorted { lhs, rhs -> Bool in lhs.timestampMs < rhs.timestampMs }
+        let threadIsTrusted: Bool = data.contains(where: { $0.threadIsTrusted })
         
         // We load messages from newest to oldest so having a pageOffset larger than zero means
         // there are newer pages to load
@@ -654,6 +655,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                         .id
                                 ),
                                 currentUserSessionIds: (threadData.currentUserSessionIds ?? []),
+                                threadIsTrusted: threadIsTrusted,
                                 using: dependencies
                             )
                         }

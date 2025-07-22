@@ -10,7 +10,7 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class MessageDeduplicationSpec: QuickSpec {
+class MessageDeduplicationSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -34,6 +34,9 @@ class MessageDeduplicationSpec: QuickSpec {
                     .thenReturn(())
                 helper
                     .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                    .thenReturn(())
+                helper
+                    .when { try $0.upsertLastClearedRecord(threadId: .any) }
                     .thenReturn(())
             }
         )
@@ -574,11 +577,40 @@ class MessageDeduplicationSpec: QuickSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records).to(beEmpty())
+                    await expect(mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) })
+                        .toEventually(beEmpty())
                     expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                    })
+                }
+                
+                // MARK: ---- upserts the last cleared record
+                it("upserts the last cleared record") {
+                    mockStorage.write { db in
+                        try MessageDeduplication(
+                            threadId: "testThreadId",
+                            uniqueIdentifier: "testId",
+                            expirationTimestampSeconds: nil,
+                            shouldDeleteWhenDeletingThread: true
+                        ).insert(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageDeduplication.deleteIfNeeded(
+                                db,
+                                threadIds: ["testThreadId"],
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    await expect(mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) })
+                        .toEventually(beEmpty())
+                    await expect(mockExtensionHelper).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        try $0.upsertLastClearedRecord(threadId: "testThreadId")
                     })
                 }
                 
@@ -609,9 +641,9 @@ class MessageDeduplicationSpec: QuickSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records).to(beEmpty())
+                    await expect(mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) })
+                        .toEventually(beEmpty())
                     expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
                     })
@@ -647,8 +679,10 @@ class MessageDeduplicationSpec: QuickSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) }
+                    let records: [MessageDeduplication]? = await expect(mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) })
+                        .toEventually(haveCount(1))
+                        .retrieveValue()
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId2"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId2"]))
@@ -712,8 +746,10 @@ class MessageDeduplicationSpec: QuickSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) }
+                    let records: [MessageDeduplication]? = await expect(mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) })
+                        .toEventually(haveCount(1))
+                        .retrieveValue()
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId"]))

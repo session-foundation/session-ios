@@ -28,13 +28,13 @@ enum NotificationResolution: CustomStringConvertible {
     case errorCallFailure
     case errorNoContent(PushNotificationAPI.NotificationMetadata)
     case errorProcessing(PushNotificationAPI.ProcessResult)
-    case errorMessageHandling(MessageReceiverError)
+    case errorMessageHandling(MessageReceiverError, PushNotificationAPI.NotificationMetadata)
     case errorOther(Error)
     
     public var description: String {
         switch self {
             case .success(let metadata):
-                return "Completed: Handled notification from \(metadata.namespace) namespace for \(metadata.accountId)"
+                return "Completed: Handled notification from \(metadata.messageOriginString)"
             
             case .successCall: return "Completed: Notified main app of call message"
             
@@ -54,7 +54,7 @@ enum NotificationResolution: CustomStringConvertible {
                 return "Ignored: Duplicate call (probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
-                return "Ignored: Notification content from \(metadata.namespace) namespace was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
+                return "Ignored: Notification content from \(metadata.messageOriginString) was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
@@ -62,10 +62,11 @@ enum NotificationResolution: CustomStringConvertible {
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
             case .errorNoContent(let metadata):
-                return "Failed: Notification from namespace: \(metadata.namespace) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength))))"
+                return "Failed: Notification from \(metadata.messageOriginString) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength))))"
                 
             case .errorProcessing(let result): return "Failed: Unable to process notification (\(result))"
-            case .errorMessageHandling(let error): return "Failed: Handling the message (\(error))"
+            case .errorMessageHandling(let error, let metadata):
+                return "Failed: Handling the message (\(error)) from \(metadata.messageOriginString)"
             case .errorOther(let error): return "Error: Unhandled error occurred (\(error))"
         }
     }
@@ -86,4 +87,8 @@ enum NotificationResolution: CustomStringConvertible {
                 return .error
         }
     }
+}
+
+internal extension PushNotificationAPI.NotificationMetadata {
+    var messageOriginString: String { "namespace \(namespace) for accountId \(accountId)" }
 }

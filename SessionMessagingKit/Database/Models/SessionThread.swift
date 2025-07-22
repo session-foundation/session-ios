@@ -483,46 +483,14 @@ public extension SessionThread {
     }
     
     static func canSendReadReceipt(
-        _ db: ObservingDatabase,
         threadId: String,
-        threadVariant maybeThreadVariant: SessionThread.Variant? = nil,
-        isBlocked maybeIsBlocked: Bool? = nil,
-        isMessageRequest maybeIsMessageRequest: Bool? = nil,
+        threadVariant: SessionThread.Variant,
         using dependencies: Dependencies
     ) throws -> Bool {
-        let threadVariant: SessionThread.Variant = try {
-            try maybeThreadVariant ??
-            SessionThread
-                .filter(id: threadId)
-                .select(.variant)
-                .asRequest(of: SessionThread.Variant.self)
-                .fetchOne(db, orThrow: StorageError.objectNotFound)
-        }()
-        let threadIsBlocked: Bool = try {
-            try maybeIsBlocked ??
-            (
-                threadVariant == .contact &&
-                Contact
-                    .filter(id: threadId)
-                    .select(.isBlocked)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db, orThrow: StorageError.objectNotFound)
-            )
-        }()
-        let threadIsMessageRequest: Bool = SessionThread
-            .filter(id: threadId)
-            .filter(
-                SessionThread.isMessageRequest(
-                    userSessionId: dependencies[cache: .general].sessionId,
-                    includeNonVisible: true
-                )
-            )
-            .isNotEmpty(db)
-        
-        return (
-            !threadIsBlocked &&
-            !threadIsMessageRequest
-        )
+        return dependencies.mutate(cache: .libSession) { libSession in
+            !libSession.isContactBlocked(contactId: threadId) &&
+            !libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+        }
     }
     
     @available(*, unavailable, message: "should not be used until pin re-ordering is built")
@@ -807,56 +775,20 @@ public extension SessionThread {
         }
     }
     
-    static func unreadMessageRequestsCountQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<Int> {
+    static func unreadMessageRequestsQuery(messageRequestThreadIds: Set<String>) -> SQLRequest<Int> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         
         return """
-            SELECT COUNT(DISTINCT id) FROM (
-                SELECT \(thread[.id]) AS id
-                FROM \(SessionThread.self)
-                JOIN \(Interaction.self) ON (
-                    \(interaction[.threadId]) = \(thread[.id]) AND
-                    \(interaction[.wasRead]) = false
-                )
-                LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
-                LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
-                WHERE (
-                    \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
-                )
+            SELECT DISTINCT \(thread[.id])
+            FROM \(SessionThread.self)
+            JOIN \(Interaction.self) ON (
+                \(interaction[.threadId]) = \(thread[.id]) AND
+                \(interaction[.wasRead]) = false AND
+                \(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount)
             )
+            WHERE \(thread[.id]) IN \(messageRequestThreadIds)
         """
-    }
-    
-    /// This method can be used to filter a thread query to only include messages requests
-    ///
-    /// **Note:** In order to use this filter you **MUST** have a `joining(required/optional:)` to the
-    /// `SessionThread.contact` association or it won't work
-    static func isMessageRequest(
-        userSessionId: SessionId,
-        includeNonVisible: Bool = false
-    ) -> SQLExpression {
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
-        let shouldBeVisibleSQL: SQL = (includeNonVisible ?
-            SQL(stringLiteral: "true") :
-            SQL("\(thread[.shouldBeVisible]) = true")
-        )
-        
-        return SQL(
-            """
-                \(shouldBeVisibleSQL) AND (
-                    COALESCE(\(closedGroup[.invited]), false) = true OR (
-                        \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                        \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
-                        IFNULL(\(contact[.isApproved]), false) = false
-                    )
-                )
-            """
-        ).sqlExpression
     }
     
     func isNoteToSelf(using dependencies: Dependencies) -> Bool {

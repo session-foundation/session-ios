@@ -10,7 +10,6 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-@MainActor
 class SettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
@@ -27,12 +26,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     )
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.internalState = State.initialState(userSessionId: dependencies[cache: .general].sessionId)
         
@@ -132,6 +131,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
+        let serviceNetwork: ServiceNetwork
+        let forceOffline: Bool
         let developerModeEnabled: Bool
         let hideRecoveryPasswordPermanently: Bool
         
@@ -142,6 +143,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         public var observedKeys: Set<ObservableKey> {
             [
                 .profile(userSessionId.hexString),
+                .feature(.serviceNetwork),
+                .feature(.forceOffline),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
             ]
@@ -151,6 +154,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
+                serviceNetwork: .mainnet,
+                forceOffline: false,
                 developerModeEnabled: false,
                 hideRecoveryPasswordPermanently: false
             )
@@ -159,58 +164,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     let title: String = "sessionSettings".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .never)
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [dependencies] previousState, events in
-                /// Store mutable copies of the data to update
-                let currentState: State = (previousState ?? initialState)
-                var profile: Profile = currentState.profile
-                var developerModeEnabled: Bool = currentState.developerModeEnabled
-                var hideRecoveryPasswordPermanently: Bool = currentState.hideRecoveryPasswordPermanently
-                
-                if previousState == nil {
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        profile = libSession.profile
-                        developerModeEnabled = libSession.get(.developerModeEnabled)
-                        hideRecoveryPasswordPermanently = libSession.get(.hideRecoveryPasswordPermanently)
-                    }
-                }
-                
-                /// Process any event changes
-                let groupedEvents: [GenericObservableKey: Set<ObservedEvent>]? = events
-                    .reduce(into: [:]) { result, event in
-                        result[event.key.generic, default: []].insert(event)
-                    }
-                groupedEvents?[.profile]?.forEach { event in
-                    switch (event.value as? ProfileEvent)?.change {
-                        case .name(let name): profile = profile.with(name: name)
-                        case .nickname(let nickname): profile = profile.with(nickname: nickname)
-                        case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: url)
-                        default: break
-                    }
-                }
-                groupedEvents?[.setting]?.forEach { event in
-                    guard let updatedValue: Bool = event.value as? Bool else { return }
-                    
-                    switch event.key {
-                        case .setting(.developerModeEnabled): developerModeEnabled = updatedValue
-                        case .setting(.hideRecoveryPasswordPermanently): hideRecoveryPasswordPermanently = updatedValue
-                        default: break
-                    }
-                }
-                
-                /// Generate the new state
-                return State(
-                    userSessionId: currentState.userSessionId,
-                    profile: profile,
-                    developerModeEnabled: developerModeEnabled,
-                    hideRecoveryPasswordPermanently: hideRecoveryPasswordPermanently
-                )
-            }
+            .using(dependencies: dependencies)
+            .query(SettingsViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
@@ -218,6 +176,76 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
             }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialFetch: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        /// Store mutable copies of the data to update
+        var profile: Profile = previousState.profile
+        var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
+        var forceOffline: Bool = previousState.forceOffline
+        var developerModeEnabled: Bool = previousState.developerModeEnabled
+        var hideRecoveryPasswordPermanently: Bool = previousState.hideRecoveryPasswordPermanently
+        
+        if isInitialFetch {
+            serviceNetwork = dependencies[feature: .serviceNetwork]
+            forceOffline = dependencies[feature: .forceOffline]
+            
+            dependencies.mutate(cache: .libSession) { libSession in
+                profile = libSession.profile
+                developerModeEnabled = libSession.get(.developerModeEnabled)
+                hideRecoveryPasswordPermanently = libSession.get(.hideRecoveryPasswordPermanently)
+            }
+        }
+        
+        /// Process any event changes
+        let groupedEvents: [GenericObservableKey: Set<ObservedEvent>]? = events
+            .reduce(into: [:]) { result, event in
+                result[event.key.generic, default: []].insert(event)
+            }
+        groupedEvents?[.profile]?.forEach { event in
+            switch (event.value as? ProfileEvent)?.change {
+                case .name(let name): profile = profile.with(name: name)
+                case .nickname(let nickname): profile = profile.with(nickname: nickname)
+                case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: url)
+                default: break
+            }
+        }
+        groupedEvents?[.setting]?.forEach { event in
+            guard let updatedValue: Bool = event.value as? Bool else { return }
+            
+            switch event.key {
+                case .setting(.developerModeEnabled): developerModeEnabled = updatedValue
+                case .setting(.hideRecoveryPasswordPermanently): hideRecoveryPasswordPermanently = updatedValue
+                default: break
+            }
+        }
+        groupedEvents?[.feature]?.forEach { event in
+            if event.key == .feature(.serviceNetwork) {
+                guard let updatedValue: ServiceNetwork = event.value as? ServiceNetwork else { return }
+                
+                serviceNetwork = updatedValue
+            }
+            else if event.key == .feature(.forceOffline) {
+                guard let updatedValue: Bool = event.value as? Bool else { return }
+                
+                forceOffline = updatedValue
+            }
+        }
+        
+        /// Generate the new state
+        return State(
+            userSessionId: previousState.userSessionId,
+            profile: profile,
+            serviceNetwork: serviceNetwork,
+            forceOffline: forceOffline,
+            developerModeEnabled: developerModeEnabled,
+            hideRecoveryPasswordPermanently: hideRecoveryPasswordPermanently
+        )
     }
     
     private static func sections(state: State, viewModel: SettingsViewModel) -> [SectionModel] {
@@ -231,7 +259,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         size: .hero,
                         profile: state.profile,
                         profileIcon: {
-                            switch (viewModel.dependencies[feature: .serviceNetwork], viewModel.dependencies[feature: .forceOffline]) {
+                            switch (state.serviceNetwork, state.forceOffline) {
                                 case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                                 case (.testnet, true): return .letter("T", true)       // stringlint:ignore
                                 default: return .none
@@ -683,7 +711,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private func showPhotoLibraryForAvatar() {
+    @MainActor private func showPhotoLibraryForAvatar() {
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()

@@ -9,7 +9,6 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-@MainActor
 class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
@@ -20,12 +19,12 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     private let threadVariant: SessionThread.Variant
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(
+    @MainActor init(
         threadId: String,
         threadVariant: SessionThread.Variant,
         threadOnlyNotifyForMentions: Bool?,
@@ -63,6 +62,8 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     // MARK: - Content
     
     public struct State: ObservableKeyProvider {
+        let initialThreadOnlyNotifyForMentions: Bool
+        let initialThreadMutedUntilTimestamp: TimeInterval?
         let threadOnlyNotifyForMentions: Bool
         let threadMutedUntilTimestamp: TimeInterval?
         let hasChangedFromInitialState: Bool
@@ -80,6 +81,8 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
             threadMutedUntilTimestamp: TimeInterval?
         ) -> State {
             return State(
+                initialThreadOnlyNotifyForMentions: (threadOnlyNotifyForMentions == true),
+                initialThreadMutedUntilTimestamp: threadMutedUntilTimestamp,
                 threadOnlyNotifyForMentions: (threadOnlyNotifyForMentions == true),
                 threadMutedUntilTimestamp: threadMutedUntilTimestamp,
                 hasChangedFromInitialState: false
@@ -89,50 +92,53 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     
     let title: String = "sessionNotifications".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .never)
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { previousState, events in
-                /// Store mutable copies of the data to update
-                let currentState: State = (previousState ?? initialState)
-                var threadOnlyNotifyForMentions: Bool = currentState.threadOnlyNotifyForMentions
-                var threadMutedUntilTimestamp: TimeInterval? = currentState.threadMutedUntilTimestamp
-                
-                if let event: ThreadNotificationSettingsEvent = events.first?.value as? ThreadNotificationSettingsEvent {
-                    threadOnlyNotifyForMentions = event.threadOnlyNotifyForMentions
-                    threadMutedUntilTimestamp = event.threadMutedUntilTimestamp
-                }
-                
-                /// Generate the new state
-                return State(
-                    threadOnlyNotifyForMentions: threadOnlyNotifyForMentions,
-                    threadMutedUntilTimestamp: threadMutedUntilTimestamp,
-                    hasChangedFromInitialState: (
-                        threadOnlyNotifyForMentions != initialState.threadOnlyNotifyForMentions ||
-                        threadMutedUntilTimestamp != initialState.threadMutedUntilTimestamp
-                    )
-                )
-            }
+            .using(dependencies: dependencies)
+            .query(ThreadNotificationSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
                 // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
-                let oldState: State = self.internalState
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
             }
     }
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = observableState
-        .pendingTableDataSubject
-        .map { [weak self] _ -> SessionButton.Info? in
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var threadOnlyNotifyForMentions: Bool = previousState.threadOnlyNotifyForMentions
+        var threadMutedUntilTimestamp: TimeInterval? = previousState.threadMutedUntilTimestamp
+        
+        if let event: ThreadNotificationSettingsEvent = events.first?.value as? ThreadNotificationSettingsEvent {
+            threadOnlyNotifyForMentions = event.threadOnlyNotifyForMentions
+            threadMutedUntilTimestamp = event.threadMutedUntilTimestamp
+        }
+        
+        /// Generate the new state
+        return State(
+            initialThreadOnlyNotifyForMentions: previousState.initialThreadOnlyNotifyForMentions,
+            initialThreadMutedUntilTimestamp: previousState.initialThreadMutedUntilTimestamp,
+            threadOnlyNotifyForMentions: threadOnlyNotifyForMentions,
+            threadMutedUntilTimestamp: threadMutedUntilTimestamp,
+            hasChangedFromInitialState: (
+                threadOnlyNotifyForMentions != previousState.initialThreadOnlyNotifyForMentions ||
+                threadMutedUntilTimestamp != previousState.initialThreadMutedUntilTimestamp
+            )
+        )
+    }
+    
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = $internalState
+        .map { [weak self] state -> SessionButton.Info? in
             return SessionButton.Info(
                 style: .bordered,
                 title: "set".localized(),
-                isEnabled: (self?.internalState.hasChangedFromInitialState == true),
+                isEnabled: state.hasChangedFromInitialState,
                 accessibility: Accessibility(
                     identifier: "Set button",
                     label: "Set button"
@@ -244,7 +250,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     
     // MARK: - Functions
     
-    private func saveChanges() {
+    @MainActor private func saveChanges() {
         guard internalState.hasChangedFromInitialState else { return }
         
         dependencies[singleton: .notificationsManager].updateSettings(

@@ -1013,7 +1013,7 @@ public extension ConfirmationModal.Info {
             style: ImageStyle,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
-            onClick: ((@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
+            onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
         case inputConfirmation(

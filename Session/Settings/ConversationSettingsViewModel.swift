@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-@MainActor
 class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = Section
     
@@ -17,12 +16,12 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.internalState = State.initialState()
         
@@ -81,46 +80,11 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     let title: String = "sessionConversations".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .never)
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [dependencies] previousState, events in
-                /// Store mutable copies of the data to update
-                let currentState: State = (previousState ?? initialState)
-                var trimOpenGroupMessagesOlderThanSixMonths: Bool = currentState.trimOpenGroupMessagesOlderThanSixMonths
-                var shouldAutoPlayConsecutiveAudioMessages: Bool = currentState.shouldAutoPlayConsecutiveAudioMessages
-                
-                if previousState == nil {
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        trimOpenGroupMessagesOlderThanSixMonths = libSession.get(.trimOpenGroupMessagesOlderThanSixMonths)
-                        shouldAutoPlayConsecutiveAudioMessages = libSession.get(.shouldAutoPlayConsecutiveAudioMessages)
-                    }
-                }
-                
-                /// Process any event changes
-                events.forEach { event in
-                    guard let updatedValue: Bool = event.value as? Bool else { return }
-                    
-                    switch event.key {
-                        case .setting(.trimOpenGroupMessagesOlderThanSixMonths):
-                            trimOpenGroupMessagesOlderThanSixMonths = updatedValue
-                            
-                        case .setting(.shouldAutoPlayConsecutiveAudioMessages):
-                            shouldAutoPlayConsecutiveAudioMessages = updatedValue
-                        
-                        default: break
-                    }
-                }
-                
-                /// Generate the new state
-                return State(
-                    trimOpenGroupMessagesOlderThanSixMonths: trimOpenGroupMessagesOlderThanSixMonths,
-                    shouldAutoPlayConsecutiveAudioMessages: shouldAutoPlayConsecutiveAudioMessages
-                )
-            }
+            .using(dependencies: dependencies)
+            .query(ConversationSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
@@ -129,6 +93,44 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
             }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var trimOpenGroupMessagesOlderThanSixMonths: Bool = previousState.trimOpenGroupMessagesOlderThanSixMonths
+        var shouldAutoPlayConsecutiveAudioMessages: Bool = previousState.shouldAutoPlayConsecutiveAudioMessages
+        
+        if isInitialQuery {
+            dependencies.mutate(cache: .libSession) { libSession in
+                trimOpenGroupMessagesOlderThanSixMonths = libSession.get(.trimOpenGroupMessagesOlderThanSixMonths)
+                shouldAutoPlayConsecutiveAudioMessages = libSession.get(.shouldAutoPlayConsecutiveAudioMessages)
+            }
+        }
+        
+        /// Process any event changes
+        events.forEach { event in
+            guard let updatedValue: Bool = event.value as? Bool else { return }
+            
+            switch event.key {
+                case .setting(.trimOpenGroupMessagesOlderThanSixMonths):
+                    trimOpenGroupMessagesOlderThanSixMonths = updatedValue
+                    
+                case .setting(.shouldAutoPlayConsecutiveAudioMessages):
+                    shouldAutoPlayConsecutiveAudioMessages = updatedValue
+                
+                default: break
+            }
+        }
+        
+        /// Generate the new state
+        return State(
+            trimOpenGroupMessagesOlderThanSixMonths: trimOpenGroupMessagesOlderThanSixMonths,
+            shouldAutoPlayConsecutiveAudioMessages: shouldAutoPlayConsecutiveAudioMessages
+        )
     }
     
     private static func sections(

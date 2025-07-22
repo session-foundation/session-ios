@@ -27,7 +27,7 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
     
     // MARK: - Deduping
     
-    func hasAtLeastOneDedupeRecord(threadId: String) -> Bool {
+    func hasDedupeRecordSinceLastCleared(threadId: String) -> Bool {
         return mock(args: [threadId])
     }
     
@@ -41,6 +41,10 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
     
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws {
         return try mockThrowing(args: [threadId, uniqueIdentifier])
+    }
+    
+    func upsertLastClearedRecord(threadId: String) throws {
+        try mockThrowingNoReturn(args: [threadId])
     }
     
     // MARK: - Config Dumps
@@ -96,8 +100,8 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         return mock()
     }
     
-    func saveMessage(_ message: SnodeReceivedMessage?, isUnread: Bool) throws {
-        try mockThrowingNoReturn(args: [message, isUnread])
+    func saveMessage(_ message: SnodeReceivedMessage?, threadId: String, isUnread: Bool, isMessageRequest: Bool) throws {
+        try mockThrowingNoReturn(args: [message, threadId, isUnread, isMessageRequest])
     }
     
     func willLoadMessages() {

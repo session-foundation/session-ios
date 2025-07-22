@@ -504,34 +504,59 @@ public extension Interaction {
         _ db: ObservingDatabase,
         using dependencies: Dependencies
     ) throws -> Int {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
+        struct ThreadIdVariant: Decodable, Hashable, FetchableRecord {
+            let id: String
+            let variant: SessionThread.Variant
+        }
         
-        return try Interaction
-            .filter(Interaction.Columns.wasRead == false)
-            .filter(Interaction.Variant.variantsToIncrementUnreadCount.contains(Interaction.Columns.variant))
+        let potentialMessageRequestThreadInfo: Set<ThreadIdVariant> = try SessionThread
+            .select(.id, .variant)
             .filter(
-                // Only count mentions if 'onlyNotifyForMentions' is set
-                thread[.onlyNotifyForMentions] == false ||
-                Interaction.Columns.hasMention == true
+                SessionThread.Columns.variant == SessionThread.Variant.contact ||
+                SessionThread.Columns.variant == SessionThread.Variant.group
             )
-            .joining(
-                required: Interaction.thread
-                    .aliased(thread)
-                    .joining(optional: SessionThread.contact)
-                    .joining(optional: SessionThread.closedGroup)
-                    .filter(
-                        // Ignore muted threads
-                        SessionThread.Columns.mutedUntilTimestamp == nil ||
-                        SessionThread.Columns.mutedUntilTimestamp < dependencies.dateNow.timeIntervalSince1970
-                    )
-                    .filter(
-                        // Ignore message request threads
-                        SessionThread.Columns.variant != SessionThread.Variant.contact ||
-                        !SessionThread.isMessageRequest(userSessionId: userSessionId)
-                    )
+            .asRequest(of: ThreadIdVariant.self)
+            .fetchSet(db)
+        let messageRequestThreadIds: Set<String> = Set(
+            dependencies.mutate(cache: .libSession) { libSession in
+                potentialMessageRequestThreadInfo.compactMap {
+                    guard libSession.isMessageRequest(threadId: $0.id, threadVariant: $0.variant) else {
+                        return nil
+                    }
+                    
+                    return $0.id
+                }
+            }
+        )
+        
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let request: SQLRequest<Int64> = """
+            SELECT \(interaction[.id])
+            FROM \(Interaction.self)
+            JOIN \(SessionThread.self) ON (
+                \(thread[.id]) = \(interaction[.threadId]) AND
+                -- Ignore message request threads (these should be counted by the PN extension but
+                -- seeing the "Message Requests" banner is considered marking the "Unread Message
+                -- Request" notification as read)
+                \(thread[.id]) NOT IN \(messageRequestThreadIds) AND (
+                    -- Ignore muted threads
+                    \(thread[.mutedUntilTimestamp]) IS NULL OR
+                    \(thread[.mutedUntilTimestamp]) < \(dependencies.dateNow.timeIntervalSince1970)
+                )
             )
-            .fetchCount(db)
+            WHERE (
+                \(interaction[.wasRead]) = false AND
+                \(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount) AND (
+                    -- Only count mentions if 'onlyNotifyForMentions' is set
+                    \(thread[.onlyNotifyForMentions]) = false ||
+                    \(interaction[.hasMention])
+                )
+            )
+        """
+        
+        return try request.fetchCount(db)
     }
     
     /// This will update the `wasRead` state the the interaction
@@ -1121,9 +1146,8 @@ public extension Interaction {
 // MARK: - Interaction.Variant Convenience
 
 public extension Interaction.Variant {
-    static let variantsToIncrementUnreadCount: [Interaction.Variant] = [
-        .standardIncoming, .infoCall
-    ]
+    static let variantsToIncrementUnreadCount: [Interaction.Variant] = Interaction.Variant.allCases
+        .filter { $0.canBeUnread }
     static let variantsWhichSupportReadReceipts: Set<Interaction.Variant> = [
         .standardOutgoing
     ]

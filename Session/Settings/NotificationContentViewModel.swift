@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-@MainActor
 class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = Preferences.NotificationPreviewType
     
@@ -17,12 +16,12 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.internalState = State.initialState()
         
@@ -56,28 +55,11 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     
     let title: String = "notificationsContent".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .never)
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [dependencies] previousState, events in
-                /// Store mutable copies of the data to update
-                let currentState: State = (previousState ?? initialState)
-                var previewType: Preferences.NotificationPreviewType = currentState.previewType
-                
-                if previousState == nil {
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        previewType = (libSession.get(.preferencesNotificationPreviewType) ?? previewType)
-                    }
-                }
-                
-                /// Generate the new state
-                return State(
-                    previewType: previewType
-                )
-            }
+            .using(dependencies: dependencies)
+            .query(NotificationContentViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
@@ -85,6 +67,25 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
             }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var previewType: Preferences.NotificationPreviewType = previousState.previewType
+        
+        if isInitialQuery {
+            dependencies.mutate(cache: .libSession) { libSession in
+                previewType = (libSession.get(.preferencesNotificationPreviewType) ?? previewType)
+            }
+        }
+        
+        return State(
+            previewType: previewType
+        )
     }
     
     private static func sections(state: State, viewModel: NotificationContentViewModel) -> [SectionModel] {

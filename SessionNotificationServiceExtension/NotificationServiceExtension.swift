@@ -317,7 +317,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         timestampMs: serverTimestampMs
                     )
                 ),
-                isUnread: false
+                threadId: swarmPublicKey,
+                isUnread: false,
+                isMessageRequest: false
             )
         }
         catch { Log.error(.cat, "Failed to save config message to disk: \(error).") }
@@ -450,6 +452,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     notification,
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    isMessageRequest: dependencies.mutate(cache: .libSession) { libSession in
+                        libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+                    },
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds
                 )
@@ -525,6 +530,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     notification,
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    isMessageRequest: dependencies.mutate(cache: .libSession) { libSession in
+                        libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+                    },
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds
                 )
@@ -582,6 +590,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     notification,
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    isMessageRequest: dependencies.mutate(cache: .libSession) { libSession in
+                        libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+                    },
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds
                 )
@@ -666,16 +677,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         }
                         
                     case (true, false, .preOffer):
+                        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { libSession in
+                            libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+                        }
+                        
                         guard
                             let sender: String = callMessage.sender,
                             let sentTimestampMs: UInt64 = callMessage.sentTimestampMs,
                             threadVariant == .contact,
-                            dependencies.mutate(cache: .libSession, { cache in
-                                !cache.isMessageRequest(
-                                    threadId: threadId,
-                                    threadVariant: threadVariant
-                                )
-                            })
+                            !isMessageRequest
                         else { throw MessageReceiverError.invalidMessage }
                         
                         /// Save the message and generate any deduplication files needed
@@ -683,6 +693,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             notification,
                             threadId: threadId,
                             threadVariant: threadVariant,
+                            isMessageRequest: isMessageRequest,
                             messageInfo: messageInfo,
                             currentUserSessionIds: currentUserSessionIds
                         )
@@ -709,6 +720,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     notification,
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    isMessageRequest: dependencies.mutate(cache: .libSession) { libSession in
+                        libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+                    },
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds
                 )
@@ -726,7 +740,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             )
         }
         let shouldShowForMessageRequest: Bool = (!isMessageRequest ? false :
-            !dependencies[singleton: .extensionHelper].hasAtLeastOneDedupeRecord(threadId: threadId)
+            !dependencies[singleton: .extensionHelper].hasDedupeRecordSinceLastCleared(threadId: threadId)
         )
         
         /// Save the message and generate any deduplication files needed
@@ -734,6 +748,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             notification,
             threadId: threadId,
             threadVariant: threadVariant,
+            isMessageRequest: isMessageRequest,
             messageInfo: messageInfo,
             currentUserSessionIds: currentUserSessionIds
         )
@@ -780,6 +795,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadId: String,
         threadVariant: SessionThread.Variant,
+        isMessageRequest: Bool,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>
     ) throws {
@@ -802,6 +818,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         timestampMs: Int64(sentTimestamp)
                     )
                 ),
+                threadId: threadId,
                 isUnread: (
                     /// Ensure the type of message can actually be unread
                     Interaction.Variant(
@@ -843,7 +860,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         /// Otherwise the call should increment the count
                         return true
                     }()
-                )
+                ),
+                isMessageRequest: isMessageRequest
             )
         }
         catch { Log.error(.cat, "Failed to save message to disk: \(error).") }
@@ -917,7 +935,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// If it was a `decryptionFailed` error, but it was for a config namespace then just fail silently (don't
             /// want to show the fallback notification in this case)
             case (MessageReceiverError.decryptionFailed, _, true):
-                self.completeSilenty(info, .errorMessageHandling(.decryptionFailed))
+                self.completeSilenty(info, .errorMessageHandling(.decryptionFailed, info.metadata))
                 
             /// If it was a `decryptionFailed` error for a group conversation and the group doesn't exist or
             /// doesn't have auth info (ie. group destroyed or member kicked), then just fail silently (don't want
@@ -929,7 +947,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         cache.hasCredentials(groupSessionId: SessionId(.group, hex: threadId))
                     })
                 else {
-                    self.completeSilenty(info, .errorMessageHandling(.decryptionFailed))
+                    self.completeSilenty(info, .errorMessageHandling(.decryptionFailed, info.metadata))
                     return
                 }
                 
@@ -938,7 +956,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     info,
                     threadVariant: processedNotification?.threadVariant,
                     threadDisplayName: processedNotification?.threadDisplayName,
-                    resolution: .errorMessageHandling(.decryptionFailed)
+                    resolution: .errorMessageHandling(.decryptionFailed, info.metadata)
                 )
                 
             case (let msgError as MessageReceiverError, _, _):
@@ -946,7 +964,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     info,
                     threadVariant: processedNotification?.threadVariant,
                     threadDisplayName: processedNotification?.threadDisplayName,
-                    resolution: .errorMessageHandling(msgError)
+                    resolution: .errorMessageHandling(msgError, info.metadata)
                 )
                 
             default:
@@ -1087,7 +1105,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             threadId: info.metadata.accountId,
             threadVariant: targetThreadVariant
         )
-        Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message for message from namespace: \(info.metadata.namespace), requestId: \(info.requestId).")
+        let hasOrigin: Bool = resolution.description.contains(info.metadata.messageOriginString)
+        Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message\(hasOrigin ? "" : " for message from \(info.metadata.messageOriginString)"), requestId: \(info.requestId).")
         
         /// Clear the logger
         Log.flush()

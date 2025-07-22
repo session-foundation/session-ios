@@ -9,7 +9,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-@MainActor
 class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
@@ -20,12 +19,16 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     private let shouldAutomaticallyShowCallModal: Bool
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(shouldShowCloseButton: Bool = false, shouldAutomaticallyShowCallModal: Bool = false, using dependencies: Dependencies) {
+    @MainActor init(
+        shouldShowCloseButton: Bool = false,
+        shouldAutomaticallyShowCallModal: Bool = false,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.shouldShowCloseButton = shouldShowCloseButton
         self.shouldAutomaticallyShowCallModal = shouldAutomaticallyShowCallModal
@@ -133,63 +136,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     
     let title: String = "sessionPrivacy".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .never)
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [dependencies] previousState, events -> State in
-                let currentState: State = (previousState ?? initialState)
-                var isScreenLockEnabled: Bool = currentState.isScreenLockEnabled
-                var checkForCommunityMessageRequests: Bool = currentState.checkForCommunityMessageRequests
-                var areReadReceiptsEnabled: Bool = currentState.areReadReceiptsEnabled
-                var typingIndicatorsEnabled: Bool = currentState.typingIndicatorsEnabled
-                var areLinkPreviewsEnabled: Bool = currentState.areLinkPreviewsEnabled
-                var areCallsEnabled: Bool = currentState.areCallsEnabled
-                var localNetworkPermission: Bool = currentState.localNetworkPermission
-                
-                /// If we have no previous state then we need to fetch the initial state
-                if previousState == nil {
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        isScreenLockEnabled = libSession.get(.isScreenLockEnabled)
-                        checkForCommunityMessageRequests = libSession.get(.checkForCommunityMessageRequests)
-                        areReadReceiptsEnabled = libSession.get(.areReadReceiptsEnabled)
-                        typingIndicatorsEnabled = libSession.get(.typingIndicatorsEnabled)
-                        areLinkPreviewsEnabled = libSession.get(.areLinkPreviewsEnabled)
-                        areCallsEnabled = libSession.get(.areCallsEnabled)
-                        localNetworkPermission = libSession.get(.lastSeenHasLocalNetworkPermission)
-                    }
-                }
-                
-                /// Process any event changes
-                events.forEach { event in
-                    guard let updatedValue: Bool = event.value as? Bool else { return }
-                    
-                    switch event.key {
-                        case .setting(.isScreenLockEnabled): isScreenLockEnabled = updatedValue
-                        case .setting(.checkForCommunityMessageRequests):
-                            checkForCommunityMessageRequests = updatedValue
-                        case .setting(.areReadReceiptsEnabled): areReadReceiptsEnabled = updatedValue
-                        case .setting(.typingIndicatorsEnabled): typingIndicatorsEnabled = updatedValue
-                        case .setting(.areLinkPreviewsEnabled): areLinkPreviewsEnabled = updatedValue
-                        case .setting(.areCallsEnabled): areCallsEnabled = updatedValue
-                        case .setting(.lastSeenHasLocalNetworkPermission): localNetworkPermission = updatedValue
-                            
-                        default: break
-                    }
-                }
-                
-                return State(
-                    isScreenLockEnabled: isScreenLockEnabled,
-                    checkForCommunityMessageRequests: checkForCommunityMessageRequests,
-                    areReadReceiptsEnabled: areReadReceiptsEnabled,
-                    typingIndicatorsEnabled: typingIndicatorsEnabled,
-                    areLinkPreviewsEnabled: areLinkPreviewsEnabled,
-                    areCallsEnabled: areCallsEnabled,
-                    localNetworkPermission: localNetworkPermission
-                )
-            }
+            .using(dependencies: dependencies)
+            .query(PrivacySettingsViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
@@ -198,6 +149,62 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
             }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var isScreenLockEnabled: Bool = previousState.isScreenLockEnabled
+        var checkForCommunityMessageRequests: Bool = previousState.checkForCommunityMessageRequests
+        var areReadReceiptsEnabled: Bool = previousState.areReadReceiptsEnabled
+        var typingIndicatorsEnabled: Bool = previousState.typingIndicatorsEnabled
+        var areLinkPreviewsEnabled: Bool = previousState.areLinkPreviewsEnabled
+        var areCallsEnabled: Bool = previousState.areCallsEnabled
+        var localNetworkPermission: Bool = previousState.localNetworkPermission
+        
+        /// If we have no previous state then we need to fetch the initial state
+        if isInitialQuery {
+            dependencies.mutate(cache: .libSession) { libSession in
+                isScreenLockEnabled = libSession.get(.isScreenLockEnabled)
+                checkForCommunityMessageRequests = libSession.get(.checkForCommunityMessageRequests)
+                areReadReceiptsEnabled = libSession.get(.areReadReceiptsEnabled)
+                typingIndicatorsEnabled = libSession.get(.typingIndicatorsEnabled)
+                areLinkPreviewsEnabled = libSession.get(.areLinkPreviewsEnabled)
+                areCallsEnabled = libSession.get(.areCallsEnabled)
+                localNetworkPermission = libSession.get(.lastSeenHasLocalNetworkPermission)
+            }
+        }
+        
+        /// Process any event changes
+        events.forEach { event in
+            guard let updatedValue: Bool = event.value as? Bool else { return }
+            
+            switch event.key {
+                case .setting(.isScreenLockEnabled): isScreenLockEnabled = updatedValue
+                case .setting(.checkForCommunityMessageRequests):
+                    checkForCommunityMessageRequests = updatedValue
+                case .setting(.areReadReceiptsEnabled): areReadReceiptsEnabled = updatedValue
+                case .setting(.typingIndicatorsEnabled): typingIndicatorsEnabled = updatedValue
+                case .setting(.areLinkPreviewsEnabled): areLinkPreviewsEnabled = updatedValue
+                case .setting(.areCallsEnabled): areCallsEnabled = updatedValue
+                case .setting(.lastSeenHasLocalNetworkPermission): localNetworkPermission = updatedValue
+                    
+                default: break
+            }
+        }
+        
+        return State(
+            isScreenLockEnabled: isScreenLockEnabled,
+            checkForCommunityMessageRequests: checkForCommunityMessageRequests,
+            areReadReceiptsEnabled: areReadReceiptsEnabled,
+            typingIndicatorsEnabled: typingIndicatorsEnabled,
+            areLinkPreviewsEnabled: areLinkPreviewsEnabled,
+            areCallsEnabled: areCallsEnabled,
+            localNetworkPermission: localNetworkPermission
+        )
     }
     
     private static func sections(

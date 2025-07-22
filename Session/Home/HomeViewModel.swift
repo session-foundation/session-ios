@@ -16,7 +16,6 @@ public extension Log.Category {
 
 // MARK: - HomeViewModel
 
-@MainActor
 public class HomeViewModel: NavigatableStateHolder {
     public let navigatableState: NavigatableState = NavigatableState()
     
@@ -32,29 +31,29 @@ public class HomeViewModel: NavigatableStateHolder {
     
     // MARK: - Variables
     
-    nonisolated fileprivate static let observationName: String = "HomeViewModel"    // stringlint:ignore
-    @MainActor public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
+    private static let observationName: String = "HomeViewModel"    // stringlint:ignore
+    private static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     public let dependencies: Dependencies
     private let userSessionId: SessionId
-    
-    /// This flag acts as a lock on the page loading logic, while it's weird to modify state within the `query` that isn't on the `State`
-    /// type, this is a primarily an optimisation to prevent the `loadPage` events from triggering multiple times since that can happen
-    /// due to how the UI is setup
-    private var currentlyHandlingPageLoad: Bool = false
 
     /// This value is the current state of the view
-    @Published private(set) var state: State
+    @MainActor @Published private(set) var state: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
         self.state = State.initialState(using: dependencies)
         
-        self.bindState()
+        /// Bind the state
+        self.observationTask = ObservationBuilder(initialValue: self.state)
+            .debounce(for: .milliseconds(250))
+            .using(dependencies: dependencies)
+            .query(HomeViewModel.queryState)
+            .assign { [weak self] updatedState in self?.state = updatedState }
     }
     
     // MARK: - State
@@ -116,7 +115,7 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        @MainActor static func initialState(using dependencies: Dependencies) -> State {
+        static func initialState(using dependencies: Dependencies) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -142,211 +141,213 @@ public class HomeViewModel: NavigatableStateHolder {
             )
         }
     }
-
-    private func bindState() {
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
         let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
-        let initialState: State = State.initialState(using: dependencies)
+        var userProfile: Profile = previousState.userProfile
+        var hasSavedThread: Bool = previousState.hasSavedThread
+        var hasSavedMessage: Bool = previousState.hasSavedMessage
+        var showViewedSeedBanner: Bool = previousState.showViewedSeedBanner
+        var hasHiddenMessageRequests: Bool = previousState.hasHiddenMessageRequests
+        var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
+        var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
+        var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
         
-        observationTask = ObservationBuilder
-            .debounce(for: .milliseconds(250))
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [weak self, userSessionId, dependencies] previousState, events in
-                guard let self = self else { return initialState }
-                
-                /// Store mutable copies of the data to update
-                let currentState: State = (previousState ?? initialState)
-                var userProfile: Profile = currentState.userProfile
-                var hasSavedThread: Bool = currentState.hasSavedThread
-                var hasSavedMessage: Bool = currentState.hasSavedMessage
-                var showViewedSeedBanner: Bool = currentState.showViewedSeedBanner
-                var hasHiddenMessageRequests: Bool = currentState.hasHiddenMessageRequests
-                var unreadMessageRequestThreadCount: Int = currentState.unreadMessageRequestThreadCount
-                var loadResult: PagedData.LoadResult = currentState.loadedPageInfo.asResult
-                var itemCache: [String: SessionThreadViewModel] = currentState.itemCache
-                
-                /// Store a local copy of the events so we can manipulate it based on the state changes
-                var eventsToProcess: [ObservedEvent] = events
-                
-                /// If we have no previous state then we need to fetch the initial state
-                if previousState == nil {
-                    /// Insert a fake event to force the initial page load
-                    eventsToProcess.append(ObservedEvent(
-                        key: .loadPage(HomeViewModel.observationName),
-                        value: LoadPageEvent.initial
-                    ))
-                    
-                    /// Load the values needed from `libSession`
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        userProfile = libSession.profile
-                        showViewedSeedBanner = !libSession.get(.hasViewedSeed)
-                        hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
-                    }
-                    
-                    /// If we haven't hidden the message requests banner then we should include that in the initial fetch
-                    if !hasHiddenMessageRequests {
-                        eventsToProcess.append(ObservedEvent(
-                            key: .messageRequestUnreadMessageReceived,
-                            value: nil
-                        ))
-                    }
-                }
-                
-                /// If we have a `loadPage` event then we need to toggle the lock to prevent duplicate page loads from triggering
-                /// queries (if we are already loading a page elsewhere then just remove this event)
-                if eventsToProcess.contains(where: { $0.key.generic == .loadPage }) {
-                    if self.currentlyHandlingPageLoad {
-                        eventsToProcess = eventsToProcess.filter { $0.key.generic != .loadPage }
-                    }
-                    else {
-                        self.currentlyHandlingPageLoad = true
-                    }
-                }
-                defer {
-                    if self.currentlyHandlingPageLoad {
-                        self.currentlyHandlingPageLoad = false
-                    }
-                }
-                
-                /// If there are no events we want to process then just return the current state
-                guard !eventsToProcess.isEmpty else { return currentState }
-                
-                /// Split the events between those that need database access and those that don't
-                let splitEvents: [EventDataRequirement: Set<ObservedEvent>] = eventsToProcess
-                    .reduce(into: [:]) { result, next in
-                        switch next.dataRequirement {
-                            case .databaseQuery: result[.databaseQuery, default: []].insert(next)
-                            case .other: result[.other, default: []].insert(next)
-                            case .bothDatabaseQueryAndOther:
-                                result[.databaseQuery, default: []].insert(next)
-                                result[.other, default: []].insert(next)
-                        }
-                    }
-                
-                /// Handle database events first
-                if let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
-                    do {
-                        var fetchedConversations: [SessionThreadViewModel] = []
-                        let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
-                            events: databaseEvents,
-                            cache: itemCache
-                        )
-                        let loadPageEvent: LoadPageEvent? = databaseEvents
-                            .first(where: { $0.key.generic == .loadPage })?
-                            .value as? LoadPageEvent
-                        
-                        /// Identify any inserted/deleted records
-                        var insertedIds: Set<String> = []
-                        var deletedIds: Set<String> = []
-                        
-                        databaseEvents.forEach { event in
-                            switch (event.key.generic, event.value) {
-                                case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
-                                    insertedIds.insert(threadId)
-                                    
-                                case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
-                                    insertedIds.insert(event.id)
-                                    
-                                case (GenericObservableKey(.messageCreatedInAnyConversation), let event as MessageEvent):
-                                    insertedIds.insert(event.threadId)
-                                    
-                                case (.conversationDeleted, let event as ConversationEvent):
-                                    deletedIds.insert(event.id)
-                                    
-                                default: break
-                            }
-                        }
-                        
-                        try await dependencies[singleton: .storage].readAsync { db in
-                            /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
-                            if databaseEvents.contains(where: { $0.requiresMessageRequestCountUpdate }) {
-                                unreadMessageRequestThreadCount = try SessionThread
-                                    .unreadMessageRequestsCountQuery(userSessionId: userSessionId)
-                                    .fetchOne(db)
-                                    .defaulting(to: 0)
-                            }
-                            
-                            /// Update loaded page info as needed
-                            if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
-                                loadResult = try loadResult.load(
-                                    db,
-                                    target: (
-                                        loadPageEvent?.target(with: loadResult) ??
-                                        .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
-                                    )
-                                )
-                            }
-                            
-                            /// Fetch any records needed
-                            fetchedConversations.append(
-                                contentsOf: try SessionThreadViewModel
-                                    .query(
-                                        userSessionId: userSessionId,
-                                        groupSQL: SessionThreadViewModel.groupSQL,
-                                        orderSQL: SessionThreadViewModel.homeOrderSQL,
-                                        ids: Array(idsNeedingRequery) + loadResult.newIds
-                                    )
-                                    .fetchAll(db)
-                            )
-                        }
-                        
-                        /// Update the `itemCache` with the newly fetched values
-                        fetchedConversations.forEach { itemCache[$0.threadId] = $0 }
-                        
-                        /// Remove any deleted values
-                        deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
-                    } catch {
-                        let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
-                        Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
-                    }
-                }
-                
-                /// Then handle non-database events
-                let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
-                    .reduce(into: [:]) { result, event in
-                        result[event.key.generic, default: []].insert(event)
-                    }
-                groupedOtherEvents?[.profile]?.forEach { event in
-                    switch (event.value as? ProfileEvent)?.change {
-                        case .name(let name): userProfile = userProfile.with(name: name)
-                        case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
-                        case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
-                        default: break
-                    }
-                }
-                groupedOtherEvents?[.setting]?.forEach { event in
-                    guard let updatedValue: Bool = event.value as? Bool else { return }
-                    
-                    switch event.key {
-                        case .setting(.hasSavedThread): hasSavedThread = (updatedValue || hasSavedThread)
-                        case .setting(.hasSavedMessage): hasSavedMessage = (updatedValue || hasSavedMessage)
-                        case .setting(.hasViewedSeed): showViewedSeedBanner = !updatedValue // Inverted
-                        case .setting(.hasHiddenMessageRequests): hasHiddenMessageRequests = updatedValue
-                        default: break
-                    }
-                }
-                
-                /// Generate the new state
-                let updatedState: State = State(
-                    viewState: (loadResult.info.totalCount == 0 ?
-                        .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
-                        .loaded
-                    ),
-                    userProfile: userProfile,
-                    hasSavedThread: hasSavedThread,
-                    hasSavedMessage: hasSavedMessage,
-                    showViewedSeedBanner: showViewedSeedBanner,
-                    hasHiddenMessageRequests: hasHiddenMessageRequests,
-                    unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
-                    loadedPageInfo: loadResult.info,
-                    itemCache: itemCache
-                )
-                
-                return updatedState
+        /// Store a local copy of the events so we can manipulate it based on the state changes
+        var eventsToProcess: [ObservedEvent] = events
+        
+        /// If this is the initial query then we need to properly fetch the initial state
+        if isInitialQuery {
+            /// Insert a fake event to force the initial page load
+            eventsToProcess.append(ObservedEvent(
+                key: .loadPage(HomeViewModel.observationName),
+                value: LoadPageEvent.initial
+            ))
+            
+            /// Load the values needed from `libSession`
+            dependencies.mutate(cache: .libSession) { libSession in
+                userProfile = libSession.profile
+                showViewedSeedBanner = !libSession.get(.hasViewedSeed)
+                hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
             }
-            .assign { [weak self] updatedState in self?.state = updatedState }
+            
+            /// If we haven't hidden the message requests banner then we should include that in the initial fetch
+            if !hasHiddenMessageRequests {
+                eventsToProcess.append(ObservedEvent(
+                    key: .messageRequestUnreadMessageReceived,
+                    value: nil
+                ))
+            }
+        }
+        
+        /// If there are no events we want to process then just return the current state
+        guard !eventsToProcess.isEmpty else { return previousState }
+        
+        /// Split the events between those that need database access and those that don't
+        let splitEvents: [EventDataRequirement: Set<ObservedEvent>] = eventsToProcess
+            .reduce(into: [:]) { result, next in
+                switch next.dataRequirement {
+                    case .databaseQuery: result[.databaseQuery, default: []].insert(next)
+                    case .other: result[.other, default: []].insert(next)
+                    case .bothDatabaseQueryAndOther:
+                        result[.databaseQuery, default: []].insert(next)
+                        result[.other, default: []].insert(next)
+                }
+            }
+        
+        /// Handle database events first
+        if let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
+            do {
+                var fetchedConversations: [SessionThreadViewModel] = []
+                let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
+                    events: databaseEvents,
+                    cache: itemCache
+                )
+                let loadPageEvent: LoadPageEvent? = databaseEvents
+                    .first(where: { $0.key.generic == .loadPage })?
+                    .value as? LoadPageEvent
+                
+                /// Identify any inserted/deleted records
+                var insertedIds: Set<String> = []
+                var deletedIds: Set<String> = []
+                
+                databaseEvents.forEach { event in
+                    switch (event.key.generic, event.value) {
+                        case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
+                            insertedIds.insert(threadId)
+                            
+                        case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
+                            insertedIds.insert(event.id)
+                            
+                        case (GenericObservableKey(.messageCreatedInAnyConversation), let event as MessageEvent):
+                            insertedIds.insert(event.threadId)
+                            
+                        case (.conversationDeleted, let event as ConversationEvent):
+                            deletedIds.insert(event.id)
+                            
+                        default: break
+                    }
+                }
+                
+                try await dependencies[singleton: .storage].readAsync { db in
+                    /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
+                    if databaseEvents.contains(where: { $0.requiresMessageRequestCountUpdate }) {
+                        // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
+                        struct ThreadIdVariant: Decodable, Hashable, FetchableRecord {
+                            let id: String
+                            let variant: SessionThread.Variant
+                        }
+                        
+                        let potentialMessageRequestThreadInfo: Set<ThreadIdVariant> = try SessionThread
+                            .select(.id, .variant)
+                            .filter(
+                                SessionThread.Columns.variant == SessionThread.Variant.contact ||
+                                SessionThread.Columns.variant == SessionThread.Variant.group
+                            )
+                            .asRequest(of: ThreadIdVariant.self)
+                            .fetchSet(db)
+                        let messageRequestThreadIds: Set<String> = Set(
+                            dependencies.mutate(cache: .libSession) { libSession in
+                                potentialMessageRequestThreadInfo.compactMap {
+                                    guard libSession.isMessageRequest(threadId: $0.id, threadVariant: $0.variant) else {
+                                        return nil
+                                    }
+                                    
+                                    return $0.id
+                                }
+                            }
+                        )
+                        
+                        unreadMessageRequestThreadCount = try SessionThread
+                            .unreadMessageRequestsQuery(messageRequestThreadIds: messageRequestThreadIds)
+                            .fetchCount(db)
+                    }
+                    
+                    /// Update loaded page info as needed
+                    if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
+                        loadResult = try loadResult.load(
+                            db,
+                            target: (
+                                loadPageEvent?.target(with: loadResult) ??
+                                .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
+                            )
+                        )
+                    }
+                    
+                    /// Fetch any records needed
+                    fetchedConversations.append(
+                        contentsOf: try SessionThreadViewModel
+                            .query(
+                                userSessionId: dependencies[cache: .general].sessionId,
+                                groupSQL: SessionThreadViewModel.groupSQL,
+                                orderSQL: SessionThreadViewModel.homeOrderSQL,
+                                ids: Array(idsNeedingRequery) + loadResult.newIds
+                            )
+                            .fetchAll(db)
+                    )
+                }
+                
+                /// Update the `itemCache` with the newly fetched values
+                fetchedConversations.forEach { itemCache[$0.threadId] = $0 }
+                
+                /// Remove any deleted values
+                deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
+            } catch {
+                let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
+            }
+        }
+        
+        /// Then handle non-database events
+        let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
+            .reduce(into: [:]) { result, event in
+                result[event.key.generic, default: []].insert(event)
+            }
+        groupedOtherEvents?[.profile]?.forEach { event in
+            switch (event.value as? ProfileEvent)?.change {
+                case .name(let name): userProfile = userProfile.with(name: name)
+                case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
+                case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
+                default: break
+            }
+        }
+        groupedOtherEvents?[.setting]?.forEach { event in
+            guard let updatedValue: Bool = event.value as? Bool else { return }
+            
+            switch event.key {
+                case .setting(.hasSavedThread): hasSavedThread = (updatedValue || hasSavedThread)
+                case .setting(.hasSavedMessage): hasSavedMessage = (updatedValue || hasSavedMessage)
+                case .setting(.hasViewedSeed): showViewedSeedBanner = !updatedValue // Inverted
+                case .setting(.hasHiddenMessageRequests): hasHiddenMessageRequests = updatedValue
+                default: break
+            }
+        }
+        
+        /// Generate the new state
+        let updatedState: State = State(
+            viewState: (loadResult.info.totalCount == 0 ?
+                .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
+                .loaded
+            ),
+            userProfile: userProfile,
+            hasSavedThread: hasSavedThread,
+            hasSavedMessage: hasSavedMessage,
+            showViewedSeedBanner: showViewedSeedBanner,
+            hasHiddenMessageRequests: hasHiddenMessageRequests,
+            unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+            loadedPageInfo: loadResult.info,
+            itemCache: itemCache
+        )
+        
+        return updatedState
     }
     
-    internal func extractIdsNeedingRequery(
+    private static func extractIdsNeedingRequery(
         events: Set<ObservedEvent>,
         cache: [String: SessionThreadViewModel]
     ) -> Set<String> {
@@ -442,7 +443,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     // MARK: - Functions
     
-    public func loadNextPage() {
+    @MainActor public func loadNextPage() {
         Task { [loadedPageInfo = state.loadedPageInfo, observationManager = dependencies[singleton: .observationManager]] in
             await observationManager.notify(
                 .loadPage(HomeViewModel.observationName),
@@ -465,7 +466,7 @@ private extension ObservedEvent {
         switch (key, key.generic) {
             case (.setting(.hasHiddenMessageRequests), _): return .bothDatabaseQueryAndOther
                 
-            case (_, .profile): return .other
+            case (_, .profile): return .bothDatabaseQueryAndOther
             case (.setting(.hasViewedSeed), _): return .other
                 
             case (.messageRequestUnreadMessageReceived, _), (.messageRequestAccepted, _),

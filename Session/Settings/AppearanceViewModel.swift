@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-@MainActor
 class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
@@ -15,12 +14,12 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     /// This value is the current state of the view
-    private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.internalState = State.initialState()
         
@@ -93,59 +92,11 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     
     let title: String = "sessionAppearance".localized()
     
-    private func bindState() {
-        let initialState: State = self.internalState
-        
-        observationTask = ObservationBuilder
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder(initialValue: self.internalState)
             .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
-            .using(manager: dependencies[singleton: .observationManager])
-            .query { [dependencies] previousState, events in
-                /// Store mutable copies of the data to update
-                let currentState: State = (previousState ?? initialState)
-                var theme: Theme = currentState.theme
-                var primaryColor: Theme.PrimaryColor = currentState.primaryColor
-                var autoDarkModeEnabled: Bool = currentState.autoDarkModeEnabled
-                
-                if previousState == nil {
-                    dependencies.mutate(cache: .libSession) { libSession in
-                        theme = (libSession.get(.theme) ?? theme)
-                        primaryColor = (libSession.get(.themePrimaryColor) ?? primaryColor)
-                        autoDarkModeEnabled = libSession.get(.themeMatchSystemDayNightCycle)
-                    }
-                }
-                
-                /// Process any event changes
-                events.forEach { event in
-                    switch event.key {
-                        case .setting(.theme):
-                            theme = (
-                                (event.value as? Theme) ??
-                                currentState.theme
-                            )
-                        
-                        case .setting(.themePrimaryColor):
-                            primaryColor = (
-                                (event.value as? Theme.PrimaryColor) ??
-                                currentState.primaryColor
-                            )
-                            
-                        case .setting(.themeMatchSystemDayNightCycle):
-                            autoDarkModeEnabled = (
-                                (event.value as? Bool) ??
-                                currentState.autoDarkModeEnabled
-                            )
-                        
-                        default: break
-                    }
-                }
-                
-                /// Generate the new state
-                return State(
-                    theme: theme,
-                    primaryColor: primaryColor,
-                    autoDarkModeEnabled: autoDarkModeEnabled
-                )
-            }
+            .using(dependencies: dependencies)
+            .query(AppearanceViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
@@ -154,6 +105,47 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                 self.internalState = updatedState
                 self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
             }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var theme: Theme = previousState.theme
+        var primaryColor: Theme.PrimaryColor = previousState.primaryColor
+        var autoDarkModeEnabled: Bool = previousState.autoDarkModeEnabled
+        
+        if isInitialQuery {
+            dependencies.mutate(cache: .libSession) { libSession in
+                theme = (libSession.get(.theme) ?? theme)
+                primaryColor = (libSession.get(.themePrimaryColor) ?? primaryColor)
+                autoDarkModeEnabled = libSession.get(.themeMatchSystemDayNightCycle)
+            }
+        }
+        
+        /// Process any event changes
+        events.forEach { event in
+            switch (event.key, event.value) {
+                case (.setting(.theme), let updatedValue as Theme): theme = updatedValue
+                
+                case (.setting(.themePrimaryColor), let updatedValue as Theme.PrimaryColor):
+                    primaryColor = updatedValue
+                    
+                case (.setting(.themeMatchSystemDayNightCycle), let updatedValue as Bool):
+                    autoDarkModeEnabled = updatedValue
+                
+                default: break
+            }
+        }
+        
+        /// Generate the new state
+        return State(
+            theme: theme,
+            primaryColor: primaryColor,
+            autoDarkModeEnabled: autoDarkModeEnabled
+        )
     }
     
     private static func sections(

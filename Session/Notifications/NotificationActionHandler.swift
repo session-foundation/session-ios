@@ -180,8 +180,7 @@ public class NotificationActionHandler {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     includingOlder: true,
-                    trySendReadReceipt: try SessionThread.canSendReadReceipt(
-                        db,
+                    trySendReadReceipt: SessionThread.canSendReadReceipt(
                         threadId: threadId,
                         threadVariant: threadVariant,
                         using: dependencies
@@ -287,8 +286,7 @@ public class NotificationActionHandler {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     includingOlder: true,
-                    trySendReadReceipt: try SessionThread.canSendReadReceipt(
-                        db,
+                    trySendReadReceipt: SessionThread.canSendReadReceipt(
                         threadId: threadId,
                         threadVariant: threadVariant,
                         using: dependencies

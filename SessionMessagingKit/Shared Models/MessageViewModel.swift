@@ -332,6 +332,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         isLast: Bool,
         isLastOutgoing: Bool,
         currentUserSessionIds: Set<String>,
+        threadIsTrusted: Bool,
         using dependencies: Dependencies
     ) -> MessageViewModel {
         let cellType: CellType = {
@@ -433,7 +434,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         return ViewModel(
             threadId: self.threadId,
             threadVariant: self.threadVariant,
-            threadIsTrusted: self.threadIsTrusted,
+            threadIsTrusted: (threadIsTrusted || self.threadIsTrusted),
             threadExpirationType: self.threadExpirationType,
             threadExpirationTimer: self.threadExpirationTimer,
             threadOpenGroupServer: self.threadOpenGroupServer,

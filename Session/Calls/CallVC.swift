@@ -641,7 +641,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     // MARK: Call signalling
-    func handleAnswerMessage(_ message: CallMessage) {
+    @MainActor func handleAnswerMessage(_ message: CallMessage) {
         callInfoLabel.text = "callsConnecting".localized()
     }
     

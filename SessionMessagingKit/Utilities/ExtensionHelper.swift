@@ -38,6 +38,7 @@ public class ExtensionHelper: ExtensionHelperType {
     private let conversationReadDir: String = "read"
     private let conversationUnreadDir: String = "unread"
     private let conversationDedupeDir: String = "dedupe"
+    private let conversationMessageRequestStub: String = "messageRequest"
     private let encryptionKeyLength: Int = 32
     // stringlint:ignore_stop
     
@@ -128,6 +129,15 @@ public class ExtensionHelper: ExtensionHelperType {
         return plaintext
     }
     
+    private func createdTimestamp(for path: String) -> TimeInterval? {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return nil }
+        
+        return ((try? dependencies[singleton: .fileManager]
+            .attributesOfItem(atPath: path)
+            .getting(.creationDate) as? Date)?
+            .timeIntervalSince1970)
+    }
+    
     private func refreshModifiedDate(at path: String) throws {
         guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return }
         
@@ -183,14 +193,51 @@ public class ExtensionHelper: ExtensionHelperType {
             .path
     }
     
-    public func hasAtLeastOneDedupeRecord(threadId: String) -> Bool {
+    // stringlint:ignore_contents
+    private func lastClearedRecordPath(conversationPath: String) -> String? {
+        guard
+            let hash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array("LastClearedSalt-\(conversationPath)".utf8))
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent(conversationDedupeDir)
+            .appendingPathComponent(hash.toHexString())
+            .path
+    }
+    
+    private func dedupeRecordTimestampsSinceLastCleared(conversationPath: String) -> [TimeInterval] {
+        let lastClearedPath: String? = lastClearedRecordPath(conversationPath: conversationPath)
+        let lastClearedTimestamp: TimeInterval = lastClearedPath
+            .map { createdTimestamp(for: $0) }
+            .defaulting(to: 0)
+        let dedupePath: String = URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent(conversationDedupeDir)
+            .path
+        
+        return (try? dependencies[singleton: .fileManager]
+            .contentsOfDirectory(atPath: dedupePath))
+            .defaulting(to: [])
+            .compactMap { fileHash in
+                let filePath: String = URL(fileURLWithPath: dedupePath).appendingPathComponent(fileHash).path
+                
+                /// Ignore the `lastClearedPath` since it doesn't represent a message and add a `100 millisecond` buffer
+                /// to account for different write times of the separate files
+                guard
+                    filePath != lastClearedPath,
+                    let fileCreatedTimestamp: TimeInterval = createdTimestamp(for: filePath),
+                    fileCreatedTimestamp >= (lastClearedTimestamp - 0.1)
+                else { return nil }
+                    
+                return fileCreatedTimestamp
+            }
+    }
+    
+    public func hasDedupeRecordSinceLastCleared(threadId: String) -> Bool {
         guard let conversationPath: String = conversationPath(threadId) else { return false }
         
-        return !dependencies[singleton: .fileManager].isDirectoryEmpty(
-            atPath: URL(fileURLWithPath: conversationPath)
-                .appendingPathComponent(conversationDedupeDir)
-                .path
-        )
+        return (dedupeRecordTimestampsSinceLastCleared(conversationPath: conversationPath).count > 0)
     }
     
     public func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool {
@@ -222,6 +269,15 @@ public class ExtensionHelper: ExtensionHelperType {
         if dependencies[singleton: .fileManager].isDirectoryEmpty(atPath: parentDirectory) {
             try? dependencies[singleton: .fileManager].removeItem(atPath: parentDirectory)
         }
+    }
+    
+    public func upsertLastClearedRecord(threadId: String) throws {
+        guard
+            let conversationPath: String = conversationPath(threadId),
+            let path: String = lastClearedRecordPath(conversationPath: conversationPath)
+        else { throw ExtensionHelperError.failedToUpdateLastClearedRecord }
+        
+        try write(data: Data(), to: path)
     }
     
     // MARK: - Config Dumps
@@ -553,13 +609,28 @@ public class ExtensionHelper: ExtensionHelperType {
             .path
     }
     
+    // stringlint:ignore_contents
+    private func messageRequestStubPath(_ conversationHash: String) -> String? {
+        guard
+            let messageRequestStubHash: [UInt8] = dependencies[singleton: .crypto].generate(
+                .hash(message: Array(Data(hex: conversationHash)) + Array(conversationMessageRequestStub.utf8))
+            )
+        else { return nil }
+        
+        return URL(fileURLWithPath: conversationsPath)
+            .appendingPathComponent(conversationHash)
+            .appendingPathComponent(conversationUnreadDir)
+            .appendingPathComponent(messageRequestStubHash.toHexString())
+            .path
+    }
+    
     public func unreadMessageCount() -> Int? {
         do {
             let conversationHashes: [String] = try dependencies[singleton: .fileManager]
                 .contentsOfDirectory(atPath: conversationsPath)
                 .filter({ !$0.starts(with: ".") })   // stringlint:ignore
             
-            return try conversationHashes.reduce(0) { result, conversationHash in
+            return try conversationHashes.reduce(0) { (result: Int, conversationHash: String) -> Int in
                 let unreadMessagePath: String = URL(fileURLWithPath: conversationsPath)
                     .appendingPathComponent(conversationHash)
                     .appendingPathComponent(conversationUnreadDir)
@@ -567,32 +638,84 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 /// Ensure the `unreadMessagePath` exists before trying to count it's contents (if it doesn't then `contentsOfDirectory`
                 /// will throw, but that case is actually a valid `0` result
-                guard dependencies[singleton: .fileManager].fileExists(atPath: unreadMessagePath) else {
-                    return result
-                }
+                guard
+                    dependencies[singleton: .fileManager].fileExists(atPath: unreadMessagePath),
+                    let messageRequestStubPath: String = messageRequestStubPath(conversationHash)
+                else { return result }
                 
+                /// Retrieve the full list of file hashes
                 let unreadMessageHashes: [String] = try dependencies[singleton: .fileManager]
                     .contentsOfDirectory(atPath: unreadMessagePath)
                     .filter { !$0.starts(with: ".") }    // stringlint:ignore
                 
+                /// For message request conversations, only increment the unread count by 1, regardless of how many actual
+                /// unread messages exist
+                ///
+                /// **Note:** Only increment if the user hasn't seen the message requests banner since this notification arrived. We
+                /// determine this by checking if the number of unread message records equals the number of dedupe records created since
+                /// the conversation was last cleared and `messageRequestStub` was created (When the app opens, these dedupe
+                /// files are automatically removed which is why we need the convoluted logic)
+                guard !dependencies[singleton: .fileManager].fileExists(atPath: messageRequestStubPath) else {
+                    let dedupeFileCreatedTimestamps: [TimeInterval] = dedupeRecordTimestampsSinceLastCleared(
+                        conversationPath: URL(fileURLWithPath: conversationsPath)
+                            .appendingPathComponent(conversationHash)
+                            .path
+                    )
+                    let numConsideredeDedupeRecords: Int = (MessageDeduplication.doesCreateLegacyRecords ?
+                        (dedupeFileCreatedTimestamps.count / 2) :
+                        dedupeFileCreatedTimestamps.count
+                    )
+                    
+                    /// If the number of dedupe records don't match the number of unread messages (minus 1 to account for the stub
+                    /// file) then the user has seen the message requests banner since they received the PN for this message request
+                    guard numConsideredeDedupeRecords == (unreadMessageHashes.count - 1) else {
+                        return result
+                    }
+                    
+                    /// OItherwise they haven't so this should increment the count by 1
+                    return (result + 1)
+                }
+                
+                /// Otherwise we just add the number of files
                 return (result + unreadMessageHashes.count)
             }
         }
         catch { return nil }
     }
     
-    public func saveMessage(_ message: SnodeReceivedMessage?, isUnread: Bool) throws {
+    public func saveMessage(
+        _ message: SnodeReceivedMessage?,
+        threadId: String,
+        isUnread: Bool,
+        isMessageRequest: Bool
+    ) throws {
         guard
             let message: SnodeReceivedMessage = message,
             let messageAsData: Data = try? JSONEncoder(using: dependencies).encode(message),
             let targetPath: String = {
                 switch (message.namespace.isConfigNamespace, isUnread) {
-                    case (true, _): return configMessagePath(message.swarmPublicKey, message.hash)
-                    case (false, true): return unreadMessagePath(message.swarmPublicKey, message.hash)
-                    case (false, false): return readMessagePath(message.swarmPublicKey, message.hash)
+                    case (true, _): return configMessagePath(threadId, message.hash)
+                    case (false, true): return unreadMessagePath(threadId, message.hash)
+                    case (false, false): return readMessagePath(threadId, message.hash)
                 }
             }()
         else { return }
+        
+        /// If this is an unread message for a message request then we need to write a file to indicate the conversation is a message
+        /// request so we can correctly calculate the unread count (since message requests with unread messages only count a
+        /// single message)
+        if isUnread && isMessageRequest {
+            let maybeStubPath: String? = conversationPath(threadId)
+                .map { URL(fileURLWithPath: $0).lastPathComponent }
+                .map { messageRequestStubPath($0) }
+            
+            if
+                let stubPath: String = maybeStubPath,
+                !dependencies[singleton: .fileManager].fileExists(atPath: stubPath)
+            {
+                try write(data: Data(), to: stubPath)
+            }
+        }
         
         try write(data: messageAsData, to: targetPath)
     }
@@ -706,13 +829,17 @@ public class ExtensionHelper: ExtensionHelperType {
                     .appendingPathComponent(conversationHash)
                     .appendingPathComponent(this.conversationUnreadDir)
                     .path
+                let messageRequestStubPath: String? = this.messageRequestStubPath(conversationHash)
                 let readMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
                     .contentsOfDirectory(atPath: readMessagePath)
                     .filter { !$0.starts(with: ".") })    // stringlint:ignore
                     .defaulting(to: [])
                 let unreadMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
                     .contentsOfDirectory(atPath: unreadMessagePath)
-                    .filter { !$0.starts(with: ".") })    // stringlint:ignore
+                    .filter {
+                        !$0.starts(with: ".") &&    // stringlint:ignore
+                        $0 != messageRequestStubPath.map { URL(fileURLWithPath: $0) }?.lastPathComponent
+                    })
                     .defaulting(to: [])
                 let allMessagePaths: [String] = (
                     readMessageHashes.map { hash in
@@ -807,6 +934,7 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
     case failedToReadFromFile
     case failedToStoreDedupeRecord
     case failedToRemoveDedupeRecord
+    case failedToUpdateLastClearedRecord
     
     // stringlint:ignore_contents
     public var description: String {
@@ -816,6 +944,7 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
             case .failedToReadFromFile: return "Failed to read from file."
             case .failedToStoreDedupeRecord: return "Failed to store a record for message deduplication."
             case .failedToRemoveDedupeRecord: return "Failed to remove a record for message deduplication."
+            case .failedToUpdateLastClearedRecord: return "Failed to update the last cleared record."
         }
     }
 }
@@ -836,10 +965,11 @@ public protocol ExtensionHelperType {
     
     // MARK: - Deduping
     
-    func hasAtLeastOneDedupeRecord(threadId: String) -> Bool
+    func hasDedupeRecordSinceLastCleared(threadId: String) -> Bool
     func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool
     func createDedupeRecord(threadId: String, uniqueIdentifier: String) throws
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws
+    func upsertLastClearedRecord(threadId: String) throws
     
     // MARK: - Config Dumps
     
@@ -869,7 +999,12 @@ public protocol ExtensionHelperType {
     // MARK: - Messages
     
     func unreadMessageCount() -> Int?
-    func saveMessage(_ message: SnodeReceivedMessage?, isUnread: Bool) throws
+    func saveMessage(
+        _ message: SnodeReceivedMessage?,
+        threadId: String,
+        isUnread: Bool,
+        isMessageRequest: Bool
+    ) throws
     func willLoadMessages()
     func loadMessages() async throws
     @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool

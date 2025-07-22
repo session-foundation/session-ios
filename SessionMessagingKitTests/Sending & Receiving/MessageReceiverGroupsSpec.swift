@@ -232,6 +232,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 appContext.when { $0.isMainApp }.thenReturn(false)
             }
         )
+        @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
+            initialSetup: { extensionHelper in
+                extensionHelper
+                    .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                    .thenReturn(())
+                extensionHelper
+                    .when { try $0.upsertLastClearedRecord(threadId: .any) }
+                    .thenReturn(())
+            }
+        )
         
         // MARK: -- Messages
         @TestState var inviteMessage: GroupUpdateInviteMessage! = {

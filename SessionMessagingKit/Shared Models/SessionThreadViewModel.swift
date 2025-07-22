@@ -395,12 +395,9 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
                         threadId: threadId,
                         threadVariant: threadVariant,
                         includingOlder: true,
-                        trySendReadReceipt: try SessionThread.canSendReadReceipt(
-                            db,
+                        trySendReadReceipt: SessionThread.canSendReadReceipt(
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            isBlocked: threadIsBlocked,
-                            isMessageRequest: threadIsMessageRequest,
                             using: dependencies
                         ),
                         using: dependencies

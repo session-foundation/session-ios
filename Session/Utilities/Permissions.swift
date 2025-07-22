@@ -10,7 +10,7 @@ import SessionMessagingKit
 import Network
 
 extension Permissions {
-    @discardableResult public static func requestCameraPermissionIfNeeded(
+    @MainActor @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
         onAuthorized: ((Bool) -> Void)? = nil
@@ -54,7 +54,7 @@ extension Permissions {
         }
     }
 
-    public static func requestMicrophonePermissionIfNeeded(
+    @MainActor public static func requestMicrophonePermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
         onAuthorized: ((Bool) -> Void)? = nil,
@@ -114,7 +114,7 @@ extension Permissions {
         }
     }
 
-    public static func requestLibraryPermissionIfNeeded(
+    @MainActor public static func requestLibraryPermissionIfNeeded(
         isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,

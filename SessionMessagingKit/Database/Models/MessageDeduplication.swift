@@ -143,20 +143,44 @@ public extension MessageDeduplication {
                 MessageDeduplication.Columns.expirationTimestampSeconds.set(to: 0)
             )
         
-        /// Then fetch the records and try to individually delete each one
+        /// Then fetch the records and delete them from the database
         let records: [MessageDeduplication] = try MessageDeduplication
             .filter(threadIds.contains(MessageDeduplication.Columns.threadId))
             .filter(MessageDeduplication.Columns.shouldDeleteWhenDeletingThread == true)
             .fetchAll(db)
-        records.forEach { record in
-            do {
-                try dependencies[singleton: .extensionHelper].removeDedupeRecord(
-                    threadId: record.threadId,
-                    uniqueIdentifier: record.uniqueIdentifier
-                )
-                try record.delete(db)
+        
+        /// Kick off a task to do file I/O (don't want to block the database waiting for file operations to complete)
+        Task { [extensionHelper = dependencies[singleton: .extensionHelper], storage = dependencies[singleton: .storage]] in
+            var deletedRecords: [MessageDeduplication] = []
+            
+            records.forEach { record in
+                do {
+                    try extensionHelper.removeDedupeRecord(
+                        threadId: record.threadId,
+                        uniqueIdentifier: record.uniqueIdentifier
+                    )
+                    
+                    deletedRecords.append(record)
+                }
+                catch { Log.warn(.cat, "Failed to delete dedupe file record (will rely on garbage collection).") }
             }
-            catch { Log.warn(.cat, "Failed to delete dedupe record (will rely on garbage collection).") }
+            
+            /// Only delete the `MessageDeduplication` records that had their dedupe files successfully removed (if doing
+            /// so fails then garbage collection will clean up the file and the record)
+            storage.writeAsync { db in
+                deletedRecords.forEach { record in
+                    _ = try? MessageDeduplication
+                        .filter(MessageDeduplication.Columns.threadId == record.threadId)
+                        .filter(MessageDeduplication.Columns.uniqueIdentifier == record.uniqueIdentifier)
+                        .deleteAll(db)
+                }
+            }
+            
+            /// Upsert the "Last Cleared" record
+            threadIds.forEach { threadId in
+                do { try extensionHelper.upsertLastClearedRecord(threadId: threadId) }
+                catch { Log.warn(.cat, "Failed to update the last cleared record for \(threadId).") }
+            }
         }
     }
     
@@ -365,6 +389,11 @@ public extension MessageDeduplication {
 }
 
 // MARK: - Legacy Dedupe Records
+
+public extension MessageDeduplication {
+    @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
+    static let doesCreateLegacyRecords: Bool = true
+}
 
 private extension MessageDeduplication {
     @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
