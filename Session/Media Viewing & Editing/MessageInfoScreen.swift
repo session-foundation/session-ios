@@ -509,6 +509,7 @@ struct MessageBubble: View {
                         using: dependencies
                     ) {
                         AttributedText(bodyText)
+                            .foregroundColor(themeColor: bodyLabelTextColor)
                             .padding(.all, Self.inset)
                     }
                 }
