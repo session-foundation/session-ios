@@ -101,7 +101,7 @@ public extension ProfilePictureView {
                                 )
                             )
                         ),
-                        shouldAnimated: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }),
+                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
                         icon: profileIcon
                     ),
                     additionalProfile
@@ -120,7 +120,7 @@ public extension ProfilePictureView {
                                         size: size.multiImageSize
                                     )
                                 ),
-                                shouldAnimated: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: other) }),
+                                shouldAnimated: other.shoudAnimateProfilePicture(using: dependencies),
                                 icon: additionalProfileIcon
                             )
                         }
@@ -157,7 +157,7 @@ public extension ProfilePictureView {
                                 size: size.viewSize
                             )
                         ),
-                        shouldAnimated: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }),
+                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
                         icon: profileIcon
                     ),
                     nil

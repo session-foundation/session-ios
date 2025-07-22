@@ -714,9 +714,9 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 // MARK: -
 
 extension AttachmentApprovalViewController: SessionProCTADelegate {
-    public func upgradeToPro(completion: (() -> Void)?) {
+    public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        completion?()
+        completion?(true)
     }
 }
 

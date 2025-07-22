@@ -351,6 +351,15 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
+    func shoudAnimateProfilePicture(using dependencies: Dependencies) -> Bool {
+        guard self.id == dependencies[cache: .general].sessionId.hexString else {
+            return dependencies.mutate(cache: .libSession, { $0.validateProProof(for: self) })
+        }
+        
+        return dependencies[cache: .libSession].isSessionPro
+    }
+    
+    
     // MARK: - Truncation
     
     enum Truncation {

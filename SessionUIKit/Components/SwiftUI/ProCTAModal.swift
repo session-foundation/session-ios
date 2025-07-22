@@ -101,19 +101,22 @@ public struct ProCTAModal: View {
     
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
+    let afterUpgrade: (() -> Void)?
     
     public init(
         delegate: SessionProCTADelegate?,
         variant: ProCTAModal.Variant,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
-        afterClosed: (() -> Void)? = nil
+        afterClosed: (() -> Void)? = nil,
+        afterUpgrade: (() -> Void)? = nil
     ) {
         self.delegate = delegate
         self.variant = variant
         self.dataManager = dataManager
         self.dismissType = dismissType
         self.afterClosed = afterClosed
+        self.afterUpgrade = afterUpgrade
     }
     
     public var body: some View {
@@ -278,7 +281,10 @@ public struct ProCTAModal: View {
                         HStack(spacing: Values.smallSpacing) {
                             // Upgrade Button
                             ShineButton {
-                                delegate?.upgradeToPro {
+                                delegate?.upgradeToPro { result in
+                                    if result {
+                                        afterUpgrade?()
+                                    }
                                     close()
                                 }
                             } label: {
@@ -324,7 +330,7 @@ public struct ProCTAModal: View {
 // MARK: - SessionProCTADelegate
 
 public protocol SessionProCTADelegate: AnyObject {
-    func upgradeToPro(completion: (() -> Void)?)
+    func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
 }
 
 struct ProCTAModal_Previews: PreviewProvider {
