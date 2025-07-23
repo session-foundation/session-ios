@@ -216,12 +216,16 @@ public enum ThemeManager {
         SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
     }
     
-    public static func onThemeChange(observer: AnyObject, callback: @escaping (Theme, Theme.PrimaryColor) -> ()) {
+    public static func onThemeChange(observer: AnyObject, callback: @escaping (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
         ThemeManager.uiRegistry.setObject(
             ThemeApplier(
                 existingApplier: ThemeManager.get(for: observer),
                 info: []
-            ) { theme in callback(theme, ThemeManager.primaryColor) },
+            ) { theme in
+                callback(theme, ThemeManager.primaryColor, { value -> UIColor? in
+                    ThemeManager.color(for: value, in: theme, with: ThemeManager.primaryColor)
+                })
+            },
             forKey: observer
         )
     }
@@ -531,7 +535,7 @@ internal protocol ColorType {
 }
 
 extension UIColor: ColorType {
-    internal var isPrimary: Bool { self == UIColor.primary }
+    internal var isPrimary: Bool { self == UIColor.primary() }
     
     internal func alpha(_ alpha: Double) -> Self? {
         return self.withAlphaComponent(CGFloat(alpha)) as? Self
@@ -543,7 +547,7 @@ extension UIColor: ColorType {
 }
 
 extension Color: ColorType {
-    internal var isPrimary: Bool { self == Color.primary }
+    internal var isPrimary: Bool { self == Color.primary() }
     
     internal func alpha(_ alpha: Double) -> Color? {
         return self.opacity(alpha)

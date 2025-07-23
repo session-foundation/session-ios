@@ -82,9 +82,6 @@ public enum Theme: String, CaseIterable, Codable {
         
         return (Theme.PrimaryColor.allCases.first(where: { $0.colorSwiftUI == targetColor }) ?? .green)
     }
-    
-    public func color(for value: ThemeValue) -> UIColor? { return colors[value] }
-    public func color(for value: ThemeValue) -> Color? { return colorsSwiftUI[value] }
 }
 
 // MARK: - ColorType Convenience

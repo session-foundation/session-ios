@@ -114,7 +114,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         result.addSubview(blurView)
         blurView.pin(to: result)
         
-        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
             blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
         
@@ -226,7 +226,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         addSubview(blurView)
         blurView.pin(to: self)
         
-        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
             blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
         
