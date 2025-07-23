@@ -628,7 +628,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         guard dependencies[feature: .sessionProEnabled] else { return false }
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: SessionProState(using: dependencies),
+                delegate: dependencies[singleton: .sessionProState],
                 variant: .animatedProfileImage(
                     isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                 ),

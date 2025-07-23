@@ -53,6 +53,7 @@ public extension ProfilePictureView {
             return (Info(
                 source: .url(URL(fileURLWithPath: path)),
                 shouldAnimated: (threadVariant == .community),
+                isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
                 icon: profileIcon
             ), nil)
         }
@@ -70,6 +71,7 @@ public extension ProfilePictureView {
                             }
                         }(),
                         shouldAnimated: true,
+                        isCurrentUser: false,
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -102,6 +104,7 @@ public extension ProfilePictureView {
                             )
                         ),
                         shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
+                        isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
                         icon: profileIcon
                     ),
                     additionalProfile
@@ -121,6 +124,7 @@ public extension ProfilePictureView {
                                     )
                                 ),
                                 shouldAnimated: other.shoudAnimateProfilePicture(using: dependencies),
+                                isCurrentUser: (other.id == dependencies[cache: .general].sessionId.hexString),
                                 icon: additionalProfileIcon
                             )
                         }
@@ -128,6 +132,7 @@ public extension ProfilePictureView {
                             to: Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
                                 shouldAnimated: false,
+                                isCurrentUser: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -158,6 +163,7 @@ public extension ProfilePictureView {
                             )
                         ),
                         shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
+                        isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
                         icon: profileIcon
                     ),
                     nil
@@ -197,7 +203,8 @@ public extension ProfilePictureSwiftUI {
                     size: size,
                     info: info,
                     additionalInfo: additionalInfo,
-                    dataManager: dependencies[singleton: .imageDataManager]
+                    dataManager: dependencies[singleton: .imageDataManager],
+                    sessionProState: dependencies[singleton: .sessionProState]
                 )
         }
     }

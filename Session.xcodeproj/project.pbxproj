@@ -199,13 +199,13 @@
 		94AAB1532E1F8AE200A6FA18 /* ShineButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1522E1F8AD900A6FA18 /* ShineButton.swift */; };
 		94AAB1572E24BD3700A6FA18 /* PinnedConversationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */; };
 		94AAB1582E24BD3700A6FA18 /* PinnedConversationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */; };
-		94AAB15A2E24BD6800A6FA18 /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1592E24BD6800A6FA18 /* SessionProState.swift */; };
 		94AAB15D2E24C97400A6FA18 /* AnimatedProfileCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15C2E24C97400A6FA18 /* AnimatedProfileCTAAnimation.webp */; };
 		94AAB15E2E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
 		94AAB15F2E24C97400A6FA18 /* AnimatedProfileCTAAnimation.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15C2E24C97400A6FA18 /* AnimatedProfileCTAAnimation.webp */; };
 		94AAB1602E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
 		94AAB1622E28742300A6FA18 /* _027_AddProfileProProof.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1612E28742200A6FA18 /* _027_AddProfileProProof.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
+		94B6BAF62E30A88800E718BB /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAF52E30A88800E718BB /* SessionProState.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
 		94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BA2E08D9D40097754D /* SessionProBadge.swift */; };
 		94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BC2E0908340097754D /* LibSession+Pro.swift */; };
@@ -1532,11 +1532,11 @@
 		94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclicGradientView.swift; sourceTree = "<group>"; };
 		94AAB1522E1F8AD900A6FA18 /* ShineButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShineButton.swift; sourceTree = "<group>"; };
 		94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = PinnedConversationsCTA.webp; sourceTree = "<group>"; };
-		94AAB1592E24BD6800A6FA18 /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
 		94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTA.webp; sourceTree = "<group>"; };
 		94AAB15C2E24C97400A6FA18 /* AnimatedProfileCTAAnimation.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTAAnimation.webp; sourceTree = "<group>"; };
 		94AAB1612E28742200A6FA18 /* _027_AddProfileProProof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _027_AddProfileProProof.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
+		94B6BAF52E30A88800E718BB /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		94CD95BA2E08D9D40097754D /* SessionProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBadge.swift; sourceTree = "<group>"; };
 		94CD95BC2E0908340097754D /* LibSession+Pro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Pro.swift"; sourceTree = "<group>"; };
@@ -3560,6 +3560,7 @@
 		C3BBE0B32554F0D30050F1E3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				94B6BAF52E30A88800E718BB /* SessionProState.swift */,
 				FD428B1E2B4B758B006D0888 /* AppReadiness.swift */,
 				FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */,
 				FD859EF127BF6BA200510D0C /* Data+Utilities.swift */,
@@ -4325,7 +4326,6 @@
 		FD71164128E2C83500B47552 /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				94AAB1592E24BD6800A6FA18 /* SessionProState.swift */,
 				FD71164928E3EA5B00B47552 /* DismissType.swift */,
 				FD12A83C2AD63BCC00EEBA0D /* EditableState.swift */,
 				FD12A83E2AD63BDF00EEBA0D /* Navigatable.swift */,
@@ -6411,6 +6411,7 @@
 				FDB5DAE02A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift in Sources */,
 				FD8FD7622C37B7BD001E38C7 /* Position.swift in Sources */,
 				7B93D07127CF194000811CB6 /* MessageRequestResponse.swift in Sources */,
+				94B6BAF62E30A88800E718BB /* SessionProState.swift in Sources */,
 				FDB5DADE2A95D847002C8721 /* GroupUpdatePromoteMessage.swift in Sources */,
 				FD245C662850665900B966DD /* OpenGroupAPI.swift in Sources */,
 				FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */,
@@ -6627,7 +6628,6 @@
 				FDFDE128282D05530098B17F /* MediaPresentationContext.swift in Sources */,
 				FD37EA0328A9FDCC003AE748 /* HelpViewModel.swift in Sources */,
 				FDFDE124282D04F20098B17F /* MediaDismissAnimationController.swift in Sources */,
-				94AAB15A2E24BD6800A6FA18 /* SessionProState.swift in Sources */,
 				FDB3DA8D2E24881B00148F8D /* ImageLoading+Convenience.swift in Sources */,
 				7BA6890F27325CE300EFC32F /* SessionCallManager+CXProvider.swift in Sources */,
 				7B46AAAF28766DF4001AF2DC /* AllMediaViewController.swift in Sources */,

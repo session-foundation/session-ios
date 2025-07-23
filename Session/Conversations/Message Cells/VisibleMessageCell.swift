@@ -67,7 +67,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
         size: .message,
-        dataManager: nil
+        dataManager: nil,
+        sessionProState: nil,
     )
     
     lazy var bubbleBackgroundView: UIView = {
@@ -323,6 +324,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
         profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
+        profilePictureView.setSessionProState(dependencies[singleton: .sessionProState])
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode

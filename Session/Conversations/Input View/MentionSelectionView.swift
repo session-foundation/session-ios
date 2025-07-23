@@ -127,7 +127,8 @@ private extension MentionSelectionView {
         
         private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
             size: .message,
-            dataManager: nil
+            dataManager: nil,
+            sessionProState: nil
         )
 
         private lazy var displayNameLabel: UILabel = {
@@ -212,6 +213,7 @@ private extension MentionSelectionView {
                 currentUserSessionIds: currentUserSessionIds
             )
             profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
+            profilePictureView.setSessionProState(dependencies[singleton: .sessionProState])
             profilePictureView.update(
                 publicKey: profile.id,
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode

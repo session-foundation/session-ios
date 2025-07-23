@@ -213,7 +213,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero, dataManager: nil)
+    private lazy var profileView: ProfilePictureView = ProfilePictureView(
+        size: .hero,
+        dataManager: nil,
+        sessionProState: nil
+    )
     
     private lazy var textToConfirmContainer: UIView = {
         let result: UIView = UIView()
@@ -547,6 +551,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     ProfilePictureView.Info(
                         source: (source ?? placeholder),
                         shouldAnimated: true,
+                        isCurrentUser: true,
                         icon: icon
                     )
                 )

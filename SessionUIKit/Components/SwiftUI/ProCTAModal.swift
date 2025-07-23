@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Lucide
+import Combine
 
 public struct ProCTAModal: View {
     public enum Variant {
@@ -95,7 +96,7 @@ public struct ProCTAModal: View {
     
     @EnvironmentObject var host: HostWrapper
     
-    private var delegate: SessionProCTADelegate?
+    private var delegate: SessionProManagerType?
     private let variant: ProCTAModal.Variant
     private var dataManager: ImageDataManagerType
     
@@ -104,7 +105,7 @@ public struct ProCTAModal: View {
     let afterUpgrade: (() -> Void)?
     
     public init(
-        delegate: SessionProCTADelegate?,
+        delegate: SessionProManagerType?,
         variant: ProCTAModal.Variant,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
@@ -327,9 +328,10 @@ public struct ProCTAModal: View {
     }
 }
 
-// MARK: - SessionProCTADelegate
+// MARK: - SessionProManagerType
 
-public protocol SessionProCTADelegate: AnyObject {
+public protocol SessionProManagerType: AnyObject {
+    var isSessionProPublisher: AnyPublisher<Void, Never> { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
 }
 

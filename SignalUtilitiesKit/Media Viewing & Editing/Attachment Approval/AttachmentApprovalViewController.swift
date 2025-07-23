@@ -637,7 +637,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.hideInputAccessoryView()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: self,
+                delegate: dependencies[singleton: .sessionProState],
                 variant: .longerMessages,
                 dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
@@ -708,15 +708,6 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 
     func prepViewControllerUpdateControls() {
         updateInputAccessory()
-    }
-}
-
-// MARK: -
-
-extension AttachmentApprovalViewController: SessionProCTADelegate {
-    public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        completion?(true)
     }
 }
 
