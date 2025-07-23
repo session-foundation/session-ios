@@ -38,17 +38,31 @@ public struct ProCTAModal: View {
         public var subtitle: String {
             switch self {
                 case .generic:
-                    return "proUserProfileModalCallToAction".localized()
+                    return "proUserProfileModalCallToAction"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
                 case .longerMessages:
-                    return "proCallToActionLongerMessages".localized()
+                    return "proCallToActionLongerMessages"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized()
                 case .animatedProfileImage:
-                    return "proAnimatedDisplayPictureCallToActionDescription".localized()
+                    return "proAnimatedDisplayPictureCallToActionDescription"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized()
                 case .morePinnedConvos(let isGrandfathered):
                     return isGrandfathered ?
-                        "proCallToActionPinnedConversations".localized() :
-                        "proCallToActionPinnedConversationsMoreThan".localized()
+                        "proCallToActionPinnedConversations"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized() :
+                        "proCallToActionPinnedConversationsMoreThan"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
                 case .groupLimit:
-                    return "proUserProfileModalCallToAction".localized()
+                    return "proUserProfileModalCallToAction"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
             }
         }
         
