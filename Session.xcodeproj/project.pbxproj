@@ -676,6 +676,7 @@
 		FD428B232B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */; };
 		FD42ECCE2E287CD4002D03EA /* ThemeColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD42ECCD2E287CD1002D03EA /* ThemeColor.swift */; };
 		FD42ECD02E289261002D03EA /* ThemeLinearGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD42ECCF2E289257002D03EA /* ThemeLinearGradient.swift */; };
+		FD42ECD22E3071DE002D03EA /* ThemeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD42ECD12E3071DC002D03EA /* ThemeText.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
 		FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432433299C6985008A0213 /* PendingReadReceipt.swift */; };
 		FD47E0B12AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */; };
@@ -1953,6 +1954,7 @@
 		FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _017_RebuildFTSIfNeeded_2_4_5.swift; sourceTree = "<group>"; };
 		FD42ECCD2E287CD1002D03EA /* ThemeColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeColor.swift; sourceTree = "<group>"; };
 		FD42ECCF2E289257002D03EA /* ThemeLinearGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeLinearGradient.swift; sourceTree = "<group>"; };
+		FD42ECD12E3071DC002D03EA /* ThemeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeText.swift; sourceTree = "<group>"; };
 		FD432433299C6985008A0213 /* PendingReadReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingReadReceipt.swift; sourceTree = "<group>"; };
 		FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Authentication.swift; sourceTree = "<group>"; };
 		FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONDecoder+Utilities.swift"; sourceTree = "<group>"; };
@@ -2756,6 +2758,7 @@
 				942256912C23F8DD00C0FDBF /* SessionTextField.swift */,
 				FD42ECCD2E287CD1002D03EA /* ThemeColor.swift */,
 				FD42ECCF2E289257002D03EA /* ThemeLinearGradient.swift */,
+				FD42ECD12E3071DC002D03EA /* ThemeText.swift */,
 				942256922C23F8DD00C0FDBF /* Toast.swift */,
 			);
 			path = SwiftUI;
@@ -5983,6 +5986,7 @@
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
 				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,
 				942256942C23F8DD00C0FDBF /* ActivityView.swift in Sources */,
+				FD42ECD22E3071DE002D03EA /* ThemeText.swift in Sources */,
 				FD52090328B4680F006098F6 /* RadioButton.swift in Sources */,
 				C331FFE82558FB0000070591 /* SNTextView.swift in Sources */,
 				FD71162028D97ABC00B47552 /* UIImage+Utilities.swift in Sources */,

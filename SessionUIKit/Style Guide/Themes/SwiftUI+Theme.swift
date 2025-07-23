@@ -49,14 +49,6 @@ public extension Shape {
     }
 }
 
-public extension Text {
-    func foregroundColor(themeColor: ThemeValue) -> some View {
-        return ThemeColorResolver(themeValue: themeColor) { color in
-            self.foregroundColor(color)
-        }
-    }
-}
-
 // MARK: - ThemeColorResolver
 
 private struct ThemeColorResolver<Content: View>: View {
