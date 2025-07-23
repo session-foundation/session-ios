@@ -64,7 +64,7 @@ final class PathStatusView: UIView {
             )
         ).cgPath
         
-        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
+        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _, _ in
             self?.layer.shadowOpacity = (theme.interfaceStyle == .light ? 0.4 : 1)
             self?.layer.shadowRadius = (self?.size.offset(for: theme.interfaceStyle) ?? 0)
         }
