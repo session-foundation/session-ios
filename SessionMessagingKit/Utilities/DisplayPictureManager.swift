@@ -303,6 +303,7 @@ public class DisplayPictureManager {
             }
             .map { [dependencies] fileUploadResponse, finalFilePath, fileName, newEncryptionKey, finalImageData -> UploadResult in
                 let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
+                let expries: Double? = fileUploadResponse.expires
                 
                 /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
                 Task(priority: .userInitiated) {

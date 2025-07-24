@@ -131,11 +131,16 @@ public extension Network {
         requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> PreparedRequest<FileUploadResponse> {
+        var headers: [HTTPHeader: String] = [:]
+        if dependencies.hasSet(feature: ) {
+            headers = [.fileCustomTTL : "\()"]
+        }
         return try PreparedRequest(
             request: Request(
                 endpoint: FileServer.Endpoint.file,
                 destination: .serverUpload(
                     server: FileServer.fileServer,
+                    headers: headers,
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),
@@ -166,4 +171,8 @@ public extension Network {
             using: dependencies
         )
     }
+}
+
+fileprivate extension HTTPHeader {
+    static let fileCustomTTL: HTTPHeader = "X-FS-TTL"
 }

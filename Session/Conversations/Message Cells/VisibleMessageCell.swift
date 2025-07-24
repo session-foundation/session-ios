@@ -68,7 +68,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
         size: .message,
         dataManager: nil,
-        sessionProState: nil,
+        sessionProState: nil
     )
     
     lazy var bubbleBackgroundView: UIView = {

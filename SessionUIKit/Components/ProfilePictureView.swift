@@ -303,8 +303,12 @@ public final class ProfilePictureView: UIView {
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak self] in
-                    self?.startAnimatingIfNeeded()
+                receiveValue: { [weak self] isPro in
+                    if isPro {
+                        self?.startAnimatingIfNeeded()
+                    } else {
+                        self?.stopAnimatingIfNeeded()
+                    }
                 }
             )
             .store(in: &disposables)
@@ -409,8 +413,13 @@ public final class ProfilePictureView: UIView {
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak self] in
-                    self?.startAnimatingIfNeeded()
+                receiveValue: { [weak self] isPro in
+                    if isPro {
+                        self?.startAnimatingIfNeeded()
+                    } else {
+                        self?.stopAnimatingIfNeeded()
+                    }
+                    
                 }
             )
             .store(in: &disposables)

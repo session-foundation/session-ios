@@ -18,10 +18,9 @@ public extension Singleton {
 public class SessionProState: SessionProManagerType {
     public let dependencies: Dependencies
     public var isSessionProSubject: CurrentValueSubject<Bool, Never>
-    public var isSessionProPublisher: AnyPublisher<Void, Never> {
+    public var isSessionProPublisher: AnyPublisher<Bool, Never> {
         isSessionProSubject
             .filter { $0 }
-            .map { _ in () }
             .eraseToAnyPublisher()
     }
     
