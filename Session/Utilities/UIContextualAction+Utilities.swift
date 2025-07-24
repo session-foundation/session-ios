@@ -212,11 +212,9 @@ public extension UIContextualAction {
                     // MARK: -- pin
                         
                     case .pin:
+                        let isCurrentlyPinned: Bool = (threadViewModel.threadPinnedPriority > 0)
                         return UIContextualAction(
-                            title: (threadViewModel.threadPinnedPriority > 0 ?
-                                "pinUnpin".localized() :
-                                "pin".localized()
-                            ),
+                            title: (isCurrentlyPinned ? "pinUnpin".localized() : "pin".localized()),
                             icon: (threadViewModel.threadPinnedPriority > 0 ?
                                 UIImage(systemName: "pin.slash") :
                                 UIImage(systemName: "pin")
@@ -224,19 +222,18 @@ public extension UIContextualAction {
                             themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeTertiary,    // Always Tertiary
                             accessibility: Accessibility(
-                                identifier: (threadViewModel.threadPinnedPriority > 0 ? "Pin button" : "Unpin button")
+                                identifier: (isCurrentlyPinned ? "Pin button" : "Unpin button")
                             ),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
                             tableView: tableView
                         ) { _, _, completionHandler in
-                            let isPinning: Bool = (threadViewModel.threadPinnedPriority <= 0)
-                            if isPinning,
+                            if !isCurrentlyPinned,
                                !dependencies[cache: .libSession].isSessionPro,
                                let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
                                    try SessionThread
-                                       .filter(SessionThread.Columns.pinnedPriority == 1)
+                                       .filter(SessionThread.Columns.pinnedPriority > 0)
                                        .fetchCount(db)
                                }),
                                pinnedConversationsNumber >= LibSession.PinnedConversationLimit
@@ -258,9 +255,7 @@ public extension UIContextualAction {
                             }
                             
                             (tableView.cellForRow(at: indexPath) as? SwipeActionOptimisticCell)?
-                                .optimisticUpdate(
-                                    isPinned: !(threadViewModel.threadPinnedPriority > 0)
-                                )
+                                .optimisticUpdate(isPinned: !isCurrentlyPinned)
                             completionHandler(true)
                             
                             // Delay the change to give the cell "unswipe" animation some time to complete
@@ -271,7 +266,7 @@ public extension UIContextualAction {
                                         .updateAllAndConfig(
                                             db,
                                             SessionThread.Columns.pinnedPriority
-                                                .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                                .set(to: (isCurrentlyPinned ? 0 : 1)),
                                             using: dependencies
                                         )
                                 }
