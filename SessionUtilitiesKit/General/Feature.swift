@@ -77,6 +77,10 @@ public extension FeatureStorage {
     static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
         identifier: "treatAllIncomingMessagesAsProMessages"
     )
+    
+    static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "shortenFileTTL"
+    )
 }
 
 // MARK: - FeatureOption
