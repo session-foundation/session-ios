@@ -503,8 +503,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             label: "Pin Conversation"
                         ),
                         onTap: { [weak self] in
-                            self?.pinConversation(
-                                threadPinnedPriority: threadViewModel.threadPinnedPriority
+                            self?.toggleConversationPinnedStatus(
+                                currentPinnedPriority: threadViewModel.threadPinnedPriority
                             )
                         }
                     )
@@ -1822,13 +1822,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         }
     }
     
-    private func pinConversation(threadPinnedPriority: Int32) {
-        let isPinning: Bool = (threadPinnedPriority <= 0)
-        if isPinning,
+    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
+        let isCurrentlyPinned: Bool = (currentPinnedPriority > 0)
+        if !isCurrentlyPinned,
            !dependencies[cache: .libSession].isSessionPro,
            let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
                try SessionThread
-                   .filter(SessionThread.Columns.pinnedPriority == 1)
+                   .filter(SessionThread.Columns.pinnedPriority > 0)
                    .fetchCount(db)
            }),
            pinnedConversationsNumber >= LibSession.PinnedConversationLimit
@@ -1852,7 +1852,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 .updateAllAndConfig(
                     db,
                     SessionThread.Columns.shouldBeVisible.set(to: true),
-                    SessionThread.Columns.pinnedPriority.set(to: (isPinning ? 1 : 0)),
+                    SessionThread.Columns.pinnedPriority.set(to: (isCurrentlyPinned ? 0 : 1)),
                     using: dependencies
                 )
         }
