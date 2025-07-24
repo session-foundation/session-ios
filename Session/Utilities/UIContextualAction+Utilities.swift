@@ -215,10 +215,7 @@ public extension UIContextualAction {
                         let isCurrentlyPinned: Bool = (threadViewModel.threadPinnedPriority > 0)
                         return UIContextualAction(
                             title: (isCurrentlyPinned ? "pinUnpin".localized() : "pin".localized()),
-                            icon: (threadViewModel.threadPinnedPriority > 0 ?
-                                UIImage(systemName: "pin.slash") :
-                                UIImage(systemName: "pin")
-                            ),
+                            icon: (isCurrentlyPinned ? UIImage(systemName: "pin.slash") : UIImage(systemName: "pin")),
                             themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeTertiary,    // Always Tertiary
                             accessibility: Accessibility(
