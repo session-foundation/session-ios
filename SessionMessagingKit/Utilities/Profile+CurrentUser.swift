@@ -110,6 +110,7 @@ public extension Profile {
                             using: dependencies
                         )
                         
+                        dependencies[defaults: .standard, key: .profilePictureExpiresDate] = result.expries
                         dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
                         Log.info(.profile, "Successfully updated user profile.")
                     })

@@ -48,6 +48,14 @@ public extension Date {
     var formattedForBanner: String {
         return Date.localTimeAndDateFormatter.string(from: self)
     }
+    
+    static func fromHTTPExpiresHeaders(_ expiresValue: String?) -> Date? {
+        guard let expiresValue else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE',' dd MMM yyyy HH:mm:ss zzz"
+        return formatter.date(from: expiresValue)
+    }
 }
 
 // MARK: - Formatters

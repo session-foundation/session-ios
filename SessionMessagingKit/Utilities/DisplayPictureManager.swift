@@ -25,7 +25,7 @@ public extension Log.Category {
 // MARK: - DisplayPictureManager
 
 public class DisplayPictureManager {
-    public typealias UploadResult = (downloadUrl: String, fileName: String, encryptionKey: Data)
+    public typealias UploadResult = (downloadUrl: String, fileName: String, encryptionKey: Data, expries: Date?)
     
     public enum Update {
         case none
@@ -303,7 +303,7 @@ public class DisplayPictureManager {
             }
             .map { [dependencies] fileUploadResponse, finalFilePath, fileName, newEncryptionKey, finalImageData -> UploadResult in
                 let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
-                let expries: Double? = fileUploadResponse.expires
+                let expries: Date? = fileUploadResponse.expires.map { Date(timeIntervalSince1970: $0)}
                 
                 /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
                 Task(priority: .userInitiated) {
@@ -313,7 +313,7 @@ public class DisplayPictureManager {
                 }
                 
                 Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
-                return (downloadUrl, fileName, newEncryptionKey)
+                return (downloadUrl, fileName, newEncryptionKey, expries)
             }
             .eraseToAnyPublisher()
     }

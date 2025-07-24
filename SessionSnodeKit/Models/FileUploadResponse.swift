@@ -2,9 +2,9 @@
 
 public struct FileUploadResponse: Codable {
     public let id: String
-    public let expires: Double?
+    public let expires: TimeInterval?
     
-    public init(id: String, expires: Double?) {
+    public init(id: String, expires: TimeInterval?) {
         self.id = id
         self.expires = expires
     }
@@ -22,14 +22,14 @@ extension FileUploadResponse {
         if let intValue: Int64 = try? container.decode(Int64.self, forKey: .id) {
             self = FileUploadResponse(
                 id: "\(intValue)",
-                expires: try? container.decode(Double?.self, forKey: .expires)
+                expires: try? container.decode(TimeInterval?.self, forKey: .expires)
             )
             return
         }
         
         self = FileUploadResponse(
             id: try container.decode(String.self, forKey: .id),
-            expires: try? container.decode(Double?.self, forKey: .expires)
+            expires: try? container.decode(TimeInterval?.self, forKey: .expires)
         )
     }
 }

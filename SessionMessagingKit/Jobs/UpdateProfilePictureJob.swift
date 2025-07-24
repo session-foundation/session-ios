@@ -32,10 +32,52 @@ public enum UpdateProfilePictureJob: JobExecutor {
             return deferred(job) // Don't need to do anything if it's not the main app
         }
         
-        // Only re-upload the profile picture if enough time has passed since the last upload
-        guard
+        let runJob: () -> () = {
+            // Note: The user defaults flag is updated in DisplayPictureManager
+            let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
+            let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
+                .map { dependencies[singleton: .displayPictureManager].loadDisplayPictureFromDisk(for: $0) }
+                .map { data in
+                    let isAnimated: Bool = ImageDataManager.isAnimatedImage(data)
+                    return .currentUserUploadImageData(
+                        data: data,
+                        sessionProProof: !isAnimated ? nil :
+                            dependencies.mutate(cache: .libSession, { $0.getProProof() })
+                    )
+                }
+                .defaulting(to: .none)
+            
+            Profile
+                .updateLocal(
+                    displayPictureUpdate: displayPictureUpdate,
+                    using: dependencies
+                )
+                .subscribe(on: scheduler, using: dependencies)
+                .receive(on: scheduler, using: dependencies)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure(let error): failure(job, error, false)
+                            case .finished:
+                                Log.info(.cat, "Profile successfully updated")
+                                success(job, false)
+                        }
+                    }
+                )
+        }
+        
+        if
+            let profilePicutreExpiresData: Date = dependencies[defaults: .standard, key: .profilePictureExpiresDate],
+            dependencies.dateNow.timeIntervalSince(profilePicutreExpiresData) > 0
+        {
+            runJob()
+        }
+        else if
             let lastProfilePictureUpload: Date = dependencies[defaults: .standard, key: .lastProfilePictureUpload],
             dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
+        {
+            runJob()
+        }
         else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
@@ -50,37 +92,5 @@ public enum UpdateProfilePictureJob: JobExecutor {
             Log.info(.cat, "Deferred as not enough time has passed since the last update")
             return deferred(job)
         }
-        
-        // Note: The user defaults flag is updated in DisplayPictureManager
-        let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
-        let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
-            .map { dependencies[singleton: .displayPictureManager].loadDisplayPictureFromDisk(for: $0) }
-            .map { data in
-                let isAnimated: Bool = ImageDataManager.isAnimatedImage(data)
-                return .currentUserUploadImageData(
-                    data: data,
-                    sessionProProof: !isAnimated ? nil :
-                        dependencies.mutate(cache: .libSession, { $0.getProProof() })
-                )
-            }
-            .defaulting(to: .none)
-        
-        Profile
-            .updateLocal(
-                displayPictureUpdate: displayPictureUpdate,
-                using: dependencies
-            )
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure(let error): failure(job, error, false)
-                        case .finished:
-                            Log.info(.cat, "Profile successfully updated")
-                            success(job, false)
-                    }
-                }
-            )
     }
 }

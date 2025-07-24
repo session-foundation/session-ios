@@ -81,7 +81,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         case .failure(let error): failure(job, error, true)
                     }
                 },
-                receiveValue: { _, data in
+                receiveValue: { info, data in
                     // Check to make sure this download is still a valid update
                     guard dependencies[singleton: .storage].read({ db in details.isValidUpdate(db) }) == true else {
                         return
@@ -144,6 +144,12 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         Profile.Columns.lastProfilePictureUpdate.set(to: details.timestamp),
                                         using: dependencies
                                     )
+                                if
+                                    dependencies[cache: .general].sessionId.hexString == id,
+                                    let expires: Date = Date.fromHTTPExpiresHeaders(info.headers["Expires"])
+                                {
+                                    dependencies[defaults: .standard, key: .profilePictureExpiresDate] = expires
+                                }
                                 
                             case .group(let id, let url, let encryptionKey):
                                 _ = try? ClosedGroup
