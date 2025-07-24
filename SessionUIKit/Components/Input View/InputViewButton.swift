@@ -1,10 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
-import SessionUtilitiesKit
 
-final class InputViewButton: UIView {
+public final class InputViewButton: UIView {
     private let icon: UIImage?
     private let isSendButton: Bool
     private weak var delegate: InputViewButtonDelegate?
@@ -23,13 +21,13 @@ final class InputViewButton: UIView {
     
     // MARK: - Settings
     
-    static let size: CGFloat = 40
-    static let expandedSize: CGFloat = 48
-    static let iconSize: CGFloat = 20
+    public static let size: CGFloat = 40
+    public static let expandedSize: CGFloat = 48
+    public static let iconSize: CGFloat = 20
     
     // MARK: - Lifecycle
     
-    init(
+    public init(
         icon: UIImage?,
         isSendButton: Bool = false,
         delegate: InputViewButtonDelegate? = nil,
@@ -70,7 +68,7 @@ final class InputViewButton: UIView {
             addSubview(blurView)
             blurView.pin(to: self)
             
-            ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+            ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
                 blurView?.effect = UIBlurEffect(style: theme.blurStyle)
             }
             
@@ -142,7 +140,7 @@ final class InputViewButton: UIView {
     
     // We want to detect both taps and long presses
     
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !isSoftDisabled && isUserInteractionEnabled else { return }
         
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
@@ -154,7 +152,7 @@ final class InputViewButton: UIView {
         })
     }
 
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !isSoftDisabled && isUserInteractionEnabled else { return }
         
         if isLongPress {
@@ -162,7 +160,7 @@ final class InputViewButton: UIView {
         }
     }
 
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard isUserInteractionEnabled else { return }
         guard !isSoftDisabled else {
             delegate?.handleInputViewButtonTapped(self)
@@ -180,7 +178,7 @@ final class InputViewButton: UIView {
         invalidateLongPressIfNeeded()
     }
     
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         collapse()
         invalidateLongPressIfNeeded()
     }
@@ -193,7 +191,7 @@ final class InputViewButton: UIView {
 
 // MARK: - Delegate
 
-protocol InputViewButtonDelegate: AnyObject {
+public protocol InputViewButtonDelegate: AnyObject {
     func handleInputViewButtonTapped(_ inputViewButton: InputViewButton)
     func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?)
     func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?)

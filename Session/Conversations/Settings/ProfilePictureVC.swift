@@ -34,7 +34,7 @@ final class ProfilePictureVC: BaseVC {
         result.clipsToBounds = true
         result.contentMode = .scaleAspectFill
         result.layer.cornerRadius = (imageSize / 2)
-        result.loadImage(identifier: imageIdentifier, from: imageSource)
+        result.loadImage(imageSource)
         result.set(.width, to: imageSize)
         result.set(.height, to: imageSize)
         

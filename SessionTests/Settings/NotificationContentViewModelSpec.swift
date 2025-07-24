@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class NotificationContentViewModelSpec: QuickSpec {
+class NotificationContentViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -31,30 +31,41 @@ class NotificationContentViewModelSpec: QuickSpec {
         @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
             using: dependencies
         )
-        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { viewModel.updateTableData($0) }
-            )
+        @TestState var dataChangeCancellable: AnyCancellable?
         @TestState var dismissCancellable: AnyCancellable?
+        
+        @MainActor
+        func setupTestSubscriptions() {
+            dataChangeCancellable = viewModel.tableDataPublisher
+                .receive(on: ImmediateScheduler.shared)
+                .sink(
+                    receiveCompletion: { _ in },
+                    receiveValue: { viewModel.updateTableData($0) }
+                )
+        }
+        
+        
         
         // MARK: - a NotificationContentViewModel
         describe("a NotificationContentViewModel") {
+            beforeEach {
+                await setupTestSubscriptions()
+            }
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("notificationsContent".localized()))
+                await expect(viewModel.title).toEventually(equal("notificationsContent".localized()))
             }
 
             // MARK: -- has the correct number of items
             it("has the correct number of items") {
-                expect(viewModel.tableData.count).to(equal(1))
-                expect(viewModel.tableData.first?.elements.count).to(equal(3))
+                await expect(viewModel.tableData.count).toEventually(equal(1))
+                await expect(viewModel.tableData.first?.elements.count).toEventually(equal(3))
             }
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
-                expect(viewModel.tableData.first?.elements)
-                    .to(
+                await expect(viewModel.tableData.first?.elements)
+                    .toEventually(
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
@@ -90,11 +101,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
                 }
                 viewModel = NotificationContentViewModel(using: dependencies)
-                dataChangeCancellable = viewModel.tableDataPublisher
-                    .sink(
-                        receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateTableData($0) }
-                    )
+                await setupTestSubscriptions()
                 
                 expect(viewModel.tableData.first?.elements)
                     .to(
@@ -131,10 +138,10 @@ class NotificationContentViewModelSpec: QuickSpec {
             context("when tapping an item") {
                 // MARK: ---- updates the saved preference
                 it("updates the saved preference") {
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    expect(dependencies[singleton: .storage, key: .preferencesNotificationPreviewType])
-                        .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
+                    await expect(dependencies[singleton: .storage, key: .preferencesNotificationPreviewType])
+                        .toEventually(equal(Preferences.NotificationPreviewType.noNameNoPreview))
                 }
                 
                 // MARK: ---- dismisses the screen
@@ -142,11 +149,12 @@ class NotificationContentViewModelSpec: QuickSpec {
                     var didDismissScreen: Bool = false
                     
                     dismissCancellable = viewModel.navigatableState.dismissScreen
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(didDismissScreen).to(beTrue())
                 }
