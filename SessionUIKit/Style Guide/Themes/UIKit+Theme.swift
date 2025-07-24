@@ -23,12 +23,10 @@ public extension UIView {
             switch newValue {
                 case .color(let color): backgroundColor = color
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        backgroundColor = theme.color(for: value)
-                        return
-                    }
-                    
-                    backgroundColor = theme.color(for: value)?.withAlphaComponent(alpha)
+                    backgroundColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    )
                     
                 case .none: backgroundColor = nil
             }
@@ -54,12 +52,10 @@ public extension UIView {
             switch newValue {
                 case .color(let color): layer.borderColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        layer.borderColor = theme.color(for: value)?.cgColor
-                        return
-                    }
-                    
-                    layer.borderColor = theme.color(for: value)?.withAlphaComponent(alpha).cgColor
+                    layer.borderColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    ).cgColor
                     
                 case .none: layer.borderColor = nil
             }
@@ -87,12 +83,10 @@ public extension UILabel {
             switch newValue {
                 case .color(let color): textColor = color
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        textColor = theme.color(for: value)
-                        return
-                    }
-                    
-                    textColor = theme.color(for: value)?.withAlphaComponent(alpha)
+                    textColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    )
                     
                 case .none: textColor = nil
             }
@@ -115,12 +109,10 @@ public extension UITextView {
             switch newValue {
                 case .color(let color): textColor = color
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        textColor = theme.color(for: value)
-                        return
-                    }
-                    
-                    textColor = theme.color(for: value)?.withAlphaComponent(alpha)
+                    textColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    )
                     
                 case .none: textColor = nil
             }
@@ -143,12 +135,10 @@ public extension UITextField {
             switch newValue {
                 case .color(let color): textColor = color
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        textColor = theme.color(for: value)
-                        return
-                    }
-                    
-                    textColor = theme.color(for: value)?.withAlphaComponent(alpha)
+                    textColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    )
                     
                 case .none: textColor = nil
             }
@@ -172,7 +162,7 @@ public extension UIButton {
             ) { [weak self] theme in
                 guard
                     let value: ThemeValue = value,
-                    let color: UIColor = ThemeManager.resolvedColor(theme.color(for: value))
+                    let color: UIColor = ThemeManager.resolvedColor(ThemeManager.color(for: value, in: theme))
                 else {
                     self?.setBackgroundImage(nil, for: state)
                     return
@@ -196,12 +186,11 @@ public extension UIButton {
         switch newValue {
             case .color(let color): self.setBackgroundImage(color.toImage(), for: state)
             case .theme(let theme, let value, let alpha):
-                guard let alpha: CGFloat = alpha else {
-                    self.setBackgroundImage(theme.color(for: value)?.toImage(), for: state)
-                    return
-                }
-
-                self.setBackgroundImage(theme.color(for: value)?.withAlphaComponent(alpha).toImage(), for: state)
+                let color: UIColor? = (
+                    alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                    ThemeManager.color(for: value, in: theme)
+                )
+                self.setBackgroundImage(color?.toImage(), for: state)
             
             case .none: self.setBackgroundImage(nil, for: state)
         }
@@ -225,7 +214,7 @@ public extension UIButton {
                 }
                 
                 self?.setTitleColor(
-                    ThemeManager.resolvedColor(theme.color(for: value)),
+                    ThemeManager.resolvedColor(ThemeManager.color(for: value, in: theme)),
                     for: state
                 )
             }
@@ -245,12 +234,11 @@ public extension UIButton {
         switch newValue {
             case .color(let color): self.setTitleColor(color, for: state)
             case .theme(let theme, let value, let alpha):
-                guard let alpha: CGFloat = alpha else {
-                    self.setTitleColor(theme.color(for: value), for: state)
-                    return
-                }
-
-                self.setTitleColor(theme.color(for: value)?.withAlphaComponent(alpha), for: state)
+                let color: UIColor? = (
+                    alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                    ThemeManager.color(for: value, in: theme)
+                )
+                self.setTitleColor(color, for: state)
             
             case .none: self.setTitleColor(nil, for: state)
         }
@@ -285,12 +273,10 @@ public extension UIProgressView {
             switch newValue {
                 case .color(let color): progressTintColor = color
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        progressTintColor = theme.color(for: value)
-                        return
-                    }
-
-                    progressTintColor = theme.color(for: value)?.withAlphaComponent(alpha)
+                    progressTintColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    )
                 
                 case .none: progressTintColor = nil
             }
@@ -332,7 +318,7 @@ public extension UIContextualAction {
             }
             
             self.backgroundColor = UIColor(dynamicProvider: { _ in
-                (ThemeManager.currentTheme.color(for: newValue) ?? .clear)
+                ThemeManager.color(for: newValue)
             })
         }
         get { return nil }
@@ -368,7 +354,9 @@ public extension GradientView {
                     // First we should remove any gradient that had been added
                     self?.layer.sublayers?.first(where: { $0 is CAGradientLayer })?.removeFromSuperlayer()
                     
-                    let maybeColors: [CGColor]? = newValue?.compactMap { theme.color(for: $0)?.cgColor }
+                    let maybeColors: [CGColor]? = newValue?.compactMap {
+                        ThemeManager.color(for: $0, in: theme).cgColor
+                    }
                     
                     guard let colors: [CGColor] = maybeColors, colors.count == newValue?.count else {
                         self?.backgroundColor = nil
@@ -400,12 +388,10 @@ public extension CAShapeLayer {
             switch newValue {
                 case .color(let color): strokeColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        strokeColor = theme.color(for: value)?.cgColor
-                        return
-                    }
-
-                    strokeColor = theme.color(for: value)?.withAlphaComponent(alpha).cgColor
+                    strokeColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    ).cgColor
                 
                 case .none: strokeColor = nil
             }
@@ -426,12 +412,10 @@ public extension CAShapeLayer {
             switch newValue {
                 case .color(let color): fillColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        fillColor = theme.color(for: value)?.cgColor
-                        return
-                    }
-
-                    fillColor = theme.color(for: value)?.withAlphaComponent(alpha).cgColor
+                    fillColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    ).cgColor
                 
                 case .none: fillColor = nil
             }
@@ -454,12 +438,10 @@ public extension CALayer {
             switch newValue {
                 case .color(let color): backgroundColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        backgroundColor = theme.color(for: value)?.cgColor
-                        return
-                    }
-                    
-                    backgroundColor = theme.color(for: value)?.withAlphaComponent(alpha).cgColor
+                    backgroundColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    ).cgColor
                     
                 case .none: backgroundColor = nil
             }
@@ -492,12 +474,10 @@ public extension CATextLayer {
             switch newValue {
                 case .color(let color): foregroundColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    guard let alpha: CGFloat = alpha else {
-                        foregroundColor = theme.color(for: value)?.cgColor
-                        return
-                    }
-
-                    foregroundColor = theme.color(for: value)?.withAlphaComponent(alpha).cgColor
+                    foregroundColor = (
+                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
+                        ThemeManager.color(for: value, in: theme)
+                    ).cgColor
                 
                 case .none: foregroundColor = nil
             }
@@ -551,5 +531,19 @@ extension UITextView: AttributedTextAssignable {
     public var attributedTextValue: NSAttributedString? {
         get { self.attributedText }
         set { self.attributedText = newValue }
+    }
+}
+
+// MARK: - Convenience
+
+private extension ThemeManager {
+    static func color(for value: ThemeValue, in targetTheme: Theme? = nil) -> UIColor {
+        let color: UIColor? = ThemeManager.color(
+            for: value,
+            in: (targetTheme ?? ThemeManager.currentTheme),
+            with: ThemeManager.primaryColor
+        )
+        
+        return (color ?? .clear)
     }
 }

@@ -9,7 +9,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .white: .white,
         .black: .black,
         .clear: .clear,
-        .primary: .primary,
+        .primary: .primary(),
         .defaultPrimary: Theme.PrimaryColor.green.color,
         .warning: .warningLight,
         .danger: .dangerLight,
@@ -31,7 +31,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .textBox_border: .classicLight2,
     
         // MessageBubble
-        .messageBubble_outgoingBackground: .primary,
+        .messageBubble_outgoingBackground: .primary(),
         .messageBubble_incomingBackground: .classicLight4,
         .messageBubble_outgoingText: .classicLight0,
         .messageBubble_incomingText: .classicLight0,
@@ -39,13 +39,13 @@ internal enum Theme_ClassicLight: ThemeColors {
         .messageBubble_deliveryStatus: .classicLight1,
 
         // MenuButton
-        .menuButton_background: .primary,
+        .menuButton_background: .primary(),
         .menuButton_icon: .classicLight6,
         .menuButton_outerShadow: .classicLight0,
         .menuButton_innerShadow: .classicLight6,
         
         // RadioButton
-        .radioButton_selectedBackground: .primary,
+        .radioButton_selectedBackground: .primary(),
         .radioButton_unselectedBackground: .clear,
         .radioButton_selectedBorder: .classicLight0,
         .radioButton_unselectedBorder: .classicLight0,
@@ -66,7 +66,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .sessionButton_destructiveHighlight: .dangerLight.withAlphaComponent(0.3),
         .sessionButton_destructiveBorder: .dangerLight,
         .sessionButton_primaryFilledText: .black,
-        .sessionButton_primaryFilledBackground: .primary,
+        .sessionButton_primaryFilledBackground: .primary(),
         
         // SolidButton
         .solidButton_background: .classicLight3,
@@ -89,8 +89,8 @@ internal enum Theme_ClassicLight: ThemeColors {
         // ConversationButton
         .conversationButton_background: .classicLight6,
         .conversationButton_unreadBackground: .classicLight6,
-        .conversationButton_unreadStripBackground: .primary,
-        .conversationButton_unreadBubbleBackground: .primary,
+        .conversationButton_unreadStripBackground: .primary(),
+        .conversationButton_unreadBubbleBackground: .primary(),
         .conversationButton_unreadBubbleText: .classicLight0,
         .conversationButton_swipeDestructive: .dangerLight,
         .conversationButton_swipeSecondary: .classicLight1,
@@ -102,7 +102,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         
         // ContextMenu
         .contextMenu_background: .classicLight6,
-        .contextMenu_highlight: .primary,
+        .contextMenu_highlight: .primary(),
         .contextMenu_text: .classicLight0,
         .contextMenu_textHighlight: .classicLight0,
         
@@ -118,8 +118,8 @@ internal enum Theme_ClassicLight: ThemeColors {
         .newConversation_background: .classicLight6,
         
         // Profile
-        .profileIcon: .primary,
-        .profileIcon_greenPrimaryColor: .primary,
+        .profileIcon: .primary(),
+        .profileIcon_greenPrimaryColor: .primary(),
         .profileIcon_background: .black,
         
         // Unread Marker
@@ -131,7 +131,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .white: .white,
         .black: .black,
         .clear: .clear,
-        .primary: .primary,
+        .primary: .primary(),
         .defaultPrimary: Theme.PrimaryColor.green.colorSwiftUI,
         .warning: .warning,
         .danger: .dangerLight,
@@ -153,7 +153,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .textBox_border: .classicLight2,
     
         // MessageBubble
-        .messageBubble_outgoingBackground: .primary,
+        .messageBubble_outgoingBackground: .primary(),
         .messageBubble_incomingBackground: .classicLight4,
         .messageBubble_outgoingText: .classicLight0,
         .messageBubble_incomingText: .classicLight0,
@@ -161,13 +161,13 @@ internal enum Theme_ClassicLight: ThemeColors {
         .messageBubble_deliveryStatus: .classicLight1,
 
         // MenuButton
-        .menuButton_background: .primary,
+        .menuButton_background: .primary(),
         .menuButton_icon: .classicLight6,
         .menuButton_outerShadow: .classicLight0,
         .menuButton_innerShadow: .classicLight6,
         
         // RadioButton
-        .radioButton_selectedBackground: .primary,
+        .radioButton_selectedBackground: .primary(),
         .radioButton_unselectedBackground: .clear,
         .radioButton_selectedBorder: .classicLight0,
         .radioButton_unselectedBorder: .classicLight0,
@@ -188,7 +188,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .sessionButton_destructiveHighlight: .dangerLight.opacity(0.3),
         .sessionButton_destructiveBorder: .dangerLight,
         .sessionButton_primaryFilledText: .black,
-        .sessionButton_primaryFilledBackground: .primary,
+        .sessionButton_primaryFilledBackground: .primary(),
         
         // SolidButton
         .solidButton_background: .classicLight3,
@@ -211,7 +211,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         // ConversationButton
         .conversationButton_background: .classicLight6,
         .conversationButton_unreadBackground: .classicLight6,
-        .conversationButton_unreadStripBackground: .primary,
+        .conversationButton_unreadStripBackground: .primary(),
         .conversationButton_unreadBubbleBackground: .classicLight3,
         .conversationButton_unreadBubbleText: .classicLight0,
         .conversationButton_swipeDestructive: .dangerLight,
@@ -224,7 +224,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         
         // ContextMenu
         .contextMenu_background: .classicLight6,
-        .contextMenu_highlight: .primary,
+        .contextMenu_highlight: .primary(),
         .contextMenu_text: .classicLight0,
         .contextMenu_textHighlight: .classicLight0,
         
@@ -240,8 +240,8 @@ internal enum Theme_ClassicLight: ThemeColors {
         .newConversation_background: .classicLight6,
         
         // Profile
-        .profileIcon: .primary,
-        .profileIcon_greenPrimaryColor: .primary,
+        .profileIcon: .primary(),
+        .profileIcon_greenPrimaryColor: .primary(),
         .profileIcon_background: .black,
         
         // Unread Marker

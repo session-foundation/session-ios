@@ -119,8 +119,8 @@ public class MediaMessageView: UIView {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isHidden = true
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }
@@ -142,7 +142,7 @@ public class MediaMessageView: UIView {
             if let imageData: Data = validImageData, let dataUrl: URL = attachment.dataUrl {
                 view.layer.minificationFilter = .trilinear
                 view.layer.magnificationFilter = .trilinear
-                view.loadImage(identifier: dataUrl.absoluteString, from: imageData)
+                view.loadImage(.data(dataUrl.absoluteString, imageData))
             }
             else {
                 view.contentMode = .scaleAspectFit

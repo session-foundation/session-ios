@@ -227,7 +227,7 @@ struct QuoteView_SwiftUI: View {
 struct QuoteView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeColor(.backgroundPrimary).ignoresSafeArea()
             VStack(spacing: 20) {
                 QuoteView_SwiftUI(
                     info: QuoteView_SwiftUI.Info(

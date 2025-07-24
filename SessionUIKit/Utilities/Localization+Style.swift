@@ -51,7 +51,7 @@ public extension ThemedAttributedString {
                 ]
                 case .underline: return [.underlineStyle: NSUnderlineStyle.single.rawValue]
                 case .strikethrough: return [.strikethroughStyle: NSUnderlineStyle.single.rawValue]
-                case .primaryTheme: return [.foregroundColor: ThemeManager.currentTheme.color(for: .sessionButton_text).defaulting(to: ThemeManager.primaryColor.color)]
+                case .primaryTheme: return [.themeForegroundColor: ThemeValue.sessionButton_text]
                 case .icon: return Lucide.attributes(for: font)
             }
         }
@@ -180,7 +180,7 @@ private extension Collection where Element == ThemedAttributedString.HTMLTag {
                 case .italic: result[.font] = fontWith(font, traits: [.traitItalic])
                 case .underline: result[.underlineStyle] = NSUnderlineStyle.single.rawValue
                 case .strikethrough: result[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
-                case .primaryTheme: result[.foregroundColor] = ThemeManager.currentTheme.color(for: .sessionButton_text).defaulting(to: ThemeManager.primaryColor.color)
+                case .primaryTheme: result[.themeForegroundColor] = ThemeValue.sessionButton_text
                 case .icon:
                     result[.font] = fontWith(Lucide.font(ofSize: (font.pointSize + 1)), traits: [])
                     result[.baselineOffset] = Lucide.defaultBaselineOffset

@@ -44,8 +44,8 @@ final class LinkPreviewView: UIView {
             padding: nil
         )
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }
@@ -209,7 +209,7 @@ final class LinkPreviewView: UIView {
                 searchText: lastSearchText,
                 delegate: delegate,
                 using: dependencies
-            )
+            ).label
             
             self.bodyTappableLabel = bodyTappableLabel
             bodyTappableLabelContainer.addSubview(bodyTappableLabel)

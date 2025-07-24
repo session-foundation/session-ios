@@ -1,8 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
-import SessionUtilitiesKit
 
 public final class InputTextView: UITextView, UITextViewDelegate {
     private static let defaultFont: UIFont = .systemFont(ofSize: Values.mediumFontSize)
@@ -26,12 +24,12 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     
     // MARK: - Settings
     
-    private let minHeight: CGFloat = 22
-    private let maxHeight: CGFloat = 80
+    public let minHeight: CGFloat = 22
+    public let maxHeight: CGFloat = 122
 
     // MARK: - Lifecycle
     
-    init(delegate: InputTextViewDelegate, maxWidth: CGFloat) {
+    public init(delegate: InputTextViewDelegate, maxWidth: CGFloat) {
         snDelegate = delegate
         self.maxWidth = maxWidth
         
@@ -87,7 +85,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         pin(.trailing, to: .trailing, of: placeholderLabel, withInset: horizontalInset)
         pin(.bottom, to: .bottom, of: placeholderLabel)
         
-        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
+        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _, _ in
             self?.keyboardAppearance = theme.keyboardAppearance
         }
     }
@@ -96,66 +94,6 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     
     public func textViewDidChange(_ textView: UITextView) {
         handleTextChanged()
-    }
-    
-    public func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        let currentText: String = (textView.text ?? "")
-        guard let textRange: Range<String.Index> = Range(range, in: currentText) else { return true }
-        
-        /// Use utf16 view for proper length calculation
-        let currentLength: Int = currentText.count
-        let rangeLength: Int = currentText[textRange].count
-        let newLength: Int = ((currentLength - rangeLength) + text.count)
-        
-        /// If the updated length is within the limit then just let the OS handle it (no need to do anything custom
-        guard newLength > SessionApp.maxMessageCharacterCount else { return true }
-        
-        /// Ensure there is actually space remaining (if not then just don't allow editing)
-        let remainingSpace: Int = SessionApp.maxMessageCharacterCount - (currentLength - rangeLength)
-        guard remainingSpace > 0 else { return false }
-        
-        /// Truncate text based on character count (use `textStorage.replaceCharacters` for built in `undo` support)
-        let truncatedText: String = String(text.prefix(remainingSpace))
-        let offset: Int = range.location + truncatedText.count
-        
-        /// Pasting a value that is too large into the input will result in some odd default OS styling being applied to the text which is very
-        /// different from our desired text style, in order to avoid this we need to detect this case and explicitly set the value as an attributed
-        /// string with our explicit styling
-        ///
-        /// **Note:** If we add any additional attributes these will need to be updated to match
-        if currentText.isEmpty {
-            let fallbackColor: UIColor? = ThemeManager.currentTheme.color(
-                for: InputTextView.defaultThemeTextColor
-            )
-            textView.textStorage.setAttributedString(
-                NSAttributedString(
-                    string: truncatedText,
-                    attributes: [
-                        .font: textView.font ?? InputTextView.defaultFont,
-                        .foregroundColor: textView.textColor ?? fallbackColor as Any
-                    ]
-                )
-            )
-        }
-        else {
-            textView.textStorage.replaceCharacters(in: range, with: truncatedText)
-        }
-        
-        /// Position cursor after inserted text
-        ///
-        /// **Note:** We need to dispatch to the next run loop because it seems that iOS might revert the `selectedTextRange`
-        /// after returning `false` from this function, by dispatching we then override this reverted position with a desired final position
-        if let newPosition: UITextPosition = textView.position(from: textView.beginningOfDocument, offset: offset) {
-            DispatchQueue.main.async {
-                textView.selectedTextRange = textView.textRange(from: newPosition, to: newPosition)
-            }
-        }
-        
-        /// We need to manually trigger the `handleTextChanged` call because returning `false` here means the
-        /// `textViewDidChange(_:)`delegate won't be called
-        handleTextChanged()
-        
-        return false
     }
     
     private func handleTextChanged() {
@@ -179,7 +117,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 
 // MARK: - InputTextViewDelegate
 
-protocol InputTextViewDelegate: AnyObject {
+public protocol InputTextViewDelegate: AnyObject {
     func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage)

@@ -23,7 +23,8 @@ extension ConversationVC:
     SendMediaNavDelegate,
     UIDocumentPickerDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    SessionProCTADelegate
 {
     // MARK: - Open Settings
     
@@ -230,6 +231,35 @@ extension ConversationVC:
         present(confirmationModal, animated: true, completion: nil)
         
         return true
+    }
+    
+    // MARK: - Session Pro CTA
+    
+    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+        let dependencies: Dependencies = viewModel.dependencies
+        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
+            return false
+        }
+        self.hideInputAccessoryView()
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: self,
+                variant: .longerMessages,
+                dataManager: viewModel.dependencies[singleton: .imageDataManager],
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                }
+            )
+        )
+        present(sessionProModal, animated: true, completion: nil)
+        
+        return true
+    }
+    
+    func upgradeToPro(completion: (() -> Void)?) {
+        viewModel.dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
+        completion?()
     }
 
     // MARK: - SendMediaNavDelegate
@@ -502,6 +532,46 @@ extension ConversationVC:
         self.showBlockedModalIfNeeded()
     }
     
+    func handleCharacterLimitLabelTapped() {
+        guard !showSessionProCTAIfNeeded() else { return }
+        
+        self.hideInputAccessoryView()
+        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: viewModel.isSessionPro
+        )
+        let limit: Int = (viewModel.isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: (
+                    (numberOfCharactersLeft >= 0) ?
+                        "modalMessageCharacterDisplayTitle".localized() :
+                        "modalMessageCharacterTooLongTitle".localized()
+                ),
+                body: .text(
+                    (
+                        (numberOfCharactersLeft >= 0) ?
+                            "modalMessageCharacterDisplayDescription"
+                                .putNumber(numberOfCharactersLeft)
+                                .put(key: "limit", value: limit)
+                                .localized() :
+                            "modalMessageCharacterTooLongDescription"
+                                .put(key: "limit", value: limit)
+                                .localized()
+                    ),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
+    }
+    
     func handleDisabledAttachmentButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
@@ -539,11 +609,42 @@ extension ConversationVC:
     // MARK: --Message Sending
     
     func handleSendButtonTapped() {
+        guard LibSession.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: viewModel.isSessionPro
+        ) >= 0 else {
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isSessionPro)
+            return
+        }
+        
         sendMessage(
             text: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
             linkPreviewDraft: snInputView.linkPreviewInfo?.draft,
             quoteModel: snInputView.quoteDraftInfo?.model
         )
+    }
+    
+    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        guard !showSessionProCTAIfNeeded() else { return }
+        
+        self.hideInputAccessoryView()
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "modalMessageCharacterTooLongTitle".localized(),
+                body: .text(
+                    "modalMessageTooLongDescription"
+                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .localized(),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
     }
 
     func sendMessage(
@@ -786,6 +887,9 @@ extension ConversationVC:
         }
         
         updateMentions(for: newText)
+        // Note: When calculating the number of characters left, we need to use the original mention
+        // text which contains the session id rather than display name.
+        snInputView.updateNumberOfCharactersLeft(replaceMentions(in: newText))
     }
     
     // MARK: --Attachments
@@ -815,9 +919,20 @@ extension ConversationVC:
         
         mentions.append(mentionInfo)
         
+        let currentUserSessionIds: Set<String> = [
+            self.viewModel.threadData.currentUserSessionId,
+            self.viewModel.threadData.currentUserBlinded15SessionId,
+            self.viewModel.threadData.currentUserBlinded25SessionId
+        ].compactMap { $0 }.asSet()
+        
+        let displayNameForMention: String = mentionInfo.profile.displayNameForMention(
+            for: self.viewModel.threadData.threadVariant,
+            currentUserSessionIds: currentUserSessionIds
+        )
+        
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:ignore
+            with: "@\(displayNameForMention) " // stringlint:ignore
         )
         
         snInputView.text = newText
@@ -825,7 +940,12 @@ extension ConversationVC:
         snInputView.hideMentionsUI()
         
         mentions = mentions.filter { mentionInfo -> Bool in
-            newText.contains(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant))
+            newText.contains(
+                mentionInfo.profile.displayNameForMention(
+                    for: self.viewModel.threadData.threadVariant,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+            )
         }
     }
     
@@ -888,8 +1008,17 @@ extension ConversationVC:
     // stringlint:ignore_contents
     func replaceMentions(in text: String) -> String {
         var result = text
+        let currentUserSessionIds: Set<String> = [
+            self.viewModel.threadData.currentUserSessionId,
+            self.viewModel.threadData.currentUserBlinded15SessionId,
+            self.viewModel.threadData.currentUserBlinded25SessionId
+        ].compactMap { $0 }.asSet()
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
+            let displayNameForMention: String = mention.profile.displayNameForMention(
+                for: mention.threadVariant,
+                currentUserSessionIds: currentUserSessionIds
+            )
+            guard let range = result.range(of: "@\(displayNameForMention)") else { continue }
             result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
         }
         
@@ -1512,6 +1641,21 @@ extension ConversationVC:
             at: [IndexPath(row: targetMessageIndex, section: messageSectionIndex)],
             with: .none
         )
+        
+        // Only re-enable animations if the feature flag isn't disabled
+        if viewModel.dependencies[feature: .animationsEnabled] {
+            UIView.setAnimationsEnabled(true)
+        }
+    }
+    
+    func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel) {
+        self.viewModel.expandMessage(for: cellViewModel.id)
+        
+        UIView.setAnimationsEnabled(false)
+        cell.setNeedsLayout()
+        cell.layoutIfNeeded()
+        tableView.beginUpdates()
+        tableView.endUpdates()
         
         // Only re-enable animations if the feature flag isn't disabled
         if viewModel.dependencies[feature: .animationsEnabled] {
