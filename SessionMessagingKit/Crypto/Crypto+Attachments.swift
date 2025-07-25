@@ -4,6 +4,7 @@
 
 import Foundation
 import CommonCrypto
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 // MARK: - Encryption
@@ -42,7 +43,7 @@ public extension Crypto.Generator {
             outKey.append(Data(hmacKey))
 
             // Apply any padding
-            let desiredSize: Int = max(541, Int(floor(pow(1.05, ceil(log(Double(plaintext.count)) / log(1.05))))))
+            let desiredSize: Int = max(541, min(Int(Network.maxFileSize), Int(floor(pow(1.05, ceil(log(Double(plaintext.count)) / log(1.05)))))))
             var paddedAttachmentData: [UInt8] = Array(plaintext)
             if desiredSize > plaintext.count {
                 paddedAttachmentData.append(contentsOf: [UInt8](repeating: 0, count: desiredSize - plaintext.count))
