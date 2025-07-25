@@ -545,39 +545,45 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(currentFileName: String?) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
+        var hasSetNewProfilePicture: Bool = false
+        let body: ConfirmationModal.Info.Body = .image(
+            source: nil,
+            placeholder: currentFileName
+                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) }
+                .defaulting(to: Lucide.image(icon: .image, size: 40).map { image in
+                    ImageDataManager.DataSource.image(
+                        iconName,
+                        image
+                            .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
+                            .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
+                    )
+                }),
+            icon: .rightPlus,
+            style: .circular,
+            showPro: true,
+            accessibility: Accessibility(
+                identifier: "Upload",
+                label: "Upload"
+            ),
+            dataManager: dependencies[singleton: .imageDataManager],
+            onProBageTapped: { [weak self] in
+                self?.showSessionProCTAIfNeeded()
+            },
+            onClick: { [weak self] onDisplayPictureSelected in
+                self?.onDisplayPictureSelected = { valueUpdate in
+                    onDisplayPictureSelected(valueUpdate)
+                    hasSetNewProfilePicture = true
+                }
+                self?.showPhotoLibraryForAvatar()
+            }
+        )
         
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "profileDisplayPictureSet".localized(),
-                    body: .image(
-                        source: currentFileName
-                            .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
-                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
-                        placeholder: Lucide.image(icon: .image, size: 40).map { image in
-                            ImageDataManager.DataSource.image(
-                                iconName,
-                                image
-                                    .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
-                                    .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
-                            )
-                        },
-                        icon: .rightPlus,
-                        style: .circular,
-                        showPro: true,
-                        accessibility: Accessibility(
-                            identifier: "Upload",
-                            label: "Upload"
-                        ),
-                        dataManager: dependencies[singleton: .imageDataManager],
-                        onProBageTapped: { [weak self] in
-                            self?.showSessionProCTAIfNeeded()
-                        },
-                        onClick: { [weak self] onDisplayPictureSelected in
-                            self?.onDisplayPictureSelected = onDisplayPictureSelected
-                            self?.showPhotoLibraryForAvatar()
-                        }
-                    ),
+                    body: body,
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
@@ -586,7 +592,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(currentFileName != nil),
+                    cancelEnabled: (currentFileName != nil) ? .bool(true) : .afterChange { info in
+                        switch info.body {
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
+                            default: return false
+                        }
+                    },
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
@@ -613,10 +624,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         }
                     },
                     onCancel: { [weak self] modal in
-                        self?.updateProfile(
-                            displayPictureUpdate: .currentUserRemove,
-                            onComplete: { [weak modal] in modal?.close() }
-                        )
+                        if hasSetNewProfilePicture {
+                            modal.updateContent(
+                                with: modal.info.with(
+                                    body: body,
+                                    cancelTitle: "remove".localized()
+                                )
+                            )
+                            hasSetNewProfilePicture = false
+                        } else {
+                            self?.updateProfile(
+                                displayPictureUpdate: .currentUserRemove,
+                                onComplete: { [weak modal] in modal?.close() }
+                            )
+                        }
                     }
                 )
             ),

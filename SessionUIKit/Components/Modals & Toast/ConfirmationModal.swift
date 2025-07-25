@@ -688,7 +688,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                 dataManager: dataManager,
                                 onProBageTapped: onProBadgeTapped,
                                 onClick: onClick
-                            )
+                            ),
+                            cancelTitle: "clear".localized()
                         )
                     )
                     
@@ -845,6 +846,7 @@ public extension ConfirmationModal {
         
         public func with(
             body: Body? = nil,
+            cancelTitle: String? = nil,
             onConfirm: ((ConfirmationModal) -> ())? = nil,
             onCancel: ((ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
@@ -856,7 +858,7 @@ public extension ConfirmationModal {
                 confirmTitle: self.confirmTitle,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: self.confirmEnabled,
-                cancelTitle: self.cancelTitle,
+                cancelTitle: (cancelTitle ?? self.cancelTitle),
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: self.cancelEnabled,
                 hasCloseButton: self.hasCloseButton,
