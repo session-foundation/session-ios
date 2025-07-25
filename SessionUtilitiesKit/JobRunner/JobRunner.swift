@@ -244,8 +244,10 @@ public final class JobRunner: JobRunnerType {
     @ThreadSafeObject internal var shutdownBackgroundTask: SessionBackgroundTask? = nil
     
     private var canStartNonBlockingQueue: Bool {
-        blockingQueue?.hasStartedAtLeastOnce == true &&
-        blockingQueue?.isRunning != true &&
+        _blockingQueue.performMap {
+            $0?.hasStartedAtLeastOnce == true &&
+            $0?.isRunning != true
+        } &&
         appHasBecomeActive
     }
     
@@ -400,7 +402,7 @@ public final class JobRunner: JobRunnerType {
     // MARK: - Configuration
     
     public func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) {
-        blockingQueue?.setExecutor(executor, for: variant) // The blocking queue can run any job
+        _blockingQueue.perform { $0?.setExecutor(executor, for: variant) } // The blocking queue can run any job
         queues[variant]?.setExecutor(executor, for: variant)
     }
     
@@ -416,8 +418,10 @@ public final class JobRunner: JobRunnerType {
 
     public func afterBlockingQueue(callback: @escaping () -> ()) {
         guard
-            (blockingQueue?.hasStartedAtLeastOnce != true) ||
-            (blockingQueue?.isRunning == true)
+            _blockingQueue.performMap({
+                ($0?.hasStartedAtLeastOnce != true) ||
+                ($0?.isRunning == true)
+            })
         else { return callback() }
     
         _blockingQueueDrainCallback.performUpdate { $0.appending(callback) }
@@ -465,7 +469,9 @@ public final class JobRunner: JobRunnerType {
                     .defaulting(to: [])
             }
             
-            result.append(contentsOf: infoFor(queue: blockingQueue, variants: targetVariants))
+            _blockingQueue.perform {
+                result.append(contentsOf: infoFor(queue: $0, variants: targetVariants))
+            }
             queues
                 .filter { key, _ -> Bool in targetVariants.isEmpty || targetVariants.contains(key) }
                 .map { _, queue in queue }
@@ -489,7 +495,9 @@ public final class JobRunner: JobRunnerType {
                     .defaulting(to: [])
             }
             
-            result.append(contentsOf: infoFor(queue: blockingQueue, variants: targetVariants))
+            _blockingQueue.perform {
+                result.append(contentsOf: infoFor(queue: $0, variants: targetVariants))
+            }
             queues
                 .filter { key, _ -> Bool in targetVariants.isEmpty || targetVariants.contains(key) }
                 .map { _, queue in queue }
@@ -549,17 +557,19 @@ public final class JobRunner: JobRunnerType {
             .defaulting(to: ([], []))
         
         // Add and start any blocking jobs
-        blockingQueue?.appDidFinishLaunching(
-            with: jobsToRun.blocking.map { job -> Job in
-                guard job.behaviour == .recurringOnLaunch else { return job }
-                
-                // If the job is a `recurringOnLaunch` job then we reset the `nextRunTimestamp`
-                // value on the instance because the assumption is that `recurringOnLaunch` will
-                // run a job regardless of how many times it previously failed
-                return job.with(nextRunTimestamp: 0)
-            },
-            canStart: true
-        )
+        _blockingQueue.perform {
+            $0?.appDidFinishLaunching(
+                with: jobsToRun.blocking.map { job -> Job in
+                    guard job.behaviour == .recurringOnLaunch else { return job }
+                    
+                    // If the job is a `recurringOnLaunch` job then we reset the `nextRunTimestamp`
+                    // value on the instance because the assumption is that `recurringOnLaunch` will
+                    // run a job regardless of how many times it previously failed
+                    return job.with(nextRunTimestamp: 0)
+                },
+                canStart: true
+            )
+        }
         
         // Add any non-blocking jobs (we don't start these incase there are blocking "on active"
         // jobs as well)
@@ -610,7 +620,7 @@ public final class JobRunner: JobRunnerType {
         
         // Store the current queue state locally to avoid multiple atomic retrievals
         let jobQueues: [Job.Variant: JobQueue] = queues
-        let blockingQueueIsRunning: Bool = (blockingQueue?.isRunning == true)
+        let blockingQueueIsRunning: Bool = _blockingQueue.performMap { $0?.isRunning == true }
         
         // Reset the 'isRunningInBackgroundTask' flag just in case (since we aren't in the background anymore)
         jobQueues.forEach { _, queue in

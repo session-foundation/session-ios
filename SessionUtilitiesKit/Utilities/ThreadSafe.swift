@@ -87,6 +87,18 @@ public final class ThreadSafeObject<Value> {
     private var mutationThreadId: UInt32? = nil
 
     public var wrappedValue: Value {
+        #if DEBUG
+        guard !(Value.self is AnyClass) else {
+            fatalError("""
+                [ThreadSafeObject] FATAL: Attempted to get direct wrappedValue for a reference type (\(Value.self)).
+                This is unsafe and will cause race conditions.
+                You MUST perform operations within a protected closure using the wrapper instance itself.
+
+                Incorrect: let x = mySafeObject.someProperty
+                Correct:   let x = _mySafeObject.performMap { $0.someProperty }
+                """)
+        }
+        #endif
         guard mutationThreadId != Thread.current.threadId else { return value }
         
         lock.readLock()

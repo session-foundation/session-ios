@@ -151,6 +151,13 @@ public extension MessageDeduplication {
         
         /// Kick off a task to do file I/O (don't want to block the database waiting for file operations to complete)
         Task { [extensionHelper = dependencies[singleton: .extensionHelper], storage = dependencies[singleton: .storage]] in
+            /// Upsert the "Last Cleared" record (we do this first just in case there are a lot of message to process and it takes a long time)
+            threadIds.forEach { threadId in
+                do { try extensionHelper.upsertLastClearedRecord(threadId: threadId) }
+                catch { Log.warn(.cat, "Failed to update the last cleared record for \(threadId).") }
+            }
+            
+            /// Remove any dedupe record files that should be removed
             var deletedRecords: [MessageDeduplication] = []
             
             records.forEach { record in
@@ -174,12 +181,6 @@ public extension MessageDeduplication {
                         .filter(MessageDeduplication.Columns.uniqueIdentifier == record.uniqueIdentifier)
                         .deleteAll(db)
                 }
-            }
-            
-            /// Upsert the "Last Cleared" record
-            threadIds.forEach { threadId in
-                do { try extensionHelper.upsertLastClearedRecord(threadId: threadId) }
-                catch { Log.warn(.cat, "Failed to update the last cleared record for \(threadId).") }
             }
         }
     }

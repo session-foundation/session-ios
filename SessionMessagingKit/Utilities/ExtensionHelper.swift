@@ -99,8 +99,10 @@ public class ExtensionHelper: ExtensionHelperType {
         guard dependencies[singleton: .fileManager].createFile(atPath: tmpPath, contents: ciphertext) else {
             throw ExtensionHelperError.failedToWriteToFile
         }
-        try? dependencies[singleton: .fileManager].removeItem(atPath: path)
-        try dependencies[singleton: .fileManager].moveItem(atPath: tmpPath, toPath: path)
+        _ = try dependencies[singleton: .fileManager].replaceItemAt(
+            URL(fileURLWithPath: path),
+            withItemAt: URL(fileURLWithPath: tmpPath)
+        )
     }
     
     private func read(from path: String) throws -> Data {
@@ -135,6 +137,15 @@ public class ExtensionHelper: ExtensionHelperType {
         return ((try? dependencies[singleton: .fileManager]
             .attributesOfItem(atPath: path)
             .getting(.creationDate) as? Date)?
+            .timeIntervalSince1970)
+    }
+    
+    public func lastModifiedTimestamp(for path: String) -> TimeInterval? {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return nil }
+        
+        return ((try? dependencies[singleton: .fileManager]
+            .attributesOfItem(atPath: path)
+            .getting(.modificationDate) as? Date)?
             .timeIntervalSince1970)
     }
     
@@ -208,9 +219,11 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     private func dedupeRecordTimestampsSinceLastCleared(conversationPath: String) -> [TimeInterval] {
+        /// Using `lastModified` for the `lastClearedRecord` because if the file already existed when clearing then it's
+        /// `created` timestamp wouldn't get updated
         let lastClearedPath: String? = lastClearedRecordPath(conversationPath: conversationPath)
         let lastClearedTimestamp: TimeInterval = lastClearedPath
-            .map { createdTimestamp(for: $0) }
+            .map { lastModifiedTimestamp(for: $0) }
             .defaulting(to: 0)
         let dedupePath: String = URL(fileURLWithPath: conversationPath)
             .appendingPathComponent(conversationDedupeDir)
@@ -303,11 +316,7 @@ public class ExtensionHelper: ExtensionHelperType {
     ) -> TimeInterval {
         guard let path: String = dumpFilePath(for: sessionId, variant: variant) else { return 0 }
         
-        return ((try? dependencies[singleton: .fileManager]
-            .attributesOfItem(atPath: path)
-            .getting(.modificationDate) as? Date)?
-            .timeIntervalSince1970)
-            .defaulting(to: 0)
+        return lastModifiedTimestamp(for: path).defaulting(to: 0)
     }
     
     public func replicate(dump: ConfigDump?, replaceExisting: Bool) {

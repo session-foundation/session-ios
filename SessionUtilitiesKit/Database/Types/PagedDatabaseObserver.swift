@@ -522,11 +522,13 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                                     if updatedCache[key] == nil {
                                         updatedCache[key] = [:]
                                     }
-                                    updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                                    updatedCache[key]?.merge(value, uniquingKeysWith: { current, new in
+                                        Array(Set(current + new))
+                                    })
                                 }
                                 
                                 // Delete any removed relationships
-                                if !relatedDeletions.isEmpty || !relatedDeletions.isEmpty {
+                                if !relatedDeletions.isEmpty || !deletionChanges.isEmpty {
                                     let deletionPagedIdSet: Set<Int64> = Set(deletionChanges)
                                     
                                     cache.forEach { key, relationships in

@@ -38,6 +38,13 @@ public struct ObservedEvent: Hashable, Sendable {
         self.key = key
         self.storedValue = value.map { AnySendableHashable($0) }
     }
+    
+    public init?(key: ObservableKey?, value: None?) {
+        guard let key: ObservableKey = key else { return nil }
+        
+        self.key = key
+        self.storedValue = value.map { AnySendableHashable($0) }
+    }
 }
 
 public struct None: Hashable, Sendable {}

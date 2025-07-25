@@ -58,6 +58,7 @@ public protocol FileManagerType {
     func copyItem(at fromUrl: URL, to toUrl: URL) throws
     func moveItem(atPath: String, toPath: String) throws
     func moveItem(at fromUrl: URL, to toUrl: URL) throws
+    func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL?
     func removeItem(atPath: String) throws
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any]
@@ -103,6 +104,10 @@ public extension FileManagerType {
     
     func createDirectory(atPath: String, withIntermediateDirectories: Bool) throws {
         try createDirectory(atPath: atPath, withIntermediateDirectories: withIntermediateDirectories, attributes: nil)
+    }
+    
+    func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL) throws -> URL? {
+        return try replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: nil, options: [])
     }
 }
 
@@ -349,6 +354,10 @@ public class SessionFileManager: FileManagerType {
     
     public func moveItem(at fromUrl: URL, to toUrl: URL) throws {
         try fileManager.moveItem(at: fromUrl, to: toUrl)
+    }
+    
+    public func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL? {
+        try fileManager.replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: backupItemName, options: options)
     }
     
     public func removeItem(atPath: String) throws {

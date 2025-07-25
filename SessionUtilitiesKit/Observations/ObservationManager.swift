@@ -76,9 +76,9 @@ public extension ObservationManager {
 public extension Dependencies {
     @discardableResult func notifyAsync(
         priority: ObservationManager.Priority = .standard,
-        events: [ObservedEvent]
+        events: [ObservedEvent?]
     ) -> Task<Void, Never> {
-        guard !events.isEmpty else { return Task {} }
+        guard let events: [ObservedEvent] = events.compactMap({ $0 }).nullIfEmpty else { return Task {} }
         
         return Task(priority: priority.taskPriority) { [observationManager = self[singleton: .observationManager]] in
             await observationManager.notify(priority: priority, events: events)
@@ -93,18 +93,5 @@ public extension Dependencies {
         guard let event: ObservedEvent = key.map({ ObservedEvent(key: $0, value: value) }) else { return Task {} }
         
         return notifyAsync(priority: priority, events: [event])
-    }
-    
-    @discardableResult func notifyAsync(
-        priority: ObservationManager.Priority = .standard,
-        _ events: (key: ObservableKey?, value: AnySendableHashable?)...
-    ) -> Task<Void, Never> {
-        guard
-            let events: [ObservedEvent] = events
-                .compactMap({ key, value in key.map { ObservedEvent(key: $0, value: value) } })
-                .nullIfEmpty
-        else { return Task {} }
-        
-        return notifyAsync(priority: priority, events: events)
     }
 }

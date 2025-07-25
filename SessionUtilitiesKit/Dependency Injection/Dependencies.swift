@@ -11,7 +11,6 @@ public class Dependencies {
     /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
     /// a convenience thing than anything) as such it's held outside of the `DependencyStorage`
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
-    @ThreadSafeObject private static var cachedLastCreatedInstance: Dependencies? = nil
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
     // MARK: - Subscript Access
@@ -37,10 +36,6 @@ public class Dependencies {
     
     // MARK: - Initialization
     
-    private init() {
-        Dependencies._cachedLastCreatedInstance.set(to: self)
-    }
-    internal init(forTesting: Bool) {}
     public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
@@ -182,10 +177,10 @@ public extension Dependencies {
         setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
         
         /// Notify observers
-        notifyAsync(
-            (.feature(feature), value: AnySendableHashable(updatedFeature)),
-            (.featureGroup(feature), value: nil)
-        )
+        notifyAsync(events: [
+            ObservedEvent(key: .feature(feature), value: updatedFeature),
+            ObservedEvent(key: .featureGroup(feature), value: nil)
+        ])
     }
     
     func reset<T: FeatureOption>(feature: FeatureConfig<T>) {
@@ -199,10 +194,10 @@ public extension Dependencies {
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
-        notifyAsync(
-            (.feature(feature), value: nil),
-            (.featureGroup(feature), value: nil)
-        )
+        notifyAsync(events: [
+            ObservedEvent(key: .feature(feature), value: nil),
+            ObservedEvent(key: .featureGroup(feature), value: nil)
+        ])
     }
 }
 
@@ -305,8 +300,9 @@ private extension Dependencies {
     ) -> Value {
         let key: Dependencies.DependencyStorage.Key = constructor.variant.key(identifier)
         
-        /// If we already have an instance then just return that (using a `readLock` rather than a `writeLock`)
-        if let existingValue: Value = storage.instances[key]?.value(as: Value.self) {
+        /// If we already have an instance then just return that (need to get a `writeLock` here because accessing values on a class
+        /// isn't thread safe so we need to block during access)
+        if let existingValue: Value = _storage.performMap({ $0.instances[key]?.value(as: Value.self) }) {
             return existingValue
         }
         
@@ -328,7 +324,7 @@ private extension Dependencies {
         
         /// Now that we have acquired the `initializationLock` we need to check if an instance was created on another
         /// thread while we were waiting
-        if let existingValue: Value = storage.instances[key]?.value(as: Value.self) {
+        if let existingValue: Value = _storage.performMap({ $0.instances[key]?.value(as: Value.self) }) {
             return existingValue
         }
         

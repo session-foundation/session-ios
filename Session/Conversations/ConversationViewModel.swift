@@ -1189,11 +1189,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     playbackRate: 1
                 )
             
-            audioPlayer?.playbackRate = 1
-            
-            switch currentPlaybackInfo?.state {
-                case .playing: audioPlayer?.pause()
-                default: audioPlayer?.play()
+            _audioPlayer.perform {
+                $0?.playbackRate = 1
+                
+                switch currentPlaybackInfo?.state {
+                    case .playing: $0?.pause()
+                    default: $0?.play()
+                }
             }
             
             // Update the state and then update the UI with the updated state
@@ -1203,7 +1205,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         // First stop any existing audio
-        audioPlayer?.stop()
+        _audioPlayer.perform { $0?.stop() }
         
         // Then setup the state for the new audio
         currentPlayingInteraction = viewModel.id
@@ -1212,7 +1214,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         
         // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
         // gets deallocated it triggers state changes which cause UI bugs when auto-playing
-        audioPlayer?.delegate = nil
+        _audioPlayer.perform { $0?.delegate = nil }
         _audioPlayer.set(to: nil)
         
         let newAudioPlayer: OWSAudioPlayer = OWSAudioPlayer(
@@ -1242,7 +1244,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             .with(playbackRate: 1.5)
         
         // Speed up the audio player
-        audioPlayer?.playbackRate = 1.5
+        _audioPlayer.perform { $0?.playbackRate = 1.5 }
         
         _playbackInfo.performUpdate { $0.setting(viewModel.id, updatedPlaybackInfo) }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
@@ -1261,12 +1263,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             return DispatchQueue.main.sync { [weak self] in self?.stopAudio() }
         }
         
-        audioPlayer?.stop()
+        _audioPlayer.perform { $0?.stop() }
         
         currentPlayingInteraction = nil
         // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
         // gets deallocated it triggers state changes which cause UI bugs when auto-playing
-        audioPlayer?.delegate = nil
+        _audioPlayer.perform { $0?.delegate = nil }
         _audioPlayer.set(to: nil)
     }
     

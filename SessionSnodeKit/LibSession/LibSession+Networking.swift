@@ -813,7 +813,7 @@ public extension LibSession {
                                 }
                             }
                             
-                            // Need to free the cPathsPtr as we are the owner
+                            // Need to free the pathsPtr as we are the owner
                             free(UnsafeMutableRawPointer(mutating: pathsPtr))
                             
                             // Dispatch async so we don't hold up the libSession thread that triggered the update

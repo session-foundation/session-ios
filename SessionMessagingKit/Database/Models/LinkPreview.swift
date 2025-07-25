@@ -223,7 +223,7 @@ public extension LinkPreview {
         guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else { return nil }
         guard let body: String = body else { return nil }
 
-        if let cachedUrl = previewUrlCache.get(key: body) {
+        if let cachedUrl = _previewUrlCache.performMap({ $0.get(key: body) }) {
             guard cachedUrl.count > 0 else {
                 return nil
             }
