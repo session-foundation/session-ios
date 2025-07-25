@@ -874,7 +874,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                                 threadVariant: threadVariant
                             )
                         }
-                        .defaulting(to: Profile.truncated(id: targetItem.interactionAuthorId, truncating: .middle))
+                        .defaulting(to: targetItem.interactionAuthorId.truncated())
                     
                 case .standardOutgoing:
                     return "you".localized() // "Short sender label for media sent by you"

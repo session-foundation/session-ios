@@ -82,7 +82,7 @@ extension MessageSender {
                                 hasCurrentUser: false,
                                 names: sortedOtherMembers.map { id, profile in
                                     profile?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
+                                    id.truncated()
                                 },
                                 historyShared: false
                             )
@@ -699,7 +699,7 @@ extension MessageSender {
                             hasCurrentUser: members.contains { id, _ in id == userSessionId.hexString },
                             names: sortedMembers.map { id, profile in
                                 profile?.displayName(for: .group) ??
-                                Profile.truncated(id: id, truncating: .middle)
+                                id.truncated()
                             },
                             historyShared: allowAccessToHistoricMessages
                         )
@@ -1035,7 +1035,7 @@ extension MessageSender {
                                 hasCurrentUser: memberIds.contains(userSessionId.hexString),
                                 names: sortedMemberIds.map { id in
                                     removedMemberProfiles[id]?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
+                                    id.truncated()
                                 }
                             )
                             .infoString(using: dependencies),
@@ -1178,7 +1178,7 @@ extension MessageSender {
                                     .contains(userSessionId.hexString),
                                 names: sortedMembersReceivingPromotions.map { id, profile in
                                     profile?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
+                                    id.truncated()
                                 }
                             )
                             .infoString(using: dependencies),

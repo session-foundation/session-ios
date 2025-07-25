@@ -65,7 +65,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
             }
         )
-        @TestState var mockLogger: MockLogger! = MockLogger(primaryPrefix: "Mock", using: dependencies)
+        @TestState var mockLogger: MockLogger! = MockLogger()
         
         // MARK: - an ExtensionHelper - File Management
         describe("an ExtensionHelper") {
@@ -740,7 +740,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     
-                    expect(mockLogger.logs).to(equal([
+                    await expect { await mockLogger.logs }.toEventually(equal([
                         MockLogger.LogOutput(
                             level: .error,
                             categories: [
@@ -751,7 +751,7 @@ class ExtensionHelperSpec: AsyncSpec {
                                     defaultLevel: .info
                                 )
                             ],
-                            message: "Failed to replicate userProfile dump for 05\(TestConstants.publicKey).",
+                            message: "Failed to replicate userProfile dump for 05\(TestConstants.publicKey) due to error: mock.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
                             function: "replicate(dump:replaceExisting:)"
                         )
@@ -2317,7 +2317,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- logs when finished
                 it("logs when finished") {
-                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
                     mockValues.forEach { key, value in
                         mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
@@ -2331,7 +2331,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(["c"])
                     
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
-                    expect(mockLogger.logs).to(contain(
+                    await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .info,
                             categories: [
@@ -2351,7 +2351,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- logs an error when failing to process a config message
                 it("logs an error when failing to process a config message") {
-                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
                     mockValues.forEach { key, value in
                         mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
@@ -2368,7 +2368,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(nil)
                     
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
-                    expect(mockLogger.logs).to(contain(
+                    await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .error,
                             categories: [
@@ -2384,7 +2384,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             function: "loadMessages()"
                         )
                     ))
-                    expect(mockLogger.logs).to(contain(
+                    await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .info,
                             categories: [
@@ -2404,7 +2404,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- logs an error when failing to process a standard message
                 it("logs an error when failing to process a standard message") {
-                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
                     mockValues.forEach { key, value in
                         mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
@@ -2421,7 +2421,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(nil)
                     
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
-                    expect(mockLogger.logs).to(contain(
+                    await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .error,
                             categories: [
@@ -2437,7 +2437,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             function: "loadMessages()"
                         )
                     ))
-                    expect(mockLogger.logs).to(contain(
+                    await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .info,
                             categories: [
@@ -2457,7 +2457,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- succeeds even if it fails to remove files after processing
                 it("succeeds even if it fails to remove files after processing") {
-                    mockLogger.logs = []    // Clear logs first to make it easier to debug
+                    await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
                     mockValues.forEach { key, value in
                         mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
@@ -2479,7 +2479,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
-                    expect(mockLogger.logs).to(contain(
+                    await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .info,
                             categories: [

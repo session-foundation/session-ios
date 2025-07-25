@@ -440,7 +440,7 @@ extension MessageReceiver {
             .sortedById(userSessionId: userSessionId)
             .map { id in
                 profiles[id]?.displayName(for: .group) ??
-                Profile.truncated(id: id, truncating: .middle)
+                id.truncated()
             }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
@@ -575,7 +575,7 @@ extension MessageReceiver {
                     wasCurrentUser: (sender == dependencies[cache: .general].sessionId.hexString),
                     name: (
                         (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group)) ??
-                        Profile.truncated(id: sender, truncating: .middle)
+                        sender.truncated()
                     )
                 )
                 .infoString(using: dependencies),
@@ -962,7 +962,7 @@ extension MessageReceiver {
                         return ClosedGroup.MessageInfo
                             .invited(
                                 (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
-                                    .defaulting(to: Profile.truncated(id: sender, threadVariant: .group)),
+                                    .defaulting(to: sender.truncated(threadVariant: .group)),
                                 groupName
                             )
                             .infoString(using: dependencies)
@@ -971,7 +971,7 @@ extension MessageReceiver {
                         return ClosedGroup.MessageInfo
                             .invitedAdmin(
                                 (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
-                                    .defaulting(to: Profile.truncated(id: sender, threadVariant: .group)),
+                                    .defaulting(to: sender.truncated(threadVariant: .group)),
                                 groupName
                             )
                             .infoString(using: dependencies)

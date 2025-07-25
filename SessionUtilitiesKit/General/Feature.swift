@@ -18,6 +18,17 @@ public extension FeatureStorage {
         identifier: "showStringKeys"
     )
     
+    static let truncatePubkeysInLogs: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "truncatePubkeysInLogs",
+        defaultOption: {
+        #if DEBUG
+            return false
+        #else
+            return true
+        #endif
+        }()
+    )
+    
     static let forceOffline: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceOffline"
     )
@@ -69,7 +80,7 @@ public extension FeatureStorage {
 
 // MARK: - FeatureOption
 
-public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable {
+public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable, Hashable {
     static var defaultOption: Self { get }
     
     var isValidOption: Bool { get }

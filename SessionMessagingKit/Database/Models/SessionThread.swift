@@ -812,9 +812,7 @@ public extension SessionThread {
             case .community: return (openGroupName ?? "communityUnknown".localized())
             case .contact:
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
-                guard let profile: Profile = profile else {
-                    return Profile.truncated(id: threadId, truncating: .middle)
-                }
+                guard let profile: Profile = profile else { return threadId.truncated() }
                 
                 return profile.displayName(ignoringNickname: ignoringNickname)
         }
@@ -861,5 +859,14 @@ public extension SessionThread {
 
             default: return nil
         }
+    }
+}
+
+// MARK: - Truncation
+
+public extension String {
+    /// A standardised mechanism for truncating a user id for a given thread
+    func truncated(threadVariant: SessionThread.Variant) -> String {
+        return truncated(prefix: 4, suffix: 4)
     }
 }

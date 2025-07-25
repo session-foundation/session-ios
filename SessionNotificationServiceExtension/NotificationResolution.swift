@@ -17,7 +17,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToSelfSend
     case ignoreDueToOutdatedMessage
     case ignoreDueToRequiresNoNotification
-    case ignoreDueToMessageRequest(String)
+    case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
     case ignoreDueToDuplicateCall
     case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
@@ -44,8 +44,7 @@ enum NotificationResolution: CustomStringConvertible {
             case .ignoreDueToSelfSend: return "Ignored: Self send"
             case .ignoreDueToOutdatedMessage: return "Ignored: Already seen message"
             case .ignoreDueToRequiresNoNotification: return "Ignored: Message requires no notification"
-            case .ignoreDueToMessageRequest(let threadId):
-                return "Ignored: Subsequent message in message request \(threadId)"
+            case .ignoreDueToMessageRequest: return "Ignored: Subsequent message in message request"
             
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"

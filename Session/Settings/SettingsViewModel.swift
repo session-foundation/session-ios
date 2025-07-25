@@ -165,7 +165,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     let title: String = "sessionSettings".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SettingsViewModel.queryState)

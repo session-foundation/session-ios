@@ -40,6 +40,11 @@ extension DeveloperSettingsViewModel {
             /// **Value:** `true`/`false` (default: `false`)
             case showStringKeys
             
+            /// Controls whether pubkeys included in the logs should be truncated or not
+            ///
+            /// **Value:** `true`/`false` (default: `true` in debug builds, `false` otherwise)
+            case truncatePubkeysInLogs
+            
             /// Controls whether the app communicates with mainnet or testnet by default
             ///
             /// **Value:** `"mainnet"`/`"testnet"` (default: `"mainnet"`)
@@ -63,7 +68,6 @@ extension DeveloperSettingsViewModel {
             switch variable {
                 case .animationsEnabled:
                     dependencies.set(feature: .animationsEnabled, to: (value == "true"))
-                    dependencies.notifyAsync(.feature(.animationsEnabled), value: (value == "true"))
                     
                     guard value == "false" else { return }
                     
@@ -71,7 +75,9 @@ extension DeveloperSettingsViewModel {
                     
                 case .showStringKeys:
                     dependencies.set(feature: .showStringKeys, to: (value == "true"))
-                    dependencies.notifyAsync(.feature(.showStringKeys), value: (value == "true"))
+                    
+                case .truncatePubkeysInLogs:
+                    dependencies.set(feature: .truncatePubkeysInLogs, to: (value == "true"))
                     
                 case .serviceNetwork:
                     let network: ServiceNetwork
@@ -85,11 +91,9 @@ extension DeveloperSettingsViewModel {
                     
                 case .forceOffline:
                     dependencies.set(feature: .forceOffline, to: (value == "true"))
-                    dependencies.notifyAsync(.feature(.forceOffline), value: (value == "true"))
                     
                 case .debugDisappearingMessageDurations:
                     dependencies.set(feature: .debugDisappearingMessageDurations, to: (value == "true"))
-                    dependencies.notifyAsync(.feature(.debugDisappearingMessageDurations), value: (value == "true"))
             }
         }
 #endif

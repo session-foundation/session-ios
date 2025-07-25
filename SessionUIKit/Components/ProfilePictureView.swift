@@ -97,7 +97,6 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)

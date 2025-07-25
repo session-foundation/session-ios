@@ -19,7 +19,7 @@ class MediaZoomAnimationController: NSObject {
 
 extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
     func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
-        return 0.4
+        return 0.3
     }
 
     func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
@@ -138,17 +138,6 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
         let fromSnapshotView: UIView = (fromVC.view.snapshotView(afterScreenUpdates: true) ?? UIView())
         containerView.insertSubview(fromSnapshotView, at: 0)
 
-        let overshootPercentage: CGFloat = 0.15
-        let overshootFrame: CGRect = (self.shouldBounce ?
-            CGRect(
-                x: (toMediaContext.presentationFrame.minX + ((toMediaContext.presentationFrame.minX - fromMediaContext.presentationFrame.minX) * overshootPercentage)),
-                y: (toMediaContext.presentationFrame.minY + ((toMediaContext.presentationFrame.minY - fromMediaContext.presentationFrame.minY) * overshootPercentage)),
-                width: (toMediaContext.presentationFrame.width + ((toMediaContext.presentationFrame.width - fromMediaContext.presentationFrame.width) * overshootPercentage)),
-                height: (toMediaContext.presentationFrame.height + ((toMediaContext.presentationFrame.height - fromMediaContext.presentationFrame.height) * overshootPercentage))
-            ) :
-            toMediaContext.presentationFrame
-        )
-
         // Add any UI elements which should appear above the media view
         let fromTransitionalOverlayView: UIView? = {
             guard let (overlayView, overlayViewFrame) = fromContextProvider.snapshotOverlayView(in: containerView) else {
@@ -173,9 +162,9 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
         }()
         
         UIView.animate(
-            withDuration: (duration / 2),
+            withDuration: duration,
             delay: 0,
-            options: .curveEaseOut,
+            options: .curveEaseInOut,
             animations: {
                 // Only fade out the 'fromTransitionalOverlayView' if it's bigger than the destination
                 // one (makes it look cleaner as you don't get the crossfade effect)
@@ -185,32 +174,22 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
 
                 toView.alpha = 1
                 toTransitionalOverlayView?.alpha = 1
-                transitionView.frame = overshootFrame
+                transitionView.frame = toMediaContext.presentationFrame
                 transitionView.layer.cornerRadius = toMediaContext.cornerRadius
             },
             completion: { _ in
-                UIView.animate(
-                    withDuration: (duration / 2),
-                    delay: 0,
-                    options: .curveEaseInOut,
-                    animations: {
-                        transitionView.frame = toMediaContext.presentationFrame
-                    },
-                    completion: { _ in
-                        transitionView.removeFromSuperview()
-                        fromSnapshotView.removeFromSuperview()
-                        fromTransitionalOverlayView?.removeFromSuperview()
-                        toTransitionalOverlayView?.removeFromSuperview()
+                transitionView.removeFromSuperview()
+                fromSnapshotView.removeFromSuperview()
+                fromTransitionalOverlayView?.removeFromSuperview()
+                toTransitionalOverlayView?.removeFromSuperview()
 
-                        toMediaContext.mediaView.alpha = 1
-                        fromMediaContext.mediaView.alpha = 1
+                toMediaContext.mediaView.alpha = 1
+                fromMediaContext.mediaView.alpha = 1
 
-                        // Need to ensure we add the 'toView' back to it's old superview if it had one
-                        oldToViewSuperview?.addSubview(toView)
+                // Need to ensure we add the 'toView' back to it's old superview if it had one
+                oldToViewSuperview?.addSubview(toView)
 
-                        transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
-                    }
-                )
+                transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
             }
         )
     }
@@ -224,7 +203,7 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
         containerView.addSubview(toView)
         
         UIView.animate(
-            withDuration: (duration / 2),
+            withDuration: duration,
             delay: 0,
             options: .curveEaseInOut,
             animations: {

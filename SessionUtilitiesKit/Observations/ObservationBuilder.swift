@@ -11,13 +11,45 @@ public protocol ObservableKeyProvider: Sendable, Equatable {
 
 // MARK: - ObservationBuilder DSL
 
-public struct ObservationBuilder<Output: ObservableKeyProvider> {
-    private let initialValue: Output
-    
-    public init(initialValue: Output) {
-        self.initialValue = initialValue
+public enum ObservationBuilder {
+    public static func initialValue<Output: ObservableKeyProvider>(_ initialValue: Output) -> ObservationInitialValueBuilder<Output> {
+        return ObservationInitialValueBuilder(initialValue: initialValue)
     }
+    
+    @discardableResult static func observe(
+        _ keys: ObservableKey?...,
+        priority: TaskPriority? = nil,
+        using dependencies: Dependencies,
+        closure: @escaping (ObservedEvent) async -> Void
+    ) -> Task<Void, Never> {
+        guard let finalKeys: [ObservableKey] = keys.compactMap({ $0 }).nullIfEmpty else {
+            return Task {}
+        }
+        
+        return Task.detached(priority: priority) { [observationManager = dependencies[singleton: .observationManager]] in
+            await withTaskGroup(of: Void.self) { [observationManager] group in
+                for key in finalKeys {
+                    group.addTask { [observationManager] in
+                        do {
+                            let stream = await observationManager.observe(key)
+                            
+                            for await event in stream {
+                                try Task.checkCancellation()
+                                
+                                await closure(event.event)
+                            }
+                        }
+                        catch { /* Ignore cancellation errors */ }
+                    }
+                }
+            }
+        }
+    }
+}
 
+public struct ObservationInitialValueBuilder<Output: ObservableKeyProvider> {
+    fileprivate let initialValue: Output
+    
     public func debounce(for interval: DispatchTimeInterval) -> ObservationDebounceBuilder<Output> {
         return ObservationDebounceBuilder(initialValue: initialValue, debounceInterval: interval)
     }

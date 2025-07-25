@@ -81,7 +81,8 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     let title: String = "sessionConversations".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(ConversationSettingsViewModel.queryState)

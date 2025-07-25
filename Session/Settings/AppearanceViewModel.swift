@@ -93,7 +93,8 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
     let title: String = "sessionAppearance".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
             .using(dependencies: dependencies)
             .query(AppearanceViewModel.queryState)

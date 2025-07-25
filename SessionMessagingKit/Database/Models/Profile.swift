@@ -337,32 +337,6 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
-    // MARK: - Truncation
-    
-    enum Truncation {
-        case start
-        case middle
-        case end
-    }
-    
-    /// A standardised mechanism for truncating a user id for a given thread
-    static func truncated(id: String, threadVariant: SessionThread.Variant) -> String {
-        return truncated(id: id, truncating: .middle)
-    }
-    
-    /// A standardised mechanism for truncating a user id
-    ///
-    /// stringlint:ignore_contents
-    static func truncated(id: String, truncating: Truncation) -> String {
-        guard id.count > 8 else { return id }
-        
-        switch truncating {
-            case .start: return "...\(id.suffix(8))"
-            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"
-            case .end: return "\(id.prefix(8))..."
-        }
-    }
-    
     /// The name to display in the UI for a given thread variant
     func displayName(
         for threadVariant: SessionThread.Variant = .contact,
@@ -390,7 +364,7 @@ public extension Profile {
         if let nickname: String = nickname, !nickname.isEmpty { return nickname }
         
         guard let name: String = name, name != id, !name.isEmpty else {
-            return (customFallback ?? Profile.truncated(id: id, threadVariant: threadVariant))
+            return (customFallback ?? id.truncated(threadVariant: threadVariant))
         }
         
         switch (threadVariant, suppressId) {
@@ -399,7 +373,7 @@ public extension Profile {
             case (.community, false):
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
-                return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"
+                return "\(name) (\(id.truncated()))"
         }
     }
 }

@@ -288,7 +288,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         super.viewDidLoad()
         
         // Preparation
-        updateNavBarButtons(userProfile: self.viewModel.state.userProfile)
+        updateNavBarButtons(
+            userProfile: self.viewModel.state.userProfile,
+            serviceNetwork: self.viewModel.state.serviceNetwork,
+            forceOffline: self.viewModel.state.forceOffline
+        )
         setUpNavBarSessionHeading()
         
         // Recovery phrase reminder
@@ -374,7 +378,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     @MainActor private func render(state: HomeViewModel.State) {
         // Update nav
-        updateNavBarButtons(userProfile: state.userProfile)
+        updateNavBarButtons(
+            userProfile: state.userProfile,
+            serviceNetwork: state.serviceNetwork,
+            forceOffline: state.forceOffline
+        )
         
         // Update the 'view seed' UI
         let shouldHideSeedReminderView: Bool = !state.showViewedSeedBanner
@@ -444,7 +452,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         }
     }
     
-    private func updateNavBarButtons(userProfile: Profile) {
+    private func updateNavBarButtons(
+        userProfile: Profile,
+        serviceNetwork: ServiceNetwork,
+        forceOffline: Bool
+    ) {
         // Profile picture view
         let profilePictureView = ProfilePictureView(
             size: .navigation,
@@ -459,7 +471,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             displayPictureUrl: nil,
             profile: userProfile,
             profileIcon: {
-                switch (viewModel.dependencies[feature: .serviceNetwork], viewModel.dependencies[feature: .forceOffline]) {
+                switch (serviceNetwork, forceOffline) {
                     case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                     case (.testnet, true): return .letter("T", true)       // stringlint:ignore
                     default: return .none
@@ -476,37 +488,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Path status indicator
         let pathStatusView = PathStatusView(using: viewModel.dependencies)
         pathStatusView.accessibilityLabel = "Current onion routing path indicator"
-        
-        viewModel.dependencies.publisher(feature: .serviceNetwork)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: viewModel.dependencies)
-            .receive(on: DispatchQueue.main, using: viewModel.dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.main.async {
-                        self?.updateNavBarButtons(userProfile: userProfile)
-                    }
-                },
-                receiveValue: { [weak profilePictureView, dependencies = viewModel.dependencies] value in
-                    profilePictureView?.update(
-                        publicKey: userProfile.id,
-                        threadVariant: .contact,
-                        displayPictureUrl: nil,
-                        profile: userProfile,
-                        profileIcon: {
-                            switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
-                                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
-                            }
-                        }(),
-                        additionalProfile: nil,
-                        using: dependencies
-                    )
-                }
-            )
-            .store(in: &profilePictureView.disposables)
         
         // Container view
         let profilePictureViewContainer = UIView()

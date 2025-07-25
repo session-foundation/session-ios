@@ -659,7 +659,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage(threadId)))
+                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
             }
             
             // MARK: -- does not throw if the message was sent to a message request and we should show
@@ -1313,7 +1313,7 @@ class NotificationsManagerSpec: QuickSpec {
                             return false
                         }
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage("05\(TestConstants.publicKey)")))
+                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
                 expect(didCallShouldShowForMessageRequest).to(beTrue())
             }
             

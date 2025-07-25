@@ -156,9 +156,12 @@ public extension Profile {
             case (.currentUserUpdate(let name), true, _), (.contactUpdate(let name), false, true):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
                 
-                profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
-                db.addProfileEvent(id: publicKey, change: .name(name))
+                
+                if profile.name != name {
+                    profileChanges.append(Profile.Columns.name.set(to: name))
+                    db.addProfileEvent(id: publicKey, change: .name(name))
+                }
             
             // Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
@@ -177,10 +180,16 @@ public extension Profile {
                 preconditionFailure("Invalid options for this function")
                 
             case (.contactRemove, false), (.currentUserRemove, true):
-                profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
-                profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
                 profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
-                db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
+                
+                if profile.displayPictureEncryptionKey != nil {
+                    profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
+                }
+                
+                if profile.displayPictureUrl != nil {
+                    profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
+                    db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
+                }
             
             case (.contactUpdateTo(let url, let key, let filePath), false),
                 (.currentUserUpdateTo(let url, let key, let filePath), true):

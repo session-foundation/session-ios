@@ -56,7 +56,8 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     let title: String = "notificationsContent".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(NotificationContentViewModel.queryState)

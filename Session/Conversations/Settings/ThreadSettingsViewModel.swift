@@ -1914,7 +1914,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         /// **Note:** We want to use the `profile` directly rather than `threadViewModel.displayName`
                         /// as the latter would use the `nickname` here which is incorrect
                         threadViewModel.profile?.displayName(ignoringNickname: true) ??
-                        Profile.truncated(id: threadViewModel.threadId, truncating: .middle)
+                        threadViewModel.threadId.truncated()
                     )
                 )
             

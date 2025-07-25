@@ -94,9 +94,9 @@ extension Contact: ProfileAssociated {
     
     public static func compare(lhs: WithProfile<Contact>, rhs: WithProfile<Contact>) -> Bool {
         let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
-            .defaulting(to: Profile.truncated(id: lhs.profileId, threadVariant: .contact))
+            .defaulting(to: lhs.profileId.truncated(threadVariant: .contact))
         let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
-            .defaulting(to: Profile.truncated(id: rhs.profileId, threadVariant: .contact))
+            .defaulting(to: rhs.profileId.truncated(threadVariant: .contact))
         
         return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
     }

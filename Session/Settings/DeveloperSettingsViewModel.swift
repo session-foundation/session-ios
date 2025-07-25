@@ -72,6 +72,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case animationsEnabled
         case showStringKeys
+        case truncatePubkeysInLogs
         case copyDocumentsPath
         case copyAppGroupPath
         
@@ -110,6 +111,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .developerMode: return "developerMode"
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
+                case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
                 case .copyDocumentsPath: return "copyDocumentsPath"
                 case .copyAppGroupPath: return "copyAppGroupPath"
                 
@@ -154,6 +156,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .developerMode: result.append(.developerMode); fallthrough
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
+                case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
                 case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
                 
@@ -200,6 +203,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let animationsEnabled: Bool
         let showStringKeys: Bool
+        let truncatePubkeysInLogs: Bool
         
         let defaultLogLevel: Log.Level
         let advancedLogging: Bool
@@ -248,6 +252,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 versionBlindedID: versionBlindedID,
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
+                truncatePubkeysInLogs: dependencies[feature: .truncatePubkeysInLogs],
                 
                 defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
                 advancedLogging: (self?.showAdvancedLogging == true),
@@ -340,6 +345,23 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         self?.updateFlag(
                             for: .showStringKeys,
                             to: !current.showStringKeys
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .truncatePubkeysInLogs,
+                    title: "Truncate Public Keys in Logs",
+                    subtitle: """
+                    Controls whether public keys in logs should automatically be truncated (to the form "1234...abcd") when included in logs"
+                    """,
+                    trailingAccessory: .toggle(
+                        current.truncatePubkeysInLogs,
+                        oldValue: previous?.truncatePubkeysInLogs
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .truncatePubkeysInLogs,
+                            to: !current.truncatePubkeysInLogs
                         )
                     }
                 ),
@@ -848,6 +870,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .showStringKeys, to: nil)
                     
+                case .truncatePubkeysInLogs:
+                    guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { return }
+                    
+                    updateFlag(for: .truncatePubkeysInLogs, to: nil)
+                    
                 case .copyDocumentsPath: break   // Not a feature
                 case .copyAppGroupPath: break   // Not a feature
                 case .resetSnodeCache: break    // Not a feature
@@ -942,7 +969,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
         dependencies.set(feature: .logLevel(cat: .default), to: updatedDefaultLogLevel)
-        dependencies.notifyAsync(.feature(.logLevel(cat: .default)), value: updatedDefaultLogLevel)
         forceRefresh(type: .databaseQuery)
     }
     
@@ -953,12 +979,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private func updateLogLevel(of category: Log.Category, to level: Log.Level) {
         switch (level, category.defaultLevel) {
-            case (.default, category.defaultLevel):
-                dependencies.reset(feature: .logLevel(cat: category))
-                dependencies.notifyAsync(.feature(.logLevel(cat: category)), value: nil)
-            default:
-                dependencies.set(feature: .logLevel(cat: category), to: level)
-                dependencies.notifyAsync(.feature(.logLevel(cat: category)), value: level)
+            case (.default, category.defaultLevel): dependencies.reset(feature: .logLevel(cat: category))
+            default: dependencies.set(feature: .logLevel(cat: category), to: level)
         }
         forceRefresh(type: .databaseQuery)
     }
@@ -966,7 +988,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private func resetLoggingCategories() {
         dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
             dependencies.reset(feature: .logLevel(cat: category))
-            dependencies.notifyAsync(.feature(.logLevel(cat: category)), value: nil)
         }
         forceRefresh(type: .databaseQuery)
     }
@@ -987,15 +1008,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
         dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
-        dependencies.notifyAsync(.isUsingFullAPNs, value: false)
+        
         SyncPushTokensJob
             .run(uploadOnlyIfStale: false, using: dependencies)
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
                     dependencies.set(feature: .pushNotificationService, to: updatedService)
-                    dependencies.notifyAsync(.feature(.pushNotificationService), value: updatedService)
                     dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
-                    dependencies.notifyAsync(.isUsingFullAPNs, value: true)
+                    
                     self?.forceRefresh(type: .databaseQuery)
                 }
             )
@@ -1049,10 +1069,18 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         dependencies.remove(cache: .communityPollers)
         
         /// Reset the network
+        ///
+        /// **Note:** We need to store the current `libSessionNetwork` cache until after we swap the `serviceNetwork`
+        /// and start warming the new cache, otherwise it's destruction can result in automatic recreation due to path and network
+        /// status observers
         dependencies.mutate(cache: .libSessionNetwork) {
             $0.setPaths(paths: [])
             $0.setNetworkStatus(status: .unknown)
+            $0.suspendNetworkAccess()
+            $0.clearSnodeCache()
+            $0.clearCallbacks()
         }
+        var oldNetworkCache: LibSession.NetworkImmutableCacheType? = dependencies[cache: .libSessionNetwork]
         dependencies.remove(cache: .libSessionNetwork)
         
         /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
@@ -1098,10 +1126,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Update to the new `ServiceNetwork`
         dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
-        dependencies.notifyAsync(.feature(.serviceNetwork), value: updatedNetwork)
         
-        /// Start the new network cache
+        /// Start the new network cache and clear out the old one
         dependencies.warmCache(cache: .libSessionNetwork)
+        
+        /// Free the `oldNetworkCache` so it can be destroyed(the 'if' is only there to prevent the "variable never read" warning)
+        if oldNetworkCache != nil { oldNetworkCache = nil }
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
         Onboarding.Cache(
@@ -1130,7 +1160,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
-        dependencies.notifyAsync(.feature(feature), value: updatedFlag)
         forceRefresh(type: .databaseQuery)
     }
     

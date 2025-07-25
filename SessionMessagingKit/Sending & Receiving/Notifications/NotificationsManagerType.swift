@@ -146,7 +146,7 @@ public extension NotificationsManagerType {
             case (.community, _), (.legacyGroup, _), (.contact, false), (.group, false): break
             case (.contact, true), (.group, true):
                 guard shouldShowForMessageRequest() else {
-                    throw MessageReceiverError.ignorableMessageRequestMessage(threadId)
+                    throw MessageReceiverError.ignorableMessageRequestMessage
                 }
                 break
         }
@@ -166,19 +166,26 @@ public extension NotificationsManagerType {
         using dependencies: Dependencies
     ) throws -> String {
         switch (notificationSettings.previewType, message.sender, isMessageRequest, threadVariant) {
-            /// If it's a message request or shouldn't have a title then use something generic
-            case (.noNameNoPreview, _, _, _), (_, .none, _, _), (_, _, true, _):
+            case (.noNameNoPreview, _, _, _):
                 Log.info(cat, "Notification content disabled, using generic title.")
+                return Constants.app_name
+                
+            case (_, .none, _, _):
+                Log.info(cat, "Sender missing, using generic title.")
+                return Constants.app_name
+            
+            case (_, _, true, _):
+                Log.info(cat, "Notification is message request, using generic title.")
                 return Constants.app_name
                 
             case (.nameNoPreview, .some(let sender), _, .contact), (.nameAndPreview, .some(let sender), _, .contact):
                 return displayNameRetriever(sender, false)
-                    .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
                 
             case (.nameNoPreview, .some(let sender), _, .group), (.nameAndPreview, .some(let sender), _, .group),
                 (.nameNoPreview, .some(let sender), _, .community), (.nameAndPreview, .some(let sender), _, .community):
                 let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
                 let groupName: String = groupNameRetriever(threadId, threadVariant)
                     .defaulting(to: "groupUnknown".localized())
                 
@@ -230,7 +237,7 @@ public extension NotificationsManagerType {
                             variant: variant,
                             body: visibleMessage.text,
                             authorDisplayName: displayNameRetriever(sender, true)
-                                .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant)),
+                                .defaulting(to: sender.truncated(threadVariant: threadVariant)),
                             attachmentDescriptionInfo: attachmentDescriptionInfo?.first,
                             attachmentCount: (attachmentDescriptionInfo?.count ?? 0),
                             isOpenGroupInvitation: (visibleMessage.openGroupInvitation != nil),
@@ -256,7 +263,7 @@ public extension NotificationsManagerType {
                 
             case let callMessage as CallMessage where callMessage.state == .permissionDenied:
                 let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
                 
                 return "callsYouMissedCallPermissions"
                     .put(key: "name", value: senderName)
@@ -264,7 +271,7 @@ public extension NotificationsManagerType {
             
             case is CallMessage:
                 let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
                 
                 return "callsMissedCallFrom"
                     .put(key: "name", value: senderName)

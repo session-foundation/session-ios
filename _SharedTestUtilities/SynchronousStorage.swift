@@ -89,9 +89,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
                 }
                 
                 /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
-                Task(priority: .medium) { [dependencies] in
-                    await dependencies[singleton: .observationManager].notify(events)
-                }
+                dependencies.notifyAsync(events: events)
                 
                 actions.values.forEach { $0() }
             }
@@ -137,9 +135,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
                 }
                 
                 /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
-                Task(priority: .medium) { [dependencies] in
-                    await dependencies[singleton: .observationManager].notify(events)
-                }
+                dependencies.notifyAsync(events: events)
                 
                 actions.values.forEach { $0() }
             }
@@ -195,9 +191,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
                         /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
-                        Task(priority: .medium) { [dependencies] in
-                            await dependencies[singleton: .observationManager].notify(events)
-                        }
+                        dependencies.notifyAsync(events: events)
                         
                         actions.values.forEach { $0() }
                     }
@@ -261,9 +255,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
                 .handleEvents(
                     receiveCompletion: { [dependencies] result in
                         /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
-                        Task(priority: .medium) { [dependencies] in
-                            await dependencies[singleton: .observationManager].notify(events)
-                        }
+                        dependencies.notifyAsync(events: events)
                         
                         actions.values.forEach { $0() }
                     }

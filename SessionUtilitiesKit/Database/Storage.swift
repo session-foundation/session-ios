@@ -361,9 +361,7 @@ open class Storage {
             // Output any events tracked during the migration and trigger any `postCommitActions` which
             // should occur
             if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
-                Task(priority: .medium) { [dependencies] in
-                    await dependencies[singleton: .observationManager].notify(events)
-                }
+                dependencies.notifyAsync(events: events)
             }
             
             if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
@@ -642,9 +640,7 @@ open class Storage {
                 )
                 
                 /// Trigger the observations
-                Task(priority: .medium) { [dependencies] in
-                    await dependencies[singleton: .observationManager].notify(output.events)
-                }
+                dependencies.notifyAsync(events: output.events)
                 
                 return (output.result, output.postCommitActions)
             }

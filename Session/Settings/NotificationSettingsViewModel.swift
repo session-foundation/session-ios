@@ -93,7 +93,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     let title: String = "sessionNotifications".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(NotificationSettingsViewModel.queryState)
@@ -184,7 +185,6 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         ),
                         onTap: { [dependencies = viewModel.dependencies] in
                             dependencies[defaults: .standard, key: .isUsingFullAPNs] = !state.isUsingFullAPNs
-                            dependencies.notifyAsync(.isUsingFullAPNs, value: !state.isUsingFullAPNs)
 
                             // Force sync the push tokens on change
                             SyncPushTokensJob

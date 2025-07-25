@@ -324,7 +324,7 @@ public class ExtensionHelper: ExtensionHelperType {
         
         /// Write the dump data to disk
         do { try write(data: dump.data, to: path) }
-        catch { Log.error(.cat, "Failed to replicate \(dump.variant) dump for \(dump.sessionId.hexString).") }
+        catch { Log.error(.cat, "Failed to replicate \(dump.variant) dump for \(dump.sessionId.hexString) due to error: \(error).") }
     }
     
     public func replicateAllConfigDumpsIfNeeded(

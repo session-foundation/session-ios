@@ -292,7 +292,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     
                                     return (
                                         memberInfo.profile?.displayName() ??
-                                        Profile.truncated(id: memberInfo.profileId, truncating: .middle)
+                                        memberInfo.profileId.truncated()
                                     )
                                 }(),
                                 font: .title,
@@ -708,9 +708,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 default: return false
                             }
                         })
-                else {
-                    return Profile.truncated(id: memberId, truncating: .middle)
-                }
+                else { return memberId.truncated() }
                 
                 return info.title?.text
             }

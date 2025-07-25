@@ -4,7 +4,7 @@ import Foundation
 
 @testable import SessionUtilitiesKit
 
-public class MockLogger: Logger {
+public actor MockLogger: LoggerType {
     public struct LogOutput: Equatable {
         let level: Log.Level
         let categories: [Log.Category]
@@ -16,21 +16,16 @@ public class MockLogger: Logger {
         /// `let line: UInt`
     }
     
+    nonisolated public let primaryPrefix: String = "Mock"
+    nonisolated public let sortedLogFilePaths: [String]? = nil
+    public let isSuspended: Bool = false
     public var logs: [LogOutput] = []
     
-    public init(
-        primaryPrefix: String,
-        using dependencies: Dependencies
-    ) {
-        super.init(
-            primaryPrefix: primaryPrefix,
-            fileLogger: nil,    /// Don't setup the `fileLogger`
-            isSuspended: false,
-            using: dependencies
-        )
-    }
+    func clearLogs() { logs = [] }
     
-    public override func _internalLog(
+    public func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {}
+    public func loadExtensionLogsAndResumeLogging() {}
+    public func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,

@@ -328,3 +328,16 @@ public extension String {
         return filtered
     }
 }
+
+// MARK: - Truncation
+
+public extension String {
+    /// A standardised mechanism for truncating a user id
+    ///
+    /// stringlint:ignore_contents
+    func truncated(prefix: Int = 4, suffix: Int = 4) -> String {
+        guard count > (prefix + suffix) else { return self }
+        
+        return "\(self.prefix(prefix))...\(self.suffix(suffix))"
+    }
+}

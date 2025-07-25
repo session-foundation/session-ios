@@ -395,7 +395,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     for: threadVariant,
                     suppressId: !isInMessageBody  /// Don't want to show the id in a PN unless it's part of the body
                 ))
-                .defaulting(to: Profile.truncated(id: sessionId, threadVariant: threadVariant))
+                .defaulting(to: sessionId.truncated())
         }
         
         /// Handle any specific logic needed for the notification extension based on the message type
@@ -923,8 +923,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (MessageReceiverError.ignorableMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToRequiresNoNotification)
                 
-            case (MessageReceiverError.ignorableMessageRequestMessage(let threadId), _, _):
-                self.completeSilenty(info, .ignoreDueToMessageRequest(threadId))
+            case (MessageReceiverError.ignorableMessageRequestMessage, _, _):
+                self.completeSilenty(info, .ignoreDueToMessageRequest)
                 
             case (MessageReceiverError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)
@@ -1030,7 +1030,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             VoipPayloadKey.caller.rawValue: sender,
             VoipPayloadKey.timestamp.rawValue: sentTimestampMs,
             VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender, false)
-                .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
+                .defaulting(to: sender.truncated(threadVariant: threadVariant))
         ]
         
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self, dependencies] error in

@@ -93,7 +93,8 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     let title: String = "sessionNotifications".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(ThreadNotificationSettingsViewModel.queryState)
@@ -173,17 +174,15 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         identifier: "All messages notification setting",
                         label: "All messages"
                     ),
-                    onTap: { [observationManager = viewModel.dependencies[singleton: .observationManager]] in
-                        Task {
-                            await observationManager.notify(
-                                .updateScreen(ThreadNotificationSettingsViewModel.self),
-                                value: ThreadNotificationSettingsEvent(
-                                    threadOnlyNotifyForMentions: false,
-                                    threadMutedUntilTimestamp: nil
-                                ),
-                                priority: .immediate
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(ThreadNotificationSettingsViewModel.self),
+                            value: ThreadNotificationSettingsEvent(
+                                threadOnlyNotifyForMentions: false,
+                                threadMutedUntilTimestamp: nil
                             )
-                        }
+                        )
                     }
                 ),
                 
@@ -201,17 +200,15 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         identifier: "Mentions only notification setting",
                         label: "Mentions only"
                     ),
-                    onTap: { [observationManager = viewModel.dependencies[singleton: .observationManager]] in
-                        Task {
-                            await observationManager.notify(
-                                .updateScreen(ThreadNotificationSettingsViewModel.self),
-                                value: ThreadNotificationSettingsEvent(
-                                    threadOnlyNotifyForMentions: true,
-                                    threadMutedUntilTimestamp: nil
-                                ),
-                                priority: .immediate
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(ThreadNotificationSettingsViewModel.self),
+                            value: ThreadNotificationSettingsEvent(
+                                threadOnlyNotifyForMentions: true,
+                                threadMutedUntilTimestamp: nil
                             )
-                        }
+                        )
                     }
                 ),
                 
@@ -229,17 +226,15 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         identifier: "\(ThreadSettingsViewModel.self).mute",
                         label: "Mute notifications"
                     ),
-                    onTap: { [observationManager = viewModel.dependencies[singleton: .observationManager]] in
-                        Task {
-                            await observationManager.notify(
-                                .updateScreen(ThreadNotificationSettingsViewModel.self),
-                                value: ThreadNotificationSettingsEvent(
-                                    threadOnlyNotifyForMentions: false,
-                                    threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
-                                ),
-                                priority: .immediate
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(ThreadNotificationSettingsViewModel.self),
+                            value: ThreadNotificationSettingsEvent(
+                                threadOnlyNotifyForMentions: false,
+                                threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
                             )
-                        }
+                        )
                     }
                 )
             ].compactMap { $0 }

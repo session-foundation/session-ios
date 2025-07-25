@@ -49,7 +49,8 @@ public class HomeViewModel: NavigatableStateHolder {
         self.state = State.initialState(using: dependencies)
         
         /// Bind the state
-        self.observationTask = ObservationBuilder(initialValue: self.state)
+        self.observationTask = ObservationBuilder
+            .initialValue(self.state)
             .debounce(for: .milliseconds(250))
             .using(dependencies: dependencies)
             .query(HomeViewModel.queryState)
@@ -67,6 +68,8 @@ public class HomeViewModel: NavigatableStateHolder {
         
         let viewState: ViewState
         let userProfile: Profile
+        let serviceNetwork: ServiceNetwork
+        let forceOffline: Bool
         let hasSavedThread: Bool
         let hasSavedMessage: Bool
         let showViewedSeedBanner: Bool
@@ -87,6 +90,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageRequestUnreadMessageReceived,
                 .loadPage(HomeViewModel.observationName),
                 .profile(userProfile.id),
+                .feature(.serviceNetwork),
+                .feature(.forceOffline),
                 .setting(.hasSavedThread),
                 .setting(.hasSavedMessage),
                 .setting(.hasViewedSeed),
@@ -119,6 +124,8 @@ public class HomeViewModel: NavigatableStateHolder {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
+                serviceNetwork: dependencies[feature: .serviceNetwork],
+                forceOffline: dependencies[feature: .forceOffline],
                 hasSavedThread: false,
                 hasSavedMessage: false,
                 showViewedSeedBanner: true,
@@ -150,6 +157,8 @@ public class HomeViewModel: NavigatableStateHolder {
     ) async -> State {
         let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
         var userProfile: Profile = previousState.userProfile
+        var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
+        var forceOffline: Bool = previousState.forceOffline
         var hasSavedThread: Bool = previousState.hasSavedThread
         var hasSavedMessage: Bool = previousState.hasSavedMessage
         var showViewedSeedBanner: Bool = previousState.showViewedSeedBanner
@@ -327,6 +336,14 @@ public class HomeViewModel: NavigatableStateHolder {
                 default: break
             }
         }
+        groupedOtherEvents?[.feature]?.forEach { event in
+            if event.key == .feature(.serviceNetwork), let updatedValue = event.value as? ServiceNetwork {
+                serviceNetwork = updatedValue
+            }
+            else if event.key == .feature(.forceOffline), let updatedValue = event.value as? Bool {
+                forceOffline = updatedValue
+            }
+        }
         
         /// Generate the new state
         let updatedState: State = State(
@@ -335,6 +352,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .loaded
             ),
             userProfile: userProfile,
+            serviceNetwork: serviceNetwork,
+            forceOffline: forceOffline,
             hasSavedThread: hasSavedThread,
             hasSavedMessage: hasSavedMessage,
             showViewedSeedBanner: showViewedSeedBanner,
@@ -444,12 +463,10 @@ public class HomeViewModel: NavigatableStateHolder {
     // MARK: - Functions
     
     @MainActor public func loadNextPage() {
-        Task { [loadedPageInfo = state.loadedPageInfo, observationManager = dependencies[singleton: .observationManager]] in
-            await observationManager.notify(
-                .loadPage(HomeViewModel.observationName),
-                value: LoadPageEvent.nextPage(lastIndex: loadedPageInfo.lastIndex)
-            )
-        }
+        dependencies.notifyAsync(
+            key: .loadPage(HomeViewModel.observationName),
+            value: LoadPageEvent.nextPage(lastIndex: state.loadedPageInfo.lastIndex)
+        )
     }
 }
 
@@ -467,6 +484,8 @@ private extension ObservedEvent {
             case (.setting(.hasHiddenMessageRequests), _): return .bothDatabaseQueryAndOther
                 
             case (_, .profile): return .bothDatabaseQueryAndOther
+            case (.feature(.serviceNetwork), _): return .other
+            case (.feature(.forceOffline), _): return .other
             case (.setting(.hasViewedSeed), _): return .other
                 
             case (.messageRequestUnreadMessageReceived, _), (.messageRequestAccepted, _),

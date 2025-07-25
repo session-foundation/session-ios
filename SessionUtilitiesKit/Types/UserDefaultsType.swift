@@ -86,17 +86,11 @@ public extension UserDefaults {
 // MARK: - UserDefaults Convenience
 
 public extension Dependencies {
-    fileprivate func notify(key: ObservableKey, value: AnyHashable?) {
-        Task(priority: .medium) { [observationManager = self[singleton: .observationManager]] in
-            await observationManager.notify(key, value: value)
-        }
-    }
-    
     subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.BoolKey) -> Bool {
         get { return self[defaults: defaults].bool(forKey: key.rawValue) }
         set {
             self[defaults: defaults].set(newValue, forKey: key.rawValue)
-            self.notify(key: .userDefault(key), value: newValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
         }
     }
 
@@ -104,7 +98,7 @@ public extension Dependencies {
         get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
         set {
             self[defaults: defaults].set(newValue, forKey: key.rawValue)
-            self.notify(key: .userDefault(key), value: newValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
         }
     }
     
@@ -112,7 +106,7 @@ public extension Dependencies {
         get { return self[defaults: defaults].double(forKey: key.rawValue) }
         set {
             self[defaults: defaults].set(newValue, forKey: key.rawValue)
-            self.notify(key: .userDefault(key), value: newValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
         }
     }
 
@@ -120,7 +114,7 @@ public extension Dependencies {
         get { return self[defaults: defaults].integer(forKey: key.rawValue) }
         set {
             self[defaults: defaults].set(newValue, forKey: key.rawValue)
-            self.notify(key: .userDefault(key), value: newValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
         }
     }
     
@@ -128,7 +122,7 @@ public extension Dependencies {
         get { return self[defaults: defaults].string(forKey: key.rawValue) }
         set {
             self[defaults: defaults].set(newValue, forKey: key.rawValue)
-            self.notify(key: .userDefault(key), value: newValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
         }
     }
 }

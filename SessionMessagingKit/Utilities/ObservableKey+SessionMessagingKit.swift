@@ -10,9 +10,6 @@ public extension ObservableKey {
     
     static func setting(_ key: Setting.BoolKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     static func setting(_ key: Setting.EnumKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
-    static func feature<T: FeatureOption>(_ key: FeatureConfig<T>) -> ObservableKey {
-        ObservableKey(key.identifier, .feature)
-    }
     
     static func loadPage(_ observationName: String) -> ObservableKey {
         ObservableKey("loadPage-\(observationName)", .loadPage)
@@ -79,7 +76,6 @@ public extension ObservableKey {
 
 public extension GenericObservableKey {
     static let setting: GenericObservableKey = "setting"
-    static let feature: GenericObservableKey = "feature"
     static let loadPage: GenericObservableKey = "loadPage"
     static let updateScreen: GenericObservableKey = "updateScreen"
     static let typingIndicator: GenericObservableKey = "typingIndicator"

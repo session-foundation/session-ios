@@ -12,7 +12,6 @@ public class Dependencies {
     /// a convenience thing than anything) as such it's held outside of the `DependencyStorage`
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
     @ThreadSafeObject private static var cachedLastCreatedInstance: Dependencies? = nil
-    private let featureChangeSubject: PassthroughSubject<(String, String?, Any?), Never> = PassthroughSubject()
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
     // MARK: - Subscript Access
@@ -156,36 +155,6 @@ private extension ThreadSafeObject<MutableCacheType> {
 // MARK: - Feature Management
 
 public extension Dependencies {
-    func publisher<T: FeatureOption>(feature: FeatureConfig<T>) -> AnyPublisher<T?, Never> {
-        return featureChangeSubject
-            .filter { identifier, _, _ in identifier == feature.identifier }
-            .compactMap { _, _, value in value as? T }
-            .prepend(self[feature: feature])    // Emit the current value first
-            .eraseToAnyPublisher()
-    }
-    
-    func publisher<T: FeatureOption>(featureGroupChanges feature: FeatureConfig<T>) -> AnyPublisher<Void, Never> {
-        return featureChangeSubject
-            .filter { _, groupIdentifier, _ in groupIdentifier == feature.groupIdentifier }
-            .map { _, _, _ in () }
-            .prepend(())            // Emit an initial value to behave similar to the above
-            .eraseToAnyPublisher()
-    }
-    
-    func featureUpdated<T: FeatureOption>(for feature: FeatureConfig<T>) -> AnyPublisher<T?, Never> {
-        return featureChangeSubject
-            .filter { identifier, _, _ in identifier == feature.identifier }
-            .compactMap { _, _, value in value as? T }
-            .eraseToAnyPublisher()
-    }
-    
-    func featureGroupUpdated<T: FeatureOption>(for feature: FeatureConfig<T>) -> AnyPublisher<T?, Never> {
-        return featureChangeSubject
-            .filter { _, groupIdentifier, _ in groupIdentifier == feature.groupIdentifier }
-            .compactMap { _, _, value in value as? T }
-            .eraseToAnyPublisher()
-    }
-    
     func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
         let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
             .key(feature.identifier)
@@ -213,7 +182,10 @@ public extension Dependencies {
         setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
         
         /// Notify observers
-        featureChangeSubject.send((feature.identifier, feature.groupIdentifier, updatedFeature))
+        notifyAsync(
+            (.feature(feature), value: AnySendableHashable(updatedFeature)),
+            (.featureGroup(feature), value: nil)
+        )
     }
     
     func reset<T: FeatureOption>(feature: FeatureConfig<T>) {
@@ -227,7 +199,10 @@ public extension Dependencies {
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
-        featureChangeSubject.send((feature.identifier, feature.groupIdentifier, nil))
+        notifyAsync(
+            (.feature(feature), value: nil),
+            (.featureGroup(feature), value: nil)
+        )
     }
 }
 

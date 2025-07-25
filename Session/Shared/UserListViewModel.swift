@@ -138,7 +138,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             
                             return (
                                 userInfo.profile?.displayName() ??
-                                Profile.truncated(id: userInfo.profileId, truncating: .middle)
+                                userInfo.profileId.truncated()
                             )
                         }()
                         

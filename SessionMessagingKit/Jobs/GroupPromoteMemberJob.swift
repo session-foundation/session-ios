@@ -154,10 +154,9 @@ public enum GroupPromoteMemberJob: JobExecutor {
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
-        let memberZeroName: String = memberIds.first.map {
-            profileInfo[$0]?.displayName(for: .group) ??
-            Profile.truncated(id: $0, truncating: .middle)
-        }.defaulting(to: "anonymous".localized())
+        let memberZeroName: String = memberIds.first
+            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
             case 1:
@@ -169,7 +168,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
             case 2:
                 let memberOneName: String = (
                     profileInfo[memberIds[1]]?.displayName(for: .group) ??
-                    Profile.truncated(id: memberIds[1], truncating: .middle)
+                    memberIds[1].truncated()
                 )
                 
                 return "adminPromotionFailedDescriptionTwo"

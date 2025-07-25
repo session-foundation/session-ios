@@ -132,7 +132,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     }
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .milliseconds(250))
             .using(dependencies: dependencies)
             .query(MessageRequestsViewModel.queryState)
@@ -432,21 +433,17 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     }
     
     @MainActor func loadPageBefore() {
-        Task { [loadedPageInfo = internalState.loadedPageInfo, observationManager = dependencies[singleton: .observationManager]] in
-            await observationManager.notify(
-                .loadPage(MessageRequestsViewModel.observationName),
-                value: LoadPageEvent.previousPage(firstIndex: loadedPageInfo.firstIndex)
-            )
-        }
+        dependencies.notifyAsync(
+            key: .loadPage(MessageRequestsViewModel.observationName),
+            value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.firstIndex)
+        )
     }
     
     @MainActor func loadPageAfter() {
-        Task { [loadedPageInfo = internalState.loadedPageInfo, observationManager = dependencies[singleton: .observationManager]] in
-            await observationManager.notify(
-                .loadPage(MessageRequestsViewModel.observationName),
-                value: LoadPageEvent.nextPage(lastIndex: loadedPageInfo.lastIndex)
-            )
-        }
+        dependencies.notifyAsync(
+            key: .loadPage(MessageRequestsViewModel.observationName),
+            value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.lastIndex)
+        )
     }
 }
 

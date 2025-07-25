@@ -26,30 +26,25 @@ extension LibSession {
         Log.Category.create("network", defaultLevel: .info)
         
         /// Subscribe for log level changes (this wil' emit an initial event which we can use to set the default log level)
-        dependencies.publisher(featureGroupChanges: .allLogLevels)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sinkUntilComplete(
-                receiveValue: {
-                    let currentLogLevels: [Log.Category: Log.Level] = dependencies[feature: .allLogLevels]
-                        .currentValues(using: dependencies)
-                    let cDefaultLevel: LOG_LEVEL = (currentLogLevels[.default]?.libSession ?? LOG_LEVEL_OFF)
-                    session_logger_set_level_default(cDefaultLevel)
-                    session_logger_reset_level(cDefaultLevel)
-                    
-                    /// Update all explicit log levels (we don't want to register a listener for each individual one so just re-apply all)
-                    ///
-                    /// If the conversation to the libSession `LOG_LEVEL` fails then it means we should use the default log level
-                    currentLogLevels.forEach { (category: Log.Category, level: Log.Level) in
-                        guard
-                            let cCat: [CChar] = category.rawValue.cString(using: .utf8),
-                            let cLogLevel: LOG_LEVEL = level.libSession
-                        else { return }
-                        
-                        session_logger_set_level(cCat, cLogLevel)
-                    }
-                }
-            )
+        ObservationBuilder.observe(.featureGroup(.allLogLevels), using: dependencies) { [dependencies] _ in
+            let currentLogLevels: [Log.Category: Log.Level] = dependencies[feature: .allLogLevels]
+                .currentValues(using: dependencies)
+            let cDefaultLevel: LOG_LEVEL = (currentLogLevels[.default]?.libSession ?? LOG_LEVEL_OFF)
+            session_logger_set_level_default(cDefaultLevel)
+            session_logger_reset_level(cDefaultLevel)
+            
+            /// Update all explicit log levels (we don't want to register a listener for each individual one so just re-apply all)
+            ///
+            /// If the conversation to the libSession `LOG_LEVEL` fails then it means we should use the default log level
+            currentLogLevels.forEach { (category: Log.Category, level: Log.Level) in
+                guard
+                    let cCat: [CChar] = category.rawValue.cString(using: .utf8),
+                    let cLogLevel: LOG_LEVEL = level.libSession
+                else { return }
+                
+                session_logger_set_level(cCat, cLogLevel)
+            }
+        }
         
         /// Finally register the actual logger callback
         session_add_logger_full({ msgPtr, msgLen, catPtr, catLen, lvl in

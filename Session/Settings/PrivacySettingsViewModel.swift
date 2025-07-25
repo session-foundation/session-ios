@@ -137,7 +137,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     let title: String = "sessionPrivacy".localized()
     
     @MainActor private func bindState() {
-        observationTask = ObservationBuilder(initialValue: self.internalState)
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
             .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(PrivacySettingsViewModel.queryState)

@@ -34,8 +34,8 @@ public actor ObservationManager {
         }
     }
     
-    public func notify(_ changes: [ObservedEvent], priority: Priority = .standard) async {
-        changes.forEach { event in
+    public func notify(priority: Priority = .standard, events: [ObservedEvent]) async {
+        events.forEach { event in
             store[event.key]?.values.forEach { $0.yield((event: event, priority: priority)) }
         }
     }
@@ -61,17 +61,50 @@ public extension ObservationManager {
     enum Priority {
         case standard   /// Goes through the standard debouncer
         case immediate  /// Flushes the debouncer forcing an immediate update with any pending events
+                        
+        var taskPriority: TaskPriority {
+            switch self {
+                case .standard: return .medium
+                case .immediate: return .userInitiated
+            }
+        }
     }
 }
 
 // MARK: - Convenience
 
-public extension ObservationManager {
-    func notify(_ change: ObservedEvent, priority: Priority = .standard) async {
-        await notify([change], priority: priority)
-    }
+public extension Dependencies {
+    @discardableResult func notifyAsync(
+        priority: ObservationManager.Priority = .standard,
+        events: [ObservedEvent]
+    ) -> Task<Void, Never> {
+        guard !events.isEmpty else { return Task {} }
         
-    func notify(_ key: ObservableKey, value: AnyHashable? = nil, priority: Priority = .standard) async {
-        await notify([ObservedEvent(key: key, value: value)], priority: priority)
+        return Task(priority: priority.taskPriority) { [observationManager = self[singleton: .observationManager]] in
+            await observationManager.notify(priority: priority, events: events)
+        }
+    }
+    
+    @discardableResult func notifyAsync<T: Hashable>(
+        priority: ObservationManager.Priority = .standard,
+        key: ObservableKey?,
+        value: T?
+    ) -> Task<Void, Never> {
+        guard let event: ObservedEvent = key.map({ ObservedEvent(key: $0, value: value) }) else { return Task {} }
+        
+        return notifyAsync(priority: priority, events: [event])
+    }
+    
+    @discardableResult func notifyAsync(
+        priority: ObservationManager.Priority = .standard,
+        _ events: (key: ObservableKey?, value: AnySendableHashable?)...
+    ) -> Task<Void, Never> {
+        guard
+            let events: [ObservedEvent] = events
+                .compactMap({ key, value in key.map { ObservedEvent(key: $0, value: value) } })
+                .nullIfEmpty
+        else { return Task {} }
+        
+        return notifyAsync(priority: priority, events: events)
     }
 }

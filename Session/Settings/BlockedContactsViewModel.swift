@@ -135,7 +135,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
                                 title: (
                                     model.profile?.displayName() ??
-                                    Profile.truncated(id: model.id, truncating: .middle)
+                                    model.id.truncated()
                                 ),
                                 trailingAccessory: .radio(
                                     liveIsSelected: { selectedIdsSubject.value.contains(model.id) == true }
@@ -173,9 +173,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .first(where: { section in section.model == .contacts }),
                     let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })
-                else {
-                    return Profile.truncated(id: contactId, truncating: .middle)
-                }
+                else { return contactId.truncated() }
                 
                 return info.title?.text
             }
