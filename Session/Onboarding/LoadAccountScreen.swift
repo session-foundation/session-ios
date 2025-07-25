@@ -21,7 +21,7 @@ struct LoadAccountScreen: View {
         
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeColor(.backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 spacing: 0

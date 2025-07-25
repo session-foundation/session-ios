@@ -297,7 +297,8 @@ struct MessageInfoScreen: View {
                                             size: size,
                                             info: info,
                                             additionalInfo: additionalInfo,
-                                            dataManager: dependencies[singleton: .imageDataManager]
+                                            dataManager: dependencies[singleton: .imageDataManager],
+                                            sessionProState: dependencies[singleton: .sessionProState]
                                         )
                                         .frame(
                                             width: size.viewSize,
@@ -509,6 +510,7 @@ struct MessageBubble: View {
                         using: dependencies
                     ) {
                         AttributedText(bodyText)
+                            .foregroundColor(themeColor: bodyLabelTextColor)
                             .padding(.all, Self.inset)
                     }
                 }

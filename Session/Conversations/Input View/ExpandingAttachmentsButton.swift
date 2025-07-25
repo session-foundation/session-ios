@@ -2,7 +2,6 @@
 
 import UIKit
 import SessionUIKit
-import SessionUtilitiesKit
 
 final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     private weak var delegate: ExpandingAttachmentsButtonDelegate?

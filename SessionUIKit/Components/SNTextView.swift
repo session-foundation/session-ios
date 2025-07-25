@@ -75,7 +75,7 @@ public final class SNTextView : UITextView, UITextViewDelegate {
         pin(.trailing, to: .trailing, of: placeholderLabel, withInset: horizontalInset)
         pin(.bottom, to: .bottom, of: placeholderLabel)
         
-        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
+        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _, _ in
             self?.keyboardAppearance = theme.keyboardAppearance
         }
     }

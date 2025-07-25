@@ -5,8 +5,9 @@ import Combine
 
 public final class ProfilePictureView: UIView {
     public struct Info {
-        let identifier: String
         let source: ImageDataManager.DataSource?
+        let shouldAnimated: Bool
+        let isCurrentUser: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -15,8 +16,9 @@ public final class ProfilePictureView: UIView {
         let forcedBackgroundColor: ForcedThemeValue?
         
         public init(
-            identifier: String,
             source: ImageDataManager.DataSource?,
+            shouldAnimated: Bool,
+            isCurrentUser: Bool,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -24,8 +26,9 @@ public final class ProfilePictureView: UIView {
             backgroundColor: ThemeValue? = nil,
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
-            self.identifier = identifier
             self.source = source
+            self.shouldAnimated = shouldAnimated
+            self.isCurrentUser = isCurrentUser
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -100,6 +103,7 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
+    private var sessionProState: SessionProManagerType?
     public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
@@ -139,6 +143,14 @@ public final class ProfilePictureView: UIView {
             heightConstraint.constant = (isHidden ? 0 : size.viewSize)
         }
     }
+    
+    public enum CurrentUserProfileImage: Equatable {
+        case none
+        case main
+        case additional
+    }
+    
+    public var shouldAnimateForCurrentUserProUpgrade: CurrentUserProfileImage = .none
     
     // MARK: - Constraints
     
@@ -277,7 +289,8 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?) {
+    public init(size: Size, dataManager: ImageDataManagerType?, sessionProState: SessionProManagerType?) {
+        self.sessionProState = sessionProState
         self.dataManager = dataManager
         self.size = size
         
@@ -285,6 +298,20 @@ public final class ProfilePictureView: UIView {
         
         clipsToBounds = true
         setUpViewHierarchy()
+        
+        sessionProState?.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self] isPro in
+                    if isPro {
+                        self?.startAnimatingIfNeeded()
+                    } else {
+                        self?.stopAnimatingIfNeeded()
+                    }
+                }
+            )
+            .store(in: &disposables)
     }
     
     public required init?(coder: NSCoder) {
@@ -380,6 +407,24 @@ public final class ProfilePictureView: UIView {
         self.additionalImageView.setDataManager(dataManager)
     }
     
+    public func setSessionProState(_ sessionProState: SessionProManagerType) {
+        self.sessionProState = sessionProState
+        sessionProState.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self] isPro in
+                    if isPro {
+                        self?.startAnimatingIfNeeded()
+                    } else {
+                        self?.stopAnimatingIfNeeded()
+                    }
+                    
+                }
+            )
+            .store(in: &disposables)
+    }
+    
     // MARK: - Content
     
     private func updateIconView(
@@ -434,11 +479,13 @@ public final class ProfilePictureView: UIView {
     
     private func prepareForReuse() {
         imageView.image = nil
+        imageView.shouldAnimateImage = true
         imageView.contentMode = .scaleAspectFill
         imageContainerView.clipsToBounds = clipsToBounds
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
+        additionalImageView.shouldAnimateImage = true
         additionalImageContainerView.clipsToBounds = clipsToBounds
         
         imageViewTopConstraint.isActive = false
@@ -483,9 +530,14 @@ public final class ProfilePictureView: UIView {
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                imageView.loadImage(identifier: info.identifier, from: source)
+                imageView.shouldAnimateImage = info.shouldAnimated
+                imageView.loadImage(source)
                 
             default: imageView.image = nil
+        }
+        
+        if info.isCurrentUser {
+            self.shouldAnimateForCurrentUserProUpgrade = .main
         }
         
         imageView.themeTintColor = info.themeTintColor
@@ -529,12 +581,17 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(identifier: additionalInfo.identifier, from: source)
+                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimated
+                additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
             default:
                 additionalImageView.image = nil
                 additionalImageContainerView.isHidden = true
+        }
+        
+        if additionalInfo.isCurrentUser {
+            self.shouldAnimateForCurrentUserProUpgrade = .additional
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
@@ -571,6 +628,28 @@ public final class ProfilePictureView: UIView {
         )
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
+    
+    public func startAnimatingIfNeeded() {
+        switch shouldAnimateForCurrentUserProUpgrade {
+            case .none:
+                break
+            case .main:
+                imageView.shouldAnimateImage = true
+            case .additional:
+                additionalImageView.shouldAnimateImage = true
+        }
+    }
+    
+    public func stopAnimatingIfNeeded() {
+        switch shouldAnimateForCurrentUserProUpgrade {
+            case .none:
+                break
+            case .main:
+                imageView.shouldAnimateImage = false
+            case .additional:
+                additionalImageView.shouldAnimateImage = false
+        }
+    }
 }
 
 import SwiftUI
@@ -582,21 +661,28 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
     let dataManager: ImageDataManagerType
+    let sessionProState: SessionProManagerType
     
     public init(
         size: ProfilePictureView.Size,
         info: ProfilePictureView.Info,
         additionalInfo: ProfilePictureView.Info? = nil,
-        dataManager: ImageDataManagerType
+        dataManager: ImageDataManagerType,
+        sessionProState: SessionProManagerType
     ) {
         self.size = size
         self.info = info
         self.additionalInfo = additionalInfo
         self.dataManager = dataManager
+        self.sessionProState = sessionProState
     }
     
     public func makeUIView(context: Context) -> ProfilePictureView {
-        ProfilePictureView(size: size, dataManager: dataManager)
+        ProfilePictureView(
+            size: size,
+            dataManager: dataManager,
+            sessionProState: sessionProState
+        )
     }
     
     public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {

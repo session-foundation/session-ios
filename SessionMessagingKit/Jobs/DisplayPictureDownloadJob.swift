@@ -81,7 +81,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         case .failure(let error): failure(job, error, true)
                     }
                 },
-                receiveValue: { _, data in
+                receiveValue: { info, data in
                     // Check to make sure this download is still a valid update
                     guard dependencies[singleton: .storage].read({ db in details.isValidUpdate(db) }) == true else {
                         return
@@ -123,17 +123,12 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         return
                     }
                     
-                    // Update the cache first (in case the DBWrite thread is blocked, this way other threads
-                    // can retrieve from the cache and avoid triggering a download)
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    Task {
-                        await dependencies[singleton: .imageDataManager].loadImageData(
-                            identifier: finalFileName,
-                            source: .data(decryptedData)
+                    /// Kick off a task to load the image into the cache (assuming we want to render it soon)
+                    Task(priority: .userInitiated) {
+                        await dependencies[singleton: .imageDataManager].load(
+                            .url(finalFileUrl)
                         )
-                        semaphore.signal()
                     }
-                    semaphore.wait()
                     
                     // Store the updated information in the database
                     dependencies[singleton: .storage].write { db in
@@ -149,6 +144,12 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         Profile.Columns.lastProfilePictureUpdate.set(to: details.timestamp),
                                         using: dependencies
                                     )
+                                if
+                                    dependencies[cache: .general].sessionId.hexString == id,
+                                    let expires: Date = Date.fromHTTPExpiresHeaders(info.headers["Expires"])
+                                {
+                                    dependencies[defaults: .standard, key: .profilePictureExpiresDate] = expires
+                                }
                                 
                             case .group(let id, let url, let encryptionKey):
                                 _ = try? ClosedGroup

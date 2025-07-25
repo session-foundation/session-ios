@@ -41,7 +41,8 @@ extension MessageReceiver {
                     return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
-                        fileName: nil
+                        fileName: nil,
+                        contactProProof: profile.sessionProProof
                     )
                 }(),
                 sentTimestamp: messageSentTimestamp,

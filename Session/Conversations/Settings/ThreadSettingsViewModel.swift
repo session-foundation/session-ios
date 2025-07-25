@@ -502,17 +502,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
                             label: "Pin Conversation"
                         ),
-                        onTap: { [dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAllAndConfig(
-                                        db,
-                                        SessionThread.Columns.shouldBeVisible.set(to: true),
-                                        SessionThread.Columns.pinnedPriority.set(to: (threadViewModel.threadPinnedPriority <= 0 ? 1 : 0)),
-                                        using: dependencies
-                                    )
-                            }
+                        onTap: { [weak self] in
+                            self?.toggleConversationPinnedStatus(
+                                currentPinnedPriority: threadViewModel.threadPinnedPriority
+                            )
                         }
                     )
                  ),
@@ -1641,7 +1634,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 info: ConfirmationModal.Info(
                     title: "groupSetDisplayPicture".localized(),
                     body: .image(
-                        identifier: (currentFileName ?? iconName),
                         source: currentFileName
                             .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
                             .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
@@ -1650,11 +1642,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         },
                         icon: .rightPlus,
                         style: .circular,
+                        showPro: false,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
+                        onProBageTapped: nil,
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -1663,7 +1657,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(_, let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
@@ -1673,7 +1667,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(_, .some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateGroupDisplayPicture(
@@ -1736,7 +1730,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         return dependencies[singleton: .displayPictureManager]
                             .prepareAndUploadDisplayPicture(imageData: data)
                             .showingBlockingLoading(in: self?.navigatableState)
-                            .map { url, fileName, key -> DisplayPictureManager.Update in
+                            .map { url, fileName, key, _ -> DisplayPictureManager.Update in
                                 .groupUpdateTo(url: url, key: key, fileName: fileName)
                             }
                             .mapError { $0 as Error }
@@ -1825,6 +1819,42 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 .updateAllAndConfig(
                     db,
                     Contact.Columns.isBlocked.set(to: isBlocked),
+                    using: dependencies
+                )
+        }
+    }
+    
+    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
+        let isCurrentlyPinned: Bool = (currentPinnedPriority > 0)
+        if !isCurrentlyPinned,
+           !dependencies[cache: .libSession].isSessionPro,
+           let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
+               try SessionThread
+                   .filter(SessionThread.Columns.pinnedPriority > 0)
+                   .fetchCount(db)
+           }),
+           pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+        {
+            let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+                modal: ProCTAModal(
+                    delegate: dependencies[singleton: .sessionProState],
+                    variant: .morePinnedConvos(
+                        isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
+            )
+            self.transitionToScreen(sessionProModal, transitionType: .present)
+            return
+        }
+        
+        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+            try SessionThread
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    SessionThread.Columns.shouldBeVisible.set(to: true),
+                    SessionThread.Columns.pinnedPriority.set(to: (isCurrentlyPinned ? 0 : 1)),
                     using: dependencies
                 )
         }

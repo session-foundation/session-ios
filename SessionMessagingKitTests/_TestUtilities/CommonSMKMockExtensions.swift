@@ -70,10 +70,11 @@ extension Interaction: Mocked {
         state: .sent,
         recipientReadTimestampMs: nil,
         mostRecentFailureText: nil,
+        isProMessage: false,
         transientDependencies: nil
     )
 }
 
 extension ImageDataManager.DataSource: Mocked {
-    static var mock: ImageDataManager.DataSource = ImageDataManager.DataSource.data(Data([1, 2, 3]))
+    static var mock: ImageDataManager.DataSource = ImageDataManager.DataSource.data("mock", Data([1, 2, 3]))
 }

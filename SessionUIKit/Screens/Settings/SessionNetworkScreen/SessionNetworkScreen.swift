@@ -648,7 +648,7 @@ extension SessionNetworkScreenContent {
                 snodesInCurrentSwarm: 6,
                 snodesInTotal: 2254,
                 contractAddress: "0x7D7fD4E91834A96cD9Fb2369E7f4EB72383bbdEd",
-                tokenUSD: 0.10,//1790.9260023480001,
+                tokenUSD: 1790.9260023480001,
                 priceTimestampMs: 1745817684000,
                 stakingRequirement: 20000,
                 networkSize: 957,
@@ -664,5 +664,6 @@ extension SessionNetworkScreenContent {
             lastUpdatedTimeString: "17m"
         )
     )
+    .environment(\.previewTheme, (Theme.oceanDark, Theme.PrimaryColor.orange))
 }
 #endif

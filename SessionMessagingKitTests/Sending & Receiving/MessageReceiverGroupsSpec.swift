@@ -686,6 +686,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         state: .sent,
                                         recipientReadTimestampMs: nil,
                                         mostRecentFailureText: nil,
+                                        isProMessage: false,
                                         transientDependencies: EquatableIgnoring(value: dependencies)
                                     ),
                                     in: SessionThread(
@@ -2288,6 +2289,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
+                            isProMessage: false,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         
@@ -2313,6 +2315,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
+                            isProMessage: false,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         
@@ -2338,6 +2341,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
+                            isProMessage: false,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         
@@ -2363,6 +2367,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
+                            isProMessage: false,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                     }
@@ -2900,6 +2905,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
+                            isProMessage: false,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         

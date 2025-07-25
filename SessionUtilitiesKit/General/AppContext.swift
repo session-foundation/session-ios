@@ -24,7 +24,7 @@ public protocol AppContext: AnyObject {
     var frontMostViewController: UIViewController? { get }
     var backgroundTimeRemaining: TimeInterval { get }
     
-    func setMainWindow(_ mainWindow: UIWindow)
+    @MainActor func setMainWindow(_ mainWindow: UIWindow)
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier)

@@ -11,6 +11,7 @@ public extension VisibleMessage {
         public let profileKey: Data?
         public let profilePictureUrl: String?
         public let blocksCommunityMessageRequests: Bool?
+        public let sessionProProof: String?
         
         // MARK: - Initialization
 
@@ -18,7 +19,8 @@ public extension VisibleMessage {
             displayName: String,
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,
-            blocksCommunityMessageRequests: Bool? = nil
+            blocksCommunityMessageRequests: Bool? = nil,
+            sessionProProof: String? = nil
         ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
             
@@ -26,6 +28,7 @@ public extension VisibleMessage {
             self.profileKey = (hasUrlAndKey ? profileKey : nil)
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
             self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+            self.sessionProProof = sessionProProof
         }
 
         // MARK: - Proto Conversion
@@ -40,7 +43,8 @@ public extension VisibleMessage {
                 displayName: displayName,
                 profileKey: proto.profileKey,
                 profilePictureUrl: profileProto.profilePicture,
-                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil)
+                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
+                sessionProProof: nil // TODO: Add Session Pro Proof to profile proto
             )
         }
 
@@ -87,7 +91,8 @@ public extension VisibleMessage {
             return VMProfile(
                 displayName: displayName,
                 profileKey: proto.profileKey,
-                profilePictureUrl: profileProto.profilePicture
+                profilePictureUrl: profileProto.profilePicture,
+                sessionProProof: nil // TODO: Add Session Pro Proof to profile proto
             )
         }
         
@@ -140,6 +145,7 @@ extension VisibleMessage.VMProfile {
         self.profileKey = profile.profileEncryptionKey
         self.profilePictureUrl = profile.profilePictureUrl
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+        self.sessionProProof = profile.sessionProProof
     }
 }
 

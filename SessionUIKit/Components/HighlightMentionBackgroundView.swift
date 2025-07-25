@@ -113,7 +113,11 @@ public class HighlightMentionBackgroundView: UIView {
                     continue
                 }
                 
-                lastMentionBackgroundColor = (ThemeManager.currentTheme.color(for: mentionBackgroundColor) ?? .clear)
+                lastMentionBackgroundColor = (ThemeManager.color(
+                    for: mentionBackgroundColor,
+                    in: ThemeManager.currentTheme,
+                    with: ThemeManager.primaryColor
+                ) ?? .clear)
                 let maybeCornerRadius: CGFloat? = (attributes
                     .value(forKey: NSAttributedString.Key.currentUserMentionBackgroundCornerRadius.rawValue) as? CGFloat)
                 lastMentionBackgroundCornerRadius = maybeCornerRadius ?? 0

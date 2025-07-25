@@ -35,6 +35,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
+        case customTTL
+        case sessionPro
         case sessionNetwork
         case general
         case logging
@@ -46,6 +48,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         var title: String? {
             switch self {
                 case .developerMode: return nil
+                case .customTTL: return "Custom TTL"
+                case .sessionPro: return "Session Pro"
                 case .sessionNetwork: return "Session Network"
                 case .general: return "General"
                 case .logging: return "Logging"
@@ -94,6 +98,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
         
+        case shortenFileTTL
+        
+        case enableSessionPro
+        case proStatus
+        case proIncomingMessages
+        
         case createMockContacts
         case copyDatabasePath
         case forceSlowDatabaseQueries
@@ -133,6 +143,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .versionBlindedID: return "versionBlindedID"
                 case .scheduleLocalNotification: return "scheduleLocalNotification"
+                
+                case .shortenFileTTL: return "shortenFileTTL"
+                
+                case .enableSessionPro: return "enableSessionPro"
+                case .proStatus: return "proStatus"
+                case .proIncomingMessages: return "proIncomingMessages"
 
                 case .createMockContacts: return "createMockContacts"
                 case .copyDatabasePath: return "copyDatabasePath"
@@ -178,6 +194,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .versionBlindedID: result.append(.versionBlindedID); fallthrough
                 case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
                 
+                case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
+                
+                case .enableSessionPro: result.append(.enableSessionPro); fallthrough
+                case .proStatus: result.append(.proStatus); fallthrough
+                case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
+                
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
@@ -217,6 +239,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsAllowInviteById: Bool
         let updatedGroupsDeleteBeforeNow: Bool
         let updatedGroupsDeleteAttachmentsBeforeNow: Bool
+        
+        let shortenFileTTL: Bool
+        
+        let sessionProEnabled: Bool
+        let mockCurrentUserSessionPro: Bool
+        let treatAllIncomingMessagesAsProMessages: Bool
         
         let forceSlowDatabaseQueries: Bool
     }
@@ -263,6 +291,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById],
                 updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
                 updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow],
+                
+                shortenFileTTL: dependencies[feature: .shortenFileTTL],
+                
+                sessionProEnabled: dependencies[feature: .sessionProEnabled],
+                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
+                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries]
             )
@@ -763,6 +797,83 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        let customTTL: SectionModel = SectionModel(
+            model: .customTTL,
+            elements: [
+                SessionCell.Info(
+                    id: .shortenFileTTL,
+                    title: "Shorten File TTL",
+                    subtitle: "Set the TTL for files in the cache to 1 minute",
+                    trailingAccessory: .toggle(
+                        current.shortenFileTTL,
+                        oldValue: previous?.shortenFileTTL
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .shortenFileTTL,
+                            to: !current.shortenFileTTL
+                        )
+                    }
+                )
+            ]
+        )
+        let sessionPro: SectionModel = SectionModel(
+            model: .sessionPro,
+            elements: [
+                SessionCell.Info(
+                    id: .enableSessionPro,
+                    title: "Enable Session Pro",
+                    subtitle: """
+                    Enable Post Pro Release mode.
+                    Turning on this Settings will show Pro badge and CTA if needed.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.sessionProEnabled,
+                        oldValue: previous?.sessionProEnabled
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateSessionProEnabled(current: current.sessionProEnabled)
+                    }
+                )
+            ].appending(
+                contentsOf: current.sessionProEnabled ? [
+                    SessionCell.Info(
+                        id: .proStatus,
+                        title: "Pro Status",
+                        subtitle: """
+                        Mock current user a Session Pro user locally.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.mockCurrentUserSessionPro,
+                            oldValue: previous?.mockCurrentUserSessionPro
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .mockCurrentUserSessionPro,
+                                to: !current.mockCurrentUserSessionPro
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .proIncomingMessages,
+                        title: "All Pro Incoming Messages",
+                        subtitle: """
+                        Treat all incoming messages as Pro messages.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.treatAllIncomingMessagesAsProMessages,
+                            oldValue: previous?.treatAllIncomingMessagesAsProMessages
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .treatAllIncomingMessagesAsProMessages,
+                                to: !current.treatAllIncomingMessagesAsProMessages
+                            )
+                        }
+                    )
+                ] : nil
+            )
+        )
         let sessionNetwork: SectionModel = SectionModel(
             model: .sessionNetwork,
             elements: [
@@ -806,6 +917,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             network,
             disappearingMessages,
             groups,
+            customTTL,
+            sessionPro,
             sessionNetwork,
             database
         ]
@@ -910,6 +1023,28 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
+                
+                case .shortenFileTTL:
+                    guard dependencies.hasSet(feature: .shortenFileTTL) else { return }
+                    
+                    updateFlag(for: .shortenFileTTL, to: nil)
+                
+                case .enableSessionPro:
+                    guard dependencies.hasSet(feature: .sessionProEnabled) else { return }
+                    
+                    updateFlag(for: .sessionProEnabled, to: nil)
+                
+                case .proStatus:
+                    guard dependencies.hasSet(feature: .mockCurrentUserSessionPro) else { return }
+                    
+                    updateFlag(for: .mockCurrentUserSessionPro, to: nil)
+                    
+                case .proIncomingMessages:
+                    guard dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) else {
+                        return
+                    }
+                    
+                    updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }
@@ -1099,6 +1234,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
         forceRefresh(type: .databaseQuery)
+    }
+    
+    private func updateSessionProEnabled(current: Bool) {
+        updateFlag(for: .sessionProEnabled, to: !current)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
+            updateFlag(for: .mockCurrentUserSessionPro, to: nil)
+        }
+        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
+            updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
+        }
     }
     
     private func updateForceOffline(current: Bool) {

@@ -58,7 +58,7 @@ struct LandingScreen: View {
 
     var body: some View {
         ZStack(alignment: .center) {
-            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeColor(.backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .center,
@@ -209,12 +209,14 @@ struct ChatBubble: View {
     let outgoing: Bool
     
     var body: some View {
-        let backgroundColor: Color? = ThemeManager.currentTheme.color(for: (outgoing ? .messageBubble_outgoingBackground : .messageBubble_incomingBackground))
         Text(text)
             .foregroundColor(themeColor: (outgoing ? .messageBubble_outgoingText : .messageBubble_incomingText))
             .font(.system(size: 16))
             .padding(.all, 12)
-            .background(backgroundColor)
+            .backgroundColor(themeColor: (outgoing ?
+                .messageBubble_outgoingBackground :
+                .messageBubble_incomingBackground)
+            )
             .cornerRadius(13)
             .frame(
                 maxWidth: 230,

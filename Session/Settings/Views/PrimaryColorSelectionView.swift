@@ -61,7 +61,7 @@ final class PrimaryColorSelectionView: UIView {
         
         // Register an observer so when the theme changes the selected theme and primary colour
         // are both updated to match
-        ThemeManager.onThemeChange(observer: self) { [weak self] _, primaryColor in
+        ThemeManager.onThemeChange(observer: self) { [weak self] _, primaryColor, _ in
             self?.primaryColorViews.forEach { view in
                 view.update(isSelected: (primaryColor == view.color))
             }
@@ -102,7 +102,7 @@ extension PrimaryColorSelectionView: SessionCell.Accessory.CustomView {
         typealias View = PrimaryColorSelectionView
         
         let primaryColor: Theme.PrimaryColor
-        let onChange: (Theme.PrimaryColor) -> ()
+        let onChange: @MainActor (Theme.PrimaryColor) -> ()
         
         static func == (lhs: Info, rhs: Info) -> Bool {
             return (lhs.primaryColor == rhs.primaryColor)

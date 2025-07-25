@@ -28,14 +28,14 @@ public enum ThemeManager {
     
     // MARK: - Styling
     
-    public static func updateThemeState(
+    @MainActor public static func updateThemeState(
         theme: Theme? = nil,
         primaryColor: Theme.PrimaryColor? = nil,
         matchSystemNightModeSetting: Bool? = nil
     ) {
         let targetTheme: Theme = (theme ?? _theme)
         let targetPrimaryColor: Theme.PrimaryColor = {
-            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: targetTheme))) {
+            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: targetTheme, with: _primaryColor))) {
                 case (.some(let primaryColor), _): return primaryColor
                 case (.none, .some(let defaultPrimaryColor)): return defaultPrimaryColor
                 default: return _primaryColor
@@ -73,7 +73,7 @@ public enum ThemeManager {
         SNUIKit.themeSettingsChanged(targetTheme, targetPrimaryColor, targetMatchSystemNightModeSetting)
     }
     
-    public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    @MainActor public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         let currentUserInterfaceStyle: UIUserInterfaceStyle = UITraitCollection.current.userInterfaceStyle
         
         // Only trigger updates if the style changed and the device is set to match the system style
@@ -92,20 +92,16 @@ public enum ThemeManager {
         }
     }
     
-    public static func applyNavigationStyling() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { applyNavigationStyling() }
-        }
-        
-        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme) ?? .white)
-        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme)
+    @MainActor public static func applyNavigationStyling() {
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme, with: primaryColor) ?? .white)
+        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
         
         // Set the `mainWindow.tintColor` for system screens to use the right color for text
         SNUIKit.mainWindow?.tintColor = textPrimary
         SNUIKit.mainWindow?.rootViewController?.setNeedsStatusBarAppearanceUpdate()
         
         // Update toolbars to use the right colours
-        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentTheme)
+        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
         UIToolbar.appearance().isTranslucent = false
         UIToolbar.appearance().tintColor = textPrimary
         
@@ -180,18 +176,18 @@ public enum ThemeManager {
         updateIfNeeded(viewController: SNUIKit.mainWindow?.rootViewController)
     }
     
-    public static func applyNavigationStylingIfNeeded(to viewController: UIViewController) {
+    @MainActor public static func applyNavigationStylingIfNeeded(to viewController: UIViewController) {
         // Will use the 'primary' style for all other cases
         guard
             let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
             let navigationBackground: ThemeValue = (navController.viewControllers.first as? ThemedNavigation)?.navigationBackground
         else { return }
         
-        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentTheme)
+        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentTheme, with: primaryColor)
         navController.navigationBar.barTintColor = navigationBackgroundColor
         navController.navigationBar.shadowImage = navigationBackgroundColor?.toImage()
         
-        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme) ?? .white)
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme, with: primaryColor) ?? .white)
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = navigationBackgroundColor
@@ -207,11 +203,7 @@ public enum ThemeManager {
         navController.navigationBar.scrollEdgeAppearance = appearance
     }
     
-    public static func applyWindowStyling() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { applyWindowStyling() }
-        }
-        
+    @MainActor public static func applyWindowStyling() {
         SNUIKit.mainWindow?.overrideUserInterfaceStyle = {
             guard !ThemeManager.matchSystemNightModeSetting else { return .unspecified }
             
@@ -221,23 +213,32 @@ public enum ThemeManager {
                 @unknown default: return .dark
             }
         }()
-        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme)
+        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
     }
     
-    public static func onThemeChange(observer: AnyObject, callback: @escaping (Theme, Theme.PrimaryColor) -> ()) {
+    public static func onThemeChange(observer: AnyObject, callback: @escaping (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
         ThemeManager.uiRegistry.setObject(
             ThemeApplier(
                 existingApplier: ThemeManager.get(for: observer),
                 info: []
-            ) { theme in callback(theme, ThemeManager.primaryColor) },
+            ) { theme in
+                callback(theme, ThemeManager.primaryColor, { value -> UIColor? in
+                    ThemeManager.color(for: value, in: theme, with: ThemeManager.primaryColor)
+                })
+            },
             forKey: observer
         )
     }
     
-    internal static func color<T: ColorType>(for value: ThemeValue, in theme: Theme) -> T? {
+    internal static func color<T: ColorType>(
+        for value: ThemeValue,
+        in theme: Theme,
+        with primaryColor: Theme.PrimaryColor
+    ) -> T? {
         switch value {
             case .value(let value, let alpha): return T.resolve(value, for: theme)?.alpha(alpha)
-            case .explicitPrimary(let primaryColor): return T.resolve(primaryColor)
+            case .primary: return T.resolve(primaryColor)
+            case .explicitPrimary(let explicitPrimary): return T.resolve(explicitPrimary)
             
             case .highlighted(let value, let alwaysDarken):
                 switch (currentTheme.interfaceStyle, alwaysDarken) {
@@ -247,8 +248,8 @@ public enum ThemeManager {
                 
             case .dynamicForInterfaceStyle(let light, let dark):
                 switch currentTheme.interfaceStyle {
-                    case .light: return color(for: light, in: theme)
-                    default: return color(for: dark, in: theme)
+                    case .light: return color(for: light, in: theme, with: primaryColor)
+                    default: return color(for: dark, in: theme, with: primaryColor)
                 }
                 
             case .dynamicForPrimary(let targetPrimaryColor, let colorIfPrimaryMatches, let fallbackColor):
@@ -257,20 +258,26 @@ public enum ThemeManager {
                         colorIfPrimaryMatches :
                         fallbackColor
                     ),
-                    in: theme
+                    in: theme,
+                    with: primaryColor
                 )
             
-            default: return T.resolve(value, for: theme)
+            default:
+                let result: T? = T.resolve(value, for: theme)
+                
+                /// Since our `primary` colour is no longer based on a `dynamicProvider` we now need to custom handle
+                /// when a `ThemeValue` tries to resolve to it
+                if result?.isPrimary == true {
+                    return T.resolve(primaryColor)
+                }
+                
+                return result
         }
     }
     
     // MARK: -  Internal Functions
     
-    private static func updateAllUI() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { updateAllUI() }
-        }
-        
+    @MainActor private static func updateAllUI() {
         ThemeManager.uiRegistry.objectEnumerator()?.forEach { applier in
             (applier as? ThemeApplier)?.apply(theme: currentTheme)
         }
@@ -310,7 +317,7 @@ public enum ThemeManager {
                 }
 
                 view?[keyPath: keyPath] = ThemeManager.resolvedColor(
-                    ThemeManager.color(for: value, in: currentTheme)
+                    ThemeManager.color(for: value, in: currentTheme, with: primaryColor)
                 )
             },
             forKey: view
@@ -346,7 +353,7 @@ public enum ThemeManager {
                 }
                 
                 view?[keyPath: keyPath] = ThemeManager.resolvedColor(
-                    ThemeManager.color(for: value, in: currentTheme)
+                    ThemeManager.color(for: value, in: currentTheme, with: primaryColor)
                 )?.cgColor
             },
             forKey: view
@@ -395,7 +402,7 @@ public enum ThemeManager {
                         
                         guard
                             let originalKey = key.originalKey,
-                            let color = ThemeManager.color(for: themeValue, in: currentTheme) as UIColor?
+                            let color = ThemeManager.color(for: themeValue, in: currentTheme, with: primaryColor) as UIColor?
                         else { return }
                         
                         newAttributes[originalKey] = ThemeManager.resolvedColor(color)
@@ -521,11 +528,15 @@ extension Array {
 // MARK: - ColorType
 
 internal protocol ColorType {
+    var isPrimary: Bool { get }
+    
     func alpha(_ alpha: Double) -> Self?
     func brighten(_ amount: Double) -> Self?
 }
 
 extension UIColor: ColorType {
+    internal var isPrimary: Bool { self == UIColor.primary() }
+    
     internal func alpha(_ alpha: Double) -> Self? {
         return self.withAlphaComponent(CGFloat(alpha)) as? Self
     }
@@ -536,6 +547,8 @@ extension UIColor: ColorType {
 }
 
 extension Color: ColorType {
+    internal var isPrimary: Bool { self == Color.primary() }
+    
     internal func alpha(_ alpha: Double) -> Color? {
         return self.opacity(alpha)
     }
@@ -546,5 +559,35 @@ extension Color: ColorType {
         }
         
         return (self.brightness(amount) as? Color)
+    }
+}
+
+// MARK: - Previews
+
+private struct PreviewThemeKey: EnvironmentKey {
+    static let defaultValue: (Theme, Theme.PrimaryColor)? = nil
+}
+
+extension EnvironmentValues {
+    var previewTheme: (Theme, Theme.PrimaryColor)? {
+        get { self[PreviewThemeKey.self] }
+        set { self[PreviewThemeKey.self] = newValue }
+    }
+}
+
+public struct PreviewThemeWrapper<Content: View>: View {
+    let theme: Theme
+    let primaryColor: Theme.PrimaryColor
+    let content: Content
+    
+    public init(theme: Theme, primaryColor: Theme.PrimaryColor? = nil, @ViewBuilder content: () -> Content) {
+        self.theme = theme
+        self.primaryColor = (primaryColor ?? theme.defaultPrimary)
+        self.content = content()
+    }
+    
+    public var body: some View {
+        content
+            .environment(\.previewTheme, (theme, primaryColor))
     }
 }

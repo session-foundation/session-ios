@@ -106,6 +106,15 @@ public extension UTType {
     var isText: Bool { UTType.supportedTextTypes.contains(self) }
     var isMicrosoftDoc: Bool { UTType.supportedMicrosoftDocTypes.contains(self) }
     var isVisualMedia: Bool { isImage || isVideo || isAnimated }
+    var sessionMimeType: String? {
+        guard
+            let mimeType: String = preferredMIMEType,
+            let fileExtension: String = UTType.genericMimeTypesToExtensionTypes[mimeType],
+            let targetMimeType: String = UTType.genericExtensionTypesToMimeTypes[fileExtension]
+        else { return preferredMIMEType }
+        
+        return targetMimeType
+    }
     
     // MARK: - Initialization
     

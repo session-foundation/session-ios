@@ -19,15 +19,15 @@ class AttachmentApprovalInputAccessoryView: UIView {
     let galleryRailView: GalleryRailView
 
     var isEditingMediaMessage: Bool {
-        return attachmentTextToolbar.textView.isFirstResponder
+        return attachmentTextToolbar.inputView?.isFirstResponder ?? false
     }
 
     private var currentAttachmentItem: SignalAttachmentItem?
 
     let kGalleryRailViewHeight: CGFloat = 72
 
-    required init() {
-        attachmentTextToolbar = AttachmentTextToolbar()
+    required init(delegate: AttachmentTextToolbarDelegate, using dependencies: Dependencies) {
+        attachmentTextToolbar = AttachmentTextToolbar(delegate: delegate, using: dependencies)
 
         galleryRailView = GalleryRailView()
         galleryRailView.scrollFocusMode = .keepWithinBounds
@@ -91,7 +91,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
 
     private func updateFirstResponder() {
         if (shouldHideControls) {
-            attachmentTextToolbar.textView.resignFirstResponder()
+            attachmentTextToolbar.inputView?.resignFirstResponder()
         }
     }
 
@@ -113,6 +113,6 @@ class AttachmentApprovalInputAccessoryView: UIView {
     }
 
     public var hasFirstResponder: Bool {
-        return (isFirstResponder || attachmentTextToolbar.textView.isFirstResponder)
+        return (isFirstResponder || attachmentTextToolbar.inputView?.isFirstResponder ?? false)
     }
 }

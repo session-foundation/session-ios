@@ -1172,7 +1172,7 @@ extension Attachment {
                 return (
                     self,
                     try Network.PreparedRequest<FileUploadResponse>.cached(
-                        FileUploadResponse(id: fileId),
+                        FileUploadResponse(id: fileId, expires: nil),
                         endpoint: endpoint,
                         using: dependencies
                     ),
@@ -1201,7 +1201,7 @@ extension Attachment {
                 return (
                     self,
                     try Network.PreparedRequest.cached(
-                        FileUploadResponse(id: fileId),
+                        FileUploadResponse(id: fileId, expires: nil),
                         endpoint: endpoint,
                         using: dependencies
                     ),

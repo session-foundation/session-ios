@@ -3,7 +3,6 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SignalUtilitiesKit
 
 final class VoiceMessageRecordingView: UIView {
     private let voiceMessageButtonFrame: CGRect
@@ -397,7 +396,7 @@ extension VoiceMessageRecordingView {
             addSubview(blurView)
             blurView.pin(to: self)
             
-            ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+            ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
                 blurView?.effect = UIBlurEffect(style: theme.blurStyle)
             }
             
