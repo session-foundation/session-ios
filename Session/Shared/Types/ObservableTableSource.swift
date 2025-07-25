@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Combine
 import DifferenceKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -24,6 +25,7 @@ public protocol ObservableTableSource: AnyObject, SectionedTableData {
     var state: TableDataState<Section, TableItem> { get }
     var observableState: ObservableTableSourceState<Section, TableItem> { get }
     var observation: TargetObservation { get }
+    var tableDataPublisher: TargetPublisher { get }
     
     // MARK: - Functions
     
@@ -35,18 +37,19 @@ public enum ObservableTableSourceRefreshType {
     case postDatabaseQuery
 }
 
-extension ObservableTableSource {
-    public var pendingTableDataSubject: CurrentValueSubject<[SectionModel], Never> {
+@available(*, deprecated, message: "The 'ObservableTableSource' is now deprecated in favour of the new 'ObservationBuilder' mechanism used by the HomeViewModel, once we have replaced the SessionTableViewController we should update all screens to use the new system")
+public extension ObservableTableSource {
+    var pendingTableDataSubject: CurrentValueSubject<[SectionModel], Never> {
         self.observableState.pendingTableDataSubject
     }
-    public var observation: TargetObservation {
-        ObservationBuilder.subject(self.observableState.pendingTableDataSubject)
+    var observation: TargetObservation {
+        ObservationBuilderOld.subject(self.observableState.pendingTableDataSubject)
     }
     
-    public var tableDataPublisher: TargetPublisher { self.observation.finalPublisher(self, using: dependencies) }
+    var tableDataPublisher: TargetPublisher { self.observation.finalPublisher(self, using: dependencies) }
     
-    public func didReturnFromBackground() {}
-    public func forceRefresh(type: ObservableTableSourceRefreshType = .databaseQuery) {
+    func didReturnFromBackground() {}
+    func forceRefresh(type: ObservableTableSourceRefreshType = .databaseQuery) {
         switch type {
             case .databaseQuery: self.observableState._forcedRequery.send(())
             case .postDatabaseQuery: self.observableState._forcedPostQueryRefresh.send(())
@@ -148,9 +151,9 @@ extension TableObservation: ExpressibleByArrayLiteral where T: Collection {
     }
 }
 
-// MARK: - ObservationBuilder
+// MARK: - ObservationBuilderOld
 
-public enum ObservationBuilder {
+public enum ObservationBuilderOld {
     /// The `subject` will emit immediately when there is a subscriber and store the most recent value to be emitted whenever a new subscriber is
     /// added
     static func subject<T: Equatable>(_ subject: CurrentValueSubject<T, Error>) -> TableObservation<T> {
@@ -174,7 +177,7 @@ public enum ObservationBuilder {
     
     /// The `ValueObserveration` will trigger whenever any of the data fetched in the closure is updated, please see the following link for tips
     /// to help optimise performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> T) -> TableObservation<T> {
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> T) -> TableObservation<T> {
         /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
         /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
         /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
@@ -197,16 +200,20 @@ public enum ObservationBuilder {
                     receiveSubscription: { subscription in
                         forcedRefreshCancellable = source.observableState.forcedRequery
                             .prepend(())
+                            .receive(on: DispatchQueue.main)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { _ in
                                     /// Cancel any previous observation and create a brand new observation for this refresh
                                     ///
-                                    /// **Note:** The `ValueObservation` **MUST** be started from the main thread
+                                    /// **Note:** The `ValueObservation` **MUST** be started from the main
+                                    /// thread (hence why this has `.receive(on: DispatchQueue.main)`
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
-                                            .trackingConstantRegion(fetch)
+                                            .trackingConstantRegion { db in
+                                                try fetch(ObservingDatabase.create(db, using: dependencies))
+                                            }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
@@ -233,7 +240,7 @@ public enum ObservationBuilder {
         }
     }
     
-    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> [T]) -> TableObservation<[T]> {
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (ObservingDatabase) throws -> [T]) -> TableObservation<[T]> {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?
@@ -261,7 +268,9 @@ public enum ObservationBuilder {
                                     observationCancellable?.cancel()
                                     observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
-                                            .trackingConstantRegion(fetch)
+                                            .trackingConstantRegion { db in
+                                                try fetch(ObservingDatabase.create(db, using: dependencies))
+                                            }
                                             .removeDuplicates(),
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
@@ -286,6 +295,23 @@ public enum ObservationBuilder {
                 .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
                 .eraseToAnyPublisher()
         }
+    }
+    
+    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> AnyPublisher<T, Error> {
+        return ValueObservation
+            .trackingConstantRegion { db in
+                try fetch(ObservingDatabase.create(db, using: dependencies))
+            }
+            .removeDuplicates()
+            .publisher(in: dependencies[singleton: .storage], scheduling: .immediate)
+    }
+    
+    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<T>>> {
+        return ValueObservation
+            .trackingConstantRegion { db in
+                try fetch(ObservingDatabase.create(db, using: dependencies))
+            }
+            .removeDuplicates()
     }
     
     static func refreshableData<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping () -> T) -> TableObservation<T> {

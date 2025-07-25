@@ -11,6 +11,12 @@ public extension Array where Element: CustomStringConvertible {
 }
 
 public extension Array {
+    var nullIfEmpty: [Element]? {
+        guard !isEmpty else { return nil }
+        
+        return self
+    }
+    
     func appending(_ other: Element?) -> [Element] {
         guard let other: Element = other else { return self }
         
@@ -69,12 +75,6 @@ public extension Array {
         return stride(from: 0, to: self.count, by: chunkSize).map {
             Array(self[$0..<Swift.min($0 + chunkSize, self.count)])
         }
-    }
-    
-    func nullIfEmpty() -> [Element]? {
-        guard !isEmpty else { return nil }
-        
-        return self
     }
 }
 

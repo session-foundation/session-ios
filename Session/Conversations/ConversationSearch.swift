@@ -278,7 +278,7 @@ public final class SearchResultsBar: UIView {
             self?.startLoading()
         }
         
-        currentSearchCancellable?.cancel()
+        _currentSearchCancellable.perform { $0?.cancel() }
         _currentSearchCancellable.set(to: searchCancellable)
     }
 

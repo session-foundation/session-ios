@@ -12,7 +12,7 @@ enum _011_AddPendingReadReceipts: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let createdTables: [(TableRecord & FetchableRecord).Type] = [PendingReadReceipt.self]
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.create(table: "pendingReadReceipt") { t in
             t.column("threadId", .text)
                 .notNull()
@@ -29,6 +29,6 @@ enum _011_AddPendingReadReceipts: Migration {
             t.primaryKey(["threadId", "interactionTimestampMs"])
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

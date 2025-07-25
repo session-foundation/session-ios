@@ -128,11 +128,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .when { $0.generate(.uuid()) }
                     .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
                 crypto
-                    .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
+                    .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any)) }
                     .thenReturn(TestConstants.validImageData)
                 crypto
                     .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
                     .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
+                crypto
+                    .when { $0.generate(.hash(message: .any)) }
+                    .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
             }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
@@ -147,6 +150,17 @@ class MessageSenderGroupsSpec: QuickSpec {
                     }
                     .thenReturn(())
                 keychain
+                    .when {
+                        try $0.getOrGenerateEncryptionKey(
+                            forKey: .any,
+                            length: .any,
+                            cat: .any,
+                            legacyKey: .any,
+                            legacyService: .any
+                        )
+                    }
+                    .thenReturn(Data([1, 2, 3]))
+                keychain
                     .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
                     .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
             }
@@ -154,6 +168,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
             }
         )
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
@@ -190,77 +205,21 @@ class MessageSenderGroupsSpec: QuickSpec {
         }()
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
             initialSetup: { cache in
-                let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
-                
-                cache.when { $0.isEmpty }.thenReturn(false)
-                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
+                cache.defaultInitialSetup(
+                    configs: [
+                        .userGroups: userGroupsConfig,
+                        .groupInfo: groupInfoConfig,
+                        .groupMembers: groupMembersConfig,
+                        .groupKeys: groupKeysConfig
+                    ]
+                )
                 cache
-                    .when { $0.config(for: .userGroups, sessionId: userSessionId) }
-                    .thenReturn(userGroupsConfig)
-                cache
-                    .when { $0.config(for: .groupInfo, sessionId: groupId) }
-                    .thenReturn(groupInfoConfig)
-                cache
-                    .when { $0.config(for: .groupMembers, sessionId: groupId) }
-                    .thenReturn(groupMembersConfig)
-                cache
-                    .when { $0.config(for: .groupKeys, sessionId: groupId) }
-                    .thenReturn(groupKeysConfig)
-                cache
-                    .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
-                    .thenReturn(LibSession.PendingChanges(obsoleteHashes: ["testHash"]))
-                cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
-                cache
-                    .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
-                    .thenReturn(nil)
-                cache
-                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
-                    .then { args, untrackedArgs in
-                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
-                        try? callback?()
-                    }
-                    .thenReturn(())
-                cache
-                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-                    .then { args, untrackedArgs in
-                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
-                        
-                        switch args[test: 0] as? ConfigDump.Variant {
-                            case .userGroups: try? callback?(userGroupsConfig)
-                            case .groupInfo: try? callback?(groupInfoConfig)
-                            case .groupMembers: try? callback?(groupMembersConfig)
-                            case .groupKeys: try? callback?(groupKeysConfig)
-                            default: break
-                        }
-                    }
-                    .thenReturn(())
-                cache
-                    .when {
-                        try $0.createDumpMarkingAsPushed(
-                            data: .any,
-                            sentTimestamp: .any,
-                            swarmPublicKey: .any
-                        )
-                    }
-                    .thenReturn([])
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
+                    .when { try $0.pendingPushes(swarmPublicKey: .any) }
+                    .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
-            initialSetup: { cache in
-                cache.when { $0.hardfork }.thenReturn(0)
-                cache.when { $0.hardfork = .any }.thenReturn(())
-                cache.when { $0.softfork }.thenReturn(0)
-                cache.when { $0.softfork = .any }.thenReturn(())
-                cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache.when { $0.setClockOffsetMs(.any) }.thenReturn(())
-                cache.when { $0.currentOffsetTimestampMs() }.thenReturn(1234567890000)
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState var mockSwarmPoller: MockSwarmPoller! = MockSwarmPoller(
             initialSetup: { cache in
@@ -275,6 +234,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                 cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
             }
         )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         @TestState var thread: SessionThread?
@@ -285,8 +247,8 @@ class MessageSenderGroupsSpec: QuickSpec {
             context("when creating a group") {
                 beforeEach {
                     mockLibSessionCache
-                        .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
-                        .thenReturn(LibSession.PendingChanges())
+                        .when { try $0.pendingPushes(swarmPublicKey: .any) }
+                        .thenReturn(LibSession.PendingPushes())
                 }
                 
                 // MARK: ---- loads the state into the cache
@@ -390,9 +352,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     expect(dbValue?.name).to(equal("TestGroupName"))
                     expect(dbValue?.formationTimestamp).to(equal(1234567890))
                     expect(dbValue?.displayPictureUrl).to(beNil())
-                    expect(dbValue?.displayPictureFilename).to(beNil())
                     expect(dbValue?.displayPictureEncryptionKey).to(beNil())
-                    expect(dbValue?.lastDisplayPictureUpdate).to(equal(1234567890))
                     expect(dbValue?.groupIdentityPrivateKey?.toHexString()).to(equal(groupSecretKey.toHexString()))
                     expect(dbValue?.authData).to(beNil())
                     expect(dbValue?.invited).to(beFalse())
@@ -454,11 +414,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                 // MARK: ---- syncs the group configuration messages
                 it("syncs the group configuration messages") {
                     mockLibSessionCache
-                        .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
+                        .when { try $0.pendingPushes(swarmPublicKey: .any) }
                         .thenReturn(
-                            LibSession.PendingChanges(
+                            LibSession.PendingPushes(
                                 pushData: [
-                                    LibSession.PendingChanges.PushData(
+                                    LibSession.PendingPushes.PushData(
                                         data: [Data([1, 2, 3])],
                                         seqNo: 2,
                                         variant: .groupInfo
@@ -493,7 +453,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     .preparedSendMessage(
                                         message: SnodeMessage(
                                             recipient: groupId.hexString,
-                                            data: Data([1, 2, 3]).base64EncodedString(),
+                                            data: Data([1, 2, 3]),
                                             ttl: ConfigDump.Variant.groupInfo.ttl,
                                             timestampMs: 1234567890
                                         ),
@@ -710,8 +670,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         
                         expect(groups?.first?.displayPictureUrl).to(equal("http://filev2.getsession.org/file/1"))
-                        expect(groups?.first?.displayPictureFilename)
-                            .to(equal("00000000-0000-0000-0000-000000000000.jpg"))
                         expect(groups?.first?.displayPictureEncryptionKey)
                             .to(equal(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 })))
                     }
@@ -1082,7 +1040,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 .appending(try SnodeAPI.preparedSendMessage(
                                     message: SnodeMessage(
                                         recipient: groupId.hexString,
-                                        data: requestDataString,
+                                        data: Data(base64Encoded: requestDataString)!,
                                         ttl: ConfigDump.Variant.groupKeys.ttl,
                                         timestampMs: UInt64(1234567890000)
                                     ),

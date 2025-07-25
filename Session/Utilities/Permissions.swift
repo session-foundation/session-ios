@@ -10,7 +10,7 @@ import SessionMessagingKit
 import Network
 
 extension Permissions {
-    @discardableResult public static func requestCameraPermissionIfNeeded(
+    @MainActor @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
         onAuthorized: ((Bool) -> Void)? = nil
@@ -54,7 +54,7 @@ extension Permissions {
         }
     }
 
-    public static func requestMicrophonePermissionIfNeeded(
+    @MainActor public static func requestMicrophonePermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
         onAuthorized: ((Bool) -> Void)? = nil,
@@ -114,7 +114,7 @@ extension Permissions {
         }
     }
 
-    public static func requestLibraryPermissionIfNeeded(
+    @MainActor public static func requestLibraryPermissionIfNeeded(
         isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
@@ -173,7 +173,7 @@ extension Permissions {
     // MARK: - Local Network Premission
     
     public static func localNetwork(using dependencies: Dependencies) -> Status {
-        let status: Bool = dependencies[singleton: .storage, key: .lastSeenHasLocalNetworkPermission]
+        let status: Bool = dependencies.mutate(cache: .libSession, { $0.get(.lastSeenHasLocalNetworkPermission) })
         return status ? .granted : .denied
     }
     
@@ -187,14 +187,10 @@ extension Permissions {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
-                    dependencies[singleton: .storage].writeAsync { db in
-                        db[.lastSeenHasLocalNetworkPermission] = true
-                    }
+                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, true)
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
-                    dependencies[singleton: .storage].writeAsync { db in
-                        db[.lastSeenHasLocalNetworkPermission] = false
-                    }
+                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, false)
                 }
             } catch {
                 // Networking failure, handle error

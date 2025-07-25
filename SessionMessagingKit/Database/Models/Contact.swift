@@ -53,7 +53,6 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
     // MARK: - Initialization
     
     public init(
-        _ db: Database? = nil,
         id: String,
         isTrusted: Bool = false,
         isApproved: Bool = false,
@@ -83,8 +82,8 @@ public extension Contact {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Contact,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreate(_ db: Database, id: ID, using dependencies: Dependencies) -> Contact {
-        return ((try? fetchOne(db, id: id)) ?? Contact(db, id: id, using: dependencies))
+    static func fetchOrCreate(_ db: ObservingDatabase, id: ID, using dependencies: Dependencies) -> Contact {
+        return ((try? fetchOne(db, id: id)) ?? Contact(id: id, using: dependencies))
     }
 }
 
@@ -95,9 +94,9 @@ extension Contact: ProfileAssociated {
     
     public static func compare(lhs: WithProfile<Contact>, rhs: WithProfile<Contact>) -> Bool {
         let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
-            .defaulting(to: Profile.truncated(id: lhs.profileId, threadVariant: .contact))
+            .defaulting(to: lhs.profileId.truncated(threadVariant: .contact))
         let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
-            .defaulting(to: Profile.truncated(id: rhs.profileId, threadVariant: .contact))
+            .defaulting(to: rhs.profileId.truncated(threadVariant: .contact))
         
         return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
     }

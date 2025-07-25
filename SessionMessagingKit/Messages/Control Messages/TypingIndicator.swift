@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class TypingIndicator: ControlMessage {
@@ -50,8 +49,8 @@ public final class TypingIndicator: ControlMessage {
 
     // MARK: - Initialization
 
-    internal init(kind: Kind) {
-        super.init()
+    internal init(kind: Kind, sender: String? = nil) {
+        super.init(sender: sender)
         
         self.kind = kind
     }
@@ -82,7 +81,7 @@ public final class TypingIndicator: ControlMessage {
         return TypingIndicator(kind: kind)
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         guard let timestampMs = sentTimestampMs, let kind = kind else {
             Log.warn(.messageSender, "Couldn't construct typing indicator proto from: \(self).")
             return nil

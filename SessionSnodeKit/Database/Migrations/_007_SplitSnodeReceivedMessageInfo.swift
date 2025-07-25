@@ -11,7 +11,7 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         /// Fetch the existing values and then drop the table
         let existingValues: [Row] = try Row.fetchAll(db, sql: """
             SELECT key, hash, expirationDateMs, wasDeletedOrInvalid
@@ -132,6 +132,6 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
             )
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

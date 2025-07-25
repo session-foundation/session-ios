@@ -122,37 +122,32 @@ public extension Publisher {
             return self.eraseToAnyPublisher()
         }
         
-        var modalActivityIndicator: ModalActivityIndicatorViewController?
-        
-        switch Thread.isMainThread {
-            case true: modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
-            case false:
-                DispatchQueue.main.sync {
-                    modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
+        return Deferred {
+            Future<ModalActivityIndicatorViewController, Never> { promise in
+                Task { @MainActor in
+                    promise(.success(ModalActivityIndicatorViewController(onAppear: { _ in })))
                 }
-                
-        }
-        
-        return self
-            .handleEvents(
-                receiveSubscription: { _ in
-                    guard let indicator: ModalActivityIndicatorViewController = modalActivityIndicator else {
-                        return
-                    }
-                    
-                    navigatableState._transitionToScreen.send((indicator, .present))
-                }
-            )
-            .asResult()
-            .flatMap { result -> AnyPublisher<Output, Failure> in
-                Deferred {
-                    Future<Output, Failure> { resolver in
-                        modalActivityIndicator?.dismiss(completion: {
-                            resolver(result)
-                        })
-                    }
-                }.eraseToAnyPublisher()
             }
-            .eraseToAnyPublisher()
+        }
+        .flatMap { indicator -> AnyPublisher<Output, Failure> in
+            self
+                .handleEvents(
+                    receiveSubscription: { _ in
+                        navigatableState._transitionToScreen.send((indicator, .present))
+                    }
+                )
+                .asResult()
+                .flatMap { result -> AnyPublisher<Output, Failure> in
+                    Deferred {
+                        Future<Output, Failure> { resolver in
+                            indicator.dismiss(completion: {
+                                resolver(result)
+                            })
+                        }
+                    }.eraseToAnyPublisher()
+                }
+                .eraseToAnyPublisher()
+        }
+        .eraseToAnyPublisher()
     }
 }

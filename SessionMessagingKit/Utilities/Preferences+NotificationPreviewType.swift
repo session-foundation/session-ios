@@ -5,7 +5,7 @@ import DifferenceKit
 import SessionUtilitiesKit
 
 public extension Preferences {
-    enum NotificationPreviewType: Int, CaseIterable, EnumIntSetting, Differentiable {
+    enum NotificationPreviewType: Int, Sendable, CaseIterable, Differentiable, ThreadSafeType {
         public static var defaultPreviewType: NotificationPreviewType = .nameAndPreview
         
         /// Notifications should include both the sender name and a preview of the message content

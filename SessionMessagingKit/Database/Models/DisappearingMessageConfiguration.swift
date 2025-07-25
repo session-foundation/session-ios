@@ -243,7 +243,7 @@ public extension DisappearingMessagesConfiguration {
 
 public extension DisappearingMessagesConfiguration {
     func clearUnrelatedControlMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies
     ) throws {
@@ -288,14 +288,14 @@ public extension DisappearingMessagesConfiguration {
     }
     
     func insertControlMessage(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadVariant: SessionThread.Variant,
         authorId: String,
         timestampMs: Int64,
         serverHash: String?,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws -> Int64? {
+    ) throws -> MessageReceiver.InsertedInteractionInfo? {
         switch threadVariant {
             case .contact:
                 _ = try Interaction
@@ -319,8 +319,7 @@ public extension DisappearingMessagesConfiguration {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     timestampMs: timestampMs,
-                    userSessionId: userSessionId,
-                    openGroup: nil
+                    openGroupUrlInfo: nil
                 )
             }
         )
@@ -348,7 +347,7 @@ public extension DisappearingMessagesConfiguration {
             body: self.messageInfoString(
                 threadVariant: threadVariant,
                 senderName: (authorId != userSessionId.hexString ?
-                    Profile.displayName(db, id: authorId, using: dependencies) :
+                    Profile.displayName(db, id: authorId) :
                     nil
                 ),
                 using: dependencies
@@ -372,7 +371,9 @@ public extension DisappearingMessagesConfiguration {
             )
         }
         
-        return interaction.id
+        return interaction.id.map {
+            (threadId, threadVariant, $0, .infoDisappearingMessagesUpdate, wasRead, 0)
+        }
     }
 }
 

@@ -11,8 +11,8 @@ protocol PagedObservationSource {
     var pagedDataObserver: PagedDatabaseObserver<PagedTable, PagedDataModel>? { get }
     
     func didInit(using dependencies: Dependencies)
-    func loadPageBefore()
-    func loadPageAfter()
+    @MainActor func loadPageBefore()
+    @MainActor func loadPageAfter()
 }
 
 extension PagedObservationSource {

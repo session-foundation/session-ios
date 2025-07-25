@@ -10,12 +10,12 @@ enum _023_GroupsExpiredFlag: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var createdTables: [(FetchableRecord & TableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "closedGroup") { t in
             t.add(column: "expired", .boolean).defaults(to: false)
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

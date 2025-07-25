@@ -106,7 +106,7 @@ public extension Reaction {
 
 public extension Reaction {
     static func getSortId(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionId: Int64,
         emoji: String
     ) -> Int64 {

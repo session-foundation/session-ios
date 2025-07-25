@@ -310,9 +310,15 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: false)
         let attachment: Attachment = self.viewModel.galleryData[indexPath.section].elements[indexPath.row].attachment
-        guard let originalFilePath: String = attachment.originalFilePath(using: dependencies) else { return }
+        guard
+            let path: String = try? dependencies[singleton: .attachmentManager].createTemporaryFileForOpening(
+                downloadUrl: attachment.downloadUrl,
+                mimeType: attachment.contentType,
+                sourceFilename: attachment.sourceFilename
+            )
+        else { return }
         
-        let fileUrl: URL = URL(fileURLWithPath: originalFilePath)
+        let fileUrl: URL = URL(fileURLWithPath: path)
         
         // Open a preview of the document for text, pdf or microsoft files
         if
@@ -321,12 +327,12 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
             attachment.contentType == UTType.mimeTypePdf
         {
             
-            delegate?.preview(fileUrl: fileUrl)
+            delegate?.preview(temporaryFileUrl: fileUrl)
             return
         }
         
         // Otherwise share the file
-        delegate?.share(fileUrl: fileUrl)
+        delegate?.share(temporaryFileUrl: fileUrl)
     }
 }
 
@@ -584,6 +590,6 @@ class DocumentStaticHeaderView: UIView {
 // MARK: - DocumentTitleViewControllerDelegate
 
 public protocol DocumentTileViewControllerDelegate: AnyObject {
-    func share(fileUrl: URL)
-    func preview(fileUrl: URL)
+    func share(temporaryFileUrl: URL)
+    func preview(temporaryFileUrl: URL)
 }

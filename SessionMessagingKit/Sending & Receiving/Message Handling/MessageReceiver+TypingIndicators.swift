@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleTypingIndicator(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: TypingIndicator,
@@ -16,35 +16,22 @@ extension MessageReceiver {
         
         switch message.kind {
             case .started:
-                let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
-                let threadIsBlocked: Bool = (
-                    threadVariant == .contact &&
-                    (try? Contact
-                        .filter(id: threadId)
-                        .select(.isBlocked)
-                        .asRequest(of: Bool.self)
-                        .fetchOne(db))
-                        .defaulting(to: false)
-                )
-                let threadIsMessageRequest: Bool = (try? SessionThread
-                    .filter(id: threadId)
-                    .filter(SessionThread.isMessageRequest(
-                        userSessionId: currentUserSessionId,
-                        includeNonVisible: true
-                    ))
-                    .isEmpty(db))
-                    .defaulting(to: false)
-                dependencies[singleton: .typingIndicators].startIfNeeded(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    threadIsBlocked: threadIsBlocked,
-                    threadIsMessageRequest: threadIsMessageRequest,
-                    direction: .incoming,
-                    timestampMs: message.sentTimestampMs.map { Int64($0) }
-                )
+                Task {
+                    await dependencies[singleton: .typingIndicators].startIfNeeded(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        direction: .incoming,
+                        timestampMs: message.sentTimestampMs.map { Int64($0) }
+                    )
+                }
                 
             case .stopped:
-                dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .incoming)
+                Task {
+                    await dependencies[singleton: .typingIndicators].didStopTyping(
+                        threadId: threadId,
+                        direction: .incoming
+                    )
+                }
             
             default:
                 Log.warn(.messageReceiver, "Unknown TypingIndicator Kind ignored")

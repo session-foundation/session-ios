@@ -4,7 +4,7 @@ import Foundation
 import SessionSnodeKit
 
 extension PushNotificationAPI {
-    public struct NotificationMetadata: Codable {
+    public struct NotificationMetadata: Codable, Equatable {
         private enum CodingKeys: String, CodingKey {
             case accountId = "@"
             case hash = "#"
@@ -47,9 +47,12 @@ extension PushNotificationAPI.NotificationMetadata {
     public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        let namespace: SnodeAPI.Namespace = SnodeAPI.Namespace(
-            rawValue: try container.decode(Int.self, forKey: .namespace)
-        ).defaulting(to: .unknown)
+        /// There was a bug at one point where the metadata would include a `null` value for the namespace because we were storing
+        /// messages in a namespace that the storage server didn't have an explicit `namespace_id` for, as a result we need to assume
+        /// that the `namespace` value may not be present in the payload
+        let namespace: SnodeAPI.Namespace = try container.decodeIfPresent(Int.self, forKey: .namespace)
+            .map { SnodeAPI.Namespace(rawValue: $0) }
+            .defaulting(to: .unknown)
         
         self = PushNotificationAPI.NotificationMetadata(
             accountId: try container.decode(String.self, forKey: .accountId),
@@ -65,7 +68,7 @@ extension PushNotificationAPI.NotificationMetadata {
 
 // MARK: - Convenience
 
-extension PushNotificationAPI.NotificationMetadata {
+public extension PushNotificationAPI.NotificationMetadata {
     static var invalid: PushNotificationAPI.NotificationMetadata {
         PushNotificationAPI.NotificationMetadata(
             accountId: "",

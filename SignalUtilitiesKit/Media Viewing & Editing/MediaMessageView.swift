@@ -57,7 +57,7 @@ public class MediaMessageView: UIView {
         
         return nil
     }()
-    private lazy var duration: TimeInterval? = attachment.duration()
+    private lazy var duration: TimeInterval? = attachment.duration(using: dependencies)
     private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
 
     // MARK: Initializers
@@ -142,7 +142,7 @@ public class MediaMessageView: UIView {
             if let imageData: Data = validImageData, let dataUrl: URL = attachment.dataUrl {
                 view.layer.minificationFilter = .trilinear
                 view.layer.magnificationFilter = .trilinear
-                view.loadImage(identifier: dataUrl.absoluteString, from: imageData)
+                view.loadImage(.data(dataUrl.absoluteString, imageData))
             }
             else {
                 view.contentMode = .scaleAspectFit

@@ -24,6 +24,10 @@ public class SessionApp: SessionAppType {
     private let dependencies: Dependencies
     private var homeViewController: HomeVC?
     
+    @MainActor public var homePresentedViewController: UIViewController? {
+        homeViewController?.presentedViewController
+    }
+    
     static var versionInfo: String {
         let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
             .map { " (\($0))" }
@@ -67,7 +71,7 @@ public class SessionApp: SessionAppType {
         self.homeViewController = homeViewController
     }
     
-    public func presentConversationCreatingIfNeeded(
+    @MainActor public func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action = .none,
@@ -79,23 +83,8 @@ public class SessionApp: SessionAppType {
             return
         }
         
-        let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = dependencies[singleton: .storage].read { [dependencies] db in
-            let isMessageRequest: Bool = {
-                switch variant {
-                    case .contact, .group:
-                        return SessionThread
-                            .isMessageRequest(
-                                db,
-                                threadId: threadId,
-                                userSessionId: dependencies[cache: .general].sessionId,
-                                includeNonVisible: true
-                            )
-                        
-                    default: return false
-                }
-            }()
-            
-            return (SessionThread.filter(id: threadId).isNotEmpty(db), isMessageRequest)
+        let threadExists: Bool? = dependencies[singleton: .storage].read { db in
+            SessionThread.filter(id: threadId).isNotEmpty(db)
         }
         
         /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to
@@ -104,12 +93,14 @@ public class SessionApp: SessionAppType {
         creatingThreadIfNeededThenRunOnMain(
             threadId: threadId,
             variant: variant,
-            threadExists: (threadInfo?.threadExists == true),
-            onComplete: { [weak self] in
+            threadExists: (threadExists == true),
+            onComplete: { [weak self, dependencies] in
                 self?.showConversation(
                     threadId: threadId,
                     threadVariant: variant,
-                    isMessageRequest: (threadInfo?.isMessageRequest == true),
+                    isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
+                        cache.isMessageRequest(threadId: threadId, threadVariant: variant)
+                    },
                     action: action,
                     dismissing: presentingViewController,
                     homeViewController: homeViewController,
@@ -146,7 +137,7 @@ public class SessionApp: SessionAppType {
         }
         dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .displayPictureManager].resetStorage()
-        Attachment.resetAttachmentStorage(using: dependencies)
+        dependencies[singleton: .attachmentManager].resetStorage()
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         try? dependencies[singleton: .keychain].removeAll()
         
@@ -182,48 +173,38 @@ public class SessionApp: SessionAppType {
     
     // MARK: - Internal Functions
     
-    private func creatingThreadIfNeededThenRunOnMain(
+    @MainActor private func creatingThreadIfNeededThenRunOnMain(
         threadId: String,
         variant: SessionThread.Variant,
         threadExists: Bool,
         onComplete: @escaping () -> Void
     ) {
         guard !threadExists else {
-            switch Thread.isMainThread {
-                case true: return onComplete()
-                case false: return DispatchQueue.main.async(using: dependencies) { onComplete() }
-            }
-        }
-        guard !Thread.isMainThread else {
-            return DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self] in
-                self?.creatingThreadIfNeededThenRunOnMain(
-                    threadId: threadId,
-                    variant: variant,
-                    threadExists: threadExists,
-                    onComplete: onComplete
-                )
-            }
+            return onComplete()
         }
         
-        dependencies[singleton: .storage].write { [dependencies] db in
-            try SessionThread.upsert(
-                db,
-                id: threadId,
-                variant: variant,
-                values: SessionThread.TargetValues(
-                    shouldBeVisible: .useLibSession,
-                    isDraft: .useExistingOrSetTo(true)
-                ),
-                using: dependencies
+        Task(priority: .userInitiated) { [storage = dependencies[singleton: .storage], dependencies] in
+            storage.writeAsync(
+                updates: { db in
+                    try SessionThread.upsert(
+                        db,
+                        id: threadId,
+                        variant: variant,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .useLibSession,
+                            isDraft: .useExistingOrSetTo(true)
+                        ),
+                        using: dependencies
+                    )
+                },
+                completion: { _ in
+                    Task { @MainActor in onComplete() }
+                }
             )
-        }
-        
-        DispatchQueue.main.async(using: dependencies) {
-            onComplete()
         }
     }
     
-    private func showConversation(
+    @MainActor private func showConversation(
         threadId: String,
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
@@ -256,9 +237,11 @@ public class SessionApp: SessionAppType {
 // MARK: - SessionAppType
 
 public protocol SessionAppType {
+    @MainActor var homePresentedViewController: UIViewController? { get }
+    
     func setHomeViewController(_ homeViewController: HomeVC)
     func showHomeView()
-    func presentConversationCreatingIfNeeded(
+    @MainActor func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action,

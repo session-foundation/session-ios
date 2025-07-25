@@ -44,7 +44,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .id,
                         .name,
                         .nickname,
-                        .profilePictureFileName
+                        .displayPictureUrl
                     ],
                     joinToPagedType: {
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
@@ -135,7 +135,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
                                 title: (
                                     model.profile?.displayName() ??
-                                    Profile.truncated(id: model.id, truncating: .middle)
+                                    model.id.truncated()
                                 ),
                                 trailingAccessory: .radio(
                                     liveIsSelected: { selectedIdsSubject.value.contains(model.id) == true }
@@ -173,9 +173,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .first(where: { section in section.model == .contacts }),
                     let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })
-                else {
-                    return Profile.truncated(id: contactId, truncating: .middle)
-                }
+                else { return contactId.truncated() }
                 
                 return info.title?.text
             }
@@ -208,17 +206,23 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 cancelStyle: .alert_text
             ) { [weak self, dependencies] _ in
                 // Unblock the contacts
-                dependencies[singleton: .storage].write { db in
-                    _ = try Contact
-                        .filter(ids: contactIds)
-                        .updateAllAndConfig(
-                            db,
-                            Contact.Columns.isBlocked.set(to: false),
-                            using: dependencies
-                        )
-                }
-                
-                self?.selectedIdsSubject.send([])
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        _ = try Contact
+                            .filter(ids: contactIds)
+                            .updateAllAndConfig(
+                                db,
+                                Contact.Columns.isBlocked.set(to: false),
+                                using: dependencies
+                            )
+                        contactIds.forEach { id in
+                            db.addContactEvent(id: id, change: .isBlocked(false))
+                        }
+                    },
+                    completion: { _ in
+                        self?.selectedIdsSubject.send([])
+                    }
+                )
             }
         )
         self.transitionToScreen(confirmationModal, transitionType: .present)

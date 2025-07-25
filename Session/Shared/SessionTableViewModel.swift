@@ -27,7 +27,7 @@ protocol SessionTableViewModel: AnyObject, SectionedTableData {
     func canEditRow(at indexPath: IndexPath) -> Bool
     func leadingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration?
     func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration?
-    func onAppear(targetViewController: BaseVC)
+    @MainActor func onAppear(targetViewController: BaseVC)
 }
 
 extension SessionTableViewModel {

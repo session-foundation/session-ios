@@ -11,15 +11,6 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
-    private static let minVersionBannerInfo: InfoBanner.Info = InfoBanner.Info(
-        font: .systemFont(ofSize: Values.verySmallFontSize),
-        message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
-        icon: .none,
-        tintColor: .black,
-        backgroundColor: .explicitPrimary(.orange),
-        accessibility: Accessibility(identifier: "Version warning banner")
-    )
-    
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let editableState: EditableState<TableItem> = EditableState()
@@ -92,15 +83,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     
     let title: String = "groupEdit".localized()
     
-    var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> {
-        guard (try? SessionId.Prefix(from: threadId)) == .group else {
-            return Just(nil).eraseToAnyPublisher()
-        }
-        
-        return Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher()
-    }
-    
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [dependencies, threadId, userSessionId] db -> State in
             guard let group: ClosedGroup = try ClosedGroup.fetchOne(db, id: threadId) else {
                 return State.invalidState
@@ -108,8 +91,18 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             
             var profileFront: Profile?
             var profileBack: Profile?
+            let hasDownloadedDisplayPicture: Bool = {
+                guard
+                    let displayPictureUrl: String = group.displayPictureUrl,
+                    let path: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: displayPictureUrl),
+                    dependencies[singleton: .fileManager].fileExists(atPath: path)
+                else { return false }
+                
+                return true
+            }()
             
-            if group.displayPictureFilename == nil {
+            if !hasDownloadedDisplayPicture {
                 let frontProfileId: String? = try GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.role == GroupMember.Role.standard)
@@ -192,7 +185,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             id: threadId,
                             size: .hero,
                             threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
-                            displayPictureFilename: state.group.displayPictureFilename,
+                            displayPictureUrl: state.group.displayPictureUrl,
                             profile: state.profile,
                             profileIcon: .none,
                             additionalProfile: state.additionalProfile,
@@ -299,7 +292,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     
                                     return (
                                         memberInfo.profile?.displayName() ??
-                                        Profile.truncated(id: memberInfo.profileId, truncating: .middle)
+                                        memberInfo.profileId.truncated()
                                     )
                                 }(),
                                 font: .title,
@@ -428,9 +421,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             SessionTableViewController(
                 viewModel: UserListViewModel<Contact>(
                     title: "membersInvite".localized(),
-                    infoBanner: ((try? SessionId.Prefix(from: threadId)) != .group ? nil :
-                        EditGroupViewModel.minVersionBannerInfo
-                    ),
                     emptyState: "contactNone".localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""
@@ -718,9 +708,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 default: return false
                             }
                         })
-                else {
-                    return Profile.truncated(id: memberId, truncating: .middle)
-                }
+                else { return memberId.truncated() }
                 
                 return info.title?.text
             }

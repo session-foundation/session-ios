@@ -502,7 +502,7 @@ private extension NetworkStatus {
 // MARK: - Snode
 
 extension LibSession {
-    public struct Snode: Hashable, CustomStringConvertible {
+    public struct Snode: Codable, Hashable, CustomStringConvertible {
         public let ip: String
         public let quicPort: UInt16
         public let ed25519PubkeyHex: String
@@ -813,7 +813,7 @@ public extension LibSession {
                                 }
                             }
                             
-                            // Need to free the cPathsPtr as we are the owner
+                            // Need to free the pathsPtr as we are the owner
                             free(UnsafeMutableRawPointer(mutating: pathsPtr))
                             
                             // Dispatch async so we don't hold up the libSession thread that triggered the update
@@ -858,6 +858,15 @@ public extension LibSession {
             _snodeNumber.send(snodeNumber)
         }
         
+        public func clearCallbacks() {
+            switch network {
+                case .none: break
+                case .some(let network):
+                    network_set_status_changed_callback(network, nil, nil)
+                    network_set_paths_changed_callback(network, nil, nil)
+            }
+        }
+        
         public func clearSnodeCache() {
             switch network {
                 case .none: break
@@ -867,10 +876,8 @@ public extension LibSession {
         
         public func snodeCacheSize() -> Int {
             switch network {
-                case .none:
-                    return 0
-                case .some(let network):
-                    return network_get_snode_cache_size(network)
+                case .none: return 0
+                case .some(let network): return network_get_snode_cache_size(network)
             }
         }
     }
@@ -905,6 +912,7 @@ public extension LibSession {
         func setNetworkStatus(status: NetworkStatus)
         func setPaths(paths: [[Snode]])
         func setSnodeNumber(publicKey: String, value: Int)
+        func clearCallbacks()
         func clearSnodeCache()
         func snodeCacheSize() -> Int
     }
@@ -931,6 +939,7 @@ public extension LibSession {
         public func setNetworkStatus(status: NetworkStatus) {}
         public func setPaths(paths: [[LibSession.Snode]]) {}
         public func setSnodeNumber(publicKey: String, value: Int) {}
+        public func clearCallbacks() {}
         public func clearSnodeCache() {}
         public func snodeCacheSize() -> Int { 0 }
     }

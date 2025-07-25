@@ -75,7 +75,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         super.viewDidLoad()
         
         setNavBarTitle("communityJoin".localized())
-        view.themeBackgroundColor = .newConversation_background
+        view.themeBackgroundColor = .backgroundSecondary
         let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
@@ -188,17 +188,44 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         shouldOpenCommunity: Bool,
         onError: (() -> ())?
     ) {
-        guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
-        
-        guard dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
-            roomToken: roomToken,
-            server: server,
-            publicKey: publicKey
-        ) != true else {
-            self.showToast(
-                text: "communityJoinedAlready".localized(),
-                backgroundColor: .backgroundSecondary
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            let hasExistingOpenGroup: Bool = try await dependencies[singleton: .storage].readAsync { db in
+                dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
+                    db,
+                    roomToken: roomToken,
+                    server: server,
+                    publicKey: publicKey
+                )
+            }
+            
+            guard !hasExistingOpenGroup else {
+                await MainActor.run { [weak self] in
+                    self?.showToast(
+                        text: "communityJoinedAlready".localized(),
+                        backgroundColor: .backgroundSecondary
+                    )
+                }
+                return
+            }
+            
+            await self?.joinOpenGroupAfterExistingCheck(
+                roomToken: roomToken,
+                server: server,
+                publicKey: publicKey,
+                shouldOpenCommunity: shouldOpenCommunity,
+                onError: onError
             )
+        }
+    }
+    
+    @MainActor private func joinOpenGroupAfterExistingCheck(
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        shouldOpenCommunity: Bool,
+        onError: (() -> ())?
+    ) {
+        guard !isJoining, let navigationController: UINavigationController = navigationController else {
             return
         }
         

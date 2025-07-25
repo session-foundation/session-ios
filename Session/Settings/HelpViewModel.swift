@@ -155,94 +155,101 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     
     // MARK: - Functions
     
-    public static func shareLogs(
+    @MainActor public static func shareLogs(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
         using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
-        guard
-            let latestLogFilePath: String = Log.logFilePath(using: dependencies),
-            let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
-        else { return }
-        
-        #if targetEnvironment(simulator)
-        // stringlint:ignore_start
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "Export Logs",
-                body: .text(
-                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)"
-                ),
-                confirmTitle: "Copy Path",
-                cancelTitle: "Share",
-                cancelStyle: .alert_text,
-                onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
-                onCancel: { modal in
-                    modal.dismiss(animated: true) {
-                        HelpViewModel.shareLogsInternal(
-                            viewControllerToDismiss: viewControllerToDismiss,
-                            targetView: targetView,
-                            animated: animated,
-                            using: dependencies,
-                            onShareComplete: onShareComplete
-                        )
+        Task {
+            guard
+                let latestLogFilePath: String = await Log.logFilePath(using: dependencies),
+                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+            else { return }
+            
+#if targetEnvironment(simulator)
+            // stringlint:ignore_start
+            let modal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Export Logs",
+                    body: .text(
+                        "How would you like to export the logs?\n\n(This modal only appears on the Simulator)"
+                    ),
+                    confirmTitle: "Copy Path",
+                    cancelTitle: "Share",
+                    cancelStyle: .alert_text,
+                    onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
+                    onCancel: { modal in
+                        modal.dismiss(animated: true) {
+                            HelpViewModel.shareLogsInternal(
+                                viewControllerToDismiss: viewControllerToDismiss,
+                                targetView: targetView,
+                                animated: animated,
+                                using: dependencies,
+                                onShareComplete: onShareComplete
+                            )
+                        }
                     }
-                }
+                )
             )
-        )
-        // stringlint:ignore_stop
-        viewController.present(modal, animated: animated, completion: nil)
-        #else
-        HelpViewModel.shareLogsInternal(
-            viewControllerToDismiss: viewControllerToDismiss,
-            targetView: targetView,
-            animated: animated,
-            using: dependencies,
-            onShareComplete: onShareComplete
-        )
-        #endif
+            // stringlint:ignore_stop
+            viewController.present(modal, animated: animated, completion: nil)
+            #else
+            HelpViewModel.shareLogsInternal(
+                viewControllerToDismiss: viewControllerToDismiss,
+                targetView: targetView,
+                animated: animated,
+                using: dependencies,
+                onShareComplete: onShareComplete
+            )
+            #endif
+        }
     }
     
-    private static func shareLogsInternal(
+    @MainActor private static func shareLogsInternal(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
         using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
-        Log.info(.version, "\(dependencies[cache: .appVersion].versionInfo)")
-        Log.flush()
-        
-        guard
-            let latestLogFilePath: String = Log.logFilePath(using: dependencies),
-            let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
-        else { return }
-        
-        let showShareSheet: () -> () = {
-            let shareVC = UIActivityViewController(
-                activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
-                applicationActivities: nil
-            )
-            shareVC.completionWithItemsHandler = { _, _, _, _ in onShareComplete?() }
+        Task {
+            Log.info(.version, "\(dependencies[cache: .appVersion].versionInfo)")
+            Log.flush()
             
-            if UIDevice.current.isIPad {
-                shareVC.excludedActivityTypes = []
-                shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
-                shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
+            guard
+                let latestLogFilePath: String = await Log.logFilePath(using: dependencies),
+                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+            else { return }
+            
+            let showShareSheet: () -> () = {
+                let shareVC = UIActivityViewController(
+                    activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
+                    applicationActivities: nil
+                )
+                shareVC.completionWithItemsHandler = { _, success, _, _ in
+                    UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                    onShareComplete?()
+                }
+                
+                if UIDevice.current.isIPad {
+                    shareVC.excludedActivityTypes = []
+                    shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
+                    shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
+                    shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
+                }
+                viewController.present(shareVC, animated: animated, completion: nil)
             }
-            viewController.present(shareVC, animated: animated, completion: nil)
-        }
-        
-        guard let viewControllerToDismiss: UIViewController = viewControllerToDismiss else {
-            showShareSheet()
-            return
-        }
-
-        viewControllerToDismiss.dismiss(animated: animated) {
-            showShareSheet()
+            
+            guard let viewControllerToDismiss: UIViewController = viewControllerToDismiss else {
+                showShareSheet()
+                return
+            }
+            
+            viewControllerToDismiss.dismiss(animated: animated) {
+                showShareSheet()
+            }
         }
     }
 }

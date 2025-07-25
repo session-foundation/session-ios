@@ -7,7 +7,6 @@ import SessionUtilitiesKit
 /// Shown when the user taps a profile picture in the conversation settings.
 final class ProfilePictureVC: BaseVC {
     private let dependencies: Dependencies
-    private let imageIdentifier: String
     private let imageSource: ImageDataManager.DataSource
     private let snTitle: String
     
@@ -34,7 +33,7 @@ final class ProfilePictureVC: BaseVC {
         result.clipsToBounds = true
         result.contentMode = .scaleAspectFill
         result.layer.cornerRadius = (imageSize / 2)
-        result.loadImage(identifier: imageIdentifier, from: imageSource)
+        result.loadImage(imageSource)
         result.set(.width, to: imageSize)
         result.set(.height, to: imageSize)
         
@@ -43,9 +42,8 @@ final class ProfilePictureVC: BaseVC {
     
     // MARK: - Initialization
     
-    init(imageIdentifier: String, imageSource: ImageDataManager.DataSource, title: String, using dependencies: Dependencies) {
+    init(imageSource: ImageDataManager.DataSource, title: String, using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.imageIdentifier = imageIdentifier
         self.imageSource = imageSource
         self.snTitle = title
         

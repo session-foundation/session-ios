@@ -15,7 +15,7 @@ public extension FeatureStorage {
 
 // MARK: - ServiceNetwork Feature
 
-public enum ServiceNetwork: Int, FeatureOption {
+public enum ServiceNetwork: Int, Sendable, FeatureOption {
     case mainnet = 1
     case testnet = 2
     

@@ -13,7 +13,10 @@ public extension DatabaseMigrator {
     ) {
         self.registerMigration(
             targetIdentifier.key(with: migration),
-            migrate: migration.loggedMigrate(storage, targetIdentifier: targetIdentifier, using: dependencies)
+            migrate: { db in
+                let migration = migration.loggedMigrate(storage, targetIdentifier: targetIdentifier, using: dependencies)
+                try migration(ObservingDatabase.create(db, using: dependencies))
+            }
         )
     }
 }

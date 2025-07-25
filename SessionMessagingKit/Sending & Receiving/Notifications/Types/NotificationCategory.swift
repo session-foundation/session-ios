@@ -4,7 +4,7 @@
 
 import Foundation
 
-enum AppNotificationCategory: CaseIterable {
+public enum NotificationCategory: CaseIterable {
     case incomingMessage
     case errorMessage
     case threadlessErrorMessage
@@ -14,7 +14,7 @@ enum AppNotificationCategory: CaseIterable {
     case deprecatedIncomingMessage
 }
 
-extension AppNotificationCategory {
+public extension NotificationCategory {
     var identifier: String {
         switch self {
             case .incomingMessage: return "Session.AppNotificationCategory.incomingMessage"
@@ -24,15 +24,6 @@ extension AppNotificationCategory {
             
             // TODO: Remove in future release
             case .deprecatedIncomingMessage: return "Signal.AppNotificationCategory.incomingMessage"
-        }
-    }
-
-    var actions: [AppNotificationAction] {
-        switch self {
-            case .incomingMessage: return [.markAsRead, .reply]
-            // TODO: Remove in future release
-            case .deprecatedIncomingMessage: return [.markAsRead, .reply]
-            default: return []
         }
     }
 }

@@ -23,7 +23,7 @@ public final class SessionButton: UIButton {
         public let isEnabled: Bool
         public let accessibility: Accessibility?
         public let minWidth: CGFloat
-        public let onTap: () -> ()
+        public let onTap: @MainActor () -> ()
         
         public init(
             style: Style,
@@ -31,7 +31,7 @@ public final class SessionButton: UIButton {
             isEnabled: Bool,
             accessibility: Accessibility? = nil,
             minWidth: CGFloat = 0,
-            onTap: @escaping () -> ()
+            onTap: @MainActor @escaping () -> ()
         ) {
             self.style = style
             self.title = title

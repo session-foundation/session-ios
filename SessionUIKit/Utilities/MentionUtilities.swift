@@ -1,10 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
-import SessionUIKit
-import SessionMessagingKit
-import SessionUtilitiesKit
+import UIKit
 
 public enum MentionUtilities {
     public enum MentionLocation {
@@ -18,23 +15,17 @@ public enum MentionUtilities {
     
     public static func highlightMentionsNoAttributes(
         in string: String,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionId: String,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
-        using dependencies: Dependencies
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
     ) -> String {
         /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
         return highlightMentions(
             in: string,
-            threadVariant: threadVariant,
-            currentUserSessionId: currentUserSessionId,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            currentUserSessionIds: currentUserSessionIds,
             location: .styleFree,
             textColor: .black,
             attributes: [:],
-            using: dependencies
+            displayNameRetriever: displayNameRetriever
         )
         .string
         .deformatted()
@@ -42,14 +33,11 @@ public enum MentionUtilities {
 
     public static func highlightMentions(
         in string: String,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         location: MentionLocation,
         textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
-        using dependencies: Dependencies
+        displayNameRetriever: (String, Bool) -> String?
     ) -> ThemedAttributedString {
         guard
             let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
@@ -60,13 +48,6 @@ public enum MentionUtilities {
         var string = string
         var lastMatchEnd: Int = 0
         var mentions: [(range: NSRange, isCurrentUser: Bool)] = []
-        let currentUserSessionIds: Set<String> = [
-            currentUserSessionId,
-            currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId
-        ]
-        .compactMap { $0 }
-        .asSet()
         
         while let match: NSTextCheckingResult = regex.firstMatch(
             in: string,
@@ -80,8 +61,7 @@ public enum MentionUtilities {
             
             guard let targetString: String = {
                 guard !isCurrentUser else { return "you".localized() }
-                // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                guard let displayName: String = Profile.displayNameNoFallback(id: sessionId, threadVariant: threadVariant, using: dependencies) else {
+                guard let displayName: String = displayNameRetriever(sessionId, true) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil
                 }
@@ -149,5 +129,18 @@ public enum MentionUtilities {
         }
         
         return result
+    }
+}
+
+public extension String {
+    func replacingMentions(
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
+    ) -> String {
+        return MentionUtilities.highlightMentionsNoAttributes(
+            in: self,
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever
+        )
     }
 }

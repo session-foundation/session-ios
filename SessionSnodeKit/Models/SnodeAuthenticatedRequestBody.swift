@@ -41,15 +41,17 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         try container.encodeIfPresent(timestampMs, forKey: .timestampMs)
         
         switch authMethod.info {
-            case .standard(let sessionId, let ed25519KeyPair):
+            case .standard(let sessionId, let ed25519PublicKey):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
-                try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
+                try container.encode(ed25519PublicKey.toHexString(), forKey: .ed25519PublicKey)
                 
             case .groupAdmin(let sessionId, _):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
                 
             case .groupMember(let sessionId, _):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
+                
+            case .community: throw CryptoError.signatureGenerationFailed
         }
         
         switch signature {

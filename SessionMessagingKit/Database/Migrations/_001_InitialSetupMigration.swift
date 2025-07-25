@@ -14,7 +14,7 @@ enum _001_InitialSetupMigration: Migration {
         Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
         ClosedGroup.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
         GroupMember.self, Interaction.self, Attachment.self, InteractionAttachment.self, Quote.self,
-        LinkPreview.self, ControlMessageProcessRecord.self, ThreadTypingIndicator.self
+        LinkPreview.self, ThreadTypingIndicator.self
     ]
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {
@@ -23,7 +23,7 @@ enum _001_InitialSetupMigration: Migration {
         return .porter(wrapping: .unicode61())
     }()
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.create(table: "contact") { t in
             t.column("id", .text)
                 .notNull()
@@ -385,6 +385,6 @@ enum _001_InitialSetupMigration: Migration {
             t.column("timestampMs", .integer).notNull()
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

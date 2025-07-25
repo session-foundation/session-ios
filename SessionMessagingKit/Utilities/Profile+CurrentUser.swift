@@ -1,6 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit.UIImage
+import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
@@ -54,21 +54,21 @@ public extension Profile {
                         if isRemovingAvatar {
                             let existingProfileUrl: String? = try Profile
                                 .filter(id: userSessionId.hexString)
-                                .select(.profilePictureUrl)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
-                            let existingProfileFileName: String? = try Profile
-                                .filter(id: userSessionId.hexString)
-                                .select(.profilePictureFileName)
+                                .select(.displayPictureUrl)
                                 .asRequest(of: String.self)
                                 .fetchOne(db)
                             
-                            // Remove any cached avatar image value
-                            if let fileName: String = existingProfileFileName {
-                                Task {
+                            /// Remove any cached avatar image data
+                            if
+                                let existingProfileUrl: String = existingProfileUrl,
+                                let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                                    .path(for: existingProfileUrl)
+                            {
+                                Task(priority: .low) {
                                     await dependencies[singleton: .imageDataManager].removeImage(
-                                        identifier: fileName
+                                        identifier: filePath
                                     )
+                                    try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
                                 }
                             }
                             
@@ -103,7 +103,7 @@ public extension Profile {
                             displayPictureUpdate: .currentUserUpdateTo(
                                 url: result.downloadUrl,
                                 key: result.encryptionKey,
-                                fileName: result.fileName
+                                filePath: result.filePath
                             ),
                             sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                             using: dependencies
@@ -123,7 +123,7 @@ public extension Profile {
     }    
     
     static func updateIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         publicKey: String,
         displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update,
@@ -156,8 +156,12 @@ public extension Profile {
             case (.currentUserUpdate(let name), true, _), (.contactUpdate(let name), false, true):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
                 
-                profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
+                
+                if profile.name != name {
+                    profileChanges.append(Profile.Columns.name.set(to: name))
+                    db.addProfileEvent(id: publicKey, change: .name(name))
+                }
             
             // Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
@@ -176,54 +180,22 @@ public extension Profile {
                 preconditionFailure("Invalid options for this function")
                 
             case (.contactRemove, false), (.currentUserRemove, true):
-                profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
-                profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
-                profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
-                profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
+                profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
+                
+                if profile.displayPictureEncryptionKey != nil {
+                    profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
+                }
+                
+                if profile.displayPictureUrl != nil {
+                    profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
+                    db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
+                }
             
-            case (.contactUpdateTo(let url, let key, let fileName), false),
-                (.currentUserUpdateTo(let url, let key, let fileName), true):
-                if url != profile.profilePictureUrl {
-                    profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
-                }
-                
-                if key != profile.profileEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
-                    profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
-                }
-                
-                // Profile filename (this isn't synchronized between devices)
-                if let fileName: String = fileName {
-                    profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
-                }
-                
-                // If we have already downloaded the image then no need to download it again
-                let fileExistsAtExpectedPath: Bool = {
-                    switch fileName {
-                        case .some(let fileName):
-                            let maybeFilePath: String? = try? dependencies[singleton: .displayPictureManager]
-                                .filepath(for: fileName)
-                            return maybeFilePath
-                                .map { dependencies[singleton: .fileManager].fileExists(atPath: $0) }
-                                .defaulting(to: false)
-                            
-                        case .none:
-                            // If we don't have a fileName then we want to try to check if the path that
-                            // would be generated for the URL exists, we don't know what the file extension
-                            // should be so need to check if there is any file type with this name
-                            let expectedFilename: String = dependencies[singleton: .displayPictureManager]
-                                .generateFilenameWithoutExtension(for: url)
-                            let displayPictureFolderPath: String = dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath()
-                            let filePaths: [URL] = (try? dependencies[singleton: .fileManager]
-                                .contentsOfDirectory(at: URL(fileURLWithPath: displayPictureFolderPath)))
-                                .defaulting(to: [])
-                            
-                            return filePaths.contains(where: { url -> Bool in
-                                url.deletingLastPathComponent().lastPathComponent == expectedFilename
-                            })
-                    }
-                }()
-                
-                if !fileExistsAtExpectedPath {
+            case (.contactUpdateTo(let url, let key, let filePath), false),
+                (.currentUserUpdateTo(let url, let key, let filePath), true):
+                /// If we have already downloaded the image then no need to download it again (the database records will be updated
+                /// once the download completes)
+                if !dependencies[singleton: .fileManager].fileExists(atPath: filePath) {
                     dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(
@@ -237,11 +209,20 @@ public extension Profile {
                         canStartJob: dependencies[singleton: .appContext].isMainApp
                     )
                 }
-                
-                // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
-                profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
+                else {
+                    if url != profile.displayPictureUrl {
+                        profileChanges.append(Profile.Columns.displayPictureUrl.set(to: url))
+                        db.addProfileEvent(id: publicKey, change: .displayPictureUrl(url))
+                    }
+                    
+                    if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
+                        profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
+                    }
+                    
+                    profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
+                }
             
-            // Don't want profiles in messages to modify the current users profile info so ignore those cases
+            /// Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
         }
         

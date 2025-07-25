@@ -22,98 +22,127 @@ public enum AttachmentDownloadJob: JobExecutor {
             dependencies[singleton: .appContext].isValid,
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
-            let attachment: Attachment = dependencies[singleton: .storage]
-                .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        // Due to the complex nature of jobs and how attachments can be reused it's possible for
-        // an AttachmentDownloadJob to get created for an attachment which has already been
-        // downloaded/uploaded so in those cases just succeed immediately
-        guard attachment.state != .downloaded && attachment.state != .uploaded else {
-            return success(job, false)
-        }
-        
-        // If we ever make attachment downloads concurrent this will prevent us from downloading
-        // the same attachment multiple times at the same time (it also adds a "clean up" mechanism
-        // if an attachment ends up stuck in a "downloading" state incorrectly
-        guard attachment.state != .downloading else {
-            let otherCurrentJobAttachmentIds: Set<String> = dependencies[singleton: .jobRunner]
-                .jobInfoFor(state: .running, variant: .attachmentDownload)
-                .filter { key, _ in key != job.id }
-                .values
-                .compactMap { info -> String? in
-                    guard let data: Data = info.detailsData else { return nil }
-                    
-                    return (try? JSONDecoder(using: dependencies).decode(Details.self, from: data))?
-                        .attachmentId
+        dependencies[singleton: .storage]
+            .writePublisher { db -> Attachment in
+                guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
+                    throw JobRunnerError.missingRequiredDetails
                 }
-                .asSet()
-            
-            // If there isn't another currently running attachmentDownload job downloading this attachment
-            // then we should update the state of the attachment to be failed to avoid having attachments
-            // appear in an endlessly downloading state
-            if !otherCurrentJobAttachmentIds.contains(attachment.id) {
-                dependencies[singleton: .storage].write { db in
-                    _ = try Attachment
-                        .filter(id: attachment.id)
-                        .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
-                }
-            }
-            
-            // Note: The only ways we should be able to get into this state are if we enable concurrent
-            // downloads or if the app was closed/crashed while an attachmentDownload job was in progress
-            //
-            // If there is another current job then just fail this one permanently, otherwise let it
-            // retry (if there are more retry attempts available) and in the next retry it's state should
-            // be 'failedDownload' so we won't get stuck in a loop
-            return failure(job, JobRunnerError.possibleDuplicateJob, otherCurrentJobAttachmentIds.contains(attachment.id))
-        }
-        
-        // Update to the 'downloading' state (no need to update the 'attachment' instance)
-        dependencies[singleton: .storage].write { db in
-            try Attachment
-                .filter(id: attachment.id)
-                .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.downloading))
-        }
-        
-        let temporaryFileUrl: URL = URL(
-            fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
-        )
-        
-        Just(attachment.downloadUrl)
-            .setFailureType(to: Error.self)
-            .tryFlatMap { maybeDownloadUrl -> AnyPublisher<Data, Error> in
-                guard let downloadUrl: URL = maybeDownloadUrl.map({ URL(string: $0) }) else {
-                    throw AttachmentDownloadError.invalidUrl
-                }                
                 
-                return dependencies[singleton: .storage]
-                    .readPublisher { db -> Network.PreparedRequest<Data> in
-                        switch try OpenGroup.fetchOne(db, id: threadId) {
-                            case .some(let openGroup):
-                                return try OpenGroupAPI.preparedDownload(
-                                    db,
-                                    url: downloadUrl,
-                                    from: openGroup.roomToken,
-                                    on: openGroup.server,
-                                    using: dependencies
-                                )
-                                
-                            case .none:
-                                return try Network.preparedDownload(
-                                    url: downloadUrl,
-                                    using: dependencies
-                                )
+                // Due to the complex nature of jobs and how attachments can be reused it's possible for
+                // an AttachmentDownloadJob to get created for an attachment which has already been
+                // downloaded/uploaded so in those cases just succeed immediately
+                guard attachment.state != .downloaded && attachment.state != .uploaded else {
+                    throw AttachmentDownloadError.alreadyDownloaded
+                }
+                
+                // If we ever make attachment downloads concurrent this will prevent us from downloading
+                // the same attachment multiple times at the same time (it also adds a "clean up" mechanism
+                // if an attachment ends up stuck in a "downloading" state incorrectly
+                guard attachment.state != .downloading else {
+                    let otherCurrentJobAttachmentIds: Set<String> = dependencies[singleton: .jobRunner]
+                        .jobInfoFor(state: .running, variant: .attachmentDownload)
+                        .filter { key, _ in key != job.id }
+                        .values
+                        .compactMap { info -> String? in
+                            guard let data: Data = info.detailsData else { return nil }
+                            
+                            return (try? JSONDecoder(using: dependencies).decode(Details.self, from: data))?
+                                .attachmentId
                         }
+                        .asSet()
+                    
+                    // If there isn't another currently running attachmentDownload job downloading this
+                    // attachment then we should update the state of the attachment to be failed to
+                    // avoid having attachments appear in an endlessly downloading state
+                    if !otherCurrentJobAttachmentIds.contains(attachment.id) {
+                        _ = try Attachment
+                            .filter(id: attachment.id)
+                            .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
+                        db.addAttachmentEvent(
+                            id: attachment.id,
+                            messageId: job.interactionId,
+                            type: .updated(.state(.failedDownload))
+                        )
                     }
-                    .flatMap { $0.send(using: dependencies) }
-                    .map { _, data in data }
-                    .eraseToAnyPublisher()
+                    
+                    // Note: The only ways we should be able to get into this state are if we enable
+                    // concurrent downloads or if the app was closed/crashed while an attachmentDownload
+                    // job was in progress
+                    //
+                    // If there is another current job then just fail this one permanently, otherwise
+                    // let it retry (if there are more retry attempts available) and in the next retry
+                    // it's state should be 'failedDownload' so we won't get stuck in a loop
+                    throw JobRunnerError.possibleDuplicateJob(
+                        permanentFailure: otherCurrentJobAttachmentIds.contains(attachment.id)
+                    )
+                }
+                
+                // Update to the 'downloading' state (no need to update the 'attachment' instance)
+                try Attachment
+                    .filter(id: attachment.id)
+                    .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.downloading))
+                db.addAttachmentEvent(
+                    id: attachment.id,
+                    messageId: job.interactionId,
+                    type: .updated(.state(.downloading))
+                )
+                
+                return attachment
+            }
+            .tryMap { attachment -> (attachment: Attachment, temporaryFileUrl: URL, downloadUrl: URL) in
+                guard let downloadUrl: URL = attachment.downloadUrl.map({ URL(string: $0) }) else {
+                    throw AttachmentDownloadError.invalidUrl
+                }
+                
+                let temporaryFileUrl: URL = URL(
+                    fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
+                )
+                
+                return (attachment, temporaryFileUrl, downloadUrl)
+            }
+            .flatMapStorageReadPublisher(using: dependencies, value: { db, info -> Network.PreparedRequest<(data: Data, attachment: Attachment, temporaryFileUrl: URL)> in
+                let maybeRoomToken: String? = try OpenGroup
+                    .select(.roomToken)
+                    .filter(id: threadId)
+                    .asRequest(of: String.self)
+                    .fetchOne(db)
+                
+                switch maybeRoomToken {
+                    case .some(let roomToken):
+                        return try OpenGroupAPI
+                            .preparedDownload(
+                                url: info.downloadUrl,
+                                roomToken: roomToken,
+                                authMethod: try Authentication.with(
+                                    db,
+                                    threadId: threadId,
+                                    threadVariant: .community,
+                                    using: dependencies
+                                ),
+                                using: dependencies
+                            )
+                            .map { _, data in (data, info.attachment, info.temporaryFileUrl) }
+                        
+                    case .none:
+                        return try Network
+                            .preparedDownload(
+                                url: info.downloadUrl,
+                                using: dependencies
+                            )
+                            .map { _, data in (data, info.attachment, info.temporaryFileUrl) }
+                }
+            })
+            .flatMap { downloadRequest in
+                downloadRequest.send(using: dependencies).map { _, response in
+                    (response.attachment, response.temporaryFileUrl, response.data)
+                }
             }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
-            .tryMap { data -> Void in
+            .tryMap { attachment, temporaryFileUrl, data -> Attachment in
                 // Store the encrypted data temporarily
                 try data.write(to: temporaryFileUrl, options: .atomic)
                 
@@ -141,39 +170,45 @@ public enum AttachmentDownloadJob: JobExecutor {
                     throw AttachmentDownloadError.failedToSaveFile
                 }
                 
-                return ()
+                // Remove the temporary file
+                try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
+                
+                return attachment
+            }
+            .flatMapStorageWritePublisher(using: dependencies) { db, attachment in
+                /// Update the attachment state
+                ///
+                /// **Note:** We **MUST** use the `'with()` function here as it will update the
+                /// `isValid` and `duration` values based on the downloaded data and the state
+                let updatedAttachment: Attachment = try attachment
+                    .with(
+                        state: .downloaded,
+                        creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                        using: dependencies
+                    )
+                    .upserted(db)
+                db.addAttachmentEvent(
+                    id: attachment.id,
+                    messageId: job.interactionId,
+                    type: .updated(.state(.downloaded))
+                )
+                
+                return updatedAttachment
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in
-                    // Remove the temporary file
-                    try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
-
-                    switch result {
-                        case .finished:
-                            /// Update the attachment state
-                            ///
-                            /// **Note:** We **MUST** use the `'with()` function here as it will update the
-                            /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies[singleton: .storage].write { db in
-                                try attachment
-                                    .with(
-                                        state: .downloaded,
-                                        creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                        localRelativeFilePath: (
-                                            attachment.localRelativeFilePath ??
-                                            Attachment.localRelativeFilePath(
-                                                from: attachment.originalFilePath(using: dependencies),
-                                                using: dependencies
-                                            )
-                                        ),
-                                        using: dependencies
-                                    )
-                                    .upserted(db)
-                            }
-                            
+                    switch (result, result.errorOrNull, result.errorOrNull as? JobRunnerError) {
+                        case (.finished, _, _): success(job, false)
+                        case (_, let error as AttachmentDownloadError, _) where error == .alreadyDownloaded:
                             success(job, false)
                             
-                        case .failure(let error):
+                        case (_, _, .missingRequiredDetails):
+                            failure(job, JobRunnerError.missingRequiredDetails, true)
+                            
+                        case (_, _, .possibleDuplicateJob(let permanentFailure)):
+                                failure(job, JobRunnerError.possibleDuplicateJob(permanentFailure: permanentFailure), permanentFailure)
+                            
+                        case (.failure(let error), _, _):
                             let targetState: Attachment.State
                             let permanentFailure: Bool
                             
@@ -204,14 +239,22 @@ public enum AttachmentDownloadJob: JobExecutor {
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies[singleton: .storage].write { db in
-                                _ = try Attachment
-                                    .filter(id: attachment.id)
-                                    .updateAll(db, Attachment.Columns.state.set(to: targetState))
-                            }
-                            
-                            /// Trigger the failure and provide the `permanentFailure` value defined above
-                            failure(job, error, permanentFailure)
+                            dependencies[singleton: .storage].writeAsync(
+                                updates: { db in
+                                    _ = try Attachment
+                                        .filter(id: details.attachmentId)
+                                        .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                                    db.addAttachmentEvent(
+                                        id: details.attachmentId,
+                                        messageId: job.interactionId,
+                                        type: .updated(.state(targetState))
+                                    )
+                                },
+                                completion: { _ in
+                                    /// Trigger the failure and provide the `permanentFailure` value defined above
+                                    failure(job, error, permanentFailure)
+                                }
+                            )
                     }
                 }
             )
@@ -232,12 +275,14 @@ extension AttachmentDownloadJob {
     public enum AttachmentDownloadError: LocalizedError {
         case failedToSaveFile
         case invalidUrl
+        case alreadyDownloaded
 
         // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
                 case .failedToSaveFile: return "Failed to save file"
                 case .invalidUrl: return "Invalid file URL"
+                case .alreadyDownloaded: return "Attachment already downloaded."
             }
         }
     }

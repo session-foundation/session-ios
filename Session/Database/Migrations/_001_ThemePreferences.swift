@@ -19,7 +19,7 @@ enum _001_ThemePreferences: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Determine if the user was matching the system setting (previously the absence of this value
         // indicated that the app should match the system setting)
         let isExistingUser: Bool = MigrationHelper.userExists(db)
@@ -53,17 +53,39 @@ enum _001_ThemePreferences: Migration {
             """,
             arguments: [
                 matchSystemNightModeSettingAsData,
-                targetTheme.rawValue.data(using: .utf8),
-                targetPrimaryColor.rawValue.data(using: .utf8)
+                targetTheme.legacyStringKey.data(using: .utf8),
+                targetPrimaryColor.legacyStringKey.data(using: .utf8)
             ]
         )
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 
-extension Theme: @retroactive EnumStringSetting {}
-extension Theme.PrimaryColor: @retroactive EnumStringSetting {}
+private extension Theme {
+    var legacyStringKey: String {
+        switch self {
+            case .classicDark: return "classic_dark"
+            case .classicLight: return "classic_light"
+            case .oceanDark: return "ocean_dark"
+            case .oceanLight: return "ocean_light"
+        }
+    }
+}
+
+private extension Theme.PrimaryColor {
+    var legacyStringKey: String {
+        switch self {
+            case .green: return "green"
+            case .blue: return "blue"
+            case .yellow: return "yellow"
+            case .pink: return "pink"
+            case .purple: return "purple"
+            case .orange: return "orange"
+            case .red: return "red"
+        }
+    }
+}
 
 enum DeprecatedUIKitMigrationTarget: MigratableTarget {
     public static func migrations() -> TargetMigrations {
@@ -77,7 +99,11 @@ enum DeprecatedUIKitMigrationTarget: MigratableTarget {
                 [], // Legacy DB removal
                 [
                     _001_ThemePreferences.self
-                ]
+                ],  // Add job priorities
+                [], // Fix thread FTS
+                [],
+                [], // Renamed `Setting` to `KeyValueStore`
+                []
             ]
         )
     }

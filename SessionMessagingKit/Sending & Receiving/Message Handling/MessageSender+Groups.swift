@@ -51,7 +51,6 @@ extension MessageSender {
                         name: name,
                         description: description,
                         displayPictureUrl: displayPictureInfo?.downloadUrl,
-                        displayPictureFilename: displayPictureInfo?.fileName,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
                         using: dependencies
@@ -83,7 +82,7 @@ extension MessageSender {
                                 hasCurrentUser: false,
                                 names: sortedOtherMembers.map { id, profile in
                                     profile?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
+                                    id.truncated()
                                 },
                                 historyShared: false
                             )
@@ -202,7 +201,7 @@ extension MessageSender {
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                         .sinkUntilComplete()
                     
-                    dependencies[singleton: .storage].write { db in
+                    dependencies[singleton: .storage].writeAsync { db in
                         // Save jobs for sending group member invitations
                         groupMembers
                             .filter { $0.profileId != userSessionId.hexString }
@@ -269,9 +268,16 @@ extension MessageSender {
                     try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
                         var groupChanges: [ConfigColumnAssignment] = []
                         
-                        if name != closedGroup.name { groupChanges.append(ClosedGroup.Columns.name.set(to: name)) }
+                        if name != closedGroup.name {
+                            groupChanges.append(ClosedGroup.Columns.name.set(to: name))
+                            db.addConversationEvent(id: groupSessionId, type: .updated(.displayName(name)))
+                        }
                         if groupDescription != closedGroup.groupDescription {
                             groupChanges.append(ClosedGroup.Columns.groupDescription.set(to: groupDescription))
+                            db.addConversationEvent(
+                                id: groupSessionId,
+                                type: .updated(.description(groupDescription))
+                            )
                         }
                         
                         /// Update the group (this will be propagated to libSession configs automatically)
@@ -375,8 +381,6 @@ extension MessageSender {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: nil),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: nil),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
                                         using: dependencies
                                     )
                                 
@@ -387,8 +391,6 @@ extension MessageSender {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: url),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
                                         using: dependencies
                                     )
                                 
@@ -594,7 +596,7 @@ extension MessageSender {
                             maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
-                                    data: supplementData.base64EncodedString(),
+                                    data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
                                     timestampMs: UInt64(changeTimestampMs)
                                 ),
@@ -697,7 +699,7 @@ extension MessageSender {
                             hasCurrentUser: members.contains { id, _ in id == userSessionId.hexString },
                             names: sortedMembers.map { id, profile in
                                 profile?.displayName(for: .group) ??
-                                Profile.truncated(id: id, truncating: .middle)
+                                id.truncated()
                             },
                             historyShared: allowAccessToHistoricMessages
                         )
@@ -857,7 +859,7 @@ extension MessageSender {
                             maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
-                                    data: supplementData.base64EncodedString(),
+                                    data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
                                     timestampMs: UInt64(changeTimestampMs)
                                 ),
@@ -1033,7 +1035,7 @@ extension MessageSender {
                                 hasCurrentUser: memberIds.contains(userSessionId.hexString),
                                 names: sortedMemberIds.map { id in
                                     removedMemberProfiles[id]?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
+                                    id.truncated()
                                 }
                             )
                             .infoString(using: dependencies),
@@ -1176,7 +1178,7 @@ extension MessageSender {
                                     .contains(userSessionId.hexString),
                                 names: sortedMembersReceivingPromotions.map { id, profile in
                                     profile?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
+                                    id.truncated()
                                 }
                             )
                             .infoString(using: dependencies),
@@ -1252,7 +1254,7 @@ extension MessageSender {
     /// This function also removes all encryption key pairs associated with the closed group and the group's public key, and
     /// unregisters from push notifications.
     public static func leave(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies

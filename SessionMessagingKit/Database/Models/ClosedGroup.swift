@@ -22,9 +22,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         case formationTimestamp
         
         case displayPictureUrl
-        case displayPictureFilename
         case displayPictureEncryptionKey
-        case lastDisplayPictureUpdate
         
         case shouldPoll
         case groupIdentityPrivateKey
@@ -44,17 +42,13 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     public let groupDescription: String?
     public let formationTimestamp: TimeInterval
     
-    /// The URL from which to fetch the groups's display picture.
+    /// The URL from which to fetch the groups's display picture
+    ///
+    /// **Note:** This won't be updated until the display picture has actually been downloaded
     public let displayPictureUrl: String?
-
-    /// The file name of the groups's display picture on local storage.
-    public let displayPictureFilename: String?
 
     /// The key with which the display picture is encrypted.
     public let displayPictureEncryptionKey: Data?
-    
-    /// The timestamp (in seconds since epoch) that the display picture was last updated
-    public let lastDisplayPictureUpdate: TimeInterval?
     
     /// A flag indicating whether we should poll for messages in this group
     public let shouldPoll: Bool?
@@ -111,9 +105,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         groupDescription: String? = nil,
         formationTimestamp: TimeInterval,
         displayPictureUrl: String? = nil,
-        displayPictureFilename: String? = nil,
         displayPictureEncryptionKey: Data? = nil,
-        lastDisplayPictureUpdate: TimeInterval? = nil,
         shouldPoll: Bool?,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
@@ -125,9 +117,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         self.groupDescription = groupDescription
         self.formationTimestamp = formationTimestamp
         self.displayPictureUrl = displayPictureUrl
-        self.displayPictureFilename = displayPictureFilename
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
-        self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
         self.shouldPoll = shouldPoll
         self.groupIdentityPrivateKey = groupIdentityPrivateKey
         self.authData = authData
@@ -170,14 +160,10 @@ public extension ClosedGroup {
     }
     
     static func approveGroupIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         group: ClosedGroup,
         using dependencies: Dependencies
     ) throws {
-        guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-            throw MessageReceiverError.noUserED25519KeyPair
-        }
-        
         /// Update the `USER_GROUPS` config
         try? LibSession.update(
             db,
@@ -212,6 +198,8 @@ public extension ClosedGroup {
                     ClosedGroup.Columns.shouldPoll.set(to: true),
                     using: dependencies
                 )
+            
+            db.addEvent(group.id, forKey: .messageRequestAccepted)
         }
         
         /// Load the group state into the `LibSession.Cache` if needed
@@ -226,13 +214,15 @@ public extension ClosedGroup {
             
             _ = try? cache.createAndLoadGroupState(
                 groupSessionId: groupSessionId,
-                userED25519KeyPair: userED25519KeyPair,
+                userED25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
                 groupIdentityPrivateKey: group.groupIdentityPrivateKey
             )
         }
         
         /// Start the poller
-        dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id).startIfNeeded() }
+        dependencies.mutate(cache: .groupPollers) {
+            $0.getOrCreatePoller(for: group.id).startIfNeeded()
+        }
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
@@ -250,7 +240,7 @@ public extension ClosedGroup {
     }
     
     static func removeData(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
         using dependencies: Dependencies
@@ -263,7 +253,6 @@ public extension ClosedGroup {
         }
         
         // Remove the group from the database and unsubscribe from PNs
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let threadVariants: [ThreadIdVariant] = try {
             guard
                 dataToRemove.contains(.pushNotifications) ||
@@ -277,6 +266,11 @@ public extension ClosedGroup {
                 .asRequest(of: ThreadIdVariant.self)
                 .fetchAll(db)
         }()
+        let messageRequestMap: [String: Bool] = dependencies.mutate(cache: .libSession) { libSession in
+            threadVariants
+                .map { ($0.id, libSession.isMessageRequest(threadId: $0.id, threadVariant: $0.variant)) }
+                .reduce(into: [:]) { result, next in result[next.0] = next.1 }
+        }
         
         // This data isn't located in the database so we can't perform bulk actions
         if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
@@ -288,18 +282,22 @@ public extension ClosedGroup {
                 if dataToRemove.contains(.libSessionState) {
                     /// Wait until after the transaction completes before removing the group state (this is needed as it's possible that
                     /// we are already mutating the `libSessionCache` when this function gets called)
-                    db.afterNextTransaction { db in
-                        threadVariants
-                            .filter { $0.variant == .group }
-                            .forEach { threadIdVariant in
-                                let groupSessionId: SessionId = SessionId(.group, hex: threadIdVariant.id)
-                                
+                    db.afterCommit {
+                        let groupVariants: [ThreadIdVariant] = threadVariants.filter {
+                            $0.variant == .group
+                        }
+                        
+                        guard !groupVariants.isEmpty else { return }
+                        
+                        dependencies[singleton: .storage].writeAsync { db in
+                            groupVariants.forEach { threadIdVariant in
                                 LibSession.removeGroupStateIfNeeded(
                                     db,
-                                    groupSessionId: groupSessionId,
+                                    groupSessionId: SessionId(.group, hex: threadIdVariant.id),
                                     using: dependencies
                                 )
                             }
+                        }
                     }
                 }
             }
@@ -336,19 +334,23 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.messages) {
-            try Interaction
-                .filter(threadIds.contains(Interaction.Columns.threadId))
-                .deleteAll(db)
+            struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
+                let id: Int64
+                let threadId: String
+            }
             
-            /// Delete any `ControlMessageProcessRecord` entries that we want to reprocess if the member gets
+            let interactionInfo: Set<InteractionThreadInfo> = try Interaction
+                .select(.id, .threadId)
+                .filter(threadIds.contains(Interaction.Columns.threadId))
+                .asRequest(of: InteractionThreadInfo.self)
+                .fetchSet(db)
+            try Interaction.deleteAll(db, ids: interactionInfo.map { $0.id })
+            
+            interactionInfo.forEach { db.addMessageEvent(id: $0.id, threadId: $0.threadId, type: .deleted) }
+            
+            /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
-            try ControlMessageProcessRecord
-                .filter(threadIds.contains(ControlMessageProcessRecord.Columns.threadId))
-                .filter(
-                    ControlMessageProcessRecord.Variant.variantsToBeReprocessedAfterLeavingAndRejoiningConversation
-                        .contains(ControlMessageProcessRecord.Columns.variant)
-                )
-                .deleteAll(db)
+            try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with
             /// historic access they can re-download and process all of the old messages
@@ -382,6 +384,15 @@ public extension ClosedGroup {
             try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
                 .filter(ids: threadIds)
                 .deleteAll(db)
+            
+            threadIds.forEach { id in
+                db.addConversationEvent(id: id, type: .deleted)
+                
+                /// Need an explicit event for deleting a message request to trigger a home screen update
+                if messageRequestMap[id] == true {
+                    db.addEvent(.messageRequestDeleted)
+                }
+            }
         }
         
         // Ignore if called from the config handling

@@ -15,7 +15,7 @@ private extension Log.Category {
 // MARK: - Preferences
 
 public extension Preferences {
-    enum Sound: Int, Codable, DatabaseValueConvertible, EnumIntSetting, Differentiable {
+    enum Sound: Int, Sendable, Codable, Differentiable, ThreadSafeType {
         public static var defaultiOSIncomingRingtone: Sound = .opening
         public static var defaultNotificationSound: Sound = .note
         
@@ -41,7 +41,6 @@ public extension Preferences {
         case popcorn
         case pulse
         case synth
-        case signalClassic
         
         // Ringtone Sounds
         case opening = 2000
@@ -94,7 +93,6 @@ public extension Preferences {
                 case .popcorn: return "Popcorn"
                 case .pulse: return "Pulse"
                 case .synth: return "Synth"
-                case .signalClassic: return "Signal Classic"
                 
                 // Ringtone Sounds
                 case .opening: return "Opening"
@@ -131,7 +129,6 @@ public extension Preferences {
                 case .popcorn: return (quiet ? "popcorn-quiet.aifc" : "popcorn.aifc")
                 case .pulse: return (quiet ? "pulse-quiet.aifc" : "pulse.aifc")
                 case .synth: return (quiet ? "synth-quiet.aifc" : "synth.aifc")
-                case .signalClassic: return (quiet ? "classic-quiet.aifc" : "classic.aifc")
                 
                 // Ringtone Sounds
                 case .opening: return "Opening.m4r"
@@ -159,7 +156,8 @@ public extension Preferences {
             )
         }
         
-        public func notificationSound(isQuiet: Bool) -> UNNotificationSound {
+        public func notificationSound(isQuiet: Bool) -> UNNotificationSound? {
+            guard self != .none else { return nil }
             guard let filename: String = filename(quiet: isQuiet) else {
                 Log.warn(.cat, "Filename was unexpectedly nil")
                 return UNNotificationSound.default

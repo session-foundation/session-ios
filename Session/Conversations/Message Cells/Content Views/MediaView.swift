@@ -79,7 +79,7 @@ public class MediaView: UIView {
     
     // MARK: - UI
     
-    private lazy var imageView: SessionImageView = {
+    public lazy var imageView: SessionImageView = {
         let result: SessionImageView = SessionImageView(
             dataManager: dependencies[singleton: .imageDataManager]
         )
@@ -194,43 +194,11 @@ public class MediaView: UIView {
             case (_, false, _), (_, _, false): return configure(forError: .invalid)
             
             case (_, true, true):
-                if attachment.isAnimated {
-                    /// We can't create an animated thumbnail so should just load the full file in this case
-                    guard let filePath: String = attachment.originalFilePath(using: dependencies) else  {
-                        return configure(forError: .invalid)
-                    }
+                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] success in
+                    guard !success else { return }
                     
-                    imageView.loadImage(from: filePath)
-                }
-                else {
-                    /// Otherwise we want to load a thumbnail instead of the original image
-                    let thumbnailPath: String = attachment.thumbnailPath(for: Attachment.ThumbnailSize.medium.dimension)
-                    
-                    imageView.loadImage(identifier: thumbnailPath) { [weak self] in
-                        guard let self = self else { return nil }
-                        
-                        var data: Data?
-                        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                        
-                        self.attachment.thumbnail(
-                            size: .medium,
-                            using: self.dependencies,
-                            success: { _, _, imageData in
-                                data = try? imageData()
-                                semaphore.signal()
-                            },
-                            failure: { semaphore.signal() }
-                        )
-                        semaphore.wait()
-                        
-                        guard let data: Data = data else {
-                            Log.error("[MediaView] Could not load thumbnail")
-                            Task { @MainActor [weak self] in self?.configure(forError: .invalid) }
-                            return nil
-                        }
-                        
-                        return data
-                    }
+                    Log.error("[MediaView] Could not load thumbnail")
+                    Task { @MainActor [weak self] in self?.configure(forError: .invalid) }
                 }
         }
         

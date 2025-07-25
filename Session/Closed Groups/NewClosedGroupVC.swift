@@ -79,21 +79,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         return result
     }()
     
-    private lazy var minVersionBanner: InfoBanner = {
-        let result: InfoBanner = InfoBanner(
-            info: InfoBanner.Info(
-                font: .systemFont(ofSize: Values.verySmallFontSize),
-                message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
-                icon: .none,
-                tintColor: .black,
-                backgroundColor: .explicitPrimary(.orange),
-                accessibility: Accessibility(label: "Version warning banner")
-            )
-        )
-        
-        return result
-    }()
-    
     private lazy var nameTextField: SNTextField = {
         let result = SNTextField(
             placeholder: "groupNameEnter".localized(),
@@ -174,11 +159,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var fadeView: GradientView = {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
-            .value(.newConversation_background, alpha: 0), // Want this to take up 20% (~25pt)
-            .newConversation_background,
-            .newConversation_background,
-            .newConversation_background,
-            .newConversation_background
+            .value(.backgroundSecondary, alpha: 0), // Want this to take up 20% (~25pt)
+            .backgroundSecondary,
+            .backgroundSecondary,
+            .backgroundSecondary,
+            .backgroundSecondary
         ]
         result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
         
@@ -202,7 +187,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.themeBackgroundColor = .newConversation_background
+        view.themeBackgroundColor = .backgroundSecondary
         
         let customTitleFontSize = Values.largeFontSize
         setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
@@ -241,7 +226,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         contentStackView.pin(.trailing, to: .trailing, of: view)
         contentStackView.pin(.bottom, to: .bottom, of: view)
         
-        contentStackView.addArrangedSubview(minVersionBanner)
         contentStackView.addArrangedSubview(tableView)
         
         view.addSubview(fadeView)
