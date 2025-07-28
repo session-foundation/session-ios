@@ -540,13 +540,16 @@ public extension LibSession.Cache {
                 return !contact.approved
                 
             case .group:
+                var group: ugroups_group_info = ugroups_group_info()
+                
                 guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else {
                     return true
                 }
                 
-                var group: ugroups_group_info = ugroups_group_info()
-                _ = user_groups_get_group(conf, &group, &cThreadId)
-                LibSessionError.clear(conf)
+                guard user_groups_get_group(conf, &group, &cThreadId) else {
+                    LibSessionError.clear(conf)
+                    return true
+                }
                 
                 return group.invited
         }

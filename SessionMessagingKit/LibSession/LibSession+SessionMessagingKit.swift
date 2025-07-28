@@ -1088,6 +1088,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     ) -> DisappearingMessagesConfiguration?
     
     func isContactBlocked(contactId: String) -> Bool
+    func isContactApproved(contactId: String) -> Bool
     func profile(
         contactId: String,
         threadId: String?,
@@ -1358,6 +1359,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     ) -> DisappearingMessagesConfiguration? { return nil }
     
     func isContactBlocked(contactId: String) -> Bool { return false }
+    func isContactApproved(contactId: String) -> Bool { return false }
     func profile(
         contactId: String,
         threadId: String?,

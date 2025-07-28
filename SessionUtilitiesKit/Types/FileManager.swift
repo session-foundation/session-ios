@@ -58,6 +58,7 @@ public protocol FileManagerType {
     func copyItem(at fromUrl: URL, to toUrl: URL) throws
     func moveItem(atPath: String, toPath: String) throws
     func moveItem(at fromUrl: URL, to toUrl: URL) throws
+    func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> String?
     func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL?
     func removeItem(atPath: String) throws
     
@@ -104,6 +105,10 @@ public extension FileManagerType {
     
     func createDirectory(atPath: String, withIntermediateDirectories: Bool) throws {
         try createDirectory(atPath: atPath, withIntermediateDirectories: withIntermediateDirectories, attributes: nil)
+    }
+    
+    func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String) throws -> String? {
+        return try replaceItem(atPath: originalItemPath, withItemAtPath: newItemPath, backupItemName: nil, options: [])
     }
     
     func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL) throws -> URL? {
@@ -356,8 +361,17 @@ public class SessionFileManager: FileManagerType {
         try fileManager.moveItem(at: fromUrl, to: toUrl)
     }
     
+    public func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> String? {
+        return try fileManager.replaceItemAt(
+            URL(fileURLWithPath: originalItemPath),
+            withItemAt: URL(fileURLWithPath: newItemPath),
+            backupItemName: backupItemName,
+            options: options
+        )?.absoluteString
+    }
+    
     public func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL? {
-        try fileManager.replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: backupItemName, options: options)
+        return try fileManager.replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: backupItemName, options: options)
     }
     
     public func removeItem(atPath: String) throws {

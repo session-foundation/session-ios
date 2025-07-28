@@ -76,6 +76,22 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     func copyItem(at fromUrl: URL, to toUrl: URL) throws { return try mockThrowing(args: [fromUrl, toUrl]) }
     func moveItem(atPath: String, toPath: String) throws { return try mockThrowing(args: [atPath, toPath]) }
     func moveItem(at fromUrl: URL, to toUrl: URL) throws { return try mockThrowing(args: [fromUrl, toUrl]) }
+    func replaceItem(
+        atPath originalItemPath: String,
+        withItemAtPath newItemPath: String,
+        backupItemName: String?,
+        options: FileManager.ItemReplacementOptions
+    ) throws -> String? {
+        return try mockThrowing(args: [originalItemPath, newItemPath, backupItemName, options])
+    }
+    func replaceItemAt(
+        _ originalItemURL: URL,
+        withItemAt newItemURL: URL,
+        backupItemName: String?,
+        options: FileManager.ItemReplacementOptions
+    ) throws -> URL? {
+        return try mockThrowing(args: [originalItemURL, newItemURL, backupItemName, options])
+    }
     func removeItem(atPath: String) throws { return try mockThrowing(args: [atPath]) }
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
@@ -100,6 +116,22 @@ extension Mock where T == FileManagerType {
         self.when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }.thenReturn(true)
         self.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
         self.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
+        self.when {
+            _ = try $0.replaceItem(
+                atPath: .any,
+                withItemAtPath: .any,
+                backupItemName: .any,
+                options: .any
+            )
+        }.thenReturn(nil)
+        self.when {
+            _ = try $0.replaceItemAt(
+                .any,
+                withItemAt: .any,
+                backupItemName: .any,
+                options: .any
+            )
+        }.thenReturn(nil)
         self.when { try $0.removeItem(atPath: .any) }.thenReturn(())
         self.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
         self.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])

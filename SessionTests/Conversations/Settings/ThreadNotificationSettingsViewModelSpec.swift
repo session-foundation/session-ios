@@ -295,7 +295,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 await viewModel.tableData.first?.elements.first?.onTap?()
                 
                 // Gets enabled
-                expect(footerButtonInfo).to(equal(
+                await expect(footerButtonInfo).toEventually(equal(
                     SessionButton.Info(
                         style: .bordered,
                         title: "set".localized(),

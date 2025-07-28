@@ -136,6 +136,7 @@ public class SessionApp: SessionAppType {
             $0.suspendNetworkAccess()
         }
         dependencies[singleton: .storage].resetAllStorage()
+        dependencies[singleton: .extensionHelper].deleteCache()
         dependencies[singleton: .displayPictureManager].resetStorage()
         dependencies[singleton: .attachmentManager].resetStorage()
         dependencies[singleton: .notificationsManager].clearAllNotifications()

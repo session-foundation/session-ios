@@ -23,8 +23,16 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     // MARK: - Intialization
     
-    init(userMetadata: ExtensionHelper.UserMetadata?, using dependencies: Dependencies) {
-        viewModel = ThreadPickerViewModel(userMetadata: userMetadata, using: dependencies)
+    init(
+        userMetadata: ExtensionHelper.UserMetadata?,
+        itemProviders: [NSItemProvider]?,
+        using dependencies: Dependencies
+    ) {
+        viewModel = ThreadPickerViewModel(
+            userMetadata: userMetadata,
+            itemProviders: itemProviders,
+            using: dependencies
+        )
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -211,6 +219,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
                             attachments: attachments,
                             approvalDelegate: strongSelf,
+                            disableLinkPreviewImageDownload: (
+                                strongSelf.viewModel.viewData[indexPath.row].threadCanUpload != true
+                            ),
                             using: dependencies
                         )
                     else { return }

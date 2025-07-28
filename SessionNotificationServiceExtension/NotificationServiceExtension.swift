@@ -415,50 +415,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// Otherwise just save the message to disk
             case let inviteMessage as GroupUpdateInviteMessage:
                 try MessageReceiver.validateGroupInvite(message: inviteMessage, using: dependencies)
-                
-                /// Only update the state if the user had previously been kicked from the group
-                try dependencies.mutate(cache: .libSession) { cache in
-                    guard
-                        cache.wasKickedFromGroup(groupSessionId: inviteMessage.groupSessionId),
-                        let config: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId)
-                    else { return }
-                    
-                    try cache.markAsInvited(groupSessionIds: [inviteMessage.groupSessionId.hexString])
-                    try LibSession.upsert(
-                        groups: [
-                            LibSession.GroupUpdateInfo(
-                                groupSessionId: inviteMessage.groupSessionId.hexString,
-                                authData: inviteMessage.memberAuthData
-                            )
-                        ],
-                        in: config,
-                        using: dependencies
-                    )
-                    
-                    try updateConfigIfNeeded(
-                        cache: cache,
-                        config: config,
-                        variant: .userGroups,
-                        sessionId: userSessionId,
-                        timestampMs: (
-                            inviteMessage.sentTimestampMs.map { Int64($0) } ??
-                            Int64(dependencies.dateNow.timeIntervalSince1970 * 1000)
-                        )
-                    )
-                }
-                
-                /// Save the message and complete silently
-                try saveMessage(
+                try handleGroupInviteOrPromotion(
                     notification,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    isMessageRequest: dependencies.mutate(cache: .libSession) { libSession in
-                        libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
-                    },
+                    groupSessionId: inviteMessage.groupSessionId,
+                    groupName: inviteMessage.groupName,
+                    memberAuthData: inviteMessage.memberAuthData,
+                    groupIdentitySeed: nil,
+                    proto: proto,
                     messageInfo: messageInfo,
-                    currentUserSessionIds: currentUserSessionIds
+                    currentUserSessionIds: currentUserSessionIds,
+                    displayNameRetriever: displayNameRetriever
                 )
-                completeSilenty(notification.info, .success(notification.info.metadata))
                 return
             
             /// The promote control message for `group` conversations can result in a member who was kicked from a group
@@ -467,76 +434,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// Otherwise just save the message to disk
             case let promoteMessage as GroupUpdatePromoteMessage:
                 guard
-                    let sentTimestampMs: UInt64 = promoteMessage.sentTimestampMs,
                     let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: Array(promoteMessage.groupIdentitySeed))
                     )
                 else { throw MessageReceiverError.invalidMessage }
                 
-                let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
-                
-                try dependencies.mutate(cache: .libSession) { cache in
-                    guard let userGroupsConfig: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId) else {
-                        return
-                    }
-                    
-                    /// Add the admin key to the `userGroups` config
-                    try LibSession.upsert(
-                        groups: [
-                            LibSession.GroupUpdateInfo(
-                                groupSessionId: groupSessionId.hexString,
-                                groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey)
-                            )
-                        ],
-                        in: userGroupsConfig,
-                        using: dependencies
-                    )
-                    
-                    /// If we were previously marked as kicked from the group then we need to mark the user as invited again to
-                    /// clear the kicked state
-                    if cache.wasKickedFromGroup(groupSessionId: groupSessionId) {
-                        try cache.markAsInvited(groupSessionIds: [groupSessionId.hexString])
-                    }
-                    
-                    /// Save the updated `userGroups` config
-                    try updateConfigIfNeeded(
-                        cache: cache,
-                        config: userGroupsConfig,
-                        variant: .userGroups,
-                        sessionId: userSessionId,
-                        timestampMs: Int64(sentTimestampMs)
-                    )
-                    
-                    /// If we have a `groupKeys` config then we also need to update it with the admin key
-                    guard let groupKeysConfig: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                        return
-                    }
-                    
-                    try cache.loadAdminKey(
-                        groupIdentitySeed: promoteMessage.groupIdentitySeed,
-                        groupSessionId: groupSessionId
-                    )
-                    try updateConfigIfNeeded(
-                        cache: cache,
-                        config: groupKeysConfig,
-                        variant: .groupKeys,
-                        sessionId: groupSessionId,
-                        timestampMs: Int64(sentTimestampMs)
-                    )
-                }
-                
-                /// Save the message to disk and complete silently
-                try saveMessage(
+                try handleGroupInviteOrPromotion(
                     notification,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    isMessageRequest: dependencies.mutate(cache: .libSession) { libSession in
-                        libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
-                    },
+                    groupSessionId: SessionId(.group, publicKey: groupIdentityKeyPair.publicKey),
+                    groupName: promoteMessage.groupName,
+                    memberAuthData: nil,
+                    groupIdentitySeed: promoteMessage.groupIdentitySeed,
+                    proto: proto,
                     messageInfo: messageInfo,
-                    currentUserSessionIds: currentUserSessionIds
+                    currentUserSessionIds: currentUserSessionIds,
+                    displayNameRetriever: displayNameRetriever
                 )
-                completeSilenty(notification.info, .success(notification.info.metadata))
                 return
                 
             /// The `kickedMessage` for a `group` conversation will result in the credentials for the group being removed and
@@ -730,62 +643,178 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 return
         }
         
-        /// Since we are going to save the message and generate deduplication files we need to determine whether we would want
-        /// to show the message in case it is a message request (this is done by checking if there are already any dedupe records
-        /// for this conversation so needs to be done before they are generated)
-        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
-            cache.isMessageRequest(
-                threadId: threadId,
-                threadVariant: threadVariant
-            )
-        }
-        let shouldShowForMessageRequest: Bool = (!isMessageRequest ? false :
-            !dependencies[singleton: .extensionHelper].hasDedupeRecordSinceLastCleared(threadId: threadId)
-        )
-        
-        /// Save the message and generate any deduplication files needed
-        try saveMessage(
+        /// Save and notify for the message
+        try saveAndNotify(
             notification,
             threadId: threadId,
             threadVariant: threadVariant,
-            isMessageRequest: isMessageRequest,
+            proto: proto,
             messageInfo: messageInfo,
-            currentUserSessionIds: currentUserSessionIds
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever
         )
         
-        /// Try to show a notification for the message
-        try dependencies[singleton: .notificationsManager].notifyUser(
-            cat: .cat,
-            message: messageInfo.message,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            interactionIdentifier: notification.info.metadata.hash,
-            interactionVariant: Interaction.Variant(
-                message: messageInfo.message,
-                currentUserSessionIds: currentUserSessionIds
-            ),
-            attachmentDescriptionInfo: proto.dataMessage?.attachments.map { attachment in
-                Attachment.DescriptionInfo(id: "", proto: attachment)
-            },
-            openGroupUrlInfo: nil,  /// Communities currently don't support PNs
-            applicationState: .background,
-            extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
-            currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: displayNameRetriever,
-            groupNameRetriever: { threadId, threadVariant in
-                switch threadVariant {
-                    case .group:
-                        let groupId: SessionId = SessionId(.group, hex: threadId)
-                        return dependencies.mutate(cache: .libSession) { cache in
-                            cache.groupName(groupSessionId: groupId)
-                        }
-                        
-                    case .community: return nil  /// Communities currently don't support PNs
-                    default: return nil
-                }
-            },
-            shouldShowForMessageRequest: { shouldShowForMessageRequest }
+        /// Since we succeeded we can complete silently
+        completeSilenty(notification.info, .success(notification.info.metadata))
+    }
+    
+    private func handleGroupInviteOrPromotion(
+        _ notification: ProcessedNotification,
+        groupSessionId: SessionId,
+        groupName: String,
+        memberAuthData: Data?,
+        groupIdentitySeed: Data?,
+        proto: SNProtoContent,
+        messageInfo: MessageReceiveJob.Details.MessageInfo,
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
+    ) throws {
+        typealias GroupInfo = (
+            wasMessageRequest: Bool,
+            isMessageRequest: Bool,
+            wasKickedFromGroup: Bool
         )
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let groupInfo: GroupInfo = try dependencies.mutate(cache: .libSession) { cache in
+            let groupIdentityKeyPair: KeyPair? = groupIdentitySeed.map {
+                dependencies[singleton: .crypto].generate(.ed25519KeyPair(seed: Array($0)))
+            }
+            let wasKickedFromGroup: Bool = cache.wasKickedFromGroup(groupSessionId: groupSessionId)
+            let wasMessageRequest: Bool = cache.isMessageRequest(threadId: groupSessionId.hexString, threadVariant: .group)
+            
+            guard
+                (memberAuthData != nil || groupIdentityKeyPair != nil),
+                let sentTimestampMs: UInt64 = messageInfo.message.sentTimestampMs,
+                let config: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId)
+            else { return (wasMessageRequest, wasMessageRequest, wasKickedFromGroup) }
+            
+            /// Add the group credentials key to the `userGroups` config (only include the name if this is a message request as we
+            /// don't want to override a value we already have stored)
+            try LibSession.upsert(
+                groups: [
+                    LibSession.GroupUpdateInfo(
+                        groupSessionId: groupSessionId.hexString,
+                        groupIdentityPrivateKey: groupIdentityKeyPair.map { Data($0.secretKey) },
+                        name: (wasMessageRequest ? groupName : nil),
+                        authData: memberAuthData,
+                        joinedAt: (wasMessageRequest ? TimeInterval(sentTimestampMs / 1000) : nil),
+                        invited: (wasMessageRequest ? true : nil)
+                    )
+                ],
+                in: config,
+                using: dependencies
+            )
+            
+            /// If we were previously marked as kicked from the group then we need to explicitly mark the user as invited again to
+            /// clear the kicked state
+            if wasKickedFromGroup {
+                try cache.markAsInvited(groupSessionIds: [groupSessionId.hexString])
+            }
+            
+            /// Save the updated `userGroups` config
+            try updateConfigIfNeeded(
+                cache: cache,
+                config: config,
+                variant: .userGroups,
+                sessionId: userSessionId,
+                timestampMs: Int64(sentTimestampMs)
+            )
+            
+            /// If the invite should be auto-approved then do so
+            let senderIsApproved: Bool? = messageInfo.message.sender.map { sender in
+                guard !dependencies[feature: .updatedGroupsDisableAutoApprove] else { return false }
+                
+                return cache.isContactApproved(contactId: sender)
+            }
+            
+            if senderIsApproved == true {
+                try LibSession.upsert(
+                    groups: [
+                        LibSession.GroupUpdateInfo(
+                            groupSessionId: groupSessionId.hexString,
+                            invited: false
+                        )
+                    ],
+                    in: config,
+                    using: dependencies
+                )
+            }
+            
+            /// If we were given a `groupIdentityPrivateKey` and have a `groupKeys` config then we also need to
+            /// update it with the admin key
+            guard
+                let groupIdentitySeed: Data = groupIdentitySeed,
+                let groupKeysConfig: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId)
+            else { return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup) }
+            
+            try cache.loadAdminKey(
+                groupIdentitySeed: groupIdentitySeed,
+                groupSessionId: groupSessionId
+            )
+            try updateConfigIfNeeded(
+                cache: cache,
+                config: groupKeysConfig,
+                variant: .groupKeys,
+                sessionId: groupSessionId,
+                timestampMs: Int64(sentTimestampMs)
+            )
+            
+            return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup)
+        }
+        
+        switch (groupInfo.wasKickedFromGroup, groupInfo.wasMessageRequest) {
+            /// If the user was previously kicked from the group then we don't want to show a notification (as they aren't _really_ invited
+            /// in this case, and it's more likely they were mistakenly removed and re-added when this occurs)
+            ///
+            /// Additionally, if the group isn't a message request (ie. is currently in the "invited" state, even prior to auto-approval) then
+            /// we don't want to show a notification for any "invite" or "promote" messages as the user should get proper notifications
+            /// via the group itself for anything that is relevant
+            case (true, _), (_, false):
+                try saveMessage(
+                    notification,
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    isMessageRequest: groupInfo.isMessageRequest,
+                    messageInfo: messageInfo,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+                
+            /// Otherwise we want to save the message and trigger the notification
+            case (false, true):
+                try saveAndNotify(
+                    notification,
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    proto: proto,
+                    messageInfo: messageInfo,
+                    currentUserSessionIds: currentUserSessionIds,
+                    displayNameRetriever: displayNameRetriever
+                )
+        }
+        
+//        /// If the group was auto-approved then we also want to try to subscribe for push notifications for the group (if we can get the cached push token)
+//        if
+//            groupInfo.wasMessageRequest && !groupInfo.isMessageRequest,
+//            let token: String = dependencies[defaults: .standard, key: .deviceToken]
+//        {
+//            // TODO: [Database Relocation] Need to de-database the 'preparedSubscribe' call for this to work (neeeds the AuthMethod logic to be de-databased)
+//            /// Since this is an API call we need to wait for it to complete before we trigger the `completeSilently` logic
+//            Log.info(.cat, "Group invitation was auto-approved, attempting to subscribe for PNs.")
+//            try? PushNotificationAPI
+//                .preparedSubscribe(
+//                    db,
+//                    token: Data(hex: token),
+//                    sessionIds: [groupSessionId],
+//                    using: dependencies
+//                )
+//                .send(using: dependencies)
+//                .sinkUntilComplete(
+//                    receiveCompletion: { _ in
+//                        completeSilenty(notification.info, .success(notification.info.metadata))
+//                    }
+//                )
+//            return
+//        }
         
         /// Since we succeeded we can complete silently
         completeSilenty(notification.info, .success(notification.info.metadata))
@@ -873,6 +902,73 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             threadId: threadId,
             callMessage: messageInfo.message as? CallMessage,
             using: dependencies
+        )
+    }
+    
+    private func saveAndNotify(
+        _ notification: ProcessedNotification,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        proto: SNProtoContent,
+        messageInfo: MessageReceiveJob.Details.MessageInfo,
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
+    ) throws {
+        /// Since we are going to save the message and generate deduplication files we need to determine whether we would want
+        /// to show the message in case it is a message request (this is done by checking if there are already any dedupe records
+        /// for this conversation so needs to be done before they are generated)
+        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.isMessageRequest(
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
+        }
+        let shouldShowForMessageRequest: Bool = (!isMessageRequest ? false :
+            !dependencies[singleton: .extensionHelper].hasDedupeRecordSinceLastCleared(threadId: threadId)
+        )
+        
+        /// Save the message and generate any deduplication files needed
+        try saveMessage(
+            notification,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            isMessageRequest: isMessageRequest,
+            messageInfo: messageInfo,
+            currentUserSessionIds: currentUserSessionIds
+        )
+        
+        /// Try to show a notification for the message
+        try dependencies[singleton: .notificationsManager].notifyUser(
+            cat: .cat,
+            message: messageInfo.message,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIdentifier: notification.info.metadata.hash,
+            interactionVariant: Interaction.Variant(
+                message: messageInfo.message,
+                currentUserSessionIds: currentUserSessionIds
+            ),
+            attachmentDescriptionInfo: proto.dataMessage?.attachments.map { attachment in
+                Attachment.DescriptionInfo(id: "", proto: attachment)
+            },
+            openGroupUrlInfo: nil,  /// Communities currently don't support PNs
+            applicationState: .background,
+            extensionBaseUnreadCount: notification.info.mainAppUnreadCount,
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever,
+            groupNameRetriever: { threadId, threadVariant in
+                switch threadVariant {
+                    case .group:
+                        let groupId: SessionId = SessionId(.group, hex: threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupName(groupSessionId: groupId)
+                        }
+                        
+                    case .community: return nil  /// Communities currently don't support PNs
+                    default: return nil
+                }
+            },
+            shouldShowForMessageRequest: { shouldShowForMessageRequest }
         )
     }
     

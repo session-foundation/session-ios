@@ -239,6 +239,7 @@ class SendMediaNavigationController: UINavigationController {
                 threadId: self.threadId,
                 threadVariant: self.threadVariant,
                 attachments: self.attachments,
+                disableLinkPreviewImageDownload: false,
                 using: dependencies
             )
         else { return false }

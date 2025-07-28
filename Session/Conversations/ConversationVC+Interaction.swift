@@ -447,6 +447,7 @@ extension ConversationVC:
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: attachments,
             approvalDelegate: self,
+            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
             using: self.viewModel.dependencies
         ) else { return }
         navController.modalPresentationStyle = .fullScreen
@@ -787,6 +788,7 @@ extension ConversationVC:
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: [ attachment ],
             approvalDelegate: self,
+            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
             using: self.viewModel.dependencies
         ) else { return }
         approvalVC.modalPresentationStyle = .fullScreen

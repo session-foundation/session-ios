@@ -202,7 +202,11 @@ final class ShareNavController: UINavigationController {
     }
     
     private func showMainContent(userMetadata: ExtensionHelper.UserMetadata?) {
-        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(userMetadata: userMetadata, using: dependencies)
+        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(
+            userMetadata: userMetadata,
+            itemProviders: try? extractItemProviders(),
+            using: dependencies
+        )
         threadPickerVC.shareNavController = self
         
         setViewControllers([ threadPickerVC ], animated: false)
@@ -241,11 +245,21 @@ final class ShareNavController: UINavigationController {
             return
         }
         
+        Log.error("Failed to share due to error: \(error)")
+        let errorText: String = {
+            switch error {
+                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSize".localized()
+                case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
+                    return "attachmentsErrorSending".localized()
+                
+                default: return "\(error)"
+            }
+        }()
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: Constants.app_name,
-                body: .text("\(error)"),
+                body: .text(errorText),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.extensionContext?.cancelRequest(withError: error) }
@@ -274,6 +288,23 @@ final class ShareNavController: UINavigationController {
                 
                 return dataSource
         }
+    }
+    
+    private func extractItemProviders() throws -> [NSItemProvider]? {
+        guard let inputItems = self.extensionContext?.inputItems else {
+            throw ShareViewControllerError.assertionError(description: "no input item")
+        }
+
+        for inputItemRaw in inputItems {
+            guard let inputItem = inputItemRaw as? NSExtensionItem else {
+                Log.error("invalid inputItem \(inputItemRaw)")
+                continue
+            }
+            
+            return ShareNavController.preferredItemProviders(inputItem: inputItem)
+        }
+        
+        throw ShareViewControllerError.assertionError(description: "no input item")
     }
 
     private class func preferredItemProviders(inputItem: NSExtensionItem) -> [NSItemProvider]? {
@@ -328,27 +359,16 @@ final class ShareNavController: UINavigationController {
     }
 
     private func selectItemProviders() -> AnyPublisher<[NSItemProvider], Error> {
-        guard let inputItems = self.extensionContext?.inputItems else {
-            let error = ShareViewControllerError.assertionError(description: "no input item")
-            return Fail(error: error)
+        do {
+            let result: [NSItemProvider] = try extractItemProviders() ?? {
+                throw ShareViewControllerError.assertionError(description: "no input item")
+            }()
+            
+            return Just(result)
+                .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
-
-        for inputItemRaw in inputItems {
-            guard let inputItem = inputItemRaw as? NSExtensionItem else {
-                Log.error("invalid inputItem \(inputItemRaw)")
-                continue
-            }
-            
-            if let itemProviders = ShareNavController.preferredItemProviders(inputItem: inputItem) {
-                return Just(itemProviders)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
-        }
-        let error = ShareViewControllerError.assertionError(description: "no input item")
-        return Fail(error: error)
-            .eraseToAnyPublisher()
+        catch { return Fail(error: error).eraseToAnyPublisher() }
     }
     
     // MARK: - LoadedItem
@@ -752,7 +772,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
-                    isMainnet: (dependencies[feature: .serviceNetwork] != .mainnet)
+                    isMainnet: (dependencies[feature: .serviceNetwork] == .mainnet)
                 )
         }
     }

@@ -277,6 +277,40 @@ public extension NotificationsManagerType {
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
                 
+            case let inviteMessage as GroupUpdateInviteMessage:
+                let senderName: String = displayNameRetriever(sender, false)
+                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let bodyText: String? = ClosedGroup.MessageInfo
+                    .invited(senderName, inviteMessage.groupName)
+                    .previewText
+                    .deformatted()
+                
+                switch bodyText {
+                    case .some(let result): return result
+                    case .none:
+                        Log.warn(cat, "Failed to process body for group invite message, using generic body.")
+                        return "messageNewYouveGot"
+                            .putNumber(1)
+                            .localized()
+                }
+                
+            case let promotionMessage as GroupUpdatePromoteMessage:
+                let senderName: String = displayNameRetriever(sender, false)
+                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let bodyText: String? = ClosedGroup.MessageInfo
+                    .invitedAdmin(senderName, promotionMessage.groupName)
+                    .previewText
+                    .deformatted()
+                
+                switch bodyText {
+                    case .some(let result): return result
+                    case .none:
+                        Log.warn(cat, "Failed to process body for group invite message, using generic body.")
+                        return "messageNewYouveGot"
+                            .putNumber(1)
+                            .localized()
+                }
+                
             /// Fallback to something generic
             default:
                 Log.error(cat, "Failed to process body for unexpected message type (variant: \(Message.Variant(from: message).map { "\($0)" } ?? "UNKNWON")), using generic body.")

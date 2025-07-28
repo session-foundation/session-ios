@@ -128,6 +128,10 @@ extension Setting.EnumKey: Mocked {
     static var mock: Setting.EnumKey = "mockEnum"
 }
 
+extension FileManager.ItemReplacementOptions: Mocked {
+    static var mock: FileManager.ItemReplacementOptions = FileManager.ItemReplacementOptions()
+}
+
 // MARK: - Encodable Convenience
 
 extension Mocked where Self: Encodable {

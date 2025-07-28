@@ -20,6 +20,7 @@ struct MessageInfoScreen: View {
     var isMessageFailed: Bool {
         return [.failed, .failedToSync].contains(messageViewModel.state)
     }
+    private var isCurrentUser: Bool { (messageViewModel.currentUserSessionIds ?? []).contains(messageViewModel.authorId) }
     
     var body: some View {
         ZStack (alignment: .topLeading) {
@@ -310,7 +311,13 @@ struct MessageInfoScreen: View {
                                         alignment: .leading,
                                         spacing: Values.verySmallSpacing
                                     ) {
-                                        if !messageViewModel.authorName.isEmpty  {
+                                        if isCurrentUser {
+                                            Text("you".localized())
+                                                .bold()
+                                                .font(.system(size: Values.mediumLargeFontSize))
+                                                .foregroundColor(themeColor: .textPrimary)
+                                        }
+                                        else if !messageViewModel.authorName.isEmpty {
                                             Text(messageViewModel.authorName)
                                                 .bold()
                                                 .font(.system(size: Values.mediumLargeFontSize))

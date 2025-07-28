@@ -43,7 +43,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
-                    isMainnet: (dependencies[feature: .serviceNetwork] != .mainnet),
+                    isMainnet: (dependencies[feature: .serviceNetwork] == .mainnet),
                     isOffline: dependencies[feature: .forceOffline]
                 )
         }

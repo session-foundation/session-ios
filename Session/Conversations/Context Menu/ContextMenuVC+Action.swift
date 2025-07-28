@@ -170,6 +170,10 @@ extension ContextMenuVC {
             cellViewModel.threadVariant != .legacyGroup && (
                 cellViewModel.variant == .standardIncoming || (
                     cellViewModel.variant == .standardOutgoing &&
+                    (
+                        cellViewModel.linkPreview == nil ||
+                        cellViewModel.linkPreview?.variant != .openGroupInvitation
+                    ) &&
                     cellViewModel.state != .failed &&
                     cellViewModel.state != .sending
                 )

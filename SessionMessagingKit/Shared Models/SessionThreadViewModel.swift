@@ -45,6 +45,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         case threadUnreadMentionCount
         case threadHasUnreadMessagesOfAnyKind
         case threadCanWrite
+        case threadCanUpload
         
         // Thread display info
         
@@ -148,6 +149,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     public let threadUnreadMentionCount: UInt?
     public let threadHasUnreadMessagesOfAnyKind: Bool?
     public let threadCanWrite: Bool?
+    public let threadCanUpload: Bool?
     
     // Thread display info
     
@@ -461,6 +463,37 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
                 return (openGroupPermissions?.contains(.write) ?? false)
         }
     }
+    
+    /// This function should only be called when initially creating/populating the `SessionThreadViewModel`, instead use
+    /// `threadCanUpload == true` to determine whether the user should be able to write to a thread, this function uses
+    /// external data to determine if the user can write so the result might differ from the original value when the
+    /// `SessionThreadViewModel` was created
+    public func determineInitialCanUploadFlag(using dependencies: Dependencies) -> Bool {
+        switch threadVariant {
+            case .contact:
+                // If the thread is an outgoing message request then we shouldn't be able to upload
+                return (threadRequiresApproval == false)
+                
+            case .legacyGroup: return false
+            case .group:
+                guard groupIsDestroyed != true else { return false }
+                guard wasKickedFromGroup != true else { return false }
+                guard threadIsMessageRequest == false else { return true }
+                
+                /// Double check `libSession` directly just in case we the view model hasn't been updated since they were changed
+                guard
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) &&
+                        !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                    })
+                else { return false }
+                
+                return interactionVariant?.isGroupLeavingStatus != true
+                
+            case .community:
+                return (openGroupPermissions?.contains(.upload) ?? false)
+        }
+    }
 }
 
 // MARK: - Convenience Initialization
@@ -486,6 +519,7 @@ public extension SessionThreadViewModel {
         unreadCount: UInt = 0,
         hasUnreadMessagesOfAnyKind: Bool = false,
         threadCanWrite: Bool = true,
+        threadCanUpload: Bool = true,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil,
         using dependencies: Dependencies
     ) {
@@ -513,6 +547,7 @@ public extension SessionThreadViewModel {
         self.threadUnreadMentionCount = nil
         self.threadHasUnreadMessagesOfAnyKind = hasUnreadMessagesOfAnyKind
         self.threadCanWrite = threadCanWrite
+        self.threadCanUpload = threadCanUpload
         
         // Thread display info
         
@@ -572,7 +607,8 @@ public extension SessionThreadViewModel {
         currentUserSessionIds: Set<String>,
         wasKickedFromGroup: Bool,
         groupIsDestroyed: Bool,
-        threadCanWrite: Bool
+        threadCanWrite: Bool,
+        threadCanUpload: Bool
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
             rowId: self.rowId,
@@ -597,6 +633,7 @@ public extension SessionThreadViewModel {
             threadUnreadMentionCount: self.threadUnreadMentionCount,
             threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             threadCanWrite: threadCanWrite,
+            threadCanUpload: threadCanUpload,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
             threadDisplayPictureUrl: self.threadDisplayPictureUrl,
@@ -2129,7 +2166,7 @@ public extension SessionThreadViewModel {
         /// the `contactProfile` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 8
+        let numColumnsBeforeProfiles: Int = 9
         
         let request: SQLRequest<ViewModel> = """
             SELECT
@@ -2146,6 +2183,10 @@ public extension SessionThreadViewModel {
                         IFNULL(\(contact[.isApproved]), false) = false
                     )
                 ) AS \(ViewModel.Columns.threadIsMessageRequest),
+                (
+                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                    IFNULL(\(contact[.didApproveMe]), false) = false
+                ) AS \(ViewModel.Columns.threadRequiresApproval),
                 
                 IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.Columns.threadPinnedPriority),
                 \(contact[.isBlocked]) AS \(ViewModel.Columns.threadIsBlocked),

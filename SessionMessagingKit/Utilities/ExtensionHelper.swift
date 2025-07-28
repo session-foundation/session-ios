@@ -99,10 +99,7 @@ public class ExtensionHelper: ExtensionHelperType {
         guard dependencies[singleton: .fileManager].createFile(atPath: tmpPath, contents: ciphertext) else {
             throw ExtensionHelperError.failedToWriteToFile
         }
-        _ = try dependencies[singleton: .fileManager].replaceItemAt(
-            URL(fileURLWithPath: path),
-            withItemAt: URL(fileURLWithPath: tmpPath)
-        )
+        _ = try dependencies[singleton: .fileManager].replaceItem(atPath: path, withItemAtPath: tmpPath)
     }
     
     private func read(from path: String) throws -> Data {

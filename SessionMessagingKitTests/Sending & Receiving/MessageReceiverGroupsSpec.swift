@@ -549,6 +549,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 // MARK: ---- from a sender that is not approved
                 context("from a sender that is not approved") {
                     beforeEach {
+                        mockLibSessionCache
+                            .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
+                            .thenReturn(true)
                         mockStorage.write { db in
                             try Contact(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
@@ -647,13 +650,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
-                                        title: "notificationsIosGroup"
-                                            .put(key: "name", value: "0511...1111")
-                                            .put(key: "conversation_name", value: "TestGroupName")
-                                            .localized(),
-                                        body: "messageNewYouveGot"
-                                            .putNumber(1)
-                                            .localized(),
+                                        title: Constants.app_name,
+                                        body: "messageRequestsNew".localized(),
                                         sound: .defaultNotificationSound,
                                         applicationState: .active
                                     ),
@@ -672,6 +670,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 // MARK: ---- from a sender that is approved
                 context("from a sender that is approved") {
                     beforeEach {
+                        mockLibSessionCache
+                            .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
+                            .thenReturn(false)
                         mockStorage.write { db in
                             try Contact(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
@@ -778,8 +779,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         expect(mockSwarmPoller).to(call(.exactly(times: 1)) { $0.startIfNeeded() })
                     }
                     
-                    // MARK: ------ does not send a local notification about the group invite
-                    it("does not send a local notification about the group invite") {
+                    // MARK: ------ sends a local notification about the group invite
+                    it("sends a local notification about the group invite") {
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -793,11 +794,32 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         expect(mockNotificationsManager)
-                            .toNot(call { notificationsManager in
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { notificationsManager in
                                 notificationsManager.addNotificationRequest(
-                                    content: .any,
-                                    notificationSettings: .any,
-                                    extensionBaseUnreadCount: .any
+                                    content: NotificationContent(
+                                        threadId: groupId.hexString,
+                                        threadVariant: .group,
+                                        identifier: "\(groupId.hexString)-1",
+                                        category: .incomingMessage,
+                                        title: "notificationsIosGroup"
+                                            .put(key: "name", value: "0511...1111")
+                                            .put(key: "conversation_name", value: "TestGroupName")
+                                            .localized(),
+                                        body: "messageRequestGroupInvite"
+                                            .put(key: "name", value: "0511...1111")
+                                            .put(key: "group_name", value: "TestGroup")
+                                            .localized()
+                                            .deformatted(),
+                                        sound: .defaultNotificationSound,
+                                        applicationState: .active
+                                    ),
+                                    notificationSettings: Preferences.NotificationSettings(
+                                        previewType: .nameAndPreview,
+                                        sound: .defaultNotificationSound,
+                                        mentionsOnly: false,
+                                        mutedUntil: nil
+                                    ),
+                                    extensionBaseUnreadCount: nil
                                 )
                             })
                     }

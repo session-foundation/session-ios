@@ -258,6 +258,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(args: [contactId])
     }
     
+    func isContactApproved(contactId: String) -> Bool {
+        return mock(args: [contactId])
+    }
+    
     func profile(
         contactId: String,
         threadId: String?,

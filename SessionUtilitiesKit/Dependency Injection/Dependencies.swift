@@ -156,7 +156,7 @@ public extension Dependencies {
         
         /// Use a `readLock` to check if a value has been set
         guard
-            let typedValue: DependencyStorage.Value = storage.instances[key],
+            let typedValue: DependencyStorage.Value = _storage.performMap({ $0.instances[key] }),
             let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
         else { return false }
         
@@ -166,7 +166,7 @@ public extension Dependencies {
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
         let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
             .key(feature.identifier)
-        let typedValue: DependencyStorage.Value? = storage.instances[key]
+        let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
         
         /// Update the cached & in-memory values
         let instance: Feature<T> = (
@@ -188,9 +188,11 @@ public extension Dependencies {
             .key(feature.identifier)
         
         /// Reset the cached and in-memory values
-        storage.instances[key]?
-            .value(as: Feature<T>.self)?
-            .setValue(to: nil, using: self)
+        _storage.perform { storage in
+            storage.instances[key]?
+                .value(as: Feature<T>.self)?
+                .setValue(to: nil, using: self)
+        }
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers

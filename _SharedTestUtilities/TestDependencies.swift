@@ -105,7 +105,7 @@ public class TestDependencies: Dependencies {
     // MARK: - Initialization
     
     public init(initialState: ((TestDependencies) -> ())? = nil) {
-        super.init(forTesting: true)
+        super.init()
         
         initialState?(self)
     }

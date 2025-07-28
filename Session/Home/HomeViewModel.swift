@@ -448,7 +448,8 @@ public class HomeViewModel: NavigatableStateHolder {
                                         )
                                     }
                                 ),
-                                threadCanWrite: false  // Irrelevant for the HomeViewModel
+                                threadCanWrite: false,  // Irrelevant for the HomeViewModel
+                                threadCanUpload: false  // Irrelevant for the HomeViewModel
                             )
                         }
                 )

@@ -708,6 +708,22 @@ public extension LibSession.Cache {
         
         return contact.blocked
     }
+    
+    func isContactApproved(contactId: String) -> Bool {
+        guard
+            case .contacts(let conf) = config(for: .contacts, sessionId: userSessionId),
+            var cContactId: [CChar] = contactId.cString(using: .utf8)
+        else { return false }
+        
+        var contact: contacts_contact = contacts_contact()
+        
+        guard contacts_get(conf, &contact, &cContactId) else {
+            LibSessionError.clear(conf)
+            return false
+        }
+        
+        return contact.approved
+    }
 }
 
 // MARK: - ContactUpdateInfo

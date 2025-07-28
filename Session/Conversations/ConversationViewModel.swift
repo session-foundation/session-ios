@@ -288,7 +288,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
                 }
             ),
-            threadCanWrite: true   // Assume true
+            threadCanWrite: true,   // Assume true
+            threadCanUpload: true   // Assume true
         )
         self.pagedDataObserver = nil
         self.dependencies = dependencies
@@ -384,7 +385,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         ),
                         wasKickedFromGroup: wasKickedFromGroup,
                         groupIsDestroyed: groupIsDestroyed,
-                        threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies)
+                        threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
+                        threadCanUpload: viewModel.determineInitialCanUploadFlag(using: dependencies)
                     )
                 }
             }

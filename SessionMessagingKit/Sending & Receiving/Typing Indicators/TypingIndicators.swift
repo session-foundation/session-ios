@@ -145,28 +145,34 @@ public extension TypingIndicators {
         }
         
         func stop(using dependencies: Dependencies) async {
-            stopTask?.cancel()
-            refreshTask?.cancel()
-            
-            try? await dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, direction] db in
-                switch direction {
-                    case .outgoing:
-                        try MessageSender.send(
-                            db,
-                            message: TypingIndicator(kind: .stopped),
-                            interactionId: nil,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            using: dependencies
-                        )
-                        
-                    case .incoming:
-                        _ = try ThreadTypingIndicator
-                            .filter(ThreadTypingIndicator.Columns.threadId == threadId)
-                            .deleteAll(db)
-                        db.addTypingIndicatorEvent(threadId: threadId, change: .stopped)
+            /// Need to run a detached task to cleanup the database record because we are about to cancel the `stopTask` and
+            /// `refreshTask` (and if one of those triggered this call then the code would otherwise stop executing because the
+            /// parent task is cancelled
+            Task.detached { [threadId, threadVariant, direction, storage = dependencies[singleton: .storage]] in
+                try? await storage.writeAsync { db in
+                    switch direction {
+                        case .outgoing:
+                            try MessageSender.send(
+                                db,
+                                message: TypingIndicator(kind: .stopped),
+                                interactionId: nil,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                using: dependencies
+                            )
+                            
+                        case .incoming:
+                            _ = try ThreadTypingIndicator
+                                .filter(ThreadTypingIndicator.Columns.threadId == threadId)
+                                .deleteAll(db)
+                            db.addTypingIndicatorEvent(threadId: threadId, change: .stopped)
+                    }
                 }
             }
+            
+            /// Now that the db cleanup is happening we can properly stop the tasks
+            stopTask?.cancel()
+            refreshTask?.cancel()
         }
         
         func refreshTimeout(sentTimestampMs: Int64?, using dependencies: Dependencies) async {
@@ -180,9 +186,10 @@ public extension TypingIndicators {
 
             stopTask = Task { [threadId, direction] in
                 /// If the delay is in the future then we want to wait until then
-                if baseTimestamp + delay > dependencies.dateNow.timeIntervalSince1970 {
-                    let nanoseconds: UInt64 = UInt64((baseTimestamp + delay) * 1_000_000_000)
-                    try await Task.sleep(nanoseconds: nanoseconds)
+                let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                                                            
+                if baseTimestamp + delay > timestampNow {
+                    try await Task.sleep(for: .seconds(Int((baseTimestamp + delay) - timestampNow)))
                 }
                 
                 try Task.checkCancellation()

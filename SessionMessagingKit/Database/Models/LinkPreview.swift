@@ -312,6 +312,7 @@ public extension LinkPreview {
     
     static func tryToBuildPreviewInfo(
         previewUrl: String?,
+        skipImageDownload: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<LinkPreviewDraft, Error> {
         guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else {
@@ -338,6 +339,7 @@ public extension LinkPreview {
                     linkData: data,
                     response: response,
                     linkUrlString: previewUrl,
+                    skipImageDownload: skipImageDownload,
                     using: dependencies
                 )
             }
@@ -411,29 +413,27 @@ public extension LinkPreview {
         linkData: Data,
         response: URLResponse,
         linkUrlString: String,
+        skipImageDownload: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<LinkPreviewDraft, Error> {
         do {
             let contents = try parse(linkData: linkData, response: response)
-
             let title = contents.title
-            guard let imageUrl = contents.imageUrl else {
-                return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
 
-            guard URL(string: imageUrl) != nil else {
+            // If we don't want to download the image then just return the non-image content
+            guard !skipImageDownload else {
                 return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
             }
-            guard let imageFileExtension = fileExtension(forImageUrl: imageUrl) else {
-                return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
-            guard let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType else {
+            
+            // If the image isn't valid then just return the non-image content
+            guard
+                let imageUrl: String = contents.imageUrl,
+                URL(string: imageUrl) != nil,
+                let imageFileExtension: String = fileExtension(forImageUrl: imageUrl),
+                let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType
+            else {
                 return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()

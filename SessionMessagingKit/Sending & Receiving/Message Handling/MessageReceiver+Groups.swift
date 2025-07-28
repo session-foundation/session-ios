@@ -1011,8 +1011,7 @@ extension MessageReceiver {
                 
             /// If the sender wasn't approved this is a message request so we should notify the user about the invite
             case (false, _):
-                let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
-                let thread: SessionThread = try SessionThread.upsert(
+                try SessionThread.upsert(
                     db,
                     id: groupSessionId.hexString,
                     variant: .group,
@@ -1024,51 +1023,43 @@ extension MessageReceiver {
                     ),
                     using: dependencies
                 )
-                
-                if !suppressNotifications {
-                    try? dependencies[singleton: .notificationsManager].notifyUser(
-                        cat: .messageReceiver,
-                        message: message,
-                        threadId: thread.id,
-                        threadVariant: thread.variant,
-                        interactionIdentifier: (interaction.serverHash ?? "\(interaction.id ?? 0)"),
-                        interactionVariant: interaction.variant,
-                        attachmentDescriptionInfo: nil,
-                        openGroupUrlInfo: nil,
-                        applicationState: (isMainAppActive ? .active : .background),
-                        extensionBaseUnreadCount: nil,
-                        currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
-                        displayNameRetriever: { sessionId, _ in
-                            Profile.displayNameNoFallback(
-                                db,
-                                id: sessionId,
-                                threadVariant: thread.variant
-                            )
-                        },
-                        groupNameRetriever: { threadId, threadVariant in
-                            switch threadVariant {
-                                case .group:
-                                    let groupId: SessionId = SessionId(.group, hex: threadId)
-                                    return dependencies.mutate(cache: .libSession) { cache in
-                                        cache.groupName(groupSessionId: groupId)
-                                    }
-                                    
-                                case .community:
-                                    return try? OpenGroup
-                                        .select(.name)
-                                        .filter(id: threadId)
-                                        .asRequest(of: String.self)
-                                        .fetchOne(db)
-                                    
-                                default: return nil
-                            }
-                        },
-                        shouldShowForMessageRequest: { false }
-                    )
-                }
             
             /// If the sender is approved and this was an admin invitation then do nothing
             case (true, false): break
+        }
+        
+        /// Show a notification if we aren't suppressing notifications (rely on the `NotificationManagerType` to determine whether
+        /// the notification should be shown or not
+        if !suppressNotifications {
+            let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+            try? dependencies[singleton: .notificationsManager].notifyUser(
+                cat: .messageReceiver,
+                message: message,
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                interactionIdentifier: (interaction.serverHash ?? "\(interaction.id ?? 0)"),
+                interactionVariant: interaction.variant,
+                attachmentDescriptionInfo: nil,
+                openGroupUrlInfo: nil,
+                applicationState: (isMainAppActive ? .active : .background),
+                extensionBaseUnreadCount: nil,
+                currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                displayNameRetriever: { sessionId, _ in
+                    Profile.displayNameNoFallback(
+                        db,
+                        id: sessionId,
+                        threadVariant: .group
+                    )
+                },
+                groupNameRetriever: { threadId, threadVariant in
+                    let groupId: SessionId = SessionId(.group, hex: threadId)
+                    
+                    return dependencies.mutate(cache: .libSession) { cache in
+                        cache.groupName(groupSessionId: groupId)
+                    }
+                },
+                shouldShowForMessageRequest: { !threadAlreadyExisted }
+            )
         }
         
         return interaction.id.map {

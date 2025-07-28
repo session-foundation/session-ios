@@ -128,29 +128,17 @@ class ExtensionHelperSpec: AsyncSpec {
                     })
                 }
                 
-                // MARK: ---- removes any existing file from the destination path
-                it("removes any existing file from the destination path") {
+                // MARK: ---- replaces the destination path with the temporary file
+                it("replaces the destination path with the temporary file") {
                     try? extensionHelper.createDedupeRecord(
                         threadId: "threadId",
                         uniqueIdentifier: "uniqueId"
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
-                    })
-                }
-                
-                // MARK: ---- moves the temporary file to the destination path
-                it("moves the temporary file to the destination path") {
-                    try? extensionHelper.createDedupeRecord(
-                        threadId: "threadId",
-                        uniqueIdentifier: "uniqueId"
-                    )
-                    
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -226,7 +214,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- throws when it fails to move the temp file to the final location
                 it("throws when it fails to move the temp file to the final location") {
                     mockFileManager
-                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
                     expect {
@@ -256,14 +244,17 @@ class ExtensionHelperSpec: AsyncSpec {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(atPath: "tmpFile", toPath: "/test/extensionCache/metadata")
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/metadata",
+                            withItemAtPath: "tmpFile"
+                        )
                     })
                 }
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
                     mockFileManager
-                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
                     expect {
@@ -382,7 +373,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
-                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                        .thenReturn([FileAttributeKey.modificationDate: Date(timeIntervalSince1970: 1234567900)])
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
@@ -463,9 +454,9 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -485,7 +476,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
                     mockFileManager
-                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
                     expect {
@@ -581,9 +572,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         $0.createFile(atPath: "tmpFile", contents: Data())
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -599,13 +590,13 @@ class ExtensionHelperSpec: AsyncSpec {
                         try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
                     })
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
                     mockFileManager
-                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
                     expect {
@@ -625,6 +616,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when retrieving the last updated timestamp") {
                 // MARK: ---- returns the timestamp
                 it("returns the timestamp") {
+                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567890)])
@@ -673,9 +665,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/dumps/010203"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/dumps/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -685,7 +677,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     extensionHelper.replicate(dump: nil, replaceExisting: true)
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing when failing to generate a hash
@@ -703,7 +695,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing a file already exists and we do not want to replace it
@@ -721,13 +713,13 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- logs an error when failing to write the file
                 it("logs an error when failing to write the file") {
                     mockFileManager
-                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
                     extensionHelper.replicate(
@@ -850,10 +842,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         .toEventually(haveCount(5))
                         .retrieveValue()
                     let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) })
+                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                         .toEventually(haveCount(5))
                         .retrieveValue()
                     
+                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
                             "[tmpFile, Data(base64Encoded: AgME), nil]",
@@ -864,11 +857,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         ]))
                     expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/020304]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/030405]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/040506]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/050607]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/060708]"
+                            "[/test/extensionCache/conversations/010203/dumps/020304, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/030405, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/040506, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/050607, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/060708, tmpFile, nil, \(emptyOptions)]"
                         ]))
                 }
                 
@@ -886,10 +879,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         .toEventually(haveCount(5))
                         .retrieveValue()
                     let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) })
+                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                         .toEventually(haveCount(5))
                         .retrieveValue()
                     
+                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
                             "[tmpFile, Data(base64Encoded: AgME), nil]",
@@ -900,11 +894,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         ]))
                     expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/020304]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/030405]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/040506]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/050607]",
-                            "[tmpFile, /test/extensionCache/conversations/010203/dumps/060708]"
+                            "[/test/extensionCache/conversations/010203/dumps/020304, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/030405, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/040506, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/050607, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/010203/dumps/060708, tmpFile, nil, \(emptyOptions)]"
                         ]))
                 }
                 
@@ -938,10 +932,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         .toEventually(haveCount(3))
                         .retrieveValue()
                     let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) })
+                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                         .toEventually(haveCount(3))
                         .retrieveValue()
                 
+                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
                             "[tmpFile, Data(base64Encoded: BgUE), nil]",
@@ -950,9 +945,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         ]))
                     expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, /test/extensionCache/conversations/090807/dumps/060504]",
-                            "[tmpFile, /test/extensionCache/conversations/090807/dumps/070605]",
-                            "[tmpFile, /test/extensionCache/conversations/090807/dumps/080706]"
+                            "[/test/extensionCache/conversations/090807/dumps/060504, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/090807/dumps/070605, tmpFile, nil, \(emptyOptions)]",
+                            "[/test/extensionCache/conversations/090807/dumps/080706, tmpFile, nil, \(emptyOptions)]"
                         ]))
                 }
                 
@@ -970,7 +965,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing if valid dumps already exist
@@ -986,7 +981,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing if there are no dumps in the database
@@ -999,7 +994,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing if the existing replicated dump was newer than the fetched one
@@ -1016,7 +1011,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing if it fails to replicate
@@ -1034,7 +1029,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
             }
 
@@ -1389,9 +1384,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/notificationSettings"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/notificationSettings",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -1451,7 +1446,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing if it fails to replicate
@@ -1476,7 +1471,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.moveItem(atPath: .any, toPath: .any) })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
             }
             
@@ -1911,9 +1906,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/config/010203"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/config/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -1939,9 +1934,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/unread/010203"
+                        _ = try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/unread/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -1977,13 +1972,15 @@ class ExtensionHelperSpec: AsyncSpec {
                             isMessageRequest: true
                         )
                     }.toNot(throwError())
+                    
+                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect(mockFileManager
-                        .allCalls { try $0.moveItem(atPath: .any, toPath: .any) }?
+                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }?
                         .map { $0.parameterSummary }
                     )
                     .to(equal([
-                        "[tmpFile, /test/extensionCache/conversations/010203/unread/030405]",
-                        "[tmpFile, /test/extensionCache/conversations/010203/unread/020304]"
+                        "[/test/extensionCache/conversations/010203/unread/030405, tmpFile, nil, \(emptyOptions)]",
+                        "[/test/extensionCache/conversations/010203/unread/020304, tmpFile, nil, \(emptyOptions)]"
                     ]))
                 }
                 
@@ -2008,9 +2005,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.moveItem(
-                            atPath: "tmpFile",
-                            toPath: "/test/extensionCache/conversations/010203/read/010203"
+                        try $0.replaceItem(
+                            atPath: "/test/extensionCache/conversations/010203/read/010203",
+                            withItemAtPath: "tmpFile"
                         )
                     })
                 }
@@ -2037,15 +2034,13 @@ class ExtensionHelperSpec: AsyncSpec {
                             isMessageRequest: false
                         )
                     }.toNot(throwError())
-                    expect(mockFileManager).toNot(call {
-                        try $0.moveItem(atPath: .any, toPath: .any)
-                    })
+                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
                     mockFileManager
-                        .when { try $0.moveItem(atPath: .any, toPath: .any) }
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
                     expect {

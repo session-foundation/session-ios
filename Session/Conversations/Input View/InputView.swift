@@ -348,7 +348,12 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         linkPreviewView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -4)
         
         // Build the link preview
-        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, using: dependencies)
+        LinkPreview
+            .tryToBuildPreviewInfo(
+                previewUrl: linkPreviewURL,
+                skipImageDownload: (inputState.allowedInputTypes != .all),  /// Disable image download if attachments are disabled
+                using: dependencies
+            )
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(

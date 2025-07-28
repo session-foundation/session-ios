@@ -630,7 +630,14 @@ public extension LibSession {
                 userGroup.invited = (group.invited ?? userGroup.invited)
                 userGroup.joined_at = (group.joinedAt.map { Int64($0) } ?? userGroup.joined_at)
                 userGroup.priority = (group.priority ?? userGroup.priority)
-                user_groups_set_group(conf, &userGroup)
+                
+                guard user_groups_set_group(conf, &userGroup) else {
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .failedToSaveValueToConfig,
+                        logMessage: "Unable to save updated group to config"
+                    )
+                }
             }
     }
     

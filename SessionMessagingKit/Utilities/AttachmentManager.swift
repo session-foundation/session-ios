@@ -131,6 +131,12 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     
     public func createTemporaryFileForOpening(downloadUrl: String?, mimeType: String?, sourceFilename: String?) throws -> String {
         let path: String = try path(for: downloadUrl)
+        
+        /// Ensure the original file exists before generating a path for opening or trying to copy it
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
+            throw AttachmentError.invalidData
+        }
+        
         let tmpPath: String = try temporaryPathForOpening(
             downloadUrl: downloadUrl,
             mimeType: mimeType,
