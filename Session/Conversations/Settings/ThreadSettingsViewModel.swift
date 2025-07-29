@@ -1835,7 +1835,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         {
             let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                 modal: ProCTAModal(
-                    delegate: SessionProState(using: dependencies),
+                    delegate: dependencies[singleton: .sessionProState],
                     variant: .morePinnedConvos(
                         isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
                     ),

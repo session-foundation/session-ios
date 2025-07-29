@@ -637,7 +637,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.hideInputAccessoryView()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: self,
+                delegate: dependencies[singleton: .sessionProState],
                 variant: .longerMessages,
                 dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
@@ -649,6 +649,29 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         present(sessionProModal, animated: true, completion: nil)
         
         return true
+    }
+    
+    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        guard !showSessionProCTAIfNeeded() else { return }
+        
+        self.hideInputAccessoryView()
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "modalMessageCharacterTooLongTitle".localized(),
+                body: .text(
+                    "modalMessageTooLongDescription"
+                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .localized(),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
     }
 }
 
@@ -678,6 +701,17 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
     }
 
     func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
+        guard
+            let text = attachmentTextToolbar.text,
+            LibSession.numberOfCharactersLeft(
+                for: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                isSessionPro: isSessionPro
+            ) >= 0
+        else {
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: isSessionPro)
+            return
+        }
+        
         // Toolbar flickers in and out if there are errors
         // and remains visible momentarily after share extension is dismissed.
         // It's easiest to just hide it at this point since we're done with it.
@@ -708,15 +742,6 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 
     func prepViewControllerUpdateControls() {
         updateInputAccessory()
-    }
-}
-
-// MARK: -
-
-extension AttachmentApprovalViewController: SessionProCTADelegate {
-    public func upgradeToPro(completion: (() -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        completion?()
     }
 }
 

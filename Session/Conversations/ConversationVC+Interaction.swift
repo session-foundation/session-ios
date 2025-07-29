@@ -23,8 +23,7 @@ extension ConversationVC:
     SendMediaNavDelegate,
     UIDocumentPickerDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate,
-    SessionProCTADelegate
+    GifPickerViewControllerDelegate
 {
     // MARK: - Open Settings
     
@@ -243,7 +242,7 @@ extension ConversationVC:
         self.hideInputAccessoryView()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: self,
+                delegate: dependencies[singleton: .sessionProState],
                 variant: .longerMessages,
                 dataManager: viewModel.dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
@@ -255,11 +254,6 @@ extension ConversationVC:
         present(sessionProModal, animated: true, completion: nil)
         
         return true
-    }
-    
-    func upgradeToPro(completion: (() -> Void)?) {
-        viewModel.dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        completion?()
     }
 
     // MARK: - SendMediaNavDelegate

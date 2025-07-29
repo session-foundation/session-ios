@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Lucide
+import Combine
 
 public struct ProCTAModal: View {
     public enum Variant {
@@ -105,25 +106,28 @@ public struct ProCTAModal: View {
     
     @EnvironmentObject var host: HostWrapper
     
-    private var delegate: SessionProCTADelegate?
+    private var delegate: SessionProManagerType?
     private let variant: ProCTAModal.Variant
     private var dataManager: ImageDataManagerType
     
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
+    let afterUpgrade: (() -> Void)?
     
     public init(
-        delegate: SessionProCTADelegate?,
+        delegate: SessionProManagerType?,
         variant: ProCTAModal.Variant,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
-        afterClosed: (() -> Void)? = nil
+        afterClosed: (() -> Void)? = nil,
+        afterUpgrade: (() -> Void)? = nil
     ) {
         self.delegate = delegate
         self.variant = variant
         self.dataManager = dataManager
         self.dismissType = dismissType
         self.afterClosed = afterClosed
+        self.afterUpgrade = afterUpgrade
     }
     
     public var body: some View {
@@ -243,7 +247,10 @@ public struct ProCTAModal: View {
                         } else {
                             // Upgrade Button
                             ShineButton {
-                                delegate?.upgradeToPro {
+                                delegate?.upgradeToPro { result in
+                                    if result {
+                                        afterUpgrade?()
+                                    }
                                     close()
                                 }
                             } label: {
@@ -286,10 +293,11 @@ public struct ProCTAModal: View {
     }
 }
 
-// MARK: - SessionProCTADelegate
+// MARK: - SessionProManagerType
 
-public protocol SessionProCTADelegate: AnyObject {
-    func upgradeToPro(completion: (() -> Void)?)
+public protocol SessionProManagerType: AnyObject {
+    var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
+    func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
 }
 
 struct ProCTAModal_Previews: PreviewProvider {
