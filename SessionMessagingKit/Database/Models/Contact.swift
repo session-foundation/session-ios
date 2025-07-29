@@ -6,8 +6,11 @@ import SessionUtilitiesKit
 
 /// This type is duplicate in both the database and within the LibSession config so should only ever have it's data changes via the
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
-public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Contact: Codable, Sendable, PagableRecord, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, IdentifiableTableRecord, ColumnExpressible {
+    public typealias PagedDataType = Contact
     public static var databaseTableName: String { "contact" }
+    public static let idColumn: ColumnExpression = Columns.id
+    
     internal static let threadForeignKey = ForeignKey([Columns.id], to: [SessionThread.Columns.id])
     public static let profile = hasOne(Profile.self, using: Profile.contactForeignKey)
     

@@ -31,7 +31,6 @@ public class HomeViewModel: NavigatableStateHolder {
     
     // MARK: - Variables
     
-    private static let observationName: String = "HomeViewModel"    // stringlint:ignore
     private static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     public let dependencies: Dependencies
@@ -84,11 +83,11 @@ public class HomeViewModel: NavigatableStateHolder {
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
+                .loadPage(HomeViewModel.self),
                 .messageRequestAccepted,
                 .messageRequestDeleted,
                 .messageRequestMessageRead,
                 .messageRequestUnreadMessageReceived,
-                .loadPage(HomeViewModel.observationName),
                 .profile(userProfile.id),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
@@ -97,7 +96,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .setting(.hasViewedSeed),
                 .setting(.hasHiddenMessageRequests),
                 .conversationCreated,
-                .messageCreatedInAnyConversation
+                .anyMessageCreatedInAnyConversation,
+                .anyContactBlockedStatusChanged
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -174,7 +174,7 @@ public class HomeViewModel: NavigatableStateHolder {
         if isInitialQuery {
             /// Insert a fake event to force the initial page load
             eventsToProcess.append(ObservedEvent(
-                key: .loadPage(HomeViewModel.observationName),
+                key: .loadPage(HomeViewModel.self),
                 value: LoadPageEvent.initial
             ))
             
@@ -233,11 +233,19 @@ public class HomeViewModel: NavigatableStateHolder {
                         case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
                             insertedIds.insert(event.id)
                             
-                        case (GenericObservableKey(.messageCreatedInAnyConversation), let event as MessageEvent):
+                        case (GenericObservableKey(.anyMessageCreatedInAnyConversation), let event as MessageEvent):
                             insertedIds.insert(event.threadId)
                             
                         case (.conversationDeleted, let event as ConversationEvent):
                             deletedIds.insert(event.id)
+                            
+                        case (GenericObservableKey(.anyContactBlockedStatusChanged), let event as ContactEvent):
+                            if case .isBlocked(true) = event.change {
+                                deletedIds.insert(event.id)
+                            }
+                            else if case .isBlocked(false) = event.change {
+                                insertedIds.insert(event.id)
+                            }
                             
                         default: break
                     }
@@ -346,7 +354,7 @@ public class HomeViewModel: NavigatableStateHolder {
         }
         
         /// Generate the new state
-        let updatedState: State = State(
+        return State(
             viewState: (loadResult.info.totalCount == 0 ?
                 .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
                 .loaded
@@ -362,8 +370,6 @@ public class HomeViewModel: NavigatableStateHolder {
             loadedPageInfo: loadResult.info,
             itemCache: itemCache
         )
-        
-        return updatedState
     }
     
     private static func extractIdsNeedingRequery(
@@ -463,9 +469,16 @@ public class HomeViewModel: NavigatableStateHolder {
     
     // MARK: - Functions
     
+    @MainActor func loadPageBefore() {
+        dependencies.notifyAsync(
+            key: .loadPage(HomeViewModel.self),
+            value: LoadPageEvent.previousPage(firstIndex: state.loadedPageInfo.firstIndex)
+        )
+    }
+    
     @MainActor public func loadNextPage() {
         dependencies.notifyAsync(
-            key: .loadPage(HomeViewModel.observationName),
+            key: .loadPage(HomeViewModel.self),
             value: LoadPageEvent.nextPage(lastIndex: state.loadedPageInfo.lastIndex)
         )
     }
@@ -494,7 +507,8 @@ private extension ObservedEvent {
                 return .databaseQuery
             case (_, .loadPage): return .databaseQuery
             case (.conversationCreated, _): return .databaseQuery
-            case (.messageCreatedInAnyConversation, _): return .databaseQuery
+            case (.anyMessageCreatedInAnyConversation, _): return .databaseQuery
+            case (.anyContactBlockedStatusChanged, _): return .databaseQuery
             case (_, .typingIndicator): return .databaseQuery
             case (_, .conversationUpdated), (_, .conversationDeleted): return .databaseQuery
             case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery

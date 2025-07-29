@@ -94,4 +94,11 @@ public extension Dependencies {
         
         return notifyAsync(priority: priority, events: [event])
     }
+    
+    @discardableResult func notifyAsync(
+        priority: ObservationManager.Priority = .standard,
+        key: ObservableKey
+    ) -> Task<Void, Never> {
+        return notifyAsync(priority: priority, events: [ObservedEvent(key: key, value: nil)])
+    }
 }

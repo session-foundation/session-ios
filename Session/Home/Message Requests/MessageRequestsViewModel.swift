@@ -30,7 +30,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     
     // MARK: - Variables
     
-    nonisolated fileprivate static let observationName: String = "MessageRequestsViewModel"    // stringlint:ignore
     public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     public let dependencies: Dependencies
@@ -83,12 +82,12 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
+                .loadPage(MessageRequestsViewModel.self),
                 .messageRequestUnreadMessageReceived,
                 .messageRequestAccepted,
                 .messageRequestDeleted,
-                .loadPage(MessageRequestsViewModel.observationName),
                 .conversationCreated,
-                .messageCreatedInAnyConversation
+                .anyMessageCreatedInAnyConversation
             ]
             
             itemCache.values.forEach { item in
@@ -161,7 +160,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         if isInitialQuery {
             /// Insert a fake event to force the initial page load
             eventsToProcess.append(ObservedEvent(
-                key: .loadPage(MessageRequestsViewModel.observationName),
+                key: .loadPage(MessageRequestsViewModel.self),
                 value: LoadPageEvent.initial
             ))
         }
@@ -197,7 +196,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
                             insertedIds.insert(event.id)
                             
-                        case (GenericObservableKey(.messageCreatedInAnyConversation), let event as MessageEvent):
+                        case (GenericObservableKey(.anyMessageCreatedInAnyConversation), let event as MessageEvent):
                             insertedIds.insert(event.threadId)
                             
                         case (.conversationDeleted, let event as ConversationEvent):
@@ -435,14 +434,14 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     
     @MainActor func loadPageBefore() {
         dependencies.notifyAsync(
-            key: .loadPage(MessageRequestsViewModel.observationName),
+            key: .loadPage(MessageRequestsViewModel.self),
             value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.firstIndex)
         )
     }
     
     @MainActor func loadPageAfter() {
         dependencies.notifyAsync(
-            key: .loadPage(MessageRequestsViewModel.observationName),
+            key: .loadPage(MessageRequestsViewModel.self),
             value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.lastIndex)
         )
     }
@@ -459,7 +458,7 @@ private extension ObservedEvent {
             case (.messageRequestAccepted, _): return true
             case (.messageRequestDeleted, _): return true
             case (.conversationCreated, _): return true
-            case (.messageCreatedInAnyConversation, _): return true
+            case (.anyMessageCreatedInAnyConversation, _): return true
                 
             /// We only observe events from records we have explicitly fetched so if we get an event for one of these then we need to
             /// trigger an update

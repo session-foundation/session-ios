@@ -11,8 +11,16 @@ public extension ObservableKey {
     static func setting(_ key: Setting.BoolKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     static func setting(_ key: Setting.EnumKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     
-    static func loadPage(_ observationName: String) -> ObservableKey {
-        ObservableKey("loadPage-\(observationName)", .loadPage)
+    static func loadPage(_ screenType: Any.Type) -> ObservableKey {
+        ObservableKey("loadPage-\(screenType)", .loadPage)
+    }
+    
+    static func updateSelection(_ screenType: Any.Type, _ id: String) -> ObservableKey {
+        ObservableKey("updateSelection-\(screenType)-\(id)", .updateSelection)
+    }
+    
+    static func clearSelection(_ screenType: Any.Type) -> ObservableKey {
+        ObservableKey("clearSelection-\(screenType)", .clearSelection)
     }
     
     static func updateScreen(_ screenType: Any.Type) -> ObservableKey {
@@ -32,6 +40,8 @@ public extension ObservableKey {
         ObservableKey("contact-\(id)", .contact)
     }
     
+    static let anyContactBlockedStatusChanged: ObservableKey = "anyContactBlockedStatusChanged"
+    
     // MARK: - Conversations
     
     static let conversationCreated: ObservableKey = "conversationCreated"
@@ -44,7 +54,7 @@ public extension ObservableKey {
     
     // MARK: - Messages
     
-    static let messageCreatedInAnyConversation: ObservableKey = "messageCreatedInAnyConversation"
+    static let anyMessageCreatedInAnyConversation: ObservableKey = "anyMessageCreatedInAnyConversation"
     
     static func messageCreated(threadId: String) -> ObservableKey {
         ObservableKey("messageCreated-\(threadId)", .messageCreated)
@@ -77,6 +87,8 @@ public extension ObservableKey {
 public extension GenericObservableKey {
     static let setting: GenericObservableKey = "setting"
     static let loadPage: GenericObservableKey = "loadPage"
+    static let updateSelection: GenericObservableKey = "updateSelection"
+    static let clearSelection: GenericObservableKey = "clearSelection"
     static let updateScreen: GenericObservableKey = "updateScreen"
     static let typingIndicator: GenericObservableKey = "typingIndicator"
     static let profile: GenericObservableKey = "profile"
@@ -124,6 +136,16 @@ public struct LoadPageEvent: Hashable {
     
     public static func nextPage(lastIndex: Int) -> LoadPageEvent {
         LoadPageEvent(target: .nextPage(lastIndex))
+    }
+}
+
+public struct UpdateSelectionEvent: Hashable {
+    public let id: String
+    public let isSelected: Bool
+    
+    public init(id: String, isSelected: Bool) {
+        self.id = id
+        self.isSelected = isSelected
     }
 }
 
@@ -179,7 +201,16 @@ public struct ContactEvent: Hashable {
 
 public extension ObservingDatabase {
     func addContactEvent(id: String, change: ContactEvent.Change) {
-        self.addEvent(ObservedEvent(key: .contact(id), value: ContactEvent(id: id, change: change)))
+        let event: ContactEvent = ContactEvent(id: id, change: change)
+        
+        /// When certain contact events occur some screens want to respond to them regardless of whether the current observation
+        /// window includes the record, so we need to emit generic "any" events for these cases
+        switch change {
+            case .isBlocked: addEvent(ObservedEvent(key: .anyContactBlockedStatusChanged, value: event))
+            default: break
+        }
+        
+        addEvent(ObservedEvent(key: .contact(id), value: event))
     }
 }
 
@@ -237,7 +268,7 @@ public extension ObservingDatabase {
                 /// When a message is created we need to emit both a thread-specific event and a generic event as the home screen
                 /// will only observe thread-specific message events for the currently loaded pages (and receiving a message would
                 /// result in a conversation that might be off the screen being moved up into the loaded page range)
-                addEvent(ObservedEvent(key: .messageCreatedInAnyConversation, value: event))
+                addEvent(ObservedEvent(key: .anyMessageCreatedInAnyConversation, value: event))
                 addEvent(ObservedEvent(key: .messageCreated(threadId: threadId), value: event))
                 
             case .updated: addEvent(ObservedEvent(key: .messageUpdated(id: id, threadId: threadId), value: event))

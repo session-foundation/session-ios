@@ -21,10 +21,10 @@ extension SessionCell {
         let onTap: (@MainActor () -> Void)?
         let onTapView: (@MainActor (UIView?) -> Void)?
         
-        var currentBoolValue: Bool {
+        var boolValue: Bool {
             return (
-                (leadingAccessory?.currentBoolValue ?? false) ||
-                (trailingAccessory?.currentBoolValue ?? false)
+                (leadingAccessory?.boolValue ?? false) ||
+                (trailingAccessory?.boolValue ?? false)
             )
         }
         

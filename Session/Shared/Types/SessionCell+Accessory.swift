@@ -17,7 +17,7 @@ public extension SessionCell {
         
         public let accessibility: Accessibility?
         public var shouldFitToEdge: Bool { false }
-        public var currentBoolValue: Bool { false }
+        public var boolValue: Bool { false }
         
         fileprivate init(accessibility: Accessibility?) {
             self.accessibility = accessibility
@@ -109,15 +109,13 @@ public extension SessionCell.Accessory {
     
     static func radio(
         _ size: SessionCell.AccessoryConfig.Radio.Size = .medium,
-        isSelected: Bool? = nil,
-        liveIsSelected: (() -> Bool)? = nil,
+        isSelected: Bool,
         wasSavedSelection: Bool = false,
         accessibility: Accessibility = Accessibility(identifier: "Radio")
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Radio(
             size: size,
-            initialIsSelected: ((isSelected ?? liveIsSelected?()) ?? false),
-            liveIsSelected: (liveIsSelected ?? { (isSelected ?? false) }),
+            isSelected: isSelected,
             wasSavedSelection: wasSavedSelection,
             accessibility: accessibility
         )
@@ -136,8 +134,7 @@ public extension SessionCell.Accessory {
     static func highlightingBackgroundLabelAndRadio(
         title: String,
         radioSize: SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio.Size = .medium,
-        isSelected: Bool? = nil,
-        liveIsSelected: (() -> Bool)? = nil,
+        isSelected: Bool,
         wasSavedSelection: Bool = false,
         labelAccessibility: Accessibility? = nil,
         radioAccessibility: Accessibility? = nil
@@ -145,8 +142,7 @@ public extension SessionCell.Accessory {
         return SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio(
             title: title,
             radioSize: radioSize,
-            initialIsSelected: ((isSelected ?? liveIsSelected?()) ?? false),
-            liveIsSelected: (liveIsSelected ?? { (isSelected ?? false) }),
+            isSelected: isSelected,
             wasSavedSelection: wasSavedSelection,
             labelAccessibility: labelAccessibility,
             radioAccessibility: radioAccessibility
@@ -329,7 +325,7 @@ public extension SessionCell.AccessoryConfig {
         public let value: Bool
         public let oldValue: Bool
         
-        override public var currentBoolValue: Bool { value }
+        override public var boolValue: Bool { value }
         
         fileprivate init(
             value: Bool,
@@ -419,22 +415,19 @@ public extension SessionCell.AccessoryConfig {
         }
         
         public let size: Size
-        public let initialIsSelected: Bool
-        public let liveIsSelected: () -> Bool
+        public let isSelected: Bool
         public let wasSavedSelection: Bool
         
-        override public var currentBoolValue: Bool { liveIsSelected() }
+        override public var boolValue: Bool { isSelected }
         
         fileprivate init(
             size: Size,
-            initialIsSelected: Bool,
-            liveIsSelected: @escaping () -> Bool,
+            isSelected: Bool,
             wasSavedSelection: Bool,
             accessibility: Accessibility?
         ) {
             self.size = size
-            self.initialIsSelected = initialIsSelected
-            self.liveIsSelected = liveIsSelected
+            self.isSelected = isSelected
             self.wasSavedSelection = wasSavedSelection
             
             super.init(accessibility: accessibility)
@@ -442,19 +435,12 @@ public extension SessionCell.AccessoryConfig {
         
         // MARK: - Conformance
         
-        override public func hash(into hasher: inout Hasher) {
-            size.hash(into: &hasher)
-            initialIsSelected.hash(into: &hasher)
-            wasSavedSelection.hash(into: &hasher)
-            accessibility.hash(into: &hasher)
-        }
-        
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: Radio = other as? Radio else { return false }
             
             return (
                 size == rhs.size &&
-                initialIsSelected == rhs.initialIsSelected &&
+                isSelected == rhs.isSelected &&
                 wasSavedSelection == rhs.wasSavedSelection &&
                 accessibility == rhs.accessibility
             )
@@ -524,26 +510,23 @@ public extension SessionCell.AccessoryConfig {
         
         public let title: String
         public let size: Size
-        public let initialIsSelected: Bool
-        public let liveIsSelected: () -> Bool
+        public let isSelected: Bool
         public let wasSavedSelection: Bool
         public let labelAccessibility: Accessibility?
         
-        override public var currentBoolValue: Bool { liveIsSelected() }
+        override public var boolValue: Bool { isSelected }
         
         fileprivate init(
             title: String,
             radioSize: Size,
-            initialIsSelected: Bool,
-            liveIsSelected: @escaping () -> Bool,
+            isSelected: Bool,
             wasSavedSelection: Bool,
             labelAccessibility: Accessibility?,
             radioAccessibility: Accessibility?
         ) {
             self.title = title
             self.size = radioSize
-            self.initialIsSelected = initialIsSelected
-            self.liveIsSelected = liveIsSelected
+            self.isSelected = isSelected
             self.wasSavedSelection = wasSavedSelection
             self.labelAccessibility = labelAccessibility
             
@@ -552,22 +535,13 @@ public extension SessionCell.AccessoryConfig {
         
         // MARK: - Conformance
         
-        override public func hash(into hasher: inout Hasher) {
-            title.hash(into: &hasher)
-            size.hash(into: &hasher)
-            initialIsSelected.hash(into: &hasher)
-            wasSavedSelection.hash(into: &hasher)
-            accessibility.hash(into: &hasher)
-            labelAccessibility.hash(into: &hasher)
-        }
-        
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: HighlightingBackgroundLabelAndRadio = other as? HighlightingBackgroundLabelAndRadio else { return false }
             
             return (
                 title == rhs.title &&
                 size == rhs.size &&
-                initialIsSelected == rhs.initialIsSelected &&
+                isSelected == rhs.isSelected &&
                 wasSavedSelection == rhs.wasSavedSelection &&
                 accessibility == rhs.accessibility &&
                 labelAccessibility == rhs.labelAccessibility

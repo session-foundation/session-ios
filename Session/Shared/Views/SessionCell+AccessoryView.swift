@@ -469,13 +469,12 @@ extension SessionCell {
                 let radioView: UIView = radioBorderView.subviews.first
             else { return }
             
-            let isSelected: Bool = accessory.liveIsSelected()
-            let wasOldSelection: Bool = (!isSelected && accessory.wasSavedSelection)
+            let wasOldSelection: Bool = (!accessory.isSelected && accessory.wasSavedSelection)
             
             radioBorderView.accessibilityIdentifier = accessory.accessibility?.identifier
             radioBorderView.accessibilityLabel = accessory.accessibility?.label
             
-            if isSelected || wasOldSelection {
+            if accessory.isSelected || wasOldSelection {
                 radioBorderView.accessibilityTraits.insert(.selected)
                 radioBorderView.accessibilityValue = "selected"
             } else {
@@ -486,23 +485,23 @@ extension SessionCell {
             radioBorderView.themeBorderColor = {
                 guard isEnabled else { return .radioButton_disabledBorder }
                 
-                return (isSelected ?
+                return (accessory.isSelected ?
                     .radioButton_selectedBorder :
                     .radioButton_unselectedBorder
                 )
             }()
             
             radioView.alpha = (wasOldSelection ? 0.3 : 1)
-            radioView.isHidden = (!isSelected && !accessory.wasSavedSelection)
+            radioView.isHidden = (!accessory.isSelected && !accessory.wasSavedSelection)
             radioView.themeBackgroundColor = {
                 guard isEnabled else {
-                    return (isSelected || wasOldSelection ?
+                    return (accessory.isSelected || wasOldSelection ?
                         .radioButton_disabledSelectedBackground :
                         .radioButton_disabledUnselectedBackground
                     )
                 }
                 
-                return (isSelected || wasOldSelection ?
+                return (accessory.isSelected || wasOldSelection ?
                     .radioButton_selectedBackground :
                     .radioButton_unselectedBackground
                 )
@@ -589,8 +588,7 @@ extension SessionCell {
                 let radioView: UIView = radioBorderView.subviews.first
             else { return }
             
-            let isSelected: Bool = accessory.liveIsSelected()
-            let wasOldSelection: Bool = (!isSelected && accessory.wasSavedSelection)
+            let wasOldSelection: Bool = (!accessory.isSelected && accessory.wasSavedSelection)
             
             label.isAccessibilityElement = (accessory.accessibility != nil)
             label.accessibilityIdentifier = accessory.accessibility?.identifier
@@ -602,7 +600,7 @@ extension SessionCell {
             radioBorderView.accessibilityIdentifier = accessory.accessibility?.identifier
             radioBorderView.accessibilityLabel = accessory.accessibility?.label
             
-            if isSelected || wasOldSelection {
+            if accessory.isSelected || wasOldSelection {
                 radioView.accessibilityTraits.insert(.selected)
                 radioView.accessibilityValue = "selected"
             } else {
@@ -613,22 +611,22 @@ extension SessionCell {
             radioBorderView.themeBorderColor = {
                 guard isEnabled else { return .radioButton_disabledBorder }
                 
-                return (isSelected ?
+                return (accessory.isSelected ?
                     .radioButton_selectedBorder :
                     .radioButton_unselectedBorder
                 )
             }()
             radioView.alpha = (wasOldSelection ? 0.3 : 1)
-            radioView.isHidden = (!isSelected && !accessory.wasSavedSelection)
+            radioView.isHidden = (!accessory.isSelected && !accessory.wasSavedSelection)
             radioView.themeBackgroundColor = {
                 guard isEnabled else {
-                    return (isSelected || wasOldSelection ?
+                    return (accessory.isSelected || wasOldSelection ?
                         .radioButton_disabledSelectedBackground :
                         .radioButton_disabledUnselectedBackground
                     )
                 }
                 
-                return (isSelected || wasOldSelection ?
+                return (accessory.isSelected || wasOldSelection ?
                     .radioButton_selectedBackground :
                     .radioButton_unselectedBackground
                 )

@@ -647,7 +647,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         guard
             let confirmationInfo: ConfirmationModal.Info = info.confirmationInfo,
-            confirmationInfo.showCondition.shouldShow(for: info.currentBoolValue)
+            confirmationInfo.showCondition.shouldShow(for: info.boolValue)
         else {
             performAction()
             return
