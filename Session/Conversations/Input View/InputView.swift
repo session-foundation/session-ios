@@ -207,9 +207,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak self, dependencies] isPro in
-                    guard dependencies[feature: .sessionProEnabled] else { return }
+                receiveValue: { [weak self] isPro in
                     self?.sessionProBadge.isHidden = isPro
+                    self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }
             )
             .store(in: &disposables)
