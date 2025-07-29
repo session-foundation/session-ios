@@ -17,6 +17,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private let dependencies: Dependencies
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
+    private var sessionProState: SessionProManagerType?
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -179,7 +180,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .small)
-        result.isHidden = !dependencies[feature: .sessionProEnabled]
+        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
         
         return result
     }()
@@ -196,10 +197,22 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         self.dependencies = dependencies
         self.threadVariant = threadVariant
         self.delegate = delegate
+        self.sessionProState = dependencies[singleton: .sessionProState]
         
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
+        
+        self.sessionProState?.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self, dependencies] isPro in
+                    guard dependencies[feature: .sessionProEnabled] else { return }
+                    self?.sessionProBadge.isHidden = isPro
+                }
+            )
+            .store(in: &disposables)
     }
 
     override init(frame: CGRect) {

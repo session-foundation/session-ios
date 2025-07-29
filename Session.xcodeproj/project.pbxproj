@@ -198,6 +198,7 @@
 		94AAB1512E1F753500A6FA18 /* CyclicGradientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */; };
 		94AAB1532E1F8AE200A6FA18 /* ShineButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1522E1F8AD900A6FA18 /* ShineButton.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
+		94B6BAFA2E38454F00E718BB /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAF92E38454F00E718BB /* SessionProState.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
 		94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BA2E08D9D40097754D /* SessionProBadge.swift */; };
 		94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BC2E0908340097754D /* LibSession+Pro.swift */; };
@@ -1525,6 +1526,7 @@
 		94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclicGradientView.swift; sourceTree = "<group>"; };
 		94AAB1522E1F8AD900A6FA18 /* ShineButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShineButton.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
+		94B6BAF92E38454F00E718BB /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		94CD95BA2E08D9D40097754D /* SessionProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBadge.swift; sourceTree = "<group>"; };
 		94CD95BC2E0908340097754D /* LibSession+Pro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Pro.swift"; sourceTree = "<group>"; };
@@ -3547,6 +3549,7 @@
 		C3BBE0B32554F0D30050F1E3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				94B6BAF92E38454F00E718BB /* SessionProState.swift */,
 				FD428B1E2B4B758B006D0888 /* AppReadiness.swift */,
 				FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */,
 				FD859EF127BF6BA200510D0C /* Data+Utilities.swift */,
@@ -6411,6 +6414,7 @@
 				FD2272732C32911C004D8A6C /* ConfigurationSyncJob.swift in Sources */,
 				FDF0B75A2807F3A3004C14C5 /* MessageSenderError.swift in Sources */,
 				FDC4382F27B383AF00C60D73 /* LegacyPushServerResponse.swift in Sources */,
+				94B6BAFA2E38454F00E718BB /* SessionProState.swift in Sources */,
 				FDC4386327B4D94E00C60D73 /* SOGSMessage.swift in Sources */,
 				FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */,
 				FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */,
