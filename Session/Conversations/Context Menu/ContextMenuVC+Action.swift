@@ -167,13 +167,13 @@ extension ContextMenuVC {
     
     static func viewModelCanReply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) -> Bool {
         return (
-            cellViewModel.threadVariant != .legacyGroup && (
+            cellViewModel.threadVariant != .legacyGroup &&
+            (
+                cellViewModel.linkPreview == nil ||
+                cellViewModel.linkPreview?.variant != .openGroupInvitation
+            ) && (
                 cellViewModel.variant == .standardIncoming || (
                     cellViewModel.variant == .standardOutgoing &&
-                    (
-                        cellViewModel.linkPreview == nil ||
-                        cellViewModel.linkPreview?.variant != .openGroupInvitation
-                    ) &&
                     cellViewModel.state != .failed &&
                     cellViewModel.state != .sending
                 )

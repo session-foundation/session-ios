@@ -1969,9 +1969,21 @@ extension ConversationVC:
             using: viewModel.dependencies
         ) ?? []
         
+        // FIXME: This is an interim solution until the `ConversationViewModel` queries are refactored to use the new observation system
+        var finalCellViewModel: MessageViewModel = cellViewModel
+        
+        if
+            viewModel.threadData.currentUserSessionIds?.contains(cellViewModel.authorId) == true &&
+            cellViewModel.authorId != viewModel.threadData.currentUserSessionId
+        {
+            finalCellViewModel = finalCellViewModel.with(
+                profile: viewModel.dependencies.mutate(cache: .libSession) { $0.profile }
+            )
+        }
+        
         let messageInfoViewController = MessageInfoViewController(
             actions: actions,
-            messageViewModel: cellViewModel,
+            messageViewModel: finalCellViewModel,
             using: viewModel.dependencies
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in

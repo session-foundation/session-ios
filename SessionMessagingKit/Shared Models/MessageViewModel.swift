@@ -207,7 +207,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public func with(
         state: Interaction.State? = nil,        // Optimistic outgoing messages
         mostRecentFailureText: String? = nil,   // Optimistic outgoing messages
-        quote: Quote? = nil,
+        profile: Profile? = nil,
+        quote: Quote? = nil,                    // Workaround for blinded current user
         quoteAttachment: [Attachment]? = nil,   // Pass an empty array to clear
         attachments: [Attachment]? = nil,
         reactionInfo: [ReactionInfo]? = nil
@@ -239,7 +240,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
             isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
-            profile: self.profile,
+            profile: (profile ?? self.profile),
             quote: (quote ?? self.quote),
             quoteAttachment: (quoteAttachment ?? self.quoteAttachment.map { [$0] })?.first, // Only contains one
             linkPreview: self.linkPreview,

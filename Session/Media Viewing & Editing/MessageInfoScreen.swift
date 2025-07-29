@@ -283,7 +283,12 @@ struct MessageInfoScreen: View {
                                 ) {
                                     let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
                                         size: .message,
-                                        publicKey: messageViewModel.authorId,
+                                        publicKey: (
+                                            // Prioritise the profile.id because we override it for
+                                            // messages sent by the current user in communities
+                                            messageViewModel.profile?.id ??
+                                            messageViewModel.authorId
+                                        ),
                                         threadVariant: .contact,    // Always show the display picture in 'contact' mode
                                         displayPictureUrl: nil,
                                         profile: messageViewModel.profile,

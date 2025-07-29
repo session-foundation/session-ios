@@ -246,6 +246,17 @@ final class ShareNavController: UINavigationController {
         }
         
         Log.error("Failed to share due to error: \(error)")
+        let errorTitle: String = {
+            switch error {
+                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSending".localized()
+                case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
+                    return Constants.app_name
+                
+                case is AttachmentError: return "attachmentsErrorSending".localized()
+                
+                default: return Constants.app_name
+            }
+        }()
         let errorText: String = {
             switch error {
                 case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSize".localized()
@@ -258,7 +269,7 @@ final class ShareNavController: UINavigationController {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Constants.app_name,
+                title: errorTitle,
                 body: .text(errorText),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
