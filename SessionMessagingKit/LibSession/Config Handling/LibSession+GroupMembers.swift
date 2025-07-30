@@ -513,13 +513,13 @@ internal extension LibSession {
                 Profile(
                     id: member.get(\.session_id),
                     name: member.get(\.name),
-                    lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
+                    lastNameUpdate: TimeInterval(member.profile_updated),
                     nickname: nil,
                     profilePictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
                     profileEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
                         member.get(\.profile_pic.key)
                     ),
-                    lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
+                    lastProfilePictureUpdate: TimeInterval(member.profile_updated),
                     lastBlocksCommunityMessageRequests: nil
                 )
             )
