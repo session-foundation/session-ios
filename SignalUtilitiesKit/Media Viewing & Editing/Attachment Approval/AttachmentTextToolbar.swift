@@ -4,6 +4,7 @@ import Foundation
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
+import Combine
 
 // Coincides with Android's max text message length
 let kMaxMessageBodyCharacterCount = 2000
@@ -22,8 +23,10 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     
     // MARK: - Variables
     
+    private var disposables: Set<AnyCancellable> = Set()
     public weak var delegate: AttachmentTextToolbarDelegate?
     private let dependencies: Dependencies
+    private var sessionProState: SessionProManagerType?
 
     var text: String? {
         get { inputTextView.text }
@@ -88,7 +91,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .small)
-        result.isHidden = !dependencies[feature: .sessionProEnabled]
+        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
         
         return result
     }()
@@ -98,10 +101,22 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     init(delegate: AttachmentTextToolbarDelegate, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.delegate = delegate
+        self.sessionProState = dependencies[singleton: .sessionProState]
         
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
+        
+        self.sessionProState?.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self] isPro in
+                    self?.sessionProBadge.isHidden = isPro
+                    self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
+                }
+            )
+            .store(in: &disposables)
     }
 
     required init?(coder aDecoder: NSCoder) {
