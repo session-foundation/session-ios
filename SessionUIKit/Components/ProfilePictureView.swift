@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import Lucide
 
 public final class ProfilePictureView: UIView {
     public struct Info {
@@ -56,7 +57,7 @@ public final class ProfilePictureView: UIView {
             switch self {
                 case .navigation, .message: return 26
                 case .list: return 46
-                case .hero: return 80
+                case .hero: return 90
             }
         }
         
@@ -64,7 +65,7 @@ public final class ProfilePictureView: UIView {
             switch self {
                 case .navigation, .message: return 18  // Shouldn't be used
                 case .list: return 32
-                case .hero: return 80
+                case .hero: return 90
             }
         }
         
@@ -82,6 +83,7 @@ public final class ProfilePictureView: UIView {
         case crown
         case rightPlus
         case letter(Character, Bool)
+        case pencil
         
         func iconVerticalInset(for size: Size) -> CGFloat {
             switch (self, size) {
@@ -97,7 +99,7 @@ public final class ProfilePictureView: UIView {
         var isLeadingAligned: Bool {
             switch self {
                 case .none, .crown, .letter: return true
-                case .rightPlus: return false
+                case .rightPlus, .pencil: return false
             }
         }
     }
@@ -451,6 +453,7 @@ public final class ProfilePictureView: UIView {
             
             case .crown:
                 imageView.image = UIImage(systemName: "crown.fill")
+                imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .dynamicForPrimary(
                     .green,
                     use: .profileIcon_greenPrimaryColor,
@@ -462,6 +465,7 @@ public final class ProfilePictureView: UIView {
                 
             case .rightPlus:
                 imageView.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
+                imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .black
                 backgroundView.themeBackgroundColor = .primary
                 imageView.isHidden = false
@@ -472,6 +476,15 @@ public final class ProfilePictureView: UIView {
                 backgroundView.themeBackgroundColor = (dangerMode ? .danger : .textPrimary)
                 label.isHidden = false
                 label.text = "\(character)"
+            
+            case .pencil:
+                imageView.image = Lucide.image(icon: .pencil, size: 14)?.withRenderingMode(.alwaysTemplate)
+                imageView.contentMode = .center
+                imageView.themeTintColor = .black
+                backgroundView.themeBackgroundColor = .primary
+                imageView.isHidden = false
+                label.isHidden = true
+            
         }
     }
     

@@ -673,7 +673,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, let icon, let style, let showPro, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
+            case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, _, let style, let showPro, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
@@ -681,7 +681,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     ImageDataManager.DataSource.data(updatedIdentifier, $0)
                                 },
                                 placeholder: placeholder,
-                                icon: icon,
+                                icon: (updatedData == nil ? .rightPlus : .pencil),
                                 style: style,
                                 showPro: showPro,
                                 accessibility: accessibility,

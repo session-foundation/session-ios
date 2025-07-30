@@ -559,7 +559,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
                     )
                 }),
-            icon: .rightPlus,
+            icon: (currentFileName != nil ? .pencil : .rightPlus),
             style: .circular,
             showPro: true,
             accessibility: Accessibility(
