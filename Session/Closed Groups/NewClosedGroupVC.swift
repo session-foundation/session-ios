@@ -61,9 +61,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     SELECT \(contact.allColumns)
                     FROM \(contact)
                     WHERE (
-                        \(contact[.isApproved]) = TRUE AND
-                        \(contact[.didApproveMe]) = TRUE AND
-                        \(contact[.isBlocked]) = FALSE
+                        \(contact[.id]) IN \(Set(preselectedContactIds)) OR (
+                            \(contact[.isApproved]) = TRUE AND
+                            \(contact[.didApproveMe]) = TRUE AND
+                            \(contact[.isBlocked]) = FALSE
+                        )
                     )
                 """
                 
