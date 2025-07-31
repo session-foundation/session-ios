@@ -107,7 +107,7 @@ enum MockDataGenerator {
                         (((0..<10).randomElement(using: &dmThreadRandomGenerator) ?? 0) < 8) // 80% approved the current user
                     ),
                     hasBeenBlocked: false,
-                    using: dependencies
+                    currentUserSessionId: userSessionId
                 )
                 .upserted(db)
                 try Profile(
@@ -189,7 +189,7 @@ enum MockDataGenerator {
                         isBlocked: false,
                         didApproveMe: true,
                         hasBeenBlocked: false,
-                        using: dependencies
+                        currentUserSessionId: userSessionId
                     )
                     .upserted(db)
                     try Profile(
@@ -296,7 +296,7 @@ enum MockDataGenerator {
                         isBlocked: false,
                         didApproveMe: true,
                         hasBeenBlocked: false,
-                        using: dependencies
+                        currentUserSessionId: userSessionId
                     )
                     .upserted(db)
                     try Profile(

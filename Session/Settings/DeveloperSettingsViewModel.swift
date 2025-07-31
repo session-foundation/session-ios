@@ -1236,6 +1236,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         modal.dismiss(animated: true) {
                             let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { indicator in
                                 let timestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                                 
                                 dependencies[singleton: .storage].writeAsync(
                                     updates: { db in
@@ -1251,7 +1252,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                             _ = try Contact(
                                                 id: sessionId.hexString,
                                                 isApproved: true,
-                                                using: dependencies
+                                                currentUserSessionId: currentUserSessionId
                                             ).upserted(db)
                                             _ = try Profile(
                                                 id: sessionId.hexString,

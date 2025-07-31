@@ -858,6 +858,7 @@ internal extension LibSession {
         var result: [String: ContactData] = [:]
         var contact: contacts_contact = contacts_contact()
         let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         while !contacts_iterator_done(contactIterator, &contact) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .contacts)
@@ -868,7 +869,7 @@ internal extension LibSession {
                 isApproved: contact.approved,
                 isBlocked: contact.blocked,
                 didApproveMe: contact.approved_me,
-                using: dependencies
+                currentUserSessionId: userSessionId
             )
             let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
             let profileResult: Profile = Profile(

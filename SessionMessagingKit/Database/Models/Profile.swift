@@ -191,35 +191,6 @@ public extension Profile {
 // MARK: - GRDB Interactions
 
 public extension Profile {
-    static func allContactProfiles(excluding idsToExclude: Set<String> = []) -> QueryInterfaceRequest<Profile> {
-        return Profile
-            .filter(!idsToExclude.contains(Profile.Columns.id))
-            .joining(
-                required: Profile.contact
-                    .filter(Contact.Columns.isApproved == true)
-                    .filter(Contact.Columns.didApproveMe == true)
-            )
-    }
-    
-    static func fetchAllContactProfiles(
-        excluding: Set<String> = [],
-        excludeCurrentUser: Bool = true,
-        using dependencies: Dependencies
-    ) -> [Profile] {
-        return dependencies[singleton: .storage]
-            .read { db in
-                // Sort the contacts by their displayName value
-                try Profile
-                    .allContactProfiles(
-                        excluding: excluding
-                            .inserting(excludeCurrentUser ? dependencies[cache: .general].sessionId.hexString : nil)
-                    )
-                    .fetchAll(db)
-                    .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
-            }
-            .defaulting(to: [])
-    }
-    
     static func displayName(
         _ db: ObservingDatabase,
         id: ID,
@@ -387,6 +358,12 @@ public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable
     
     public var profileId: String { value.profileId }
     
+    public init(value: T, profile: Profile?, currentUserSessionId: SessionId) {
+        self.value = value
+        self.profile = profile
+        self.currentUserSessionId = currentUserSessionId
+    }
+    
     public func itemDescription(using dependencies: Dependencies) -> String? {
         return value.itemDescription(using: dependencies)
     }
@@ -399,6 +376,8 @@ public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable
         return T.compare(lhs: lhs, rhs: rhs)
     }
 }
+
+extension WithProfile: Differentiable where T: Differentiable {}
 
 public protocol ProfileAssociated: Equatable, Hashable {
     var profileId: String { get }

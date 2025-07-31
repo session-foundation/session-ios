@@ -2930,19 +2930,21 @@ extension ConversationVC {
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
-                let groupMemberProfiles: [WithProfile<GroupMember>] = dependencies[singleton: .storage]
+                let groupMemberProfileIds: [String] = dependencies[singleton: .storage]
                     .read { db in
                         try GroupMember
+                            .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)
-                            .fetchAllWithProfiles(db, using: dependencies)
+                            .asRequest(of: String.self)
+                            .fetchAll(db)
                     }
                     .defaulting(to: [])
+                let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                 let viewController: NewClosedGroupVC = NewClosedGroupVC(
                     hideCloseButton: true,
                     prefilledName: closedGroupName,
-                    preselectedProfiles: groupMemberProfiles
-                        .filter { $0.profileId != $0.currentUserSessionId.hexString }
-                        .map { $0.profile ?? Profile(id: $0.profileId, name: "") },
+                    preselectedContactIds: groupMemberProfileIds
+                        .filter { $0 != currentUserSessionId.hexString },
                     using: dependencies
                 )
                 

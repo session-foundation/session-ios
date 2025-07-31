@@ -989,8 +989,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (NotificationError.processingErrorWithFallback(let result, let errorMetadata), _, _):
                 self.handleFailure(
                     info.with(metadata: errorMetadata),
-                    threadVariant: nil,
-                    threadDisplayName: nil,
+                    threadId: processedNotification?.threadId,
+                    threadVariant: processedNotification?.threadVariant,
+                    threadDisplayName: processedNotification?.threadDisplayName,
                     resolution: .errorProcessing(result)
                 )
                 
@@ -1051,6 +1052,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 /// The thread exists and we should have been able to decrypt so show the fallback message
                 self.handleFailure(
                     info,
+                    threadId: processedNotification?.threadId,
                     threadVariant: processedNotification?.threadVariant,
                     threadDisplayName: processedNotification?.threadDisplayName,
                     resolution: .errorMessageHandling(.decryptionFailed, info.metadata)
@@ -1059,6 +1061,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (let msgError as MessageReceiverError, _, _):
                 self.handleFailure(
                     info,
+                    threadId: processedNotification?.threadId,
                     threadVariant: processedNotification?.threadVariant,
                     threadDisplayName: processedNotification?.threadDisplayName,
                     resolution: .errorMessageHandling(msgError, info.metadata)
@@ -1067,6 +1070,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             default:
                 self.handleFailure(
                     info,
+                    threadId: processedNotification?.threadId,
                     threadVariant: processedNotification?.threadVariant,
                     threadDisplayName: processedNotification?.threadDisplayName,
                     resolution: .errorOther(error)
@@ -1192,6 +1196,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     private func handleFailure(
         _ info: NotificationInfo,
+        threadId: String?,
         threadVariant: SessionThread.Variant?,
         threadDisplayName: String?,
         resolution: NotificationResolution
@@ -1210,21 +1215,32 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.reset()
         
         /// Attach the metadata to the notification (if we got far enough to get it - use the explicit `threadVariant` provided, otherwise
-        /// try to infer it based on the `accountId` the notification was received from)
+        /// try to infer it based on the `accountId` or `threadId` from processing the notification)
+        ///
+        /// **Note:** All `1-to-1` notifications will have the current users session id for the `accountId` value so only attach
+        /// the `accountId` as the `threadId` for group notifications (for which it'll _actually_ be the group id)
         info.content.title = Constants.app_name
-        info.content.userInfo = (info.metadata != PushNotificationAPI.NotificationMetadata.invalid ?
-             dependencies[singleton: .notificationsManager].notificationUserInfo(
-                threadId: info.metadata.accountId,
-                threadVariant: (
-                    threadVariant ??
-                    ((try? SessionId.Prefix(from: info.metadata.accountId)) == .group ?
-                        .group :
-                        .contact
-                    )
-                )
-             ) :
-             [ NotificationUserInfoKey.isFromRemote: true ]
-        )
+        info.content.userInfo = {
+            switch (info.metadata, threadId, try? SessionId.Prefix(from: info.metadata.accountId)) {
+                case (_, .some(let threadId), _):
+                    return dependencies[singleton: .notificationsManager].notificationUserInfo(
+                        threadId: threadId,
+                        threadVariant: (
+                            threadVariant ??
+                            ((try? SessionId.Prefix(from: threadId)) == .group ? .group : .contact)
+                        )
+                     )
+                
+                case (.invalid, _, .group):
+                    return dependencies[singleton: .notificationsManager].notificationUserInfo(
+                        threadId: info.metadata.accountId,
+                        threadVariant: .group
+                     )
+                
+                case (.invalid, _, _), (_, .none, _):
+                    return [ NotificationUserInfoKey.isFromRemote: true ]
+            }
+        }()
         
         /// If it's a notification for a group conversation, the notification preferences are right and we have a name for the group
         /// then we should include it in the notification content
