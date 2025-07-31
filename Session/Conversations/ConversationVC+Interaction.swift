@@ -1503,6 +1503,43 @@ extension ConversationVC:
         reply(cellViewModel, completion: nil)
     }
     
+    func showUserProfileModal(for cellViewModel: MessageViewModel) {
+        let dependencies: Dependencies = viewModel.dependencies
+        
+        let (info, _) = ProfilePictureView.getProfilePictureInfo(
+            size: .hero,
+            publicKey: cellViewModel.authorId,
+            threadVariant: cellViewModel.threadVariant,
+            displayPictureFilename: nil,
+            profile: cellViewModel.profile,
+            using: dependencies
+        )
+        
+        guard let profileInfo: ProfilePictureView.Info = info else { return }
+        
+        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+            modal: UserProfileModel(
+                info: .init(
+                    sessionId: cellViewModel.authorId,
+                    blindedId: cellViewModel.authorId,
+                    profileInfo: profileInfo,
+                    displayName: cellViewModel.authorName,
+                    nickname: cellViewModel.profile?.displayName(
+                        for: cellViewModel.threadVariant,
+                        ignoringNickname: true
+                    ),
+                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
+                    openGroupServer: cellViewModel.threadOpenGroupServer,
+                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey,
+                    onStartThread: self.startThread
+                ),
+                dataManager: dependencies[singleton: .imageDataManager],
+                sessionProState: dependencies[singleton: .sessionProState]
+            )
+        )
+        present(userProfileModal, animated: true, completion: nil)
+    }
+    
     func startThread(
         with sessionId: String,
         openGroupServer: String?,

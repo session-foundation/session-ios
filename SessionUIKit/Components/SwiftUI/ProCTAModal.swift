@@ -198,15 +198,13 @@ public struct ProCTAModal: View {
                             SessionProBadge_SwiftUI(size: .large)
                             
                             Text("proActivated".localized())
-                                .font(.system(size: Values.largeFontSize))
-                                .bold()
+                                .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
                         }
                     } else {
                         HStack(spacing: Values.smallSpacing) {
                             Text("upgradeTo".localized())
-                                .font(.system(size: Values.largeFontSize))
-                                .bold()
+                                .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
                             
                             SessionProBadge_SwiftUI(size: .large)
@@ -218,7 +216,7 @@ public struct ProCTAModal: View {
                         if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated {
                             HStack(spacing: Values.verySmallSpacing) {
                                 Text("proAlreadyPurchased".localized())
-                                    .font(.system(size: Values.smallFontSize))
+                                    .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                 
                                 SessionProBadge_SwiftUI(size: .small)
@@ -226,7 +224,7 @@ public struct ProCTAModal: View {
                         }
                         
                         Text(variant.subtitle)
-                            .font(.system(size: Values.smallFontSize))
+                            .font(.Body.largeRegular)
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -252,7 +250,7 @@ public struct ProCTAModal: View {
                                     }
                                     
                                     Text(variant.benefits[index])
-                                        .font(.system(size: Values.smallFontSize))
+                                        .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                             }
@@ -273,7 +271,7 @@ public struct ProCTAModal: View {
                                     close()
                                 } label: {
                                     Text("close".localized())
-                                        .font(.system(size: Values.mediumFontSize))
+                                        .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                                 .frame(
@@ -304,7 +302,7 @@ public struct ProCTAModal: View {
                                 }
                             } label: {
                                 Text("theContinue".localized())
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                     .framing(
                                         maxWidth: .infinity,
@@ -322,7 +320,7 @@ public struct ProCTAModal: View {
                                 close()
                             } label: {
                                 Text("cancel".localized())
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                                     .framing(
                                         maxWidth: .infinity,
