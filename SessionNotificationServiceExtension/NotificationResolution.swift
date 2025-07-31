@@ -89,5 +89,9 @@ enum NotificationResolution: CustomStringConvertible {
 }
 
 internal extension PushNotificationAPI.NotificationMetadata {
-    var messageOriginString: String { "namespace \(namespace) for accountId \(accountId)" }
+    var messageOriginString: String {
+        guard self != .invalid else { return "decryption failure" }
+        
+        return "namespace \(namespace) for accountId \(accountId)"
+    }
 }

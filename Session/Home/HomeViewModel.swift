@@ -115,6 +115,10 @@ public class HomeViewModel: NavigatableStateHolder {
                     ),
                     .typingIndicator(threadViewModel.threadId)
                 ])
+                
+                if let authorId: String = threadViewModel.authorId {
+                    result.insert(.profile(authorId))
+                }
             }
             
             return result
@@ -326,11 +330,15 @@ public class HomeViewModel: NavigatableStateHolder {
                 result[event.key.generic, default: []].insert(event)
             }
         groupedOtherEvents?[.profile]?.forEach { event in
-            switch (event.value as? ProfileEvent)?.change {
+            guard
+                let eventValue: ProfileEvent = event.value as? ProfileEvent,
+                eventValue.id == userProfile.id
+            else { return }
+            
+            switch eventValue.change {
                 case .name(let name): userProfile = userProfile.with(name: name)
                 case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
                 case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
-                default: break
             }
         }
         groupedOtherEvents?[.setting]?.forEach { event in

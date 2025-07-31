@@ -234,7 +234,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     
     public var allProfileIds: Set<String> {
         Set([
-            profile?.id, contactProfile?.id, closedGroupProfileFront?.id,
+            authorId, contactProfile?.id, closedGroupProfileFront?.id,
             closedGroupProfileBackFallback?.id, closedGroupAdminProfile?.id
         ].compactMap { $0 })
     }

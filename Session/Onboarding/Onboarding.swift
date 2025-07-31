@@ -326,7 +326,7 @@ extension Onboarding {
         }
         
         func completeRegistration(onComplete: @escaping (() -> Void)) {
-            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
+            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, originalState = state, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
                 /// Cache the users session id (so we don't need to fetch it from the database every time)
                 dependencies.mutate(cache: .general) {
                     $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
@@ -453,6 +453,14 @@ extension Onboarding {
                         
                         /// Store whether the user wants to use APNS
                         dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS
+                        
+                        /// Log the resolution
+                        switch (initialFlow, originalState) {
+                            case (.none, _), (.devSettings, _): break
+                            case (.register, _): Log.info(.onboarding, "Registration completed")
+                            case (.restore, .missingName): Log.info(.onboarding, "Missing name replaced")
+                            case (.restore, _): Log.info(.onboarding, "Restore account completed")
+                        }
                         
                         /// Send an event indicating that registration is complete
                         self?.completionSubject.send(true)

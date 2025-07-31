@@ -286,6 +286,8 @@ final class NukeDataModal: Modal {
     }
     
     public static func deleteAllLocalData(using dependencies: Dependencies) {
+        Log.info("Starting local data deletion.")
+        
         /// Unregister push notifications if needed
         let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
@@ -309,12 +311,6 @@ final class NukeDataModal: Modal {
         // Clear the app badge and notifications
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
-        
-        // Clear out the user defaults
-        UserDefaults.removeAll(using: dependencies)
-        
-        // Remove the general cache
-        dependencies.remove(cache: .general)
         
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()

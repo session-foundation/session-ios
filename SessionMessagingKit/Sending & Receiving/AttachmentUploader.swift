@@ -114,7 +114,6 @@ public final class AttachmentUploader {
             // Note: The most common cases for this will be for LinkPreviews or Quotes
             if
                 attachment.state == .downloaded,
-                attachment.serverId != nil,
                 let fileId: String = Attachment.fileId(for: attachment.downloadUrl),
                 (
                     !destination.shouldEncrypt || (

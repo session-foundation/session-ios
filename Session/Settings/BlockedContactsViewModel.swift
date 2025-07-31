@@ -405,7 +405,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     @MainActor func loadPageAfter() {
         dependencies.notifyAsync(
             key: .loadPage(BlockedContactsViewModel.self),
-            value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.lastIndex)
+            value: LoadPageEvent.nextPage(lastIndex: internalState.loadedPageInfo.lastIndex)
         )
     }
     

@@ -54,6 +54,7 @@ final class ShareNavController: UINavigationController {
                         customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
                         using: dependencies
                     ))
+                    LibSession.clearLoggers()
                     LibSession.setupLogger(using: dependencies)
                 }
                 // stringlint:ignore_stop

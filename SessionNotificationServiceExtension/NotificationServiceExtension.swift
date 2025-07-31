@@ -89,6 +89,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
             using: dependencies
         ))
+        LibSession.clearLoggers()
         LibSession.setupLogger(using: dependencies)
         // stringlint:ignore_stop
         

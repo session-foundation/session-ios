@@ -442,7 +442,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     @MainActor func loadPageAfter() {
         dependencies.notifyAsync(
             key: .loadPage(MessageRequestsViewModel.self),
-            value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.lastIndex)
+            value: LoadPageEvent.nextPage(lastIndex: internalState.loadedPageInfo.lastIndex)
         )
     }
 }

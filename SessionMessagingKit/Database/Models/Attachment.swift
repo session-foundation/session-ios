@@ -484,9 +484,7 @@ extension Attachment {
     }
     
     public func buildProto() -> SNProtoAttachmentPointer? {
-        guard let serverId: UInt64 = UInt64(self.serverId ?? "") else { return nil }
-        
-        let builder = SNProtoAttachmentPointer.builder(id: serverId)
+        let builder = SNProtoAttachmentPointer.builder(id: 0)   /// `id` is deprecated, rely on `url` instead
         builder.setContentType(contentType)
         
         if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {

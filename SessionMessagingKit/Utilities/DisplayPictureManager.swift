@@ -45,7 +45,7 @@ public class DisplayPictureManager {
             return from(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback, using: dependencies)
         }
         
-        static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
+        public static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
             return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback, using: dependencies)
         }
         

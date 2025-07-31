@@ -272,25 +272,31 @@ public enum PushNotificationAPI {
         }
         
         // Decrypt and decode the payload
-        guard
-            let encryptedData: Data = Data(base64Encoded: base64EncodedEncString),
-            let notificationsEncryptionKey: Data = try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+        let notification: BencodeResponse<NotificationMetadata>
+        
+        do {
+            guard let encryptedData: Data = Data(base64Encoded: base64EncodedEncString) else {
+                throw CryptoError.invalidBase64EncodedData
+            }
+            
+            let notificationsEncryptionKey: Data = try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
                 forKey: .pushNotificationEncryptionKey,
                 length: encryptionKeyLength,
                 cat: .cat,
                 legacyKey: "PNEncryptionKeyKey",
                 legacyService: "PNKeyChainService"
-            ),
-            let decryptedData: Data = dependencies[singleton: .crypto].generate(
+            )
+            let decryptedData: Data = try dependencies[singleton: .crypto].tryGenerate(
                 .plaintextWithPushNotificationPayload(
                     payload: encryptedData,
                     encKey: notificationsEncryptionKey
                 )
-            ),
-            let notification: BencodeResponse<NotificationMetadata> = try? BencodeDecoder(using: dependencies)
+            )
+            notification = try BencodeDecoder(using: dependencies)
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
-        else {
-            Log.error(.cat, "Failed to decrypt or decode notification")
+        }
+        catch {
+            Log.error(.cat, "Failed to decrypt or decode notification due to error: \(error)")
             return (nil, .invalid, .failure)
         }
         

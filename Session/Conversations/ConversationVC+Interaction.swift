@@ -688,6 +688,27 @@ extension ConversationVC:
                     for: insertedInteraction.id
                 )
                 
+                // If we are sending a blinded message then we need to update the blinded profile
+                // information to ensure the name is up to date (as it won't be updated otherwise
+                // because the message would get deduped when fetched from the poller)
+                // FIXME: Remove this once we don't generate unique Profile entries for the current users blinded ids
+                if (try? SessionId.Prefix(from: optimisticData.interaction.authorId)) != .standard {
+                    let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                    
+                    try? Profile.updateIfNeeded(
+                        db,
+                        publicKey: optimisticData.interaction.authorId,
+                        displayNameUpdate: .contactUpdate(currentUserProfile.name),
+                        displayPictureUpdate: DisplayPictureManager.Update.from(
+                            currentUserProfile,
+                            fallback: .none,
+                            using: dependencies
+                        ),
+                        sentTimestamp: (Double(optimisticData.interaction.timestampMs) / 1000),
+                        using: dependencies
+                    )
+                }
+                
                 try MessageSender.send(
                     db,
                     interaction: insertedInteraction,

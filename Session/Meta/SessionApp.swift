@@ -130,10 +130,13 @@ public class SessionApp: SessionAppType {
     
     public func resetData(onReset: (() -> ())) {
         homeViewController = nil
+        dependencies.remove(cache: .general)
+        dependencies.remove(cache: .snodeAPI)
         dependencies.remove(cache: .libSession)
         dependencies.mutate(cache: .libSessionNetwork) {
-            $0.clearSnodeCache()
             $0.suspendNetworkAccess()
+            $0.clearSnodeCache()
+            $0.clearCallbacks()
         }
         dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .extensionHelper].deleteCache()
@@ -141,6 +144,7 @@ public class SessionApp: SessionAppType {
         dependencies[singleton: .attachmentManager].resetStorage()
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         try? dependencies[singleton: .keychain].removeAll()
+        UserDefaults.removeAll(using: dependencies)
         
         onReset()
         LibSession.clearLoggers()

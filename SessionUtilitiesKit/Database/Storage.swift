@@ -778,7 +778,7 @@ open class Storage {
                 /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
                 info.schedule()
                 
-                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but it appears to asynchronously
+                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but they appear to asynchronously
                 /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
                 /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
                 /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
@@ -788,10 +788,11 @@ open class Storage {
                 /// does) and hooking that into our `performOperation` function which uses the GRDB async/await functions that
                 /// support cancellation (as we want to support cancellation as well)
                 return Deferred { [dependencies] in
-                    let subject: PassthroughSubject<T, Error> = PassthroughSubject()
+                    let subject = PassthroughSubject<T, Error>()
+                    let bridge: PublisherBridge<T> = PublisherBridge(subject: subject)
                     
                     /// Kick off and store the task in case we want to cancel it later
-                    info.task = Task { [weak subject] in
+                    info.task = Task {
                         info.storage?.addCall(info)
                         defer { info.storage?.removeCall(info) }
                         
@@ -799,36 +800,25 @@ open class Storage {
                         let storageState: StorageState = StorageState(info.storage)
                 
                         guard case .valid(let dbWriter) = storageState else {
-                            info.errored(storageState.forcedError)
-                            subject?.send(completion: .failure(storageState.forcedError))
+                            await bridge.send(result: .failure(storageState.forcedError), info: info)
                             return
                         }
                         
                         let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
-            
-                        /// Log and emit the result
-                        switch result {
-                            case .success(let value):
-                                info.complete()
-                                subject?.send(value)
-                                subject?.send(completion: .finished)
-                                
-                            case .failure(let error):
-                                /// If the query was cancelled then we shouldn't try to propagate the result (as it may result in
-                                /// interacting with deallocated objects)
-                                guard !info.cancelledViaCombine else { return }
-                                
-                                info.errored(error)
-                                subject?.send(completion: .failure(error))
+                        
+                        if Task.isCancelled {
+                            return
                         }
+                        
+                        await bridge.send(result: result, info: info)
                     }
                     
-                    return subject
+                    return subject.handleEvents(receiveCancel: { [weak self, weak info] in
+                        info?.cancel()
+                        self?.removeCall(info)
+                        Task { await bridge.cancel() }
+                    })
                 }
-                .handleEvents(receiveCancel: { [weak self, weak info] in
-                    info?.cancel(cancelledViaCombine: true)
-                    self?.removeCall(info)
-                })
                 .eraseToAnyPublisher()
         }
     }
@@ -1125,7 +1115,6 @@ private extension Storage {
         let line: Int
         let behaviour: Behaviour
         var task: Task<(), Never>?
-        @ThreadSafe private(set) var cancelledViaCombine: Bool = false
         
         private var timer: DispatchSourceTimer?
         private var startTime: CFTimeInterval?
@@ -1254,9 +1243,7 @@ private extension Storage {
             return Fail<T, Error>(error: error).eraseToAnyPublisher()
         }
         
-        func cancel(cancelledViaCombine: Bool = false) {
-            /// Cancelling the task with result in a log being added
-            self.cancelledViaCombine = cancelledViaCombine
+        func cancel() {
             task?.cancel()
             timer?.cancel()
             timer = nil
@@ -1367,6 +1354,42 @@ private extension Storage {
 
 public protocol IdentifiableTransactionObserver: TransactionObserver {
     var id: String { get }
+}
+
+// MARK: - PublisherBridge
+
+private extension Storage {
+    actor PublisherBridge<T> {
+        private weak var subject: PassthroughSubject<T, Error>?
+        private var isFinished: Bool = false
+        
+        init(subject: PassthroughSubject<T, Error>) {
+            self.subject = subject
+        }
+
+        func send(result: Result<T, Error>, info: CallInfo) {
+            guard !isFinished, let subject = self.subject else { return }
+            
+            isFinished = true
+            
+            switch result {
+                case .success(let value):
+                    info.complete()
+                    subject.send(value)
+                    subject.send(completion: .finished)
+                    
+                case .failure(let error):
+                    info.errored(error)
+                    subject.send(completion: .failure(error))
+            }
+        }
+
+        func cancel() {
+            guard !isFinished else { return }
+            
+            isFinished = true
+        }
+    }
 }
 
 // MARK: - Debug Convenience
