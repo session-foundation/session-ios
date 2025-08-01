@@ -72,7 +72,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             initialSetup: { network in
                 network
                     .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
+                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", expires: nil)))
                 network
                     .when { $0.getSwarm(for: .any) }
                     .thenReturn([
