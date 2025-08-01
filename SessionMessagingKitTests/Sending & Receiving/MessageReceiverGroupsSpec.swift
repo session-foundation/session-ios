@@ -556,7 +556,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             try Contact(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 isApproved: false,
-                                using: dependencies
+                                currentUserSessionId: SessionId(.standard, hex: TestConstants.publicKey)
                             ).insert(db)
                         }
                     }
@@ -677,7 +677,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             try Contact(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 isApproved: true,
-                                using: dependencies
+                                currentUserSessionId: SessionId(.standard, hex: TestConstants.publicKey)
                             ).insert(db)
                         }
                     }
@@ -1044,7 +1044,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             lastKnownClientVersion: nil,
                             didApproveMe: true,
                             hasBeenBlocked: false,
-                            using: dependencies
+                            currentUserSessionId: SessionId(.standard, hex: TestConstants.publicKey)
                         ).insert(db)
                         try SessionThread.upsert(
                             db,

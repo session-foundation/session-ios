@@ -568,7 +568,7 @@ class OnboardingSpec: AsyncSpec {
                         lastKnownClientVersion: nil,
                         didApproveMe: true,
                         hasBeenBlocked: false,
-                        using: dependencies
+                        currentUserSessionId: SessionId(.standard, hex: TestConstants.publicKey)
                     )
                 ]))
             }
