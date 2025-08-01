@@ -1509,7 +1509,7 @@ extension ConversationVC:
         let (info, _) = ProfilePictureView.getProfilePictureInfo(
             size: .hero,
             publicKey: cellViewModel.authorId,
-            threadVariant: cellViewModel.threadVariant,
+            threadVariant: .contact,    // Always show the display picture in 'contact' mode
             displayPictureFilename: nil,
             profile: cellViewModel.profile,
             using: dependencies

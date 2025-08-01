@@ -13,11 +13,12 @@ public struct Seperator_SwiftUI: View {
             Text(title)
                 .font(.Body.smallRegular)
                 .foregroundColor(themeColor: .textSecondary)
-                .padding(.horizontal, 10)
+                .fixedSize()
+                .padding(.horizontal, 30)
                 .padding(.vertical, 6)
-                .overlay(
+                .background(
                     Capsule()
-                        .stroke(themeColor: .textSecondary)
+                        .stroke(themeColor: .textSecondary, lineWidth: Values.separatorThickness)
                 )
             
             Line(color: .textSecondary, lineWidth: Values.separatorThickness)

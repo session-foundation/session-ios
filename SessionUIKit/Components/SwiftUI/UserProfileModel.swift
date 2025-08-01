@@ -55,14 +55,13 @@ public struct UserProfileModel: View {
                 Button {
                     close()
                 } label: {
-                    AttributedText(Lucide.Icon.x.attributedString(size: 12))
-                        .font(.system(size: 12))
+                    AttributedText(Lucide.Icon.x.attributedString(size: 20))
+                        .font(.system(size: 20))
                         .foregroundColor(themeColor: .textPrimary)
                 }
                 .frame(width: 24, height: 24)
-                .padding(8)
                 
-                VStack(spacing: 0) {
+                VStack(spacing: Values.mediumSpacing) {
                     // Profile Image & QR Code
                     if isProfileImageToggled {
                         ZStack(alignment: .topTrailing) {
@@ -78,7 +77,7 @@ public struct UserProfileModel: View {
                                 alignment: .center
                             )
                             
-                            if let sessionId = info.sessionId {
+                            if info.sessionId != nil {
                                 Button {
                                     withAnimation {
                                         self.isProfileImageToggled.toggle()
