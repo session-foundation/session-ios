@@ -561,7 +561,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 }),
             icon: (currentFileName != nil ? .pencil : .rightPlus),
             style: .circular,
-            showPro: true,
+            showPro: dependencies[feature: .sessionProEnabled],
             accessibility: Accessibility(
                 identifier: "Upload",
                 label: "Upload"
