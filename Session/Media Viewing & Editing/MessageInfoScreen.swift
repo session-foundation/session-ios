@@ -174,7 +174,7 @@ struct MessageInfoScreen: View {
                     }
                         
                     // Attachment Info
-                    if let attachments = messageViewModel.attachments {
+                    if let attachments = messageViewModel.attachments, !attachments.isEmpty {
                         let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                         
                         ZStack {
