@@ -6,7 +6,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
     let host: HostWrapper
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
-    let content: (@escaping () -> Void) -> Content
+    let content: (@escaping ((() -> Void)?) -> Void) -> Content
 
     let cornerRadius: CGFloat = 11
     let shadowRadius: CGFloat = 10
@@ -20,7 +20,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 Spacer()
                 
                 VStack(spacing: 0) {
-                    content{ close() }
+                    content { completion in close(completion: completion) }
                 }
                 .backgroundColor(themeColor: .alert_background)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -57,7 +57,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
     // MARK: - Dismiss Logic
 
-    private func close() {
+    private func close(completion: (() -> Void)? = nil) {
         // Recursively dismiss all modals (ie. find the first modal presented by a non-modal
         // and get that to dismiss it's presented view controller)
         var targetViewController: UIViewController? = host.controller
@@ -70,7 +70,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 }
         }
         
-        targetViewController?.presentingViewController?.dismiss(animated: true)
+        targetViewController?.presentingViewController?.dismiss(animated: true, completion: completion)
     }
 }
 

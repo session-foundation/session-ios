@@ -268,7 +268,7 @@ public struct ProCTAModal: View {
                         GeometryReader { geometry in
                             HStack {
                                 Button {
-                                    close()
+                                    close(nil)
                                 } label: {
                                     Text("close".localized())
                                         .font(.Body.baseRegular)
@@ -298,7 +298,7 @@ public struct ProCTAModal: View {
                                     if result {
                                         afterUpgrade?()
                                     }
-                                    close()
+                                    close(nil)
                                 }
                             } label: {
                                 Text("theContinue".localized())
@@ -317,7 +317,7 @@ public struct ProCTAModal: View {
 
                             // Cancel Button
                             Button {
-                                close()
+                                close(nil)
                             } label: {
                                 Text("cancel".localized())
                                     .font(.Body.baseRegular)

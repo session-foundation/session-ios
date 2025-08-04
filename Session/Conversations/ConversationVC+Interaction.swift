@@ -1531,6 +1531,7 @@ extension ConversationVC:
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
                     openGroupServer: cellViewModel.threadOpenGroupServer,
                     openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey,
+                    isMessageRequestsEnabled: false,
                     onStartThread: self.startThread
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
