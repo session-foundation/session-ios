@@ -124,7 +124,7 @@ public class SessionImageView: UIImageView {
             case .none: pauseAnimationLoop() /// Pause when not visible
             case .some:
                 /// Resume only if it has animation data and was meant to be animating
-                if let frames = animationFrames, frames.count > 1 {
+                if let frames = animationFrames, !frames.isEmpty, frames[0] != nil {
                     resumeAnimationLoop()
                 }
         }
@@ -146,7 +146,7 @@ public class SessionImageView: UIImageView {
         /// If we are trying to load the image that is already displayed then no need to do anything
         if currentLoadIdentifier == source.identifier && (self.image == nil || isAnimating()) {
             /// If it was an animation that got paused then resume it
-            if let frames: [UIImage?] = animationFrames, !frames.isEmpty, !isAnimating() {
+            if let frames: [UIImage?] = animationFrames, !frames.isEmpty, frames[0] != nil, !isAnimating() {
                 startAnimationLoop()
             }
             return
@@ -207,7 +207,7 @@ public class SessionImageView: UIImageView {
         }
         
         /// Just to be safe set the initial frame
-        if self.image == nil, frames.indices.contains(0) {
+        if self.image == nil, !frames.isEmpty, frames[0] != nil {
             self.image = frames[0]
         }
         
