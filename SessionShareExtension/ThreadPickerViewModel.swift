@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
@@ -11,9 +12,29 @@ public class ThreadPickerViewModel {
     // MARK: - Initialization
     
     public let dependencies: Dependencies
+    public let userMetadata: ExtensionHelper.UserMetadata?
+    public let hasNonTextAttachment: Bool
     
-    init(using dependencies: Dependencies) {
+    init(
+        userMetadata: ExtensionHelper.UserMetadata?,
+        itemProviders: [NSItemProvider]?,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
+        self.userMetadata = userMetadata
+        
+        if #available(iOS 16.0, *) {
+            self.hasNonTextAttachment = (itemProviders ?? []).contains { provider in
+                provider.registeredContentTypes.contains { !$0.isText && $0 != .url }
+            }
+        }
+        else {
+            self.hasNonTextAttachment = (itemProviders ?? []).contains { provider in
+                let types: [UTType] = provider.registeredTypeIdentifiers.compactMap { UTType($0) }
+                
+                return (!types.isEmpty && types.contains { !$0.isText && $0 != .url })
+            }
+        }
     }
     
     // MARK: - Content
@@ -41,32 +62,35 @@ public class ThreadPickerViewModel {
                 .map { threadViewModel in
                     let wasKickedFromGroup: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
-                            using: dependencies
-                        )
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
+                        }
                     )
                     let groupIsDestroyed: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        LibSession.groupIsDestroyed(
-                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
-                            using: dependencies
-                        )
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
+                        }
                     )
                     
                     return threadViewModel.populatingPostQueryData(
-                        db,
-                        currentUserBlinded15SessionIdForThisThread: nil,
-                        currentUserBlinded25SessionIdForThisThread: nil,
+                        recentReactionEmoji: nil,
+                        openGroupCapabilities: nil,
+                        currentUserSessionIds: [userSessionId.hexString],
                         wasKickedFromGroup: wasKickedFromGroup,
                         groupIsDestroyed: groupIsDestroyed,
                         threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies),
-                        using: dependencies
+                        threadCanUpload: threadViewModel.determineInitialCanUploadFlag(using: dependencies)
                     )
                 }
         }
-        .map { [dependencies] threads -> [SessionThreadViewModel] in
-            threads.filter { $0.threadCanWrite == true }   // Exclude unwritable threads
+        .map { [dependencies, hasNonTextAttachment] threads -> [SessionThreadViewModel] in
+            threads.filter {
+                $0.threadCanWrite == true && (      /// Exclude unwritable threads
+                    $0.threadCanUpload == true ||   /// Exclude ununploadable threads unleass we only include text-based attachments
+                    !hasNonTextAttachment
+                )
+            }
         }
         .removeDuplicates()
         .handleEvents(didFail: { Log.error("Observation failed with error: \($0)") })

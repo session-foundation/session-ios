@@ -23,8 +23,16 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     // MARK: - Intialization
     
-    init(using dependencies: Dependencies) {
-        viewModel = ThreadPickerViewModel(using: dependencies)
+    init(
+        userMetadata: ExtensionHelper.UserMetadata?,
+        itemProviders: [NSItemProvider]?,
+        using dependencies: Dependencies
+    ) {
+        viewModel = ThreadPickerViewModel(
+            userMetadata: userMetadata,
+            itemProviders: itemProviders,
+            using: dependencies
+        )
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -67,21 +75,22 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         result.textAlignment = .center
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
-        result.isHidden = true
+        result.isHidden = (viewModel.userMetadata != nil)
         
         return result
     }()
 
     private lazy var tableView: UITableView = {
-        let tableView: UITableView = UITableView()
-        tableView.themeBackgroundColor = .backgroundPrimary
-        tableView.separatorStyle = .none
-        tableView.register(view: SimplifiedConversationCell.self)
-        tableView.showsVerticalScrollIndicator = false
-        tableView.dataSource = self
-        tableView.delegate = self
+        let result: UITableView = UITableView()
+        result.themeBackgroundColor = .backgroundPrimary
+        result.separatorStyle = .none
+        result.register(view: SimplifiedConversationCell.self)
+        result.showsVerticalScrollIndicator = false
+        result.dataSource = self
+        result.delegate = self
+        result.isHidden = (viewModel.userMetadata == nil)
         
-        return tableView
+        return result
     }()
     
     // MARK: - Lifecycle
@@ -139,10 +148,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private func startObservingChanges() {
         guard dataChangeObservable == nil else { return }
         
-        noAccountErrorLabel.isHidden = viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
-        tableView.isHidden = !viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
+        tableView.isHidden = !noAccountErrorLabel.isHidden
         
-        guard viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions] else { return }
+        guard viewModel.userMetadata != nil else { return }
         
         // Start observing for data changes
         dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
@@ -211,6 +219,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
                             attachments: attachments,
                             approvalDelegate: strongSelf,
+                            disableLinkPreviewImageDownload: (
+                                strongSelf.viewModel.viewData[indexPath.row].threadCanUpload != true
+                            ),
                             using: dependencies
                         )
                     else { return }
@@ -260,6 +271,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
             /// before we create the interaction
+            var sharedInteractionId: Int64?
             dependencies[singleton: .network]
                 .getSwarm(for: swarmPublicKey)
                 .tryFlatMapWithRandomSnode(using: dependencies) { snode in
@@ -268,22 +280,20 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .send(using: dependencies)
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Interaction, [Network.PreparedRequest<String>]) in
+                .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Message, Message.Destination, Int64?, AuthenticationMethod, [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageSenderError.noThread
                     }
                     
                     // Update the thread to be visible (if it isn't already)
                     if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
-                        _ = try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                                SessionThread.Columns.isDraft.set(to: false),
-                                using: dependencies
-                            )
+                        try SessionThread.updateVisibility(
+                            db,
+                            threadId: threadId,
+                            isVisible: true,
+                            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+                            using: dependencies
+                        )
                     }
                     
                     // Create the interaction
@@ -307,6 +317,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil),
                         using: dependencies
                     ).inserted(db)
+                    sharedInteractionId = interaction.id
                     
                     guard let interactionId: Int64 = interaction.id else {
                         throw StorageError.failedToSave
@@ -335,32 +346,47 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     }
                     
                     // Process any attachments
-                    try Attachment.process(
+                    try AttachmentUploader.process(
                         db,
-                        attachments: Attachment.prepare(attachments: finalAttachments, using: dependencies),
+                        attachments: AttachmentUploader.prepare(
+                            attachments: finalAttachments,
+                            using: dependencies
+                        ),
                         for: interactionId
                     )
                     
                     // Using the same logic as the `MessageSendJob` retrieve 
+                    let authMethod: AuthenticationMethod = try Authentication.with(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        using: dependencies
+                    )
                     let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
                         .fetchAttachmentState(db, interactionId: interactionId)
-                    let preparedUploads: [Network.PreparedRequest<String>] = try Attachment
+                    let preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>] = try Attachment
                         .filter(ids: attachmentState.allAttachmentIds)
                         .fetchAll(db)
                         .map { attachment in
-                            try attachment.preparedUpload(
-                                db,
-                                threadId: threadId,
+                            try AttachmentUploader.preparedUpload(
+                                attachment: attachment,
                                 logCategory: nil,
+                                authMethod: authMethod,
                                 using: dependencies
                             )
                         }
+                    let visibleMessage: VisibleMessage = VisibleMessage.from(db, interaction: interaction)
+                    let destination: Message.Destination = try Message.Destination.from(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
                     
-                    return (interaction, preparedUploads)
+                    return (visibleMessage, destination, interaction.id, authMethod, preparedUploads)
                 }
-                .flatMap { (interaction: Interaction, preparedUploads: [Network.PreparedRequest<String>]) -> AnyPublisher<(interaction: Interaction, fileIds: [String]), Error> in
+                .flatMap { (message: Message, destination: Message.Destination, interactionId: Int64?, authMethod: AuthenticationMethod, preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) -> AnyPublisher<(Message, Message.Destination, Int64?, AuthenticationMethod, [(Attachment, String)]), Error> in
                     guard !preparedUploads.isEmpty else {
-                        return Just((interaction, []))
+                        return Just((message, destination, interactionId, authMethod, []))
                             .setFailureType(to: Error.self)
                             .eraseToAnyPublisher()
                     }
@@ -368,30 +394,39 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     return Publishers
                         .MergeMany(preparedUploads.map { $0.send(using: dependencies) })
                         .collect()
-                        .map { results in (interaction, results.map { _, id in id }) }
+                        .map { results in (message, destination, interactionId, authMethod, results.map { _, value in value }) }
                         .eraseToAnyPublisher()
                 }
-                .flatMapStorageWritePublisher(using: dependencies) { db, info -> Network.PreparedRequest<Void> in
-                    // Prepare the message send data
-                    guard
-                        let threadVariant: SessionThread.Variant = try SessionThread
-                            .filter(id: info.interaction.threadId)
-                            .select(.variant)
-                            .asRequest(of: SessionThread.Variant.self)
-                            .fetchOne(db)
-                    else { throw MessageSenderError.noThread }
-                    
-                    return try MessageSender
+                .tryFlatMap { message, destination, interactionId, authMethod, attachments -> AnyPublisher<(Message, [Attachment]), Error> in
+                    try MessageSender
                         .preparedSend(
-                            db,
-                            interaction: info.interaction,
-                            fileIds: info.fileIds,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
+                            message: message,
+                            to: destination,
+                            namespace: destination.defaultNamespace,
+                            interactionId: interactionId,
+                            attachments: attachments,
+                            authMethod: authMethod,
+                            onEvent: MessageSender.standardEventHandling(using: dependencies),
                             using: dependencies
                         )
+                        .send(using: dependencies)
+                        .map { _, message in
+                            (message, attachments.map { attachment, _ in attachment })
+                        }
+                        .eraseToAnyPublisher()
                 }
-                .flatMap { $0.send(using: dependencies) }
+                .handleEvents(
+                    receiveOutput: { _, attachments in
+                        guard !attachments.isEmpty else { return }
+                        
+                        /// Need to actually save the uploaded attachments now that we are done
+                        dependencies[singleton: .storage].write { db in
+                            attachments.forEach { attachment in
+                                try? attachment.upsert(db)
+                            }
+                        }
+                    }
+                )
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
@@ -401,7 +436,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         activityIndicator.dismiss { }
                         
                         switch result {
-                            case .finished: self?.shareNavController?.shareViewWasCompleted()
+                            case .finished: self?.shareNavController?.shareViewWasCompleted(
+                                threadId: threadId,
+                                interactionId: sharedInteractionId
+                            )
                             case .failure(let error): self?.shareNavController?.shareViewFailed(error: error)
                         }
                     }

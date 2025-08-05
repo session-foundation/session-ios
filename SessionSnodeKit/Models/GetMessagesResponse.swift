@@ -11,21 +11,48 @@ public class GetMessagesResponse: SnodeResponse {
     public class RawMessage: Codable {
         private enum CodingKeys: String, CodingKey {
             case base64EncodedDataString = "data"
-            case expiration
+            case expirationMs = "expiration"
             case hash
             case timestampMs = "timestamp"
         }
         
         public let base64EncodedDataString: String
-        public let expiration: Int64?
+        public let expirationMs: Int64?
         public let hash: String
         public let timestampMs: Int64
+        
+        public init(
+            base64EncodedDataString: String,
+            expirationMs: Int64?,
+            hash: String,
+            timestampMs: Int64
+        ) {
+            self.base64EncodedDataString = base64EncodedDataString
+            self.expirationMs = expirationMs
+            self.hash = hash
+            self.timestampMs = timestampMs
+        }
     }
     
     public let messages: [RawMessage]
     public let more: Bool
     
     // MARK: - Initialization
+    
+    internal init(
+        messages: [RawMessage],
+        more: Bool,
+        hardForkVersion: [Int],
+        timeOffset: Int64
+    ) {
+        self.messages = messages
+        self.more = more
+        
+        super.init(
+            hardForkVersion: hardForkVersion,
+            timeOffset: timeOffset
+        )
+    }
     
     required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)

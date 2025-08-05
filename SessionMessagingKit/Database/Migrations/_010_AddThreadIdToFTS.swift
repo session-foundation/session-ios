@@ -12,7 +12,7 @@ enum _010_AddThreadIdToFTS: Migration {
     static let minExpectedRunDuration: TimeInterval = 3
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Can't actually alter a virtual table in SQLite so we need to drop and recreate it,
         // luckily this is actually pretty quick
         if try db.tableExists("interaction_fts") {
@@ -28,6 +28,6 @@ enum _010_AddThreadIdToFTS: Migration {
             t.column("threadId")
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

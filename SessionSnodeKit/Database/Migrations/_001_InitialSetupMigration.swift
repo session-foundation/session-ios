@@ -12,7 +12,7 @@ enum _001_InitialSetupMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.create(table: "snode") { t in
             t.column("public_ip", .text)
             t.column("storage_port", .integer)
@@ -44,6 +44,6 @@ enum _001_InitialSetupMigration: Migration {
             t.uniqueKey(["key", "hash"])
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

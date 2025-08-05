@@ -6,17 +6,17 @@ import Quick
 @testable import SessionUtilitiesKit
 
 public class TestDependencies: Dependencies {
-    private var singletonInstances: [String: Any] = [:]
-    private var cacheInstances: [String: MutableCacheType] = [:]
-    private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
-    private var featureInstances: [String: (any FeatureType)] = [:]
+    @ThreadSafeObject private var singletonInstances: [String: Any] = [:]
+    @ThreadSafeObject private var cacheInstances: [String: MutableCacheType] = [:]
+    @ThreadSafeObject private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
+    @ThreadSafeObject private var featureInstances: [String: (any FeatureType)] = [:]
     
     // MARK: - Subscript Access
     
     override public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
         guard let value: S = (singletonInstances[singleton.identifier] as? S) else {
             let value: S = singleton.createInstance(self)
-            singletonInstances[singleton.identifier] = value
+            _singletonInstances.performUpdate { $0.setting(singleton.identifier, value) }
             return value
         }
 
@@ -25,14 +25,14 @@ public class TestDependencies: Dependencies {
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S? {
         get { return (singletonInstances[singleton.identifier] as? S) }
-        set { singletonInstances[singleton.identifier] = newValue }
+        set { _singletonInstances.performUpdate { $0.setting(singleton.identifier, newValue) } }
     }
     
     override public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
         guard let value: M = (cacheInstances[cache.identifier] as? M) else {
             let value: M = cache.createInstance(self)
             let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            cacheInstances[cache.identifier] = mutableInstance
+            _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
             return cache.immutableInstance(value)
         }
         
@@ -41,13 +41,13 @@ public class TestDependencies: Dependencies {
     
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> M? {
         get { return (cacheInstances[cache.identifier] as? M) }
-        set { cacheInstances[cache.identifier] = newValue.map { cache.mutableInstance($0) } }
+        set { _cacheInstances.performUpdate { $0.setting(cache.identifier, newValue.map { cache.mutableInstance($0) }) } }
     }
     
     override public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
         guard let value: UserDefaultsType = defaultsInstances[defaults.identifier] else {
             let value: UserDefaultsType = defaults.createInstance(self)
-            defaultsInstances[defaults.identifier] = value
+            _defaultsInstances.performUpdate { $0.setting(defaults.identifier, value) }
             return value
         }
 
@@ -57,7 +57,7 @@ public class TestDependencies: Dependencies {
     override public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T {
         guard let value: Feature<T> = (featureInstances[feature.identifier] as? Feature<T>) else {
             let value: Feature<T> = feature.createInstance(self)
-            featureInstances[feature.identifier] = value
+            _featureInstances.performUpdate { $0.setting(feature.identifier, value) }
             return value.currentValue(using: self)
         }
         
@@ -68,7 +68,7 @@ public class TestDependencies: Dependencies {
         get { return (featureInstances[feature.identifier] as? T) }
         set {
             if featureInstances[feature.identifier] == nil {
-                featureInstances[feature.identifier] = feature.createInstance(self)
+                _featureInstances.performUpdate { $0.setting(feature.identifier, feature.createInstance(self)) }
             }
             
             set(feature: feature, to: newValue)
@@ -77,7 +77,7 @@ public class TestDependencies: Dependencies {
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType? {
         get { return defaultsInstances[defaults.identifier] }
-        set { defaultsInstances[defaults.identifier] = newValue }
+        set { _defaultsInstances.performUpdate { $0.setting(defaults.identifier, newValue) } }
     }
     
     // MARK: - Timing and Async Handling
@@ -105,7 +105,7 @@ public class TestDependencies: Dependencies {
     // MARK: - Initialization
     
     public init(initialState: ((TestDependencies) -> ())? = nil) {
-        super.init(forTesting: true)
+        super.init()
         
         initialState?(self)
     }
@@ -122,7 +122,7 @@ public class TestDependencies: Dependencies {
     ) -> R {
         let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-        cacheInstances[cache.identifier] = mutableInstance
+        _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
         return mutation(value)
     }
     
@@ -132,8 +132,30 @@ public class TestDependencies: Dependencies {
     ) throws -> R {
         let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-        cacheInstances[cache.identifier] = mutableInstance
+        _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
         return try mutation(value)
+    }
+    
+    @discardableResult override public func mutateAsyncAware<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) -> R
+    ) async -> R {
+        guard forceSynchronous else {
+            return mutate(cache: cache, mutation)
+        }
+        
+        return await MainActor.run { mutate(cache: cache, mutation) }
+    }
+    
+    @discardableResult override public func mutateAsyncAware<M, I, R>(
+        cache: CacheConfig<M, I>,
+        _ mutation: (M) throws -> R
+    ) async throws -> R {
+        guard forceSynchronous else {
+            return try mutate(cache: cache, mutation)
+        }
+        
+        return try await MainActor.run { try mutate(cache: cache, mutation) }
     }
     
     public func stepForwardInTime() {
@@ -153,7 +175,12 @@ public class TestDependencies: Dependencies {
         }
     }
     
-    // MARK: - Random Access Functions
+    // MARK: - Random
+    
+    public var uuid: UUID? = nil
+    public override func randomUUID() -> UUID {
+        return (uuid ?? UUID())
+    }
     
     public override func randomElement<T: Collection>(_ collection: T) -> T.Element? {
         return collection.first
@@ -178,15 +205,15 @@ public class TestDependencies: Dependencies {
     // MARK: - Instance replacing
     
     public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
-        singletonInstances[singleton.identifier] = instance
+        _singletonInstances.performUpdate { $0.setting(singleton.identifier, instance) }
     }
     
     public override func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
-        cacheInstances[cache.identifier] = cache.mutableInstance(instance)
+        _cacheInstances.performUpdate { $0.setting(cache.identifier, cache.mutableInstance(instance)) }
     }
     
     public override func remove<M, I>(cache: CacheConfig<M, I>) {
-        cacheInstances[cache.identifier] = nil
+        _cacheInstances.performUpdate { $0.setting(cache.identifier, nil) }
     }
 }
 
@@ -203,6 +230,7 @@ internal extension TestState {
             let value: T? = wrappedValue()
             (value as? DependenciesSettable)?.setDependencies(dependencies)
             dependencies?[cache: cache] = (value as! M)
+            (value as? (any InitialSetupable))?.performInitialSetup()
             
             return value
         }())
@@ -218,6 +246,7 @@ internal extension TestState {
             let value: T? = wrappedValue()
             (value as? DependenciesSettable)?.setDependencies(dependencies)
             dependencies?[singleton: singleton] = (value as! S)
+            (value as? (any InitialSetupable))?.performInitialSetup()
             
             return value
         }())
@@ -233,8 +262,23 @@ internal extension TestState {
             let value: T? = wrappedValue()
             (value as? DependenciesSettable)?.setDependencies(dependencies)
             dependencies?[defaults: defaults] = value
+            (value as? (any InitialSetupable))?.performInitialSetup()
             
             return value
         }())
+    }
+    
+    static func create(
+        closure: @escaping () async -> T?
+    ) -> T? {
+        var value: T?
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        Task {
+            value = await closure()
+            semaphore.signal()
+        }
+        semaphore.wait()
+        
+        return value
     }
 }

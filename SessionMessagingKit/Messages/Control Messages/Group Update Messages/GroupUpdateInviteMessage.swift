@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateInviteMessage: ControlMessage {
@@ -59,7 +58,9 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         groupName: String,
         memberAuthData: Data,
         profile: VisibleMessage.VMProfile? = nil,
-        adminSignature: Authentication.Signature
+        adminSignature: Authentication.Signature,
+        sentTimestampMs: UInt64? = nil,
+        sender: String? = nil
     ) {
         self.inviteeSessionIdHexString = inviteeSessionIdHexString
         self.groupSessionId = groupSessionId
@@ -68,7 +69,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         self.profile = profile
         self.adminSignature = adminSignature
         
-        super.init()
+        super.init(sentTimestampMs: sentTimestampMs, sender: sender)
     }
     
     // MARK: - Signature Generation
@@ -139,7 +140,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let inviteMessageBuilder: SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder = SNProtoGroupUpdateInviteMessage.builder(
                 groupSessionID: groupSessionId.hexString,           // Include the prefix

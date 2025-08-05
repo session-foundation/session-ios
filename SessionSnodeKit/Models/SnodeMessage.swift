@@ -27,9 +27,9 @@ public final class SnodeMessage: Codable {
 
     // MARK: - Initialization
     
-    public init(recipient: String, data: String, ttl: UInt64, timestampMs: UInt64) {
+    public init(recipient: String, data: Data, ttl: UInt64, timestampMs: UInt64) {
         self.recipient = recipient
-        self.data = data
+        self.data = data.base64EncodedString()
         self.ttl = ttl
         self.timestampMs = timestampMs
     }
@@ -43,7 +43,9 @@ extension SnodeMessage {
         
         self.init(
             recipient: try container.decode(String.self, forKey: .recipient),
-            data: try container.decode(String.self, forKey: .data),
+            data: try Data(base64Encoded: try container.decode(String.self, forKey: .data)) ?? {
+                throw NetworkError.parsingFailed
+            }(),
             ttl: try container.decode(UInt64.self, forKey: .ttl),
             timestampMs: try container.decode(UInt64.self, forKey: .timestampMs)
         )

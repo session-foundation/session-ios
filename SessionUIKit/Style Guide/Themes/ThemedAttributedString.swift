@@ -133,7 +133,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         value.addAttribute(name, value: attrValue, range: targetRange)
         return self
     }
-    
+
     public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attrs)

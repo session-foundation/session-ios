@@ -17,8 +17,8 @@ public enum ThemeManager {
     private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
     
     private static var _hasLoadedTheme: Bool = false
-    private static var _theme: Theme = .classicDark                 // Default to `classicDark`
-    private static var _primaryColor: Theme.PrimaryColor = .green   // Default to `green`
+    private static var _theme: Theme = Theme.defaultTheme
+    private static var _primaryColor: Theme.PrimaryColor = Theme.PrimaryColor.defaultPrimaryColor
     private static var _matchSystemNightModeSetting: Bool = false   // Default to `false`
     
     public static var hasLoadedTheme: Bool { _hasLoadedTheme }
@@ -62,9 +62,7 @@ public enum ThemeManager {
             
             // Note: We need to set this to 'unspecified' to force the UI to properly update as the
             // 'TraitObservingWindow' won't actually trigger the trait change otherwise
-            DispatchQueue.main.async {
-                SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
-            }
+            SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
         }
         
         // If the theme was changed then trigger the callback for the theme settings change (so it gets persisted)

@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class VisibleMessage: Message {
@@ -126,11 +125,10 @@ public final class VisibleMessage: Message {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         let proto = SNProtoContent.builder()
         if let sigTimestampMs = sigTimestampMs { proto.setSigTimestamp(sigTimestampMs) }
         
-        var attachmentIds = self.attachmentIds
         let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder
         
         // Profile
@@ -146,11 +144,7 @@ public final class VisibleMessage: Message {
         
         // Quote
         
-        if let quotedAttachmentId = quote?.attachmentId, let index = attachmentIds.firstIndex(of: quotedAttachmentId) {
-            attachmentIds.remove(at: index)
-        }
-        
-        if let quote = quote, let quoteProto = quote.toProto(db) {
+        if let quote = quote, let quoteProto = quote.toProto() {
             dataMessage.setQuote(quoteProto)
         }
         
@@ -159,22 +153,9 @@ public final class VisibleMessage: Message {
             attachmentIds.remove(at: index)
         }
         
-        if let linkPreview = linkPreview, let linkPreviewProto = linkPreview.toProto(db) {
+        if let linkPreview = linkPreview, let linkPreviewProto = linkPreview.toProto() {
             dataMessage.setPreview([ linkPreviewProto ])
         }
-        
-        // Attachments
-        
-        let attachmentIdIndexes: [String: Int] = (try? InteractionAttachment
-            .filter(self.attachmentIds.contains(InteractionAttachment.Columns.attachmentId))
-            .fetchAll(db))
-            .defaulting(to: [])
-            .reduce(into: [:]) { result, next in result[next.attachmentId] = next.albumIndex }
-        let attachments: [Attachment] = (try? Attachment.fetchAll(db, ids: self.attachmentIds))
-            .defaulting(to: [])
-            .sorted { lhs, rhs in (attachmentIdIndexes[lhs.id] ?? 0) < (attachmentIdIndexes[rhs.id] ?? 0) }
-        let attachmentProtos = attachments.compactMap { $0.buildProto() }
-        dataMessage.setAttachments(attachmentProtos)
         
         // Open group invitation
         if
@@ -221,48 +202,5 @@ public final class VisibleMessage: Message {
             openGroupInvitation: \(openGroupInvitation?.description ?? "null")
         )
         """
-    }
-}
-
-// MARK: - Database Type Conversion
-
-public extension VisibleMessage {
-    static func from(_ db: Database, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
-        let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
-        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > LibSession.CharacterLimit)
-        
-        let visibleMessage: VisibleMessage = VisibleMessage(
-            sender: interaction.authorId,
-            sentTimestampMs: UInt64(interaction.timestampMs),
-            syncTarget: nil,
-            text: interaction.body,
-            attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
-                .map { $0.id },
-            quote: (try? interaction.quote.fetchOne(db))
-                .map { VMQuote.from(db, quote: $0) },
-            linkPreview: linkPreview
-                .map { linkPreview in
-                    guard linkPreview.variant == .standard else { return nil }
-                    
-                    return VMLinkPreview.from(db, linkPreview: linkPreview)
-                },
-            profile: nil,   // Don't attach the profile to avoid sending a legacy version (set in MessageSender)
-            openGroupInvitation: linkPreview.map { linkPreview in
-                guard linkPreview.variant == .openGroupInvitation else { return nil }
-                
-                return VMOpenGroupInvitation.from(
-                    db,
-                    linkPreview: linkPreview
-                )
-            },
-            reaction: nil   // Reactions are custom messages sent separately
-        )
-        .with(
-            expiresInSeconds: interaction.expiresInSeconds,
-            expiresStartedAtMs: interaction.expiresStartedAtMs
-        )
-        .with(proProof: (shouldAttachProProof ? proProof : nil))
-        
-        return visibleMessage
     }
 }

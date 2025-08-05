@@ -8,7 +8,7 @@ public extension ProfilePictureView {
     func update(
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        displayPictureFilename: String?,
+        displayPictureUrl: String?,
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
@@ -19,7 +19,7 @@ public extension ProfilePictureView {
             size: self.size,
             publicKey: publicKey,
             threadVariant: threadVariant,
-            displayPictureFilename: displayPictureFilename,
+            displayPictureUrl: displayPictureUrl,
             profile: profile,
             profileIcon: profileIcon,
             additionalProfile: additionalProfile,
@@ -36,29 +36,26 @@ public extension ProfilePictureView {
         size: Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        displayPictureFilename: String?,
+        displayPictureUrl: String?,
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none,
         using dependencies: Dependencies
     ) -> (Info?, Info?) {
-        // If we are given an explicit 'displayPictureFilename' then only use that (this could be for
-        // either Community conversations or updated groups)
-        if
-            let displayPictureFilename: String = displayPictureFilename,
-            let path: String = try? dependencies[singleton: .displayPictureManager]
-                .filepath(for: displayPictureFilename)
-        {
-            return (Info(
-                source: .url(URL(fileURLWithPath: path)),
-                icon: profileIcon
-            ), nil)
-        }
+        let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
+            for: displayPictureUrl
+        )
         
-        // Otherwise there are conversation-type-specific behaviours
-        switch threadVariant {
-            case .community:
+        switch (explicitPath, publicKey.isEmpty, threadVariant) {
+            case (.some(let path), _, _):
+                /// If we are given an explicit `displayPictureUrl` then only use that
+                return (Info(
+                    source: .url(URL(fileURLWithPath: path)),
+                    icon: profileIcon
+                ), nil)
+            
+            case (_, _, .community):
                 return (
                     Info(
                         source: {
@@ -79,46 +76,51 @@ public extension ProfilePictureView {
                     ),
                     nil
                 )
+            
+            case (_, true, _): return (nil, nil)
                 
-            case .legacyGroup, .group:
-                guard !publicKey.isEmpty else { return (nil, nil) }
+            case (_, _, .legacyGroup), (_, _, .group):
+                let source: ImageDataManager.DataSource = {
+                    guard
+                        let path: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: profile?.displayPictureUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        return .placeholderIcon(
+                            seed: (profile?.id ?? publicKey),
+                            text: (profile?.displayName(for: threadVariant))
+                                .defaulting(to: publicKey),
+                            size: (additionalProfile != nil ?
+                                size.multiImageSize :
+                                size.viewSize
+                            )
+                        )
+                    }
+                    
+                    return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                }()
                 
                 return (
-                    Info(
-                        source: (
-                            profile?.profilePictureFileName
-                                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
-                                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .placeholderIcon(
-                                seed: (profile?.id ?? publicKey),
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: (additionalProfile != nil ?
-                                    size.multiImageSize :
-                                    size.viewSize
-                                )
-                            )
-                        ),
-                        icon: profileIcon
-                    ),
+                    Info(source: source, icon: profileIcon),
                     additionalProfile
                         .map { other in
-                            Info(
-                                source: (
-                                    other.profilePictureFileName
-                                        .map { fileName in
-                                            try? dependencies[singleton: .displayPictureManager]
-                                                .filepath(for: fileName)
-                                        }
-                                        .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                                    .placeholderIcon(
+                            let source: ImageDataManager.DataSource = {
+                                guard
+                                    let path: String = try? dependencies[singleton: .displayPictureManager]
+                                        .path(for: other.displayPictureUrl),
+                                    dependencies[singleton: .fileManager].fileExists(atPath: path)
+                                else {
+                                    return .placeholderIcon(
                                         seed: other.id,
                                         text: other.displayName(for: threadVariant),
                                         size: size.multiImageSize
                                     )
-                                ),
-                                icon: additionalProfileIcon
-                            )
+                                }
+                                
+                                return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                            }()
+                            
+                            return Info(source: source, icon: additionalProfileIcon)
                         }
                         .defaulting(
                             to: Info(
@@ -136,26 +138,25 @@ public extension ProfilePictureView {
                         )
                 )
                 
-            case .contact:
-                guard !publicKey.isEmpty else { return (nil, nil) }
+            case (_, _, .contact):
+                let source: ImageDataManager.DataSource = {
+                    guard
+                        let path: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: profile?.displayPictureUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        return .placeholderIcon(
+                            seed: publicKey,
+                            text: (profile?.displayName(for: threadVariant))
+                                .defaulting(to: publicKey),
+                            size: size.viewSize
+                        )
+                    }
+                    
+                    return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                }()
                 
-                return (
-                    Info(
-                        source: (
-                            profile?.profilePictureFileName
-                                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
-                                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .placeholderIcon(
-                                seed: publicKey,
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: size.viewSize
-                            )
-                        ),
-                        icon: profileIcon
-                    ),
-                    nil
-                )
+                return (Info(source: source, icon: profileIcon), nil)
         }
     }
 }
@@ -165,7 +166,7 @@ public extension ProfilePictureSwiftUI {
         size: ProfilePictureView.Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        displayPictureFilename: String?,
+        displayPictureUrl: String?,
         profile: Profile?,
         profileIcon: ProfilePictureView.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
@@ -176,7 +177,7 @@ public extension ProfilePictureSwiftUI {
             size: size,
             publicKey: publicKey,
             threadVariant: threadVariant,
-            displayPictureFilename: displayPictureFilename,
+            displayPictureUrl: displayPictureUrl,
             profile: profile,
             profileIcon: profileIcon,
             additionalProfile: additionalProfile,

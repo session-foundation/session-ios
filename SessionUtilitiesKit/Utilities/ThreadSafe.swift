@@ -80,9 +80,25 @@ public class ThreadSafe<Value: ThreadSafeType> {
 public final class ThreadSafeObject<Value> {
     private var value: Value
     private let lock: ReadWriteLock = ReadWriteLock()
-    @ThreadSafe private var mutationThreadId: UInt32? = nil
+    
+    /// Since this value is a `UInt32` it aligns with the size of a memory address and can't result in a "Torn Read" (which is where
+    /// a crash occurs when one thread reads while another thread is writing), this is because the data change is atomic at the hardware
+    /// level so the reader would always get either the value from before or after the write, and never a partial value
+    private var mutationThreadId: UInt32? = nil
 
     public var wrappedValue: Value {
+        #if DEBUG
+        guard !(Value.self is AnyClass) else {
+            fatalError("""
+                [ThreadSafeObject] FATAL: Attempted to get direct wrappedValue for a reference type (\(Value.self)).
+                This is unsafe and will cause race conditions.
+                You MUST perform operations within a protected closure using the wrapper instance itself.
+
+                Incorrect: let x = mySafeObject.someProperty
+                Correct:   let x = _mySafeObject.performMap { $0.someProperty }
+                """)
+        }
+        #endif
         guard mutationThreadId != Thread.current.threadId else { return value }
         
         lock.readLock()

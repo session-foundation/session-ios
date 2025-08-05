@@ -56,7 +56,11 @@ public class SessionBackgroundTaskManager {
     
     fileprivate init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.isAppActive = dependencies[singleton: .appContext].isMainAppAndActive
+        self.isAppActive = false
+        
+        Task { @MainActor [weak self] in
+            self?.isAppActive = dependencies[singleton: .appContext].isMainAppAndActive
+        }
     }
     
     deinit {
@@ -266,25 +270,31 @@ public class SessionBackgroundTaskManager {
         
         guard dependencies[singleton: .appContext].isMainApp else { return }
         
-        let backgroundTimeRemaining: TimeInterval = dependencies[singleton: .appContext].backgroundTimeRemaining
-        
-        /// It takes the OS a little while to update the 'backgroundTimeRemaining' value so if it hasn't been updated yet then don't do anything
-        guard self.hasGottenValidBackgroundTimeRemaining == true || backgroundTimeRemaining != .greatestFiniteMagnitude else {
-            self.checkExpirationTime(in: .seconds(1))
-            return
-        }
-        
-        self.hasGottenValidBackgroundTimeRemaining = true
-        
-        switch backgroundTimeRemaining {
-            /// There is more than 10 seconds remaining so no need to do anything yet (plenty of time to continue running)
-            case 10...: self.checkExpirationTime(in: .seconds(5))
+        DispatchQueue.main.async { [weak self, queue, appContext = dependencies[singleton: .appContext]] in
+            let backgroundTimeRemaining: TimeInterval = appContext.backgroundTimeRemaining
+            
+            queue.async { [weak self] in
+                guard let self = self else { return }
                 
-            /// There is between 5 and 10 seconds so poll more frequently just in case
-            case 5..<10: self.checkExpirationTime(in: .milliseconds(2500))
+                /// It takes the OS a little while to update the 'backgroundTimeRemaining' value so if it hasn't been updated yet then don't do anything
+                guard self.hasGottenValidBackgroundTimeRemaining == true || backgroundTimeRemaining != .greatestFiniteMagnitude else {
+                    self.checkExpirationTime(in: .seconds(1))
+                    return
+                }
                 
-            /// There isn't a lot of time remaining so trigger the expiration
-            default: self.backgroundTaskExpired()
+                self.hasGottenValidBackgroundTimeRemaining = true
+                
+                switch backgroundTimeRemaining {
+                    /// There is more than 10 seconds remaining so no need to do anything yet (plenty of time to continue running)
+                    case 10...: self.checkExpirationTime(in: .seconds(5))
+                        
+                    /// There is between 5 and 10 seconds so poll more frequently just in case
+                    case 5..<10: self.checkExpirationTime(in: .milliseconds(2500))
+                        
+                    /// There isn't a lot of time remaining so trigger the expiration
+                    default: self.backgroundTaskExpired()
+                }
+            }
         }
     }
 }

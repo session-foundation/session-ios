@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
@@ -51,13 +50,14 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     internal init(
         memberSessionIds: [String],
         messageHashes: [String],
-        adminSignature: Authentication.Signature?
+        adminSignature: Authentication.Signature?,
+        sender: String? = nil
     ) {
         self.memberSessionIds = memberSessionIds
         self.messageHashes = messageHashes
         self.adminSignature = adminSignature
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Signature Generation
@@ -118,7 +118,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let deleteMemberContentMessageBuilder: SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteMemberContentMessageBuilder = SNProtoGroupUpdateDeleteMemberContentMessage.builder()
             deleteMemberContentMessageBuilder.setMemberSessionIds(memberSessionIds)

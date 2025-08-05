@@ -625,69 +625,34 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell)
                     
                 case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
-                    guard let touchLocation: UITouch = touchLocation else { return cell }
-                    
-                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
-                    
                     guard
-                        !cell.trailingAccessoryView.isHidden &&
-                        cell.trailingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
-                    else { return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell) }
+                        let touchLocation: UITouch = touchLocation,
+                        !cell.trailingAccessoryView.isHidden
+                    else { return cell }
                     
-                    return cell.trailingAccessoryView.highlightingBackgroundLabel
+                    return cell.trailingAccessoryView.touchedView(touchLocation)
                     
                 case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
-                    guard let touchLocation: UITouch = touchLocation else { return cell }
-                    
-                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
-                    
                     guard
-                        !cell.leadingAccessoryView.isHidden &&
-                        cell.leadingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
-                    else { return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell) }
+                        let touchLocation: UITouch = touchLocation,
+                        !cell.leadingAccessoryView.isHidden
+                    else { return cell }
                     
-                    return cell.leadingAccessoryView.highlightingBackgroundLabel
+                    return cell.leadingAccessoryView.touchedView(touchLocation)
                 
                 default:
                     return cell
             }
         }()
         
-        let maybeOldSelection: (Int, SessionCell.Info<TableItem>)? = section.elements
-            .enumerated()
-            .first(where: { index, info in
-                switch (info.leadingAccessory, info.trailingAccessory) {
-                    case (_, let accessory as SessionCell.AccessoryConfig.Radio): return accessory.liveIsSelected()
-                    case (let accessory as SessionCell.AccessoryConfig.Radio, _): return accessory.liveIsSelected()
-                    case (_, let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
-                        return accessory.liveIsSelected()
-                    case (let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
-                        return accessory.liveIsSelected()
-                    default: return false
-                }
-            })
-        
-        let performAction: () -> Void = { [weak self, weak tappedView] in
+        let performAction: () -> Void = { [weak tappedView] in
             info.onTap?()
             info.onTapView?(tappedView)
-            self?.manuallyReload(indexPath: indexPath, section: section, info: info)
-            
-            // Update the old selection as well
-            if let oldSelection: (index: Int, info: SessionCell.Info<TableItem>) = maybeOldSelection {
-                self?.manuallyReload(
-                    indexPath: IndexPath(
-                        row: oldSelection.index,
-                        section: indexPath.section
-                    ),
-                    section: section,
-                    info: oldSelection.info
-                )
-            }
         }
         
         guard
             let confirmationInfo: ConfirmationModal.Info = info.confirmationInfo,
-            confirmationInfo.showCondition.shouldShow(for: info.currentBoolValue)
+            confirmationInfo.showCondition.shouldShow(for: info.boolValue)
         else {
             performAction()
             return
@@ -718,25 +683,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         }
         else {
             present(confirmationModal, animated: true, completion: nil)
-        }
-    }
-    
-    private func manuallyReload(
-        indexPath: IndexPath,
-        section: SectionModel,
-        info: SessionCell.Info<TableItem>
-    ) {
-        // Try update the existing cell to have a nice animation instead of reloading the cell
-        if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {
-            existingCell.update(
-                with: info,
-                tableSize: tableView.bounds.size,
-                isManualReload: true,
-                using: viewModel.dependencies
-            )
-        }
-        else {
-            tableView.reloadRows(at: [indexPath], with: .none)
         }
     }
     

@@ -32,8 +32,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
-                    creationDateTimestamp: 0,
-                    using: dependencies
+                    creationDateTimestamp: 0
                 ).insert(db)
             }
         )
@@ -47,14 +46,18 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState var viewModel: ThreadNotificationSettingsViewModel! = ThreadNotificationSettingsViewModel(
-            threadId: "TestId",
-            threadNotificationSettings: .init(
-                threadOnlyNotifyForMentions: nil,
-                threadMutedUntilTimestamp: nil
-            ),
-            using: dependencies
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
+            initialSetup: { $0.defaultInitialSetup() }
         )
+        @TestState var viewModel: ThreadNotificationSettingsViewModel! = TestState.create {
+            await ThreadNotificationSettingsViewModel(
+                threadId: "TestId",
+                threadVariant: .contact,
+                threadOnlyNotifyForMentions: nil,
+                threadMutedUntilTimestamp: nil,
+                using: dependencies
+            )
+        }
         
         @TestState var cancellables: [AnyCancellable]! = [
             viewModel.tableDataPublisher
@@ -67,6 +70,11 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         
         // MARK: - a ThreadNotificationSettingsViewModel
         describe("a ThreadNotificationSettingsViewModel") {
+            beforeEach {
+                // Wait for the state to load
+                await expect(viewModel.tableData).toEventuallyNot(beEmpty())
+            }
+            
             // MARK: -- has the correct title
             it("has the correct title") {
                 expect(viewModel.title).to(equal("sessionNotifications".localized()))
@@ -142,15 +150,16 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                         .filter(id: "TestId")
                         .updateAll(
                             db,
-                            SessionThread.Columns.mutedUntilTimestamp.set(to: Date.distantFuture.timeIntervalSince1970)
+                            SessionThread.Columns.mutedUntilTimestamp.set(
+                                to: Date.distantFuture.timeIntervalSince1970
+                            )
                         )
                 }
-                viewModel = ThreadNotificationSettingsViewModel(
+                viewModel = await ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
-                    threadNotificationSettings: .init(
-                        threadOnlyNotifyForMentions: false,
-                        threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
-                    ),
+                    threadVariant: .contact,
+                    threadOnlyNotifyForMentions: false,
+                    threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970,
                     using: dependencies
                 )
                 cancellables.append(
@@ -161,6 +170,9 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
+                
+                // Wait for the state to load
+                await expect(viewModel.tableData).toEventuallyNot(beEmpty())
                 
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
@@ -221,6 +233,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { info in footerButtonInfo = info }
                         )
                 )
+                await expect(footerButtonInfo).toEventuallyNot(beNil())
                 
                 expect(footerButtonInfo).to(equal(
                     SessionButton.Info(
@@ -250,12 +263,11 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             SessionThread.Columns.mutedUntilTimestamp.set(to: Date.distantFuture.timeIntervalSince1970)
                         )
                 }
-                viewModel = ThreadNotificationSettingsViewModel(
+                viewModel = await ThreadNotificationSettingsViewModel(
                     threadId: "TestId",
-                    threadNotificationSettings: .init(
-                        threadOnlyNotifyForMentions: false,
-                        threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970
-                    ),
+                    threadVariant: .contact,
+                    threadOnlyNotifyForMentions: false,
+                    threadMutedUntilTimestamp: Date.distantFuture.timeIntervalSince1970,
                     using: dependencies
                 )
                 cancellables.append(
@@ -266,21 +278,26 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
-                
-                // Change to another setting
-                await viewModel.tableData.first?.elements.first?.onTap?()
-                
                 cancellables.append(
                     viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { info in footerButtonInfo = info }
+                            receiveValue: { info in
+                                footerButtonInfo = info
+                            }
                         )
                 )
+                await expect(footerButtonInfo).toEventuallyNot(beNil())
+                
+                // Wait for the state to load
+                await expect(viewModel.tableData).toEventuallyNot(beEmpty())
+                
+                // Change to another setting
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 
                 // Gets enabled
-                expect(footerButtonInfo).to(equal(
+                await expect(footerButtonInfo).toEventually(equal(
                     SessionButton.Info(
                         style: .bordered,
                         title: "set".localized(),
@@ -297,8 +314,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 // Change back
                 await viewModel.tableData.first?.elements.last?.onTap?()
                 
-                expect(viewModel.tableData.first?.elements.last)
-                    .to(
+                await expect(viewModel.tableData.first?.elements.last)
+                    .toEventually(
                         equal(
                             SessionCell.Info(
                                 id: .mute,
@@ -327,6 +344,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { info in footerButtonInfo = info }
                         )
                 )
+                await expect(footerButtonInfo).toEventuallyNot(beNil())
                 
                 // Disabled again
                 expect(footerButtonInfo).to(equal(
@@ -359,12 +377,13 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                     
                     await viewModel.tableData.first?.elements.last?.onTap?()
+                    await expect(footerButtonInfo).toEventuallyNot(beNil())
                 }
                 
                 // MARK: ---- shows the set button
                 it("shows the set button") {
-                    expect(footerButtonInfo)
-                        .to(
+                    await expect(footerButtonInfo)
+                        .toEventually(
                             equal(
                                 SessionButton.Info(
                                     style: .bordered,
@@ -395,25 +414,26 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     receiveValue: { _ in didDismissScreen = true }
                                 )
                         )
+                        await expect(footerButtonInfo).toEventuallyNot(beNil())
                         
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        expect(didDismissScreen).to(beTrue())
+                        await expect(didDismissScreen).toEventually(beTrue())
                     }
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        let updatedSettings: TimeInterval? = mockStorage.read { db in
-                            try SessionThread
-                                .select(SessionThread.Columns.mutedUntilTimestamp)
-                                .filter(id: "TestId")
-                                .asRequest(of: TimeInterval.self)
-                                .fetchOne(db)
-                        }
-                        
-                        expect(updatedSettings).to(beGreaterThan(0))
+                        await expect(mockNotificationsManager)
+                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.updateSettings(
+                                    threadId: "TestId",
+                                    threadVariant: .contact,
+                                    mentionsOnly: false,
+                                    mutedUntil: Date.distantFuture.timeIntervalSince1970
+                                )
+                            })
                     }
                 }
             }

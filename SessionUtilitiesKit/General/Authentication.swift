@@ -10,9 +10,13 @@ public protocol AuthenticationMethod: SignatureGenerator {
 
 public extension AuthenticationMethod {
     var swarmPublicKey: String {
-        switch info {
-            case .standard(let sessionId, _), .groupAdmin(let sessionId, _), .groupMember(let sessionId, _):
-                return sessionId.hexString
+        get throws {
+            switch info {
+                case .standard(let sessionId, _), .groupAdmin(let sessionId, _), .groupMember(let sessionId, _):
+                    return sessionId.hexString
+                    
+                case .community: throw CryptoError.invalidAuthentication
+            }
         }
     }
 }
@@ -51,14 +55,23 @@ public extension Authentication {
 
 public extension Authentication {
     enum Info: Equatable {
-        /// Used for when interacting as the current user
-        case standard(sessionId: SessionId, ed25519KeyPair: KeyPair)
+        /// Used when interacting as the current user
+        case standard(sessionId: SessionId, ed25519PublicKey: [UInt8])
         
-        /// Used for when interacting as a group admin
+        /// Used when interacting as a group admin
         case groupAdmin(groupSessionId: SessionId, ed25519SecretKey: [UInt8])
         
-        /// Used for when interacting as a group member
+        /// Used when interacting as a group member
         case groupMember(groupSessionId: SessionId, authData: Data)
+        
+        /// Used when interacting with a community
+        case community(
+            server: String,
+            publicKey: String,
+            hasCapabilities: Bool,
+            supportsBlinding: Bool,
+            forceBlinded: Bool
+        )
     }
 }
 

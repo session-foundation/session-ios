@@ -17,6 +17,7 @@ public extension Singleton {
 
 public protocol FileManagerType {
     var temporaryDirectory: String { get }
+    var documentsDirectoryPath: String { get }
     var appSharedDataDirectoryPath: String { get }
     var temporaryDirectoryAccessibleAfterFirstAuth: String { get }
     
@@ -47,12 +48,18 @@ public protocol FileManagerType {
     func contents(atPath: String) -> Data?
     func contentsOfDirectory(at url: URL) throws -> [URL]
     func contentsOfDirectory(atPath path: String) throws -> [String]
+    func isDirectoryEmpty(at url: URL) -> Bool
+    func isDirectoryEmpty(atPath path: String) -> Bool
     
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool
     func createDirectory(at url: URL, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws
     func createDirectory(atPath: String, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws
     func copyItem(atPath: String, toPath: String) throws
     func copyItem(at fromUrl: URL, to toUrl: URL) throws
+    func moveItem(atPath: String, toPath: String) throws
+    func moveItem(at fromUrl: URL, to toUrl: URL) throws
+    func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> String?
+    func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL?
     func removeItem(atPath: String) throws
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any]
@@ -99,6 +106,14 @@ public extension FileManagerType {
     func createDirectory(atPath: String, withIntermediateDirectories: Bool) throws {
         try createDirectory(atPath: atPath, withIntermediateDirectories: withIntermediateDirectories, attributes: nil)
     }
+    
+    func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String) throws -> String? {
+        return try replaceItem(atPath: originalItemPath, withItemAtPath: newItemPath, backupItemName: nil, options: [])
+    }
+    
+    func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL) throws -> URL? {
+        return try replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: nil, options: [])
+    }
 }
 
 // MARK: - Convenience
@@ -121,6 +136,11 @@ public class SessionFileManager: FileManagerType {
     private let dependencies: Dependencies
     private let fileManager: FileManager = .default
     public var temporaryDirectory: String
+    
+    public var documentsDirectoryPath: String {
+        return (fileManager.urls(for: .documentDirectory, in: .userDomainMask).first?.path)
+            .defaulting(to: "")
+    }
     
     public var appSharedDataDirectoryPath: String {
         return (fileManager.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?.path)
@@ -288,6 +308,22 @@ public class SessionFileManager: FileManagerType {
     public func contentsOfDirectory(atPath path: String) throws -> [String] {
         return try fileManager.contentsOfDirectory(atPath: path)
     }
+    
+    public func isDirectoryEmpty(at url: URL) -> Bool {
+        guard
+            let enumerator = fileManager.enumerator(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+        ) else { return false }
+
+        /// If `nextObject()` returns `nil` immediately, there were no items
+        return enumerator.nextObject() == nil
+    }
+    
+    public func isDirectoryEmpty(atPath path: String) -> Bool {
+        return isDirectoryEmpty(at: URL(fileURLWithPath: path))
+    }
 
     public func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool {
         return fileManager.createFile(atPath: atPath, contents: contents, attributes: attributes)
@@ -315,6 +351,27 @@ public class SessionFileManager: FileManagerType {
     
     public func copyItem(at fromUrl: URL, to toUrl: URL) throws {
         return try fileManager.copyItem(at: fromUrl, to: toUrl)
+    }
+    
+    public func moveItem(atPath: String, toPath: String) throws {
+        try fileManager.moveItem(atPath: atPath, toPath: toPath)
+    }
+    
+    public func moveItem(at fromUrl: URL, to toUrl: URL) throws {
+        try fileManager.moveItem(at: fromUrl, to: toUrl)
+    }
+    
+    public func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> String? {
+        return try fileManager.replaceItemAt(
+            URL(fileURLWithPath: originalItemPath),
+            withItemAt: URL(fileURLWithPath: newItemPath),
+            backupItemName: backupItemName,
+            options: options
+        )?.absoluteString
+    }
+    
+    public func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL? {
+        return try fileManager.replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: backupItemName, options: options)
     }
     
     public func removeItem(atPath: String) throws {

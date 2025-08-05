@@ -178,16 +178,11 @@ final class NukeDataModal: Modal {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
                 dependencies[singleton: .storage]
-                    .readPublisher { db -> PreparedClearRequests in
+                    .readPublisher { db -> (AuthenticationMethod, [AuthenticationMethod]) in
                         (
-                            try SnodeAPI.preparedDeleteAllMessages(
-                                namespace: .all,
-                                requestAndPathBuildTimeout: Network.defaultTimeout,
-                                authMethod: try Authentication.with(
-                                    db,
-                                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                                    using: dependencies
-                                ),
+                            try Authentication.with(
+                                db,
+                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                                 using: dependencies
                             ),
                             try OpenGroup
@@ -196,28 +191,40 @@ final class NukeDataModal: Modal {
                                 .distinct()
                                 .asRequest(of: String.self)
                                 .fetchSet(db)
-                                .map { server in
-                                    try OpenGroupAPI
-                                        .preparedClearInbox(
-                                            db,
-                                            on: server,
-                                            requestAndPathBuildTimeout: Network.defaultTimeout,
-                                            using: dependencies
-                                        )
-                                        .map { _, _ in server }
-                                }
+                                .map { try Authentication.with(db, server: $0, using: dependencies) }
                         )
                     }
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .flatMap { preparedRequests -> AnyPublisher<(Network.PreparedRequest<[String: Bool]>, [String]), Error> in
+                    .tryFlatMap { (userAuth: AuthenticationMethod, communityAuth: [AuthenticationMethod]) -> AnyPublisher<(AuthenticationMethod, [String]), Error> in
                         Publishers
-                            .MergeMany(preparedRequests.inboxRequestInfo.map { $0.send(using: dependencies) })
+                            .MergeMany(
+                                try communityAuth.compactMap { authMethod in
+                                    switch authMethod.info {
+                                        case .community(let server, _, _, _, _):
+                                            return try OpenGroupAPI.preparedClearInbox(
+                                                requestAndPathBuildTimeout: Network.defaultTimeout,
+                                                authMethod: authMethod,
+                                                using: dependencies
+                                            )
+                                            .map { _, _ in server }
+                                            .send(using: dependencies)
+                                            
+                                        default: return nil
+                                    }
+                                }
+                            )
                             .collect()
-                            .map { response in (preparedRequests.deleteAll, response.map { $0.1 }) }
+                            .map { response in (userAuth, response.map { $0.1 }) }
                             .eraseToAnyPublisher()
                     }
-                    .flatMap { preparedDeleteAllRequest, clearedServers in
-                        preparedDeleteAllRequest
+                    .tryFlatMap { authMethod, clearedServers in
+                        try SnodeAPI
+                            .preparedDeleteAllMessages(
+                                namespace: .all,
+                                requestAndPathBuildTimeout: Network.defaultTimeout,
+                                authMethod: authMethod,
+                                using: dependencies
+                            )
                             .send(using: dependencies)
                             .map { _, data in
                                 clearedServers.reduce(into: data) { result, next in result[next] = true }
@@ -279,6 +286,8 @@ final class NukeDataModal: Modal {
     }
     
     public static func deleteAllLocalData(using dependencies: Dependencies) {
+        Log.info("Starting local data deletion.")
+        
         /// Unregister push notifications if needed
         let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
@@ -302,12 +311,6 @@ final class NukeDataModal: Modal {
         // Clear the app badge and notifications
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
-        
-        // Clear out the user defaults
-        UserDefaults.removeAll(using: dependencies)
-        
-        // Remove the general cache
-        dependencies.remove(cache: .general)
         
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()

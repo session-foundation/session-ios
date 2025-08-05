@@ -355,9 +355,6 @@ public extension ImageDataManager {
         case closureThumbnail(String, ImageDataManager.ThumbnailSize, @Sendable () async -> UIImage?)
         case placeholderIcon(seed: String, text: String, size: CGFloat)
         
-        @available(*, deprecated, message: "This DataSource has been deprecated and will be removed in a future release. Use an altername DataSource instead.")
-        case closure(String, @Sendable () -> Data?)
-        
         public var identifier: String {
             switch self {
                 case .url(let url): return url.absoluteString
@@ -377,8 +374,6 @@ public extension ImageDataManager {
                     )
                     
                     return "\(seed)-\(content.initials)-\(Int(floor(size)))"
-                    
-                case .closure(let identifier, _): return identifier
             }
         }
         
@@ -391,8 +386,6 @@ public extension ImageDataManager {
                 case .urlThumbnail: return nil
                 case .closureThumbnail: return nil
                 case .placeholderIcon: return nil
-                    
-                case .closure(_, let dataRetriever): return dataRetriever()
             }
         }
         
@@ -408,7 +401,6 @@ public extension ImageDataManager {
                     
                 case .data(_, let data): return data
                 case .image, .videoUrl, .closureThumbnail, .placeholderIcon: return nil
-                case .closure: return nil
             }
         }
         
@@ -457,8 +449,6 @@ public extension ImageDataManager {
                         lhsSize == rhsSize
                     )
                     
-                case (.closure(let lhsIdentifier, _), .closure(let rhsIdentifier, _)): return (lhsIdentifier == rhsIdentifier)
-                    
                 default: return false
             }
         }
@@ -491,9 +481,6 @@ public extension ImageDataManager {
                     seed.hash(into: &hasher)
                     text.hash(into: &hasher)
                     size.hash(into: &hasher)
-                    
-                case .closure(let identifier, _):
-                    identifier.hash(into: &hasher)
             }
         }
     }
@@ -623,8 +610,6 @@ public extension ImageDataManager.DataSource {
             case .placeholderIcon(_, _, let size): return CGSize(width: size, height: size)
                 
             case .url, .data, .videoUrl: break
-                
-            case .closure: break
         }
         
         /// Since we don't have a direct size, try to extract it from the data
