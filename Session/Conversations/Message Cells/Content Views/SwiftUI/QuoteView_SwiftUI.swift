@@ -83,7 +83,7 @@ struct QuoteView_SwiftUI: View {
                     
                     SessionAsyncImage(
                         attachment: attachment,
-                        thumbnailSize: .medium,
+                        thumbnailSize: .small,
                         using: dependencies
                     ) { image in
                         image

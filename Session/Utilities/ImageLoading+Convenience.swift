@@ -96,34 +96,6 @@ public extension ImageDataManagerType {
         
         load(source, onComplete: onComplete)
     }
-    // TODO: Is this needeed????
-    func cachedImage(
-        attachment: Attachment,
-        using dependencies: Dependencies
-    ) -> UIImage? {
-        guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
-            attachment: attachment,
-            using: dependencies
-        ) else { return nil }
-        
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        var result: ImageDataManager.ProcessedImageData? = nil
-        
-        load(source) { imageData in
-            result = imageData
-            semaphore.signal()
-        }
-        
-        /// We don't really want to wait at all but it's async logic so give it a very time timeout so it has the chance
-        /// to deal with other logic running
-        _ = semaphore.wait(timeout: .now() + .milliseconds(10))
-        
-        switch result?.type {
-            case .staticImage(let image): return image
-            case .animatedImage(let frames, _): return frames.first
-            case .none: return nil
-        }
-    }
 }
 
 // MARK: - SessionImageView Convenience

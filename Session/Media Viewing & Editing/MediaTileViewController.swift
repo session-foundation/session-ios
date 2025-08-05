@@ -893,7 +893,7 @@ class GalleryGridCellItem: PhotoGridItem {
     var source: ImageDataManager.DataSource {
         ImageDataManager.DataSource.thumbnailFrom(
             attachment: galleryItem.attachment,
-            size: .medium,
+            size: .small,
             using: dependencies
         ) ?? .image("", nil)
     }

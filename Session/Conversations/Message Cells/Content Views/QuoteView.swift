@@ -131,7 +131,7 @@ final class QuoteView: UIView {
             }
             
             // Generate the thumbnail if needed
-            imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak imageView] success in
+            imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies) { [weak imageView] success in
                 guard success else { return }
                 
                 imageView?.contentMode = .scaleAspectFill
