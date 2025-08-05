@@ -15,7 +15,7 @@ enum _013_SessionUtilChanges: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.4
     static let createdTables: [(TableRecord & FetchableRecord).Type] = [ConfigDump.self]
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Add `markedAsUnread` to the thread table
         try db.alter(table: "thread") { t in
             t.add(column: "markedAsUnread", .boolean)
@@ -225,7 +225,7 @@ enum _013_SessionUtilChanges: Migration {
             }
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

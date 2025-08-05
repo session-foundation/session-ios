@@ -118,7 +118,7 @@ public class ScreenLockWindow {
         ///
         /// It's not safe to access `isScreenLockEnabled` in `storage` until the app is ready
         dependencies[singleton: .appReadiness].runNowOrWhenAppWillBecomeReady { [weak self, dependencies] in
-            self?.isScreenLockLocked = (dependencies[singleton: .storage, key: .isScreenLockEnabled] == true)
+            self?.isScreenLockLocked = dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) })
             
             switch Thread.isMainThread {
                 case true: self?.ensureUI()
@@ -164,7 +164,7 @@ public class ScreenLockWindow {
             Log.verbose(.screenLock, "tryToActivateScreenLockUponBecomingActive NO 0")
             return
         }
-        guard dependencies[singleton: .storage, key: .isScreenLockEnabled] else {
+        guard dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) }) else {
             /// Screen lock is not enabled.
             Log.verbose(.screenLock, "tryToActivateScreenLockUponBecomingActive NO 1")
             return
@@ -351,7 +351,7 @@ public class ScreenLockWindow {
         }
         
         DispatchQueue.global(qos: .background).async { [dependencies] in
-            self.isScreenLockLocked = (dependencies[singleton: .storage, key: .isScreenLockEnabled] == true)
+            self.isScreenLockLocked = dependencies.mutate(cache: .libSession, { $0.get(.playNotificationSoundInForeground) })
 
             DispatchQueue.main.async {
                 // NOTE: this notifications fires _before_ applicationDidBecomeActive,

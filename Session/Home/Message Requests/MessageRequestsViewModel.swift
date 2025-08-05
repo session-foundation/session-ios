@@ -14,99 +14,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     typealias PagedTable = SessionThread
     typealias PagedDataModel = SessionThreadViewModel
     
-    // MARK: - Variables
-    
-    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
-    public let dependencies: Dependencies
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, SessionThreadViewModel> = ObservableTableSourceState()
-    public let navigatableState: NavigatableState = NavigatableState()
-    
-    // MARK: - Initialization
-    
-    init(using dependencies: Dependencies) {
-        self.dependencies = dependencies
-        self.pagedDataObserver = nil
-        
-        // Note: Since this references self we need to finish initializing before setting it, we
-        // also want to skip the initial query and trigger it async so that the push animation
-        // doesn't stutter (it should load basically immediately but without this there is a
-        // distinct stutter)
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        
-        self.pagedDataObserver = PagedDatabaseObserver(
-            pagedTable: SessionThread.self,
-            pageSize: MessageRequestsViewModel.pageSize,
-            idColumn: .id,
-            observedChanges: [
-                PagedData.ObservedChanges(
-                    table: SessionThread.self,
-                    columns: [
-                        .id,
-                        .shouldBeVisible
-                    ]
-                ),
-                PagedData.ObservedChanges(
-                    table: Interaction.self,
-                    columns: [
-                        .body,
-                        .wasRead,
-                        .state
-                    ],
-                    joinToPagedType: {
-                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: Contact.self,
-                    columns: [.isBlocked],
-                    joinToPagedType: {
-                        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: Profile.self,
-                    columns: [.name, .nickname, .profilePictureFileName],
-                    joinToPagedType: {
-                        let profile: TypedTableAlias<Profile> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
-                    }()
-                )
-            ],
-            /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed for the query but differs
-            /// from the JOINs that are actually used for performance reasons as the basic logic can be simpler for where it's used
-            joinSQL: SessionThreadViewModel.optimisedJoinSQL,
-            filterSQL: SessionThreadViewModel.messageRequestsFilterSQL(userSessionId: userSessionId),
-            groupSQL: SessionThreadViewModel.groupSQL,
-            orderSQL: SessionThreadViewModel.messageRequetsOrderSQL,
-            dataQuery: SessionThreadViewModel.baseQuery(
-                userSessionId: userSessionId,
-                groupSQL: SessionThreadViewModel.groupSQL,
-                orderSQL: SessionThreadViewModel.messageRequetsOrderSQL
-            ),
-            onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
-                guard let data: [SectionModel] = self?.process(data: updatedData, for: updatedPageInfo) else {
-                    return
-                }
-                
-                self?.pendingTableDataSubject.send(data)
-            },
-            using: dependencies
-        )
-        
-        // Run the initial query on a background thread so we don't block the push transition
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // The `.pageBefore` will query from a `0` offset loading the first page
-            self?.pagedDataObserver?.load(.pageBefore)
-        }
-    }
-    
     // MARK: - Section
     
     public enum Section: SessionTableSection {
@@ -121,6 +28,30 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         }
     }
     
+    // MARK: - Variables
+    
+    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
+    
+    public let dependencies: Dependencies
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, SessionThreadViewModel> = ObservableTableSourceState()
+    public let navigatableState: NavigatableState = NavigatableState()
+    private let userSessionId: SessionId
+    
+    /// This value is the current state of the view
+    @MainActor @Published private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
+    
+    // MARK: - Initialization
+    
+    @MainActor init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        self.userSessionId = dependencies[cache: .general].sessionId
+        self.internalState = State.initialState(using: dependencies)
+        
+        self.bindState()
+    }
+    
     // MARK: - Content
     
     public let title: String = "sessionMessageRequests".localized()
@@ -128,84 +59,301 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     public let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("messageRequestsNonePending".localized())
         .eraseToAnyPublisher()
     public let cellType: SessionTableViewCellType = .fullConversation
-    public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
     
-    private func process(data: [SessionThreadViewModel], for pageInfo: PagedData.PageInfo) -> [SectionModel] {
-        let groupedOldData: [String: [SessionCell.Info<SessionThreadViewModel>]] = (self.tableData
-            .first(where: { $0.model == .threads })?
-            .elements)
-            .defaulting(to: [])
-            .grouped(by: \.id.threadId)
+    @available(*, deprecated, message: "No longer used now that we have updated this ViewModel to use the new ObservationBuilder mechanism")
+    var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>? = nil
+    
+    // MARK: - State
+
+    public struct State: ObservableKeyProvider {
+        enum ViewState: Equatable {
+            case loading
+            case empty
+            case loaded
+        }
         
+        let viewState: ViewState
+        let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
+        let itemCache: [String: SessionThreadViewModel]
+        
+        @MainActor public func sections(viewModel: MessageRequestsViewModel) -> [SectionModel] {
+            MessageRequestsViewModel.sections(state: self, viewModel: viewModel)
+        }
+        
+        public var observedKeys: Set<ObservableKey> {
+            var result: Set<ObservableKey> = [
+                .loadPage(MessageRequestsViewModel.self),
+                .messageRequestUnreadMessageReceived,
+                .messageRequestAccepted,
+                .messageRequestDeleted,
+                .conversationCreated,
+                .anyMessageCreatedInAnyConversation
+            ]
+            
+            itemCache.values.forEach { item in
+                result.insert(contentsOf: [
+                    .conversationUpdated(item.threadId),
+                    .conversationDeleted(item.threadId),
+                    .messageCreated(threadId: item.threadId),
+                    .messageUpdated(
+                        id: item.interactionId,
+                        threadId: item.threadId
+                    ),
+                    .messageDeleted(
+                        id: item.interactionId,
+                        threadId: item.threadId
+                    )
+                ])
+            }
+            
+            return result
+        }
+        
+        static func initialState(using dependencies: Dependencies) -> State {
+            return State(
+                viewState: .loading,
+                loadedPageInfo: PagedData.LoadedInfo(
+                    record: SessionThreadViewModel.self,
+                    pageSize: MessageRequestsViewModel.pageSize,
+                    /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed
+                    /// for the query but differs from the JOINs that are actually used for performance reasons as the
+                    /// basic logic can be simpler for where it's used
+                    requiredJoinSQL: SessionThreadViewModel.optimisedJoinSQL,
+                    filterSQL: SessionThreadViewModel.messageRequestsFilterSQL(
+                        userSessionId: dependencies[cache: .general].sessionId
+                    ),
+                    groupSQL: SessionThreadViewModel.groupSQL,
+                    orderSQL: SessionThreadViewModel.messageRequestsOrderSQL
+                ),
+                itemCache: [:]
+            )
+        }
+    }
+    
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
+            .debounce(for: .milliseconds(250))
+            .using(dependencies: dependencies)
+            .query(MessageRequestsViewModel.queryState)
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
+            }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
+        var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
+        
+        /// Store a local copy of the events so we can manipulate it based on the state changes
+        var eventsToProcess: [ObservedEvent] = events
+        
+        if isInitialQuery {
+            /// Insert a fake event to force the initial page load
+            eventsToProcess.append(ObservedEvent(
+                key: .loadPage(MessageRequestsViewModel.self),
+                value: LoadPageEvent.initial
+            ))
+        }
+        
+        /// If there are no events we want to process then just return the current state
+        guard !eventsToProcess.isEmpty else { return previousState }
+        
+        /// Split the events between those that need database access and those that don't
+        let splitEvents: [Bool: [ObservedEvent]] = eventsToProcess
+            .grouped(by: \.requiresDatabaseQueryForMessageRequestsViewModel)
+        
+        /// Handle database events first
+        if let databaseEvents: Set<ObservedEvent> = splitEvents[true].map({ Set($0) }) {
+            do {
+                var fetchedConversations: [SessionThreadViewModel] = []
+                let idsNeedingRequery: Set<String> = extractIdsNeedingRequery(
+                    events: databaseEvents,
+                    cache: itemCache
+                )
+                let loadPageEvent: LoadPageEvent? = databaseEvents
+                    .first(where: { $0.key.generic == .loadPage })?
+                    .value as? LoadPageEvent
+                
+                /// Identify any inserted/deleted records
+                var insertedIds: Set<String> = []
+                var deletedIds: Set<String> = []
+                
+                databaseEvents.forEach { event in
+                    switch (event.key.generic, event.value) {
+                        case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
+                            insertedIds.insert(threadId)
+                            
+                        case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
+                            insertedIds.insert(event.id)
+                            
+                        case (GenericObservableKey(.anyMessageCreatedInAnyConversation), let event as MessageEvent):
+                            insertedIds.insert(event.threadId)
+                            
+                        case (.conversationDeleted, let event as ConversationEvent):
+                            deletedIds.insert(event.id)
+                            
+                        default: break
+                    }
+                }
+                
+                try await dependencies[singleton: .storage].readAsync { db in
+                    /// Update loaded page info as needed
+                    if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
+                        loadResult = try loadResult.load(
+                            db,
+                            target: (
+                                loadPageEvent?.target(with: loadResult) ??
+                                .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
+                            )
+                        )
+                    }
+                    
+                    /// Fetch any records needed
+                    fetchedConversations.append(
+                        contentsOf: try SessionThreadViewModel
+                            .query(
+                                userSessionId: dependencies[cache: .general].sessionId,
+                                groupSQL: SessionThreadViewModel.groupSQL,
+                                orderSQL: SessionThreadViewModel.messageRequestsOrderSQL,
+                                ids: Array(idsNeedingRequery) + loadResult.newIds
+                            )
+                            .fetchAll(db)
+                    )
+                }
+                
+                /// Update the `itemCache` with the newly fetched values
+                fetchedConversations.forEach { itemCache[$0.threadId] = $0 }
+                
+                /// Remove any deleted values
+                deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
+            } catch {
+                let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
+            }
+        }
+        
+        /// Generate the new state
+        return State(
+            viewState: (loadResult.info.totalCount == 0 ? .empty : .loaded),
+            loadedPageInfo: loadResult.info,
+            itemCache: itemCache
+        )
+    }
+    
+    private static func extractIdsNeedingRequery(
+        events: Set<ObservedEvent>,
+        cache: [String: SessionThreadViewModel]
+    ) -> Set<String> {
+        return events.reduce(into: []) { result, event in
+            switch (event.key.generic, event.value) {
+                case (.conversationUpdated, let event as ConversationEvent): result.insert(event.id)
+                case (.typingIndicator, let event as TypingIndicatorEvent): result.insert(event.threadId)
+                    
+                case (.messageCreated, let event as MessageEvent),
+                    (.messageUpdated, let event as MessageEvent),
+                    (.messageDeleted, let event as MessageEvent):
+                    result.insert(event.threadId)
+                    
+                case (.profile, let event as ProfileEvent):
+                    result.insert(
+                        contentsOf: Set(cache.values
+                            .filter { threadViewModel -> Bool in
+                                threadViewModel.threadId == event.id ||
+                                threadViewModel.allProfileIds.contains(event.id)
+                            }
+                            .map { $0.threadId })
+                    )
+                
+                case (.contact, let event as ContactEvent):
+                    result.insert(
+                        contentsOf: Set(cache.values
+                            .filter { threadViewModel -> Bool in
+                                threadViewModel.threadId == event.id ||
+                                threadViewModel.allProfileIds.contains(event.id)
+                            }
+                            .map { $0.threadId })
+                    )
+                    
+                default: break
+            }
+        }
+    }
+    
+    private static func sections(state: State, viewModel: MessageRequestsViewModel) -> [SectionModel] {
         return [
             [
                 SectionModel(
                     section: .threads,
-                    elements: data
-                        .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
-                        .map { [dependencies] viewModel -> SessionCell.Info<SessionThreadViewModel> in
+                    elements: state.loadedPageInfo.currentIds
+                        .compactMap { state.itemCache[$0] }
+                        .map { conversation -> SessionCell.Info<SessionThreadViewModel> in
                             SessionCell.Info(
-                                id: viewModel.populatingPostQueryData(
-                                    currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                        .first?
-                                        .id
-                                        .currentUserBlinded15SessionId,
-                                    currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                        .first?
-                                        .id
-                                        .currentUserBlinded25SessionId,
+                                id: conversation.populatingPostQueryData(
+                                    recentReactionEmoji: nil,
+                                    openGroupCapabilities: nil,
+                                    // TODO: [Database Relocation] Do we need all of these????
+                                    currentUserSessionIds: [viewModel.dependencies[cache: .general].sessionId.hexString],
                                     wasKickedFromGroup: (
-                                        viewModel.threadVariant == .group &&
-                                        LibSession.wasKickedFromGroup(
-                                            groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                            using: dependencies
-                                        )
+                                        conversation.threadVariant == .group &&
+                                        viewModel.dependencies.mutate(cache: .libSession) { cache in
+                                            cache.wasKickedFromGroup(
+                                                groupSessionId: SessionId(.group, hex: conversation.threadId)
+                                            )
+                                        }
                                     ),
                                     groupIsDestroyed: (
-                                        viewModel.threadVariant == .group &&
-                                        LibSession.groupIsDestroyed(
-                                            groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                            using: dependencies
-                                        )
+                                        conversation.threadVariant == .group &&
+                                        viewModel.dependencies.mutate(cache: .libSession) { cache in
+                                            cache.groupIsDestroyed(
+                                                groupSessionId: SessionId(.group, hex: conversation.threadId)
+                                            )
+                                        }
                                     ),
                                     threadCanWrite: false,  // Irrelevant for the MessageRequestsViewModel
-                                    using: dependencies
+                                    threadCanUpload: false  // Irrelevant for the MessageRequestsViewModel
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Message request"
                                 ),
-                                onTap: { [weak self, dependencies] in
+                                onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                     let viewController: ConversationVC = ConversationVC(
-                                        threadId: viewModel.threadId,
-                                        threadVariant: viewModel.threadVariant,
+                                        threadId: conversation.threadId,
+                                        threadVariant: conversation.threadVariant,
                                         using: dependencies
                                     )
-                                    self?.transitionToScreen(viewController, transitionType: .push)
+                                    viewModel?.transitionToScreen(viewController, transitionType: .push)
                                 }
                             )
                         }
                 )
             ],
-            (!data.isEmpty && (pageInfo.pageOffset + pageInfo.currentCount) < pageInfo.totalCount ?
+            (!state.loadedPageInfo.currentIds.isEmpty && state.loadedPageInfo.hasNextPage ?
                 [SectionModel(section: .loadMore)] :
                 []
             )
         ].flatMap { $0 }
     }
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = observableState
-        .pendingTableDataSubject
-        .map { [dependencies] (currentThreadData: [SectionModel]) in
-            let threadInfo: [(id: String, variant: SessionThread.Variant)] = (currentThreadData
-                .first(where: { $0.model == .threads })?
-                .elements
-                .map { ($0.id.id, $0.id.threadVariant) })
-                .defaulting(to: [])
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = $internalState
+        .map { [dependencies] state in
+            // TODO: [Database Relocation] Looks like there is a bug where where the `clear all` button will only clear currently loaded message requests (so if there are more than 15 it'll only clear one page at a time)
+            let threadInfo: [(id: String, variant: SessionThread.Variant)] = state.itemCache.values
+                .map { ($0.threadId, $0.threadVariant) }
             
             return SessionButton.Info(
                 style: .destructive,
                 title: "clearAll".localized(),
-                isEnabled: !threadInfo.isEmpty,
+                isEnabled: !state.itemCache.isEmpty,
                 accessibility: Accessibility(
                     identifier: "Clear all"
                 ),
@@ -219,7 +367,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                             cancelStyle: .alert_text,
                             onConfirm: { _ in
                                 // Clear the requests
-                                dependencies[singleton: .storage].write { db in
+                                dependencies[singleton: .storage].writeAsync { db in
                                     // Remove the one-to-one requests
                                     try SessionThread.deleteOrLeave(
                                         db,
@@ -281,6 +429,42 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 )
                 
             default: return nil
+        }
+    }
+    
+    @MainActor func loadPageBefore() {
+        dependencies.notifyAsync(
+            key: .loadPage(MessageRequestsViewModel.self),
+            value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.firstIndex)
+        )
+    }
+    
+    @MainActor func loadPageAfter() {
+        dependencies.notifyAsync(
+            key: .loadPage(MessageRequestsViewModel.self),
+            value: LoadPageEvent.nextPage(lastIndex: internalState.loadedPageInfo.lastIndex)
+        )
+    }
+}
+
+// MARK: - Convenience
+
+private extension ObservedEvent {
+    var requiresDatabaseQueryForMessageRequestsViewModel: Bool {
+        /// Any event requires a database query
+        switch (key, key.generic) {
+            case (_, .loadPage): return true
+            case (.messageRequestUnreadMessageReceived, _): return true
+            case (.messageRequestAccepted, _): return true
+            case (.messageRequestDeleted, _): return true
+            case (.conversationCreated, _): return true
+            case (.anyMessageCreatedInAnyConversation, _): return true
+                
+            /// We only observe events from records we have explicitly fetched so if we get an event for one of these then we need to
+            /// trigger an update
+            case (_, .conversationUpdated), (_, .conversationDeleted): return true
+            case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return true
+            default: return false
         }
     }
 }

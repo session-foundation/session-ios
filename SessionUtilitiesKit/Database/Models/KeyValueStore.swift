@@ -141,31 +141,12 @@ public extension KeyValueStore {
     }
 }
 
-public protocol EnumInt: RawRepresentable where RawValue == Int {}
-public protocol EnumString: RawRepresentable where RawValue == String {}
-
 // MARK: - GRDB Interactions
 
-public extension Storage {
-    subscript(key: KeyValueStore.BoolKey) -> Bool {
-        // Default to false if it doesn't exist
-        return (read { db in db[key] } ?? false)
-    }
-    
-    subscript(key: KeyValueStore.DoubleKey) -> Double? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.IntKey) -> Int? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.Int64Key) -> Int64? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.StringKey) -> String? { return read { db in db[key] } }
-    subscript(key: KeyValueStore.DateKey) -> Date? { return read { db in db[key] } }
-    
-    subscript<T: EnumInt>(key: KeyValueStore.EnumKey) -> T? { return read { db in db[key] } }
-    subscript<T: EnumString>(key: KeyValueStore.EnumKey) -> T? { return read { db in db[key] } }
-}
-
-public extension Database {
+public extension ObservingDatabase {
     @discardableResult func unsafeSet<T: Numeric>(key: String, value: T?) -> KeyValueStore? {
         guard let value: T = value else {
-            _ = try? Setting.filter(id: key).deleteAll(self)
+            _ = try? KeyValueStore.filter(id: key).deleteAll(self)
             return nil
         }
         
@@ -212,7 +193,7 @@ public extension Database {
         set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
     }
     
-    subscript<T: EnumInt>(key: KeyValueStore.EnumKey) -> T? {
+    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == Int {
         get {
             guard let rawValue: Int = self[key.rawValue]?.value(as: Int.self) else {
                 return nil
@@ -223,7 +204,7 @@ public extension Database {
         set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue) }
     }
     
-    subscript<T: EnumString>(key: KeyValueStore.EnumKey) -> T? {
+    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == String {
         get {
             guard let rawValue: String = self[key.rawValue]?.value(as: String.self) else {
                 return nil
@@ -279,13 +260,13 @@ public extension Database {
         return result
     }
     
-    func setting<T: EnumInt>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? {
+    func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == Int {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
         self[key.rawValue] = result
         return result
     }
     
-    func setting<T: EnumString>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? {
+    func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == String {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
         self[key.rawValue] = result
         return result
@@ -298,4 +279,3 @@ public extension Database {
         return result
     }
 }
-

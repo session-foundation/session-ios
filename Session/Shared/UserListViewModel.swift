@@ -22,6 +22,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     public let emptyState: String?
     private let showProfileIcons: Bool
     private let request: (any FetchRequest<T>)
+    private let customSorter: ((WithProfile<T>, WithProfile<T>) -> Bool)?
     private let footerTitle: String?
     private let footerAccessibility: Accessibility?
     private let onTapAction: OnTapAction
@@ -35,6 +36,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         emptyState: String? = nil,
         showProfileIcons: Bool,
         request: (any FetchRequest<T>),
+        customSorter: ((WithProfile<T>, WithProfile<T>) -> Bool)? = nil,
         footerTitle: String? = nil,
         footerAccessibility: Accessibility? = nil,
         onTap: OnTapAction = .radio,
@@ -48,6 +50,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         self.emptyState = emptyState
         self.showProfileIcons = showProfileIcons
         self.request = request
+        self.customSorter = customSorter
         self.footerTitle = footerTitle
         self.footerAccessibility = footerAccessibility
         self.onTapAction = onTap
@@ -90,103 +93,104 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> { Just(infoBanner).eraseToAnyPublisher() }
     var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(emptyState).eraseToAnyPublisher() }
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [request, dependencies] db -> [WithProfile<T>] in
             try request.fetchAllWithProfiles(db, using: dependencies)
         }
-        .map { [weak self, dependencies, showProfileIcons, onTapAction, selectedUsersSubject] (users: [WithProfile<T>]) -> [SectionModel] in
+        .map { [weak self, dependencies, showProfileIcons, onTapAction, selectedUsersSubject, customSorter] (users: [WithProfile<T>]) -> [SectionModel] in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let sortedUsers: [WithProfile<T>] = customSorter
+                .map { compare in users.sorted(by: { lhs, rhs in compare(lhs, rhs) }) }
+                .defaulting(to: users.sorted())
             
             return [
                 SectionModel(
                     model: .users,
-                    elements: users
-                        .sorted()
-                        .map { userInfo -> SessionCell.Info in
-                            func finalAction(for action: OnTapAction) -> OnTapAction {
-                                switch action {
-                                    case .conditionalAction(let targetAction):
-                                        return finalAction(for: targetAction(userInfo))
-                                        
-                                    default: return action
-                                }
+                    elements: sortedUsers.map { userInfo -> SessionCell.Info in
+                        func finalAction(for action: OnTapAction) -> OnTapAction {
+                            switch action {
+                                case .conditionalAction(let targetAction):
+                                    return finalAction(for: targetAction(userInfo))
+                                    
+                                default: return action
                             }
-                            func generateAccessory(_ action: OnTapAction) -> SessionCell.Accessory? {
-                                switch action {
-                                    case .none, .callback: return nil
-                                    case .custom(let accessoryGenerator, _): return accessoryGenerator(userInfo)
-                                    case .conditionalAction(let targetAction):
-                                        return generateAccessory(targetAction(userInfo))
-                                        
-                                    case .radio:
-                                        return .radio(
-                                            isSelected: selectedUsersSubject.value.contains(where: { selectedUserInfo in
-                                                selectedUserInfo.profileId == userInfo.profileId
-                                            })
-                                        )
-                                }
-                            }
-                            
-                            let finalAction: OnTapAction = finalAction(for: onTapAction)
-                            let trailingAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
-                            let title: String = {
-                                guard userInfo.profileId != userSessionId.hexString else { return "you".localized() }
-                                
-                                return (
-                                    userInfo.profile?.displayName() ??
-                                    Profile.truncated(id: userInfo.profileId, truncating: .middle)
-                                )
-                            }()
-                            
-                            return SessionCell.Info(
-                                id: .user(userInfo.profileId),
-                                leadingAccessory: .profile(
-                                    id: userInfo.profileId,
-                                    profile: userInfo.profile,
-                                    profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
-                                ),
-                                title: title,
-                                subtitle: userInfo.itemDescription(using: dependencies),
-                                trailingAccessory: trailingAccessory,
-                                styling: SessionCell.StyleInfo(
-                                    subtitleTintColor: userInfo.itemDescriptionColor(using: dependencies),
-                                    allowedSeparators: [],
-                                    customPadding: SessionCell.Padding(
-                                        top: Values.smallSpacing,
-                                        bottom: Values.smallSpacing
-                                    ),
-                                    backgroundStyle: .noBackgroundEdgeToEdge
-                                ),
-                                accessibility: Accessibility(
-                                    identifier: "Contact",
-                                    label: title
-                                ),
-                                onTap: {
-                                    // Trigger any 'onTap' actions
-                                    switch finalAction {
-                                        case .none: return
-                                        case .callback(let callback): callback(self, userInfo)
-                                        case .custom(_, let callback): callback(self, userInfo)
-                                        case .radio: break
-                                        case .conditionalAction(_): return  // Shouldn't hit this case
-                                    }
-                                    
-                                    // Only update the selection if the accessory is a 'radio'
-                                    guard trailingAccessory is SessionCell.AccessoryConfig.Radio else { return }
-                                    
-                                    // Toggle the selection
-                                    if !selectedUsersSubject.value.contains(userInfo) {
-                                        selectedUsersSubject.send(selectedUsersSubject.value.inserting(userInfo))
-                                    }
-                                    else {
-                                        selectedUsersSubject.send(selectedUsersSubject.value.removing(userInfo))
-                                    }
-                                    
-                                    // Force the table data to be refreshed (the database wouldn't have been changed)
-                                    self?.forceRefresh(type: .postDatabaseQuery)
-                                }
-                            )
                         }
+                        func generateAccessory(_ action: OnTapAction) -> SessionCell.Accessory? {
+                            switch action {
+                                case .none, .callback: return nil
+                                case .custom(let accessoryGenerator, _): return accessoryGenerator(userInfo)
+                                case .conditionalAction(let targetAction):
+                                    return generateAccessory(targetAction(userInfo))
+                                    
+                                case .radio:
+                                    return .radio(
+                                        isSelected: selectedUsersSubject.value.contains(where: { selectedUserInfo in
+                                            selectedUserInfo.profileId == userInfo.profileId
+                                        })
+                                    )
+                            }
+                        }
+                        
+                        let finalAction: OnTapAction = finalAction(for: onTapAction)
+                        let trailingAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
+                        let title: String = {
+                            guard userInfo.profileId != userSessionId.hexString else { return "you".localized() }
+                            
+                            return (
+                                userInfo.profile?.displayName() ??
+                                userInfo.profileId.truncated()
+                            )
+                        }()
+                        
+                        return SessionCell.Info(
+                            id: .user(userInfo.profileId),
+                            leadingAccessory: .profile(
+                                id: userInfo.profileId,
+                                profile: userInfo.profile,
+                                profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
+                            ),
+                            title: title,
+                            subtitle: userInfo.itemDescription(using: dependencies),
+                            trailingAccessory: trailingAccessory,
+                            styling: SessionCell.StyleInfo(
+                                subtitleTintColor: userInfo.itemDescriptionColor(using: dependencies),
+                                allowedSeparators: [],
+                                customPadding: SessionCell.Padding(
+                                    top: Values.smallSpacing,
+                                    bottom: Values.smallSpacing
+                                ),
+                                backgroundStyle: .noBackgroundEdgeToEdge
+                            ),
+                            accessibility: Accessibility(
+                                identifier: "Contact",
+                                label: title
+                            ),
+                            onTap: {
+                                // Trigger any 'onTap' actions
+                                switch finalAction {
+                                    case .none: return
+                                    case .callback(let callback): callback(self, userInfo)
+                                    case .custom(_, let callback): callback(self, userInfo)
+                                    case .radio: break
+                                    case .conditionalAction(_): return  // Shouldn't hit this case
+                                }
+                                
+                                // Only update the selection if the accessory is a 'radio'
+                                guard trailingAccessory is SessionCell.AccessoryConfig.Radio else { return }
+                                
+                                // Toggle the selection
+                                if !selectedUsersSubject.value.contains(userInfo) {
+                                    selectedUsersSubject.send(selectedUsersSubject.value.inserting(userInfo))
+                                }
+                                else {
+                                    selectedUsersSubject.send(selectedUsersSubject.value.removing(userInfo))
+                                }
+                                
+                                // Force the table data to be refreshed (the database wouldn't have been changed)
+                                self?.forceRefresh(type: .postDatabaseQuery)
+                            }
+                        )
+                    }
                 )
             ]
         }
@@ -208,7 +212,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     // MARK: - Functions
     
-    private func submit(with selectedUsers: Set<WithProfile<T>>) {
+    @MainActor private func submit(with selectedUsers: Set<WithProfile<T>>) {
         switch onSubmitAction {
             case .none: return
             

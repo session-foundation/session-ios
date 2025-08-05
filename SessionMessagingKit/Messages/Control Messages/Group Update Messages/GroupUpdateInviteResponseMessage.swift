@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateInviteResponseMessage: ControlMessage {
@@ -20,13 +19,15 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
     public init(
         isApproved: Bool,
         profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
-        sentTimestampMs: UInt64? = nil
+        sentTimestampMs: UInt64? = nil,
+        sender: String? = nil
     ) {
         self.isApproved = isApproved
         self.profile = profile
         
         super.init(
-            sentTimestampMs: sentTimestampMs
+            sentTimestampMs: sentTimestampMs,
+            sender: sender
         )
     }
     
@@ -64,7 +65,7 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let inviteResponseMessageBuilder: SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteResponseMessageBuilder = SNProtoGroupUpdateInviteResponseMessage.builder(
                 isApproved: isApproved

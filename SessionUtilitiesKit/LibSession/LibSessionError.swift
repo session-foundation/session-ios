@@ -7,7 +7,7 @@ import SessionUtil
 
 public enum LibSessionError: Error, CustomStringConvertible {
     case unableToCreateConfigObject(String)
-    case invalidConfigObject
+    case invalidConfigObject(String, String)
     case invalidDataProvided
     case invalidConfigAccess
     case userDoesNotExist
@@ -22,6 +22,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     case attemptedToModifyGroupWithoutAdminKey
     case foundMultipleSequenceNumbersWhenPushing
     case partialMultiConfigPushFailure
+    case failedToSaveValueToConfig
     
     case libSessionError(String)
     
@@ -120,7 +121,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
             case .unableToCreateConfigObject(let pubkey): return "Unable to create config object for: \(pubkey) (LibSessionError.unableToCreateConfigObject)."
-            case .invalidConfigObject: return "Invalid config object (LibSessionError.invalidConfigObject)."
+            case .invalidConfigObject(let wanted, let got): return "Invalid config object, wanted '\(wanted)' but got '\(got)' (LibSessionError.invalidConfigObject)."
             case .invalidDataProvided: return "Invalid data provided (LibSessionError.invalidDataProvided)."
             case .invalidConfigAccess: return "Invalid config access (LibSessionError.invalidConfigAccess)."
             case .userDoesNotExist: return "User does not exist (LibSessionError.userDoesNotExist)."
@@ -136,6 +137,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
                 return "Attempted to modify group without admin key (LibSessionError.attemptedToModifyGroupWithoutAdminKey)."
             case .foundMultipleSequenceNumbersWhenPushing: return "Found multiple sequence numbers when pushing (LibSessionError.foundMultipleSequenceNumbersWhenPushing)."
             case .partialMultiConfigPushFailure: return "Failed to push up part of a multi-part config (LibSessionError.partialMultiConfigPushFailure)."
+            case .failedToSaveValueToConfig: return "Failed to push save value to config (LibSessionError.failedToSaveValueToConfig)."
             
             case .libSessionError(let error): return "\(error)"
         }

@@ -45,6 +45,14 @@ public extension Shape {
     }
 }
 
+public extension Color {
+    init?(_ value: ThemeValue) {
+        guard let result = Color.resolve(value, for: ThemeManager.currentTheme) else { return nil }
+        
+        self = result
+    }
+}
+
 public extension Text {
     func foregroundColor(themeColor: ThemeValue) -> Text {
         return self.foregroundColor(ThemeManager.color(for: themeColor))

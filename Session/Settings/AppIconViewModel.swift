@@ -114,7 +114,7 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
     
     let title: String = "sessionAppearance".localized()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(selectedOptionsSubject)
         .mapWithPrevious { [weak self, dependencies] previous, current -> [SectionModel] in
             return [

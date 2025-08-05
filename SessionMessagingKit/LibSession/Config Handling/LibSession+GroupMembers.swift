@@ -25,16 +25,17 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleGroupMembersUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         groupSessionId: SessionId,
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupMembers(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
+        }
         
         // Get the two member sets
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let updatedMembers: Set<GroupMember> = try LibSession.extractMembers(from: conf, groupSessionId: groupSessionId)
         let existingMembers: Set<GroupMember> = (try? GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -132,18 +133,7 @@ internal extension LibSessionCacheType {
                 db,
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileEncryptionKey
-                    else { return .none }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
                 using: dependencies
             )
@@ -159,8 +149,11 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Set<GroupMember> {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupMembers(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: nil)
+            }
+            guard case .groupMembers(let conf) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
             }
             
             return try extractMembers(
@@ -175,8 +168,11 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> [String: GROUP_MEMBER_STATUS] {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupMembers(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: nil)
+            }
+            guard case .groupMembers(let conf) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
             }
             
             return try extractPendingRemovals(
@@ -187,7 +183,7 @@ internal extension LibSession {
     }
     
     static func addMembers(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         members: [(id: String, profile: Profile?)],
         allowAccessToHistoricMessages: Bool,
@@ -195,7 +191,9 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupMembers(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
+                }
                 
                 try members.forEach { memberId, profile in
                     var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -215,8 +213,8 @@ internal extension LibSession {
                     }
                     
                     if
-                        let picUrl: String = profile?.profilePictureUrl,
-                        let picKey: Data = profile?.profileEncryptionKey,
+                        let picUrl: String = profile?.displayPictureUrl,
+                        let picKey: Data = profile?.displayPictureEncryptionKey,
                         !picUrl.isEmpty,
                         picKey.count == DisplayPictureManager.aes256KeyByteLength
                     {
@@ -233,7 +231,7 @@ internal extension LibSession {
     }
     
     static func updateMemberStatus(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberId: String,
         role: GroupMember.Role,
@@ -255,7 +253,9 @@ internal extension LibSession {
         status: GroupMember.RoleStatus,
         in config: Config?
     ) throws {
-        guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupMembers(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
+        }
         
         // Only update members if they already exist in the group
         var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -278,7 +278,7 @@ internal extension LibSession {
     }
     
     static func updateMemberProfile(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberId: String,
         profile: Profile?,
@@ -297,7 +297,9 @@ internal extension LibSession {
         in config: Config?
     ) throws {
         guard let profile: Profile = profile else { return }
-        guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupMembers(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
+        }
         
         // Only update members if they already exist in the group
         var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -308,9 +310,9 @@ internal extension LibSession {
         
         groupMember.set(\.name, to: profile.name)
         
-        if profile.profilePictureUrl != nil && profile.profileEncryptionKey != nil {
-            groupMember.set(\.profile_pic.url, to: profile.profilePictureUrl)
-            groupMember.set(\.profile_pic.key, to: profile.profileEncryptionKey)
+        if profile.displayPictureUrl != nil && profile.displayPictureEncryptionKey != nil {
+            groupMember.set(\.profile_pic.url, to: profile.displayPictureUrl)
+            groupMember.set(\.profile_pic.key, to: profile.displayPictureEncryptionKey)
         }
         
         groups_members_set(conf, &groupMember)
@@ -318,7 +320,7 @@ internal extension LibSession {
     }
     
     static func flagMembersForRemoval(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberIds: Set<String>,
         removeMessages: Bool,
@@ -326,7 +328,9 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupMembers(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
+                }
                 
                 try memberIds.forEach { memberId in
                     // Only update members if they already exist in the group
@@ -339,14 +343,16 @@ internal extension LibSession {
     }
     
     static func removeMembers(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberIds: Set<String>,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupMembers(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupMembers, got: config)
+                }
                 
                 try memberIds.forEach { memberId in
                     var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -358,7 +364,7 @@ internal extension LibSession {
     }
     
     static func updatingGroupMembers<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
@@ -368,7 +374,11 @@ internal extension LibSession {
         // isn't an admin (non-admins can't update `GroupMembers` anyway)
         let targetMembers: [GroupMember] = updatedMembers
             .filter { (try? SessionId(from: $0.groupId))?.prefix == .group }
-            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.groupId), using: dependencies) }
+            .filter { member in
+                dependencies.mutate(cache: .libSession, { cache in
+                    cache.isAdmin(groupSessionId: SessionId(.group, hex: member.groupId))
+                })
+            }
         
         // If we only updated the current user contact then no need to continue
         guard
@@ -514,11 +524,11 @@ internal extension LibSession {
                     name: member.get(\.name),
                     lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                     nickname: nil,
-                    profilePictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
-                    profileEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
+                    displayPictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
+                    displayPictureEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
                         member.get(\.profile_pic.key)
                     ),
-                    lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
+                    displayPictureLastUpdated: TimeInterval(Double(serverTimestampMs) / 1000),
                     lastBlocksCommunityMessageRequests: nil
                 )
             )

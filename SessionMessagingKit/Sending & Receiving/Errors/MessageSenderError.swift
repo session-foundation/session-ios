@@ -14,6 +14,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
     case encryptionFailed
     case noUsername
     case attachmentsNotUploaded
+    case attachmentsInvalid
     case blindingFailed
     
     // Closed groups
@@ -45,6 +46,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .encryptionFailed: return "Couldn't encrypt message (MessageSenderError.encryptionFailed)."
             case .noUsername: return "Missing username (MessageSenderError.noUsername)."
             case .attachmentsNotUploaded: return "Attachments for this message have not been uploaded (MessageSenderError.attachmentsNotUploaded)."
+            case .attachmentsInvalid: return "Attachments Invalid (MessageSenderError.attachmentsInvalid)."
             case .blindingFailed: return "Couldn't blind the sender (MessageSenderError.blindingFailed)."
             
             // Closed groups

@@ -14,7 +14,9 @@ public extension Crypto.Generator {
             id: "tokenSubaccount",
             args: [config, groupSessionId, memberId]
         ) {
-            guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+            }
             
             var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             var tokenData: [UInt8] = [UInt8](repeating: 0, count: LibSession.sizeSubaccountBytes)
@@ -38,7 +40,9 @@ public extension Crypto.Generator {
             id: "memberAuthData",
             args: [config, groupSessionId, memberId]
         ) {
-            guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+            }
             
             var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             var authData: [UInt8] = [UInt8](repeating: 0, count: LibSession.sizeAuthDataBytes)
@@ -62,7 +66,9 @@ public extension Crypto.Generator {
             id: "signatureSubaccount",
             args: [config, verificationBytes, memberAuthData]
         ) {
-            guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+            }
             
             var verificationBytes: [UInt8] = verificationBytes
             var memberAuthData: [UInt8] = Array(memberAuthData)
@@ -97,8 +103,11 @@ public extension Crypto.Generator {
             args: [groupSessionId, message]
         ) { dependencies in
             return try dependencies.mutate(cache: .libSession) { cache in
-                guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                    throw LibSessionError.invalidConfigObject
+                guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+                }
+                guard case .groupKeys(let conf, _, _) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
                 }
                 
                 var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
@@ -131,8 +140,11 @@ public extension Crypto.Generator {
             args: [groupSessionId, ciphertext]
         ) { dependencies in
             return try dependencies.mutate(cache: .libSession) { cache in
-                guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                    throw LibSessionError.invalidConfigObject
+                guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+                }
+                guard case .groupKeys(let conf, _, _) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
                 }
                 
                 var cSessionId: [CChar] = [CChar](repeating: 0, count: 67)
@@ -175,7 +187,10 @@ public extension Crypto.Verification {
             id: "memberAuthData",
             args: [groupSessionId, ed25519SecretKey, memberAuthData]
         ) {
-            guard var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8) else { return false }
+            guard
+                var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+                ed25519SecretKey.count == 64
+            else { return false }
             
             var cEd25519SecretKey: [UInt8] = ed25519SecretKey
             var cAuthData: [UInt8] = Array(memberAuthData)

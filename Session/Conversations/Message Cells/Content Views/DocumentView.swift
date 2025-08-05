@@ -70,8 +70,24 @@ final class DocumentView: UIView {
         labelStackView.axis = .vertical
         
         // Download image view
+        let rightContainerView: UIView = UIView()
+        rightContainerView.set(.height, to: 24)
+        
+        let activityIndicator = UIActivityIndicatorView(style: .medium)
+        activityIndicator.themeTintColor = .textPrimary
+        activityIndicator.startAnimating()
+        activityIndicator.hidesWhenStopped = true
+        activityIndicator.isHidden = (attachment.state != .uploading && attachment.state != .downloading)
+        rightContainerView.addSubview(activityIndicator)
+        activityIndicator.pin(to: rightContainerView, withInset: 8)
+        
         let rightImageView = UIImageView(
             image: {
+                guard attachment.state != .failedDownload && attachment.state != .failedUpload else {
+                    return UIImage(named: "warning")?
+                        .withRenderingMode(.alwaysTemplate)
+                }
+                
                 switch attachment.isAudio {
                     case true: return UIImage(systemName: "play.fill")
                     case false: return UIImage(systemName: "arrow.down")
@@ -82,7 +98,10 @@ final class DocumentView: UIView {
         rightImageView.setContentHuggingPriority(.required, for: .horizontal)
         rightImageView.contentMode = .scaleAspectFit
         rightImageView.themeTintColor = textColor
+        rightImageView.isHidden = (attachment.state == .uploading || attachment.state == .downloading)
         rightImageView.set(.height, to: 24)
+        rightContainerView.addSubview(rightImageView)
+        rightImageView.center(in: rightContainerView)
         
         // Stack view
         let stackView = UIStackView(
@@ -90,7 +109,7 @@ final class DocumentView: UIView {
                 imageView,
                 UIView.spacer(withWidth: 0),
                 labelStackView,
-                rightImageView
+                rightContainerView
             ]
         )
         stackView.axis = .horizontal

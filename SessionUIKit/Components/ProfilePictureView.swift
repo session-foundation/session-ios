@@ -5,7 +5,6 @@ import Combine
 
 public final class ProfilePictureView: UIView {
     public struct Info {
-        let identifier: String
         let source: ImageDataManager.DataSource?
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
@@ -15,7 +14,6 @@ public final class ProfilePictureView: UIView {
         let forcedBackgroundColor: ForcedThemeValue?
         
         public init(
-            identifier: String,
             source: ImageDataManager.DataSource?,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
@@ -24,7 +22,6 @@ public final class ProfilePictureView: UIView {
             backgroundColor: ThemeValue? = nil,
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
-            self.identifier = identifier
             self.source = source
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
@@ -100,7 +97,6 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
@@ -482,8 +478,7 @@ public final class ProfilePictureView: UIView {
             case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _):
-                imageView.loadImage(identifier: info.identifier, from: source)
+            case (.some(let source), _): imageView.loadImage(source)
                 
             default: imageView.image = nil
         }
@@ -529,7 +524,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(identifier: additionalInfo.identifier, from: source)
+                additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
             default:

@@ -501,7 +501,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let identifier, let source, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick):
+            case .image(let source, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
@@ -511,7 +511,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 profileView.setDataManager(dataManager)
                 profileView.update(
                     ProfilePictureView.Info(
-                        identifier: identifier,
                         source: (source ?? placeholder),
                         icon: icon
                     )
@@ -633,12 +632,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let updatedIdentifier, let updatedData), .image(_, _, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
+                case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
-                                identifier: updatedIdentifier,
-                                source: updatedData.map { ImageDataManager.DataSource.data($0) },
+                                source: updatedData.map {
+                                    ImageDataManager.DataSource.data(updatedIdentifier, $0)
+                                },
                                 placeholder: placeholder,
                                 icon: icon,
                                 style: style,
@@ -755,8 +755,8 @@ public extension ConfirmationModal {
         let hasCloseButton: Bool
         let dismissOnConfirm: Bool
         let dismissType: Modal.DismissType
-        public let onConfirm: ((ConfirmationModal) -> ())?
-        let onCancel: ((ConfirmationModal) -> ())?
+        public let onConfirm: (@MainActor (ConfirmationModal) -> ())?
+        let onCancel: (@MainActor (ConfirmationModal) -> ())?
         let afterClosed: (() -> ())?
         
         // MARK: - Initialization
@@ -774,8 +774,8 @@ public extension ConfirmationModal {
             hasCloseButton: Bool = false,
             dismissOnConfirm: Bool = true,
             dismissType: Modal.DismissType = .recursive,
-            onConfirm: ((ConfirmationModal) -> ())? = nil,
-            onCancel: ((ConfirmationModal) -> ())? = nil,
+            onConfirm: (@MainActor (ConfirmationModal) -> ())? = nil,
+            onCancel: (@MainActor (ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
         ) {
             self.title = title
@@ -1007,14 +1007,13 @@ public extension ConfirmationModal.Info {
             options: [RadioOptionInfo]
         )
         case image(
-            identifier: String,
             source: ImageDataManager.DataSource?,
             placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
-            onClick: ((@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
+            onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
         case inputConfirmation(
@@ -1048,9 +1047,8 @@ public extension ConfirmationModal.Info {
                         lhsOptions == rhsOptions
                     )
                     
-                case (.image(let lhsIdentifier, let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsIdentifier, let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
+                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
                     return (
-                        lhsIdentifier == rhsIdentifier &&
                         lhsSource == rhsSource &&
                         lhsPlaceholder == rhsPlaceholder &&
                         lhsIcon == rhsIcon &&
@@ -1082,8 +1080,7 @@ public extension ConfirmationModal.Info {
                     warning.hash(into: &hasher)
                     options.hash(into: &hasher)
                 
-                case .image(let identifier, let source, let placeholder, let icon, let style, let accessibility, _, _):
-                    identifier.hash(into: &hasher)
+                case .image(let source, let placeholder, let icon, let style, let accessibility, _, _):
                     source.hash(into: &hasher)
                     placeholder.hash(into: &hasher)
                     icon.hash(into: &hasher)

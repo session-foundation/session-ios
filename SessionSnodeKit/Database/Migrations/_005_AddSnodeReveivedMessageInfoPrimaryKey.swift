@@ -11,7 +11,7 @@ enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.2
     static let createdTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // SQLite doesn't support adding a new primary key after creation so we need to create a new table with
         // the setup we want, copy data from the old table over, drop the old table and rename the new table
         try db.create(table: "tmpSnodeReceivedMessageInfo") { t in
@@ -40,6 +40,6 @@ enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
         try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["expirationDateMs"])
         try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["wasDeletedOrInvalid"])
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

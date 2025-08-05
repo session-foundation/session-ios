@@ -30,13 +30,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     private let dependencies: Dependencies
-    private let contactProfiles: [Profile]
+    private let contacts: [WithProfile<Contact>]
     private let hideCloseButton: Bool
     private let prefilledName: String?
-    private lazy var data: [ArraySection<Section, Profile>] = [
-        ArraySection(model: .contacts, elements: contactProfiles)
+    private lazy var data: [ArraySection<Section, WithProfile<Contact>>] = [
+        ArraySection(model: .contacts, elements: contacts)
     ]
-    private var selectedProfiles: [String: Profile]
+    private var selectedProfileIds: Set<String> = []
     private var searchText: String = ""
     
     // MARK: - Initialization
@@ -44,20 +44,55 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     init(
         hideCloseButton: Bool = false,
         prefilledName: String? = nil,
-        preselectedProfiles: [Profile] = [],
+        preselectedContactIds: [String] = [],
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.hideCloseButton = hideCloseButton
         self.prefilledName = prefilledName
-        self.contactProfiles = Profile
-            .fetchAllContactProfiles(excludeCurrentUser: true, using: dependencies)
-            .appending(contentsOf: preselectedProfiles)
-            .asSet()
-            .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
-        self.selectedProfiles = preselectedProfiles.reduce(into: [:]) { result, next in
-            result[next.id] = next
-        }
+        
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+        let finalPreselectedContactIds: Set<String> = Set(preselectedContactIds)
+            .subtracting([currentUserSessionId.hexString])
+        
+        // FIXME: This should be changed to be an async process (ideally coming from a view model)
+        self.contacts = dependencies[singleton: .storage]
+            .read { db in
+                let contact: TypedTableAlias<Contact> = TypedTableAlias()
+                let request: SQLRequest<Contact> = """
+                    SELECT \(contact.allColumns)
+                    FROM \(contact)
+                    WHERE (
+                        \(SQL("\(contact[.id]) != \(currentUserSessionId.hexString)")) AND (
+                            \(contact[.id]) IN \(Set(finalPreselectedContactIds)) OR (
+                                \(contact[.isApproved]) = TRUE AND
+                                \(contact[.didApproveMe]) = TRUE AND
+                                \(contact[.isBlocked]) = FALSE
+                            )
+                        )
+                    )
+                """
+                
+                let fetchedResults: [WithProfile<Contact>] = try request.fetchAllWithProfiles(
+                    db,
+                    using: dependencies
+                )
+                let missingIds: Set<String> = finalPreselectedContactIds
+                    .subtracting(fetchedResults.map { $0.profileId })
+                
+                return fetchedResults
+                    .appending(contentsOf: missingIds.map {
+                        WithProfile(
+                            value: Contact(id: $0, currentUserSessionId: currentUserSessionId),
+                            profile: nil,
+                            currentUserSessionId: currentUserSessionId
+                        )
+                    })
+            }
+            .defaulting(to: [])
+            .sorted()
+        
+        self.selectedProfileIds = finalPreselectedContactIds
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -75,21 +110,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let result: UIStackView = UIStackView()
         result.axis = .vertical
         result.distribution = .fill
-        
-        return result
-    }()
-    
-    private lazy var minVersionBanner: InfoBanner = {
-        let result: InfoBanner = InfoBanner(
-            info: InfoBanner.Info(
-                font: .systemFont(ofSize: Values.verySmallFontSize),
-                message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
-                icon: .none,
-                tintColor: .black,
-                backgroundColor: .explicitPrimary(.orange),
-                accessibility: Accessibility(label: "Version warning banner")
-            )
-        )
         
         return result
     }()
@@ -174,11 +194,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var fadeView: GradientView = {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
-            .value(.newConversation_background, alpha: 0), // Want this to take up 20% (~25pt)
-            .newConversation_background,
-            .newConversation_background,
-            .newConversation_background,
-            .newConversation_background
+            .value(.backgroundSecondary, alpha: 0), // Want this to take up 20% (~25pt)
+            .backgroundSecondary,
+            .backgroundSecondary,
+            .backgroundSecondary,
+            .backgroundSecondary
         ]
         result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
         
@@ -202,7 +222,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.themeBackgroundColor = .newConversation_background
+        view.themeBackgroundColor = .backgroundSecondary
         
         let customTitleFontSize = Values.largeFontSize
         setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
@@ -220,7 +240,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
 
     private func setUpViewHierarchy() {
-        guard !contactProfiles.isEmpty else {
+        guard !contacts.isEmpty else {
             let explanationLabel: UILabel = UILabel()
             explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
             explanationLabel.text = "contactNone".localized()
@@ -241,7 +261,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         contentStackView.pin(.trailing, to: .trailing, of: view)
         contentStackView.pin(.bottom, to: .bottom, of: view)
         
-        contentStackView.addArrangedSubview(minVersionBanner)
         contentStackView.addArrangedSubview(tableView)
         
         view.addSubview(fadeView)
@@ -262,14 +281,14 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell: SessionCell = tableView.dequeue(type: SessionCell.self, for: indexPath)
-        let profile: Profile = data[indexPath.section].elements[indexPath.row]
+        let item: WithProfile<Contact> = data[indexPath.section].elements[indexPath.row]
         cell.update(
             with: SessionCell.Info(
-                id: profile,
+                id: item.profileId,
                 position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
-                leadingAccessory: .profile(id: profile.id, profile: profile),
-                title: profile.displayName(),
-                trailingAccessory: .radio(isSelected: (selectedProfiles[profile.id] != nil)),
+                leadingAccessory: .profile(id: item.profileId, profile: item.profile),
+                title: (item.profile?.displayName() ?? item.profileId.truncated()),
+                trailingAccessory: .radio(isSelected: selectedProfileIds.contains(item.profileId)),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 accessibility: Accessibility(
                     identifier: "Contact"
@@ -293,13 +312,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let profile: Profile = data[indexPath.section].elements[indexPath.row]
+        let item: WithProfile<Contact> = data[indexPath.section].elements[indexPath.row]
         
-        if selectedProfiles[profile.id] == nil {
-            selectedProfiles[profile.id] = profile
+        if selectedProfileIds.contains(item.profileId) {
+            selectedProfileIds.remove(item.profileId)
         }
         else {
-            selectedProfiles.removeValue(forKey: profile.id)
+            selectedProfileIds.insert(item.profileId)
         }
         
         tableView.deselectRow(at: indexPath, animated: true)
@@ -390,15 +409,16 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard !LibSession.isTooLong(groupName: name) else {
             return showError(title: "groupNameEnterShorter".localized())
         }
-        guard selectedProfiles.count >= 1 else {
+        guard selectedProfileIds.count >= 1 else {
             return showError(title: "groupCreateErrorNoMembers".localized())
         }
         /// Minus one because we're going to include self later
-        guard selectedProfiles.count < (LibSession.sizeMaxGroupMemberCount - 1) else {
+        guard selectedProfileIds.count < (LibSession.sizeMaxGroupMemberCount - 1) else {
             return showError(title: "groupAddMemberMaximum".localized())
         }
-        let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
-            .reduce(into: []) { result, next in result.append((next.key, next.value)) }
+        let selectedProfiles: [(String, Profile?)] = self.selectedProfileIds.map { id in
+            (id, self.contacts.first { $0.profileId == id }?.profile)
+        }
 
         ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self, dependencies] activityIndicatorViewController in
             MessageSender
@@ -451,15 +471,16 @@ extension NewClosedGroupVC: UISearchBarDelegate {
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         self.searchText = searchText
         
-        let changeset: StagedChangeset<[ArraySection<Section, Profile>]> = StagedChangeset(
+        let changeset: StagedChangeset<[ArraySection<Section, WithProfile<Contact>>]> = StagedChangeset(
             source: data,
             target: [
                 ArraySection(
                     model: .contacts,
                     elements: (searchText.isEmpty ?
-                        contactProfiles :
-                        contactProfiles
-                            .filter { $0.displayName().range(of: searchText, options: [.caseInsensitive]) != nil }
+                        contacts :
+                        contacts.filter {
+                            $0.profile?.displayName().range(of: searchText, options: [.caseInsensitive]) != nil
+                        }
                     )
                 )
             ]

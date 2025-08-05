@@ -29,9 +29,8 @@ public class AttachmentPrepViewController: OWSViewController {
     weak var prepDelegate: AttachmentPrepViewControllerDelegate?
 
     let attachmentItem: SignalAttachmentItem
-    var attachment: SignalAttachment {
-        return attachmentItem.attachment
-    }
+    var attachment: SignalAttachment { return attachmentItem.attachment }
+    private let disableLinkPreviewImageDownload: Bool
     
     // MARK: - UI
     
@@ -62,7 +61,12 @@ public class AttachmentPrepViewController: OWSViewController {
     }()
     
     private lazy var mediaMessageView: MediaMessageView = {
-        let view: MediaMessageView = MediaMessageView(attachment: attachment, mode: .attachmentApproval, using: dependencies)
+        let view: MediaMessageView = MediaMessageView(
+            attachment: attachment,
+            mode: .attachmentApproval,
+            disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
+            using: dependencies
+        )
         view.translatesAutoresizingMaskIntoConstraints = false
         view.isHidden = (imageEditorView != nil)
         
@@ -98,9 +102,14 @@ public class AttachmentPrepViewController: OWSViewController {
 
     // MARK: - Initializers
 
-    init(attachmentItem: SignalAttachmentItem, using dependencies: Dependencies) {
+    init(
+        attachmentItem: SignalAttachmentItem,
+        disableLinkPreviewImageDownload: Bool,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.attachmentItem = attachmentItem
+        self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
         
         super.init(nibName: nil, bundle: nil)
         
@@ -244,6 +253,9 @@ public class AttachmentPrepViewController: OWSViewController {
     @objc public func playButtonTapped() {
         guard let fileUrl: URL = attachment.dataUrl else { return Log.error(.media, "Missing video file") }
         
+        /// The `attachment` here is a `SignalAttachment` which is pointing to a file outside of the app (which would have a
+        /// proper file extension) so no need to create a temporary copy of the video, or clean it up by using our custom
+        /// `DismissCallbackAVPlayerViewController` callback logic
         let player: AVPlayer = AVPlayer(url: fileUrl)
         let viewController: AVPlayerViewController = AVPlayerViewController()
         viewController.player = player

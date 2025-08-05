@@ -17,8 +17,8 @@ public enum ThemeManager {
     private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
     
     private static var _hasLoadedTheme: Bool = false
-    private static var _theme: Theme = .classicDark                 // Default to `classicDark`
-    private static var _primaryColor: Theme.PrimaryColor = .green   // Default to `green`
+    private static var _theme: Theme = Theme.defaultTheme
+    private static var _primaryColor: Theme.PrimaryColor = Theme.PrimaryColor.defaultPrimaryColor
     private static var _matchSystemNightModeSetting: Bool = false   // Default to `false`
     
     public static var hasLoadedTheme: Bool { _hasLoadedTheme }
@@ -28,7 +28,7 @@ public enum ThemeManager {
     
     // MARK: - Styling
     
-    public static func updateThemeState(
+    @MainActor public static func updateThemeState(
         theme: Theme? = nil,
         primaryColor: Theme.PrimaryColor? = nil,
         matchSystemNightModeSetting: Bool? = nil
@@ -62,9 +62,7 @@ public enum ThemeManager {
             
             // Note: We need to set this to 'unspecified' to force the UI to properly update as the
             // 'TraitObservingWindow' won't actually trigger the trait change otherwise
-            DispatchQueue.main.async {
-                SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
-            }
+            SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
         }
         
         // If the theme was changed then trigger the callback for the theme settings change (so it gets persisted)
@@ -73,7 +71,7 @@ public enum ThemeManager {
         SNUIKit.themeSettingsChanged(targetTheme, targetPrimaryColor, targetMatchSystemNightModeSetting)
     }
     
-    public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    @MainActor public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         let currentUserInterfaceStyle: UIUserInterfaceStyle = UITraitCollection.current.userInterfaceStyle
         
         // Only trigger updates if the style changed and the device is set to match the system style
@@ -92,11 +90,7 @@ public enum ThemeManager {
         }
     }
     
-    public static func applyNavigationStyling() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { applyNavigationStyling() }
-        }
-        
+    @MainActor public static func applyNavigationStyling() {
         let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme) ?? .white)
         let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme)
         
@@ -180,7 +174,7 @@ public enum ThemeManager {
         updateIfNeeded(viewController: SNUIKit.mainWindow?.rootViewController)
     }
     
-    public static func applyNavigationStylingIfNeeded(to viewController: UIViewController) {
+    @MainActor public static func applyNavigationStylingIfNeeded(to viewController: UIViewController) {
         // Will use the 'primary' style for all other cases
         guard
             let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
@@ -207,11 +201,7 @@ public enum ThemeManager {
         navController.navigationBar.scrollEdgeAppearance = appearance
     }
     
-    public static func applyWindowStyling() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { applyWindowStyling() }
-        }
-        
+    @MainActor public static func applyWindowStyling() {
         SNUIKit.mainWindow?.overrideUserInterfaceStyle = {
             guard !ThemeManager.matchSystemNightModeSetting else { return .unspecified }
             
@@ -234,6 +224,22 @@ public enum ThemeManager {
         )
     }
     
+    // MARK: -  Internal Functions
+    
+    @MainActor private static func updateAllUI() {
+        ThemeManager.uiRegistry.objectEnumerator()?.forEach { applier in
+            (applier as? ThemeApplier)?.apply(theme: currentTheme)
+        }
+        
+        applyNavigationStyling()
+        applyWindowStyling()
+        
+        if !hasSetInitialSystemTrait {
+            traitCollectionDidChange(nil)
+            hasSetInitialSystemTrait = true
+        }
+    }
+
     internal static func color<T: ColorType>(for value: ThemeValue, in theme: Theme) -> T? {
         switch value {
             case .value(let value, let alpha): return T.resolve(value, for: theme)?.alpha(alpha)
@@ -261,26 +267,6 @@ public enum ThemeManager {
                 )
             
             default: return T.resolve(value, for: theme)
-        }
-    }
-    
-    // MARK: -  Internal Functions
-    
-    private static func updateAllUI() {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.async { updateAllUI() }
-        }
-        
-        ThemeManager.uiRegistry.objectEnumerator()?.forEach { applier in
-            (applier as? ThemeApplier)?.apply(theme: currentTheme)
-        }
-        
-        applyNavigationStyling()
-        applyWindowStyling()
-        
-        if !hasSetInitialSystemTrait {
-            traitCollectionDidChange(nil)
-            hasSetInitialSystemTrait = true
         }
     }
     

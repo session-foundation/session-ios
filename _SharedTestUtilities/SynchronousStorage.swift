@@ -5,17 +5,19 @@ import GRDB
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage {
-    private let dependencies: Dependencies
+class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
+    public var dependencies: Dependencies
+    private let initialData: ((ObservingDatabase) throws -> ())?
     
     public init(
         customWriter: DatabaseWriter? = nil,
         migrationTargets: [MigratableTarget.Type]? = nil,
         migrations: [Storage.KeyedMigration]? = nil,
         using dependencies: Dependencies,
-        initialData: ((Database) throws -> ())? = nil
+        initialData: ((ObservingDatabase) throws -> ())? = nil
     ) {
         self.dependencies = dependencies
+        self.initialData = initialData
         
         super.init(customWriter: customWriter, using: dependencies)
         
@@ -38,15 +40,31 @@ class SynchronousStorage: Storage {
                 onComplete: { _ in }
             )
         }
-        
-        write { db in try initialData?(db) }
     }
     
+    // MARK: - DependenciesSettable
+    
+    func setDependencies(_ dependencies: Dependencies?) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        self.dependencies = dependencies
+    }
+    
+    // MARK: - InitialSetupable
+    
+    func performInitialSetup() {
+        guard let closure: ((ObservingDatabase) throws -> ()) = initialData else { return }
+        
+        write { db in try closure(db) }
+    }
+    
+    // MARK: - Overwritten Functions
+    
     @discardableResult override func write<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T?
+        updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -55,32 +73,27 @@ class SynchronousStorage: Storage {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
-            let result: T?
-            let didThrow: Bool
-            do {
-                result = try dbWriter.unsafeReentrantWrite(updates)
-                didThrow = false
-            }
-            catch {
-                result = nil
-                didThrow = true
-            }
+            var result: T?
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
             
-            dbWriter.unsafeReentrantWrite { db in
-                // Forcibly call the transaction observer when forcing synchronous logic
-                dependencies.mutate(cache: .transactionObserver) { cache in
-                    let handlers = cache.registeredHandlers
-                    handlers.forEach { identifier, observer in
-                        if didThrow {
-                            observer.databaseDidRollback(db)
-                        }
-                        else {
-                            observer.databaseDidCommit(db)
-                        }
-                        cache.remove(for: identifier)
+            do {
+                try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                    result = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                        try updates(observingDatabase)
                     }
+                    
+                    events = observingDatabase.events
+                    actions = observingDatabase.postCommitActions
                 }
+                
+                /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                dependencies.notifyAsync(events: events)
+                
+                actions.values.forEach { $0() }
             }
+            catch {}
             
             return result
         }
@@ -94,10 +107,10 @@ class SynchronousStorage: Storage {
     }
     
     @discardableResult override func read<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        _ value: @escaping (Database) throws -> T?
+        _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -106,32 +119,27 @@ class SynchronousStorage: Storage {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
-            let result: T?
-            let didThrow: Bool
-            do {
-                result = try dbWriter.unsafeReentrantRead(value)
-                didThrow = false
-            }
-            catch {
-                result = nil
-                didThrow = true
-            }
+            var result: T?
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
             
-            try? dbWriter.unsafeReentrantRead { db in
-                // Forcibly call the transaction observer when forcing synchronous logic
-                dependencies.mutate(cache: .transactionObserver) { cache in
-                    let handlers = cache.registeredHandlers
-                    handlers.forEach { identifier, observer in
-                        if didThrow {
-                            observer.databaseDidRollback(db)
-                        }
-                        else {
-                            observer.databaseDidCommit(db)
-                        }
-                        cache.remove(for: identifier)
+            do {
+                try dbWriter.unsafeReentrantRead { [dependencies] db in
+                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                    result = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                        try value(observingDatabase)
                     }
+                    
+                    events = observingDatabase.events
+                    actions = observingDatabase.postCommitActions
                 }
+                
+                /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                dependencies.notifyAsync(events: events)
+                
+                actions.values.forEach { $0() }
             }
+            catch {}
             
             return result
         }
@@ -147,10 +155,10 @@ class SynchronousStorage: Storage {
     // MARK: - Async Methods
     
     override func readPublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        value: @escaping (Database) throws -> T
+        value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
@@ -162,25 +170,30 @@ class SynchronousStorage: Storage {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
+            
             return Just(())
                 .setFailureType(to: Error.self)
-                .tryMap { _ in try dbWriter.unsafeReentrantRead(value) }
-                .handleEvents(
-                    receiveCompletion: { [dependencies] result in
-                        try? dbWriter.unsafeReentrantRead { db in
-                            // Forcibly call the transaction observer when forcing synchronous logic
-                            dependencies.mutate(cache: .transactionObserver) { cache in
-                                let handlers = cache.registeredHandlers
-                                handlers.forEach { identifier, observer in
-                                    switch result {
-                                        case .finished: observer.databaseDidCommit(db)
-                                        case .failure: observer.databaseDidRollback(db)
-                                    }
-                                    cache.remove(for: identifier)
-                                }
-                            }
+                .tryMap { [dependencies] _ in
+                    try dbWriter.unsafeReentrantRead { [dependencies] db in
+                        let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                        let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                            try value(observingDatabase)
                         }
                         
+                        events = observingDatabase.events
+                        actions = observingDatabase.postCommitActions
+                        
+                        return result
+                    }
+                }
+                .handleEvents(
+                    receiveCompletion: { [dependencies] result in
+                        /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                        dependencies.notifyAsync(events: events)
+                        
+                        actions.values.forEach { $0() }
                     }
                 )
                 .eraseToAnyPublisher()
@@ -190,10 +203,10 @@ class SynchronousStorage: Storage {
     }
     
     override func writeAsync<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T,
+        updates: @escaping (ObservingDatabase) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void
     ) {
         do {
@@ -206,10 +219,10 @@ class SynchronousStorage: Storage {
     }
     
     override func writePublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T
+        updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
@@ -221,25 +234,30 @@ class SynchronousStorage: Storage {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
+            var events: [ObservedEvent] = []
+            var actions: [String: () -> Void] = [:]
+            
             return Just(())
                 .setFailureType(to: Error.self)
-                .tryMap { _ in try dbWriter.unsafeReentrantWrite(updates) }
-                .handleEvents(
-                    receiveCompletion: { [dependencies] result in
-                        dbWriter.unsafeReentrantWrite { db in
-                            // Forcibly call the transaction observer when forcing synchronous logic
-                            dependencies.mutate(cache: .transactionObserver) { cache in
-                                let handlers = cache.registeredHandlers
-                                handlers.forEach { identifier, observer in
-                                    switch result {
-                                        case .finished: observer.databaseDidCommit(db)
-                                        case .failure: observer.databaseDidRollback(db)
-                                    }
-                                    cache.remove(for: identifier)
-                                }
-                            }
+                .tryMap { [dependencies] _ in
+                    try dbWriter.unsafeReentrantWrite { [dependencies] db in
+                        let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                        let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                            try updates(observingDatabase)
                         }
                         
+                        events = observingDatabase.events
+                        actions = observingDatabase.postCommitActions
+                        
+                        return result
+                    }
+                }
+                .handleEvents(
+                    receiveCompletion: { [dependencies] result in
+                        /// Forcibly trigger `ObservableEvent` and `postCommitActions` when forcing synchronous logic
+                        dependencies.notifyAsync(events: events)
+                        
+                        actions.values.forEach { $0() }
                     }
                 )
                 .eraseToAnyPublisher()

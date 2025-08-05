@@ -7,7 +7,7 @@ import GRDB
 
 public extension MutablePersistableRecord where Self: MutableIdentifiable {
     /// This is a test method which allows for inserting with a pre-defined id
-    mutating func insert(_ db: Database, withRowId rowId: ID) throws {
+    mutating func insert(_ db: ObservingDatabase, withRowId rowId: ID) throws {
         self.setId(rowId)
         try insert(db)
     }
