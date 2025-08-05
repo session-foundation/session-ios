@@ -90,21 +90,20 @@ public struct UserProfileModel: View {
                             
                             if info.sessionId != nil {
                                 let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (20, 12)
-                                Button {
-                                    withAnimation {
-                                        self.isProfileImageToggled.toggle()
+                                AttributedText(Lucide.Icon.qrCode.attributedString(size: iconSize, baselineOffset: 0))
+                                    .font(.system(size: iconSize))
+                                    .foregroundColor(themeColor: .black)
+                                    .background(
+                                        Circle()
+                                            .foregroundColor(themeColor: .primary)
+                                            .frame(width: buttonSize, height: buttonSize)
+                                    )
+                                    .padding(.trailing, isProfileImageExpanding ? 28 : 4)
+                                    .onTapGesture {
+                                        withAnimation {
+                                            self.isProfileImageToggled.toggle()
+                                        }
                                     }
-                                } label: {
-                                    AttributedText(Lucide.Icon.qrCode.attributedString(size: iconSize, baselineOffset: 0))
-                                        .font(.system(size: iconSize))
-                                        .foregroundColor(themeColor: .black)
-                                        .background(
-                                            Circle()
-                                                .foregroundColor(themeColor: .primary)
-                                                .frame(width: buttonSize, height: buttonSize)
-                                        )
-                                }
-                                .padding(.trailing, isProfileImageExpanding ? 28 : 4)
                             }
                         }
                         .padding(.top, 12)
@@ -135,23 +134,22 @@ public struct UserProfileModel: View {
                                     }
                                 }
                                 
-                                Button {
-                                    withAnimation {
-                                        self.isProfileImageToggled.toggle()
+                                Image("ic_user_round_fill")
+                                    .resizable()
+                                    .renderingMode(.template)
+                                    .scaledToFit()
+                                    .foregroundColor(themeColor: .black)
+                                    .frame(width: 18, height: 18)
+                                    .background(
+                                        Circle()
+                                            .foregroundColor(themeColor: .primary)
+                                            .frame(width: 33, height: 33)
+                                    )
+                                    .onTapGesture {
+                                        withAnimation {
+                                            self.isProfileImageToggled.toggle()
+                                        }
                                     }
-                                } label: {
-                                    Image("ic_user_round_fill")
-                                        .resizable()
-                                        .renderingMode(.template)
-                                        .scaledToFit()
-                                        .foregroundColor(themeColor: .black)
-                                        .frame(width: 18, height: 18)
-                                        .background(
-                                            Circle()
-                                                .foregroundColor(themeColor: .primary)
-                                                .frame(width: 33, height: 33)
-                                        )
-                                }
                             }
                         }
                         .padding(.top, 12)
