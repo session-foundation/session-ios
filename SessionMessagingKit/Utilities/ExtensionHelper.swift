@@ -9,6 +9,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let extensionHelper: SingletonConfig<ExtensionHelperType> = Dependencies.create(
         identifier: "extensionHelper",
+        // TODO: [Database Relocation] Might be good to add a mechanism to check if we can access the AppGroup and, if not, create a NoopExtensionHelper (to better support side-loading the app)
         createInstance: { dependencies in ExtensionHelper(using: dependencies) }
     )
 }

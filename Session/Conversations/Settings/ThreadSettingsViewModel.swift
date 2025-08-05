@@ -494,16 +494,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
                             label: "Pin Conversation"
                         ),
-                        onTap: { [dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.updateVisibility(
-                                    db,
-                                    threadId: threadViewModel.threadId,
-                                    isVisible: true,
-                                    customPriority: (threadViewModel.threadPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
-                                    using: dependencies
-                                )
-                            }
+                        onTap: { [weak self] in
+                            self?.toggleConversationPinnedStatus(
+                                currentPinnedPriority: threadViewModel.threadPinnedPriority
+                            )
                         }
                     )
                  ),
@@ -1869,6 +1863,65 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     using: dependencies
                 )
             db.addContactEvent(id: threadId, change: .isBlocked(isBlocked))
+        }
+    }
+    
+    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
+        let isCurrentlyPinned: Bool = (currentPinnedPriority > LibSession.visiblePriority)
+        
+        if !isCurrentlyPinned && !dependencies[cache: .libSession].isSessionPro {
+            // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
+            dependencies[singleton: .storage].writeAsync (
+                updates: { [threadId, dependencies] db in
+                    let numPinnedConversations: Int = try SessionThread
+                        .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
+                        .fetchCount(db)
+                    
+                    guard numPinnedConversations < LibSession.PinnedConversationLimit else {
+                        return numPinnedConversations
+                    }
+                    
+                    // We have the space to pin the conversation, so do so
+                    try SessionThread.updateVisibility(
+                        db,
+                        threadId: threadId,
+                        isVisible: true,
+                        customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                        using: dependencies
+                    )
+                    
+                    return -1
+                },
+                completion: { [weak self, dependencies] result in
+                    guard
+                        let numPinnedConversations: Int = try? result.successOrThrow(),
+                        numPinnedConversations > 0
+                    else { return }
+                    
+                    let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+                        modal: ProCTAModal(
+                            delegate: dependencies[singleton: .sessionProState],
+                            variant: .morePinnedConvos(
+                                isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
+                            ),
+                            dataManager: dependencies[singleton: .imageDataManager]
+                        )
+                    )
+                    self?.transitionToScreen(sessionProModal, transitionType: .present)
+                }
+            )
+            return
+        }
+        
+        // If we are unpinning then no need to check the current count, just unpin immediately
+        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+            try SessionThread.updateVisibility(
+                db,
+                threadId: threadId,
+                isVisible: true,
+                customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                using: dependencies
+            )
         }
     }
     
