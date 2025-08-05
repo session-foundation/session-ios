@@ -342,9 +342,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             authorId: quoteDraftInfo.model.authorId,
             quotedText: quoteDraftInfo.model.body,
             threadVariant: threadVariant,
-            currentUserSessionId: quoteDraftInfo.model.currentUserSessionId,
-            currentUserBlinded15SessionId: quoteDraftInfo.model.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: quoteDraftInfo.model.currentUserBlinded25SessionId,
+            currentUserSessionIds: quoteDraftInfo.model.currentUserSessionIds,
             direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
             attachment: quoteDraftInfo.model.attachment,
             using: dependencies
@@ -367,7 +365,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // told them about link previews yet
         let text = inputTextView.text!
         DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
-            let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage, key: .areLinkPreviewsEnabled]
+            let areLinkPreviewsEnabled: Bool = dependencies.mutate(cache: .libSession) { cache in
+                cache.get(.areLinkPreviewsEnabled)
+            }
             
             if
                 !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&
@@ -415,7 +415,12 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         linkPreviewView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -4)
         
         // Build the link preview
-        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, using: dependencies)
+        LinkPreview
+            .tryToBuildPreviewInfo(
+                previewUrl: linkPreviewURL,
+                skipImageDownload: (inputState.allowedInputTypes != .all),  /// Disable image download if attachments are disabled
+                using: dependencies
+            )
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
@@ -596,13 +601,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     func showMentionsUI(
         for candidates: [MentionInfo],
-        currentUserSessionId: String,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?
+        currentUserSessionIds: Set<String>
     ) {
-        mentionsView.currentUserSessionId = currentUserSessionId
-        mentionsView.currentUserBlinded15SessionId = currentUserBlinded15SessionId
-        mentionsView.currentUserBlinded25SessionId = currentUserBlinded25SessionId
+        mentionsView.currentUserSessionIds = currentUserSessionIds
         mentionsView.candidates = candidates
         
         let mentionCellHeight = (ProfilePictureView.Size.message.viewSize + 2 * Values.smallSpacing)

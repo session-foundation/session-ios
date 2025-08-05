@@ -61,14 +61,20 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         
         /// Try to retrieve the default rooms 8 times
         dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
-                try OpenGroupAPI.preparedCapabilitiesAndRooms(
+            .readPublisher { [dependencies] db -> AuthenticationMethod in
+                try Authentication.with(
                     db,
-                    on: OpenGroupAPI.defaultServer,
+                    server: OpenGroupAPI.defaultServer,
+                    activeOnly: false,    /// The record for the default rooms is inactive
                     using: dependencies
                 )
             }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
+            .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, OpenGroupAPI.CapabilitiesAndRoomsResponse), Error> in
+                try OpenGroupAPI.preparedCapabilitiesAndRooms(
+                    authMethod: authMethod,
+                    using: dependencies
+                ).send(using: dependencies)
+            }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .retry(8, using: dependencies)
@@ -139,7 +145,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                             guard
                                 let imageId: String = room.imageId,
                                 imageId != existingImageIds[openGroupId] ||
-                                openGroup.displayPictureFilename == nil
+                                openGroup.displayPictureOriginalUrl == nil
                             else { return }
                             
                             dependencies[singleton: .jobRunner].add(

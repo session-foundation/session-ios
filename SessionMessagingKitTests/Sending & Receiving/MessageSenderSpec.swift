@@ -35,11 +35,23 @@ class MessageSenderSpec: QuickSpec {
                 crypto
                     .when { $0.generate(.randomBytes(24)) }
                     .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+                crypto
+                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                        )
+                    )
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                cache
+                    .when { $0.ed25519Seed }
+                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
             }
         )
         
@@ -47,10 +59,12 @@ class MessageSenderSpec: QuickSpec {
         describe("a MessageSender") {
             // MARK: -- when preparing to send to a contact
             context("when preparing to send to a contact") {
+                @TestState var preparedRequest: Network.PreparedRequest<Message>?
+                
                 beforeEach {
                     mockCrypto
                         .when {
-                            $0.generate(.ciphertextWithSessionProtocol(.any, plaintext: .any, destination: .any, using: .any))
+                            $0.generate(.ciphertextWithSessionProtocol(plaintext: .any, destination: .any))
                         }
                         .thenReturn(Data([1, 2, 3]))
                     mockCrypto
@@ -60,21 +74,26 @@ class MessageSenderSpec: QuickSpec {
                 
                 // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
-                    let result: Network.PreparedRequest<Void>? = mockStorage.read { db in
-                        try? MessageSender.preparedSend(
-                            db,
+                    expect {
+                        preparedRequest = try MessageSender.preparedSend(
                             message: VisibleMessage(
                                 text: "TestMessage"
                             ),
                             to: .contact(publicKey: "05\(TestConstants.publicKey)"),
                             namespace: .default,
                             interactionId: nil,
-                            fileIds: [],
+                            attachments: nil,
+                            authMethod: Authentication.standard(
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                            ),
+                            onEvent: nil,
                             using: dependencies
                         )
-                    }
+                    }.toNot(throwError())
                     
-                    expect(result).toNot(beNil())
+                    expect(preparedRequest).toNot(beNil())
                 }
             }
         }

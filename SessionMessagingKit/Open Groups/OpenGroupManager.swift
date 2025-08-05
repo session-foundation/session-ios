@@ -89,17 +89,7 @@ public final class OpenGroupManager {
     }
     
     public func hasExistingOpenGroup(
-        roomToken: String,
-        server: String,
-        publicKey: String
-    ) -> Bool? {
-        return dependencies[singleton: .storage].read { [weak self] db in
-            self?.hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey)
-        }
-    }
-    
-    public func hasExistingOpenGroup(
-        _ db: Database,
+        _ db: ObservingDatabase,
         roomToken: String,
         server: String,
         publicKey: String
@@ -153,7 +143,7 @@ public final class OpenGroupManager {
     }
     
     public func add(
-        _ db: Database,
+        _ db: ObservingDatabase,
         roomToken: String,
         server: String,
         publicKey: String,
@@ -236,17 +226,24 @@ public final class OpenGroupManager {
             return OpenGroupAPI.defaultServer
         }()
         
-        return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db in
-                try OpenGroupAPI.preparedCapabilitiesAndRoom(
-                    db,
-                    for: roomToken,
-                    on: targetServer,
+        return Result {
+            try OpenGroupAPI
+                .preparedCapabilitiesAndRoom(
+                    roomToken: roomToken,
+                    authMethod: Authentication.community(
+                        info: LibSession.OpenGroupCapabilityInfo(
+                            roomToken: roomToken,
+                            server: server,
+                            publicKey: publicKey,
+                            capabilities: []    /// We won't have `capabilities` before the first request so just hard code
+                        )
+                    ),
                     using: dependencies
                 )
             }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
-            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: Database, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
+            .publisher
+            .flatMap { [dependencies] in $0.send(using: dependencies) }
+            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: ObservingDatabase, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
                 // Add the new open group to libSession
                 try LibSession.add(
                     db,
@@ -293,7 +290,7 @@ public final class OpenGroupManager {
     }
 
     public func delete(
-        _ db: Database,
+        _ db: ObservingDatabase,
         openGroupId: String,
         skipLibSessionUpdate: Bool
     ) throws {
@@ -330,11 +327,10 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
-        // Remove any MessageProcessRecord entries (we will want to reprocess all OpenGroup messages
-        // if they get re-added)
-        _ = try? ControlMessageProcessRecord
-            .filter(ControlMessageProcessRecord.Columns.threadId == openGroupId)
-            .deleteAll(db)
+        db.addConversationEvent(id: openGroupId, type: .deleted)
+        
+        // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
+        try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)
         
         // Remove the open group (no foreign key to the thread so it won't auto-delete)
         if server?.lowercased() != OpenGroupAPI.defaultServer.lowercased() {
@@ -361,7 +357,7 @@ public final class OpenGroupManager {
     // MARK: - Response Processing
     
     internal static func handleCapabilities(
-        _ db: Database,
+        _ db: ObservingDatabase,
         capabilities: OpenGroupAPI.Capabilities,
         on server: String
     ) {
@@ -390,7 +386,7 @@ public final class OpenGroupManager {
     }
     
     internal static func handlePollInfo(
-        _ db: Database,
+        _ db: ObservingDatabase,
         pollInfo: OpenGroupAPI.RoomPollInfo,
         publicKey maybePublicKey: String?,
         for roomToken: String,
@@ -488,7 +484,7 @@ public final class OpenGroupManager {
         if
             let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
             (
-                openGroup.displayPictureFilename == nil ||
+                openGroup.displayPictureOriginalUrl == nil ||
                 openGroup.imageId != imageId
             )
         {
@@ -509,18 +505,39 @@ public final class OpenGroupManager {
                 canStartJob: true
             )
         }
+        
+        /// Emit events
+        if hasDetails {
+            if openGroup.name != pollInfo.details?.name {
+                db.addConversationEvent(
+                    id: openGroup.id,
+                    type: .updated(.displayName(pollInfo.details?.name ?? openGroup.name))
+                )
+            }
+            
+            if openGroup.roomDescription == pollInfo.details?.roomDescription {
+                db.addConversationEvent(
+                    id: openGroup.id,
+                    type: .updated(.description(pollInfo.details?.roomDescription))
+                )
+            }
+            
+            if pollInfo.details?.imageId == nil {
+                db.addConversationEvent(id: openGroup.id, type: .updated(.displayPictureUrl(nil)))
+            }
+        }
     }
     
     internal static func handleMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         messages: [OpenGroupAPI.Message],
         for roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) {
+    ) -> [MessageReceiver.InsertedInteractionInfo?] {
         guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             Log.error(.openGroup, "Couldn't handle open group messages due to missing group.")
-            return
+            return []
         }
         
         // Sorting the messages by server ID before importing them fixes an issue where messages
@@ -532,6 +549,7 @@ public final class OpenGroupManager {
             .filter { $0.deleted == true }
             .map { ($0.id, $0.seqNo) }
         var largestValidSeqNo: Int64 = openGroup.sequenceNumber
+        var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
         
         // Process the messages
         sortedMessages.forEach { message in
@@ -541,30 +559,46 @@ public final class OpenGroupManager {
             }
             
             // Handle messages
-            if let base64EncodedString: String = message.base64EncodedData,
-               let data = Data(base64Encoded: base64EncodedString)
+            if
+                let base64EncodedString: String = message.base64EncodedData,
+                let data = Data(base64Encoded: base64EncodedString),
+                let sender: String = message.sender
             {
                 do {
-                    let processedMessage: ProcessedMessage? = try Message.processReceivedOpenGroupMessage(
-                        db,
-                        openGroupId: openGroup.id,
-                        openGroupServerPublicKey: openGroup.publicKey,
-                        message: message,
+                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                         data: data,
+                        origin: .community(
+                            openGroupId: openGroup.id,
+                            sender: sender,
+                            timestamp: message.posted,
+                            messageServerId: message.id,
+                            whisper: message.whisper,
+                            whisperMods: message.whisperMods,
+                            whisperTo: message.whisperTo
+                        ),
+                        using: dependencies
+                    )
+                    try MessageDeduplication.insert(
+                        db,
+                        processedMessage: processedMessage,
+                        ignoreDedupeFiles: false,
                         using: dependencies
                     )
                     
                     switch processedMessage {
-                        case .config, .none: break
-                        case .standard(_, _, _, let messageInfo):
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: openGroup.id,
-                                threadVariant: .community,
-                                message: messageInfo.message,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
-                                using: dependencies
+                        case .config, .invalid: break
+                        case .standard(_, _, _, let messageInfo, _):
+                            insertedInteractionInfo.append(
+                                try MessageReceiver.handle(
+                                    db,
+                                    threadId: openGroup.id,
+                                    threadVariant: .community,
+                                    message: messageInfo.message,
+                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                    associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
+                                    suppressNotifications: false,
+                                    using: dependencies
+                                )
                             )
                             largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                     }
@@ -576,7 +610,6 @@ public final class OpenGroupManager {
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                             DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageReceiverError.duplicateMessage,
-                            MessageReceiverError.duplicateControlMessage,
                             MessageReceiverError.selfSend:
                             break
                         
@@ -643,20 +676,22 @@ public final class OpenGroupManager {
             $0.pendingChanges = $0.pendingChanges
                 .filter { $0.seqNo == nil || $0.seqNo! > largestValidSeqNo }
         }
+        
+        return insertedInteractionInfo
     }
     
     internal static func handleDirectMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         messages: [OpenGroupAPI.DirectMessage],
         fromOutbox: Bool,
         on server: String,
         using dependencies: Dependencies
-    ) {
+    ) -> [MessageReceiver.InsertedInteractionInfo?] {
         // Don't need to do anything if we have no messages (it's a valid case)
-        guard !messages.isEmpty else { return }
+        guard !messages.isEmpty else { return [] }
         guard let openGroup: OpenGroup = try? OpenGroup.filter(OpenGroup.Columns.server == server.lowercased()).fetchOne(db) else {
             Log.error(.openGroup, "Couldn't receive inbox message due to missing group.")
-            return
+            return []
         }
         
         // Sorting the messages by server ID before importing them fixes an issue where messages
@@ -665,6 +700,7 @@ public final class OpenGroupManager {
             .sorted { lhs, rhs in lhs.id < rhs.id }
         let latestMessageId: Int64 = sortedMessages[sortedMessages.count - 1].id
         var lookupCache: [String: BlindedIdLookup] = [:]  // Only want this cache to exist for the current loop
+        var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
         
         // Update the 'latestMessageId' value
         if fromOutbox {
@@ -686,23 +722,33 @@ public final class OpenGroupManager {
             }
 
             do {
-                let processedMessage: ProcessedMessage? = try Message.processReceivedOpenGroupDirectMessage(
-                    db,
-                    openGroupServerPublicKey: openGroup.publicKey,
-                    message: message,
+                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                     data: messageData,
+                    origin: .openGroupInbox(
+                        timestamp: message.posted,
+                        messageServerId: message.id,
+                        serverPublicKey: openGroup.publicKey,
+                        senderId: message.sender,
+                        recipientId: message.recipient
+                    ),
+                    using: dependencies
+                )
+                try MessageDeduplication.insert(
+                    db,
+                    processedMessage: processedMessage,
+                    ignoreDedupeFiles: false,
                     using: dependencies
                 )
                 
                 switch processedMessage {
-                    case .config, .none: break
-                    case .standard(let threadId, _, let proto, let messageInfo):
-                        // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
-                        // "expensive" lookup when possible
+                    case .config, .invalid: break
+                    case .standard(let threadId, _, let proto, let messageInfo, _):
+                        /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
+                        /// "expensive" lookup when possible
                         let lookup: BlindedIdLookup = try {
-                            // Minor optimisation to avoid processing the same sender multiple times in the same
-                            // 'handleMessages' call (since the 'mapping' call is done within a transaction we
-                            // will never have a mapping come through part-way through processing these messages)
+                            /// Minor optimisation to avoid processing the same sender multiple times in the same
+                            /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
+                            /// will never have a mapping come through part-way through processing these messages)
                             if let result: BlindedIdLookup = lookupCache[message.recipient] {
                                 return result
                             }
@@ -741,14 +787,17 @@ public final class OpenGroupManager {
                             }
                         }
                         
-                        try MessageReceiver.handle(
-                            db,
-                            threadId: (lookup.sessionId ?? lookup.blindedId),
-                            threadVariant: .contact,    // Technically not open group messages
-                            message: messageInfo.message,
-                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                            associatedWithProto: proto,
-                            using: dependencies
+                        insertedInteractionInfo.append(
+                            try MessageReceiver.handle(
+                                db,
+                                threadId: (lookup.sessionId ?? lookup.blindedId),
+                                threadVariant: .contact,    // Technically not open group messages
+                                message: messageInfo.message,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                associatedWithProto: proto,
+                                suppressNotifications: false,
+                                using: dependencies
+                            )
                         )
                 }
             }
@@ -759,7 +808,6 @@ public final class OpenGroupManager {
                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                         DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                         MessageReceiverError.duplicateMessage,
-                        MessageReceiverError.duplicateControlMessage,
                         MessageReceiverError.selfSend:
                         break
                         
@@ -768,6 +816,8 @@ public final class OpenGroupManager {
                 }
             }
         }
+        
+        return insertedInteractionInfo
     }
     
     // MARK: - Convenience
@@ -815,16 +865,11 @@ public final class OpenGroupManager {
     
     /// This method specifies if the given capability is supported on a specified Open Group
     public func doesOpenGroupSupport(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase,
         capability: Capability.Variant,
         on server: String?
     ) -> Bool {
         guard let server: String = server else { return false }
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage]
-                .read { [weak self] db in self?.doesOpenGroupSupport(db, capability: capability, on: server) }
-                .defaulting(to: false)
-        }
         
         let capabilities: [Capability.Variant] = (try? Capability
             .select(.variant)
@@ -839,93 +884,99 @@ public final class OpenGroupManager {
     
     /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
     public func isUserModeratorOrAdmin(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase,
         publicKey: String,
         for roomToken: String?,
-        on server: String?
+        on server: String?,
+        currentUserSessionIds: Set<String>
     ) -> Bool {
         guard let roomToken: String = roomToken, let server: String = server else { return false }
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage]
-                .read { [weak self] db in self?.isUserModeratorOrAdmin(db, publicKey: publicKey, for: roomToken, on: server) }
-                .defaulting(to: false)
-        }
-
+        
         let groupId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
         let targetRoles: [GroupMember.Role] = [.moderator, .admin]
-        let isDirectModOrAdmin: Bool = GroupMember
+        var possibleKeys: Set<String> = [publicKey]
+        
+        /// If the `publicKey` is in `currentUserSessionIds` then we want to use `currentUserSessionIds` to do
+        /// the lookup
+        if currentUserSessionIds.contains(publicKey) {
+            possibleKeys = currentUserSessionIds
+            
+            /// Add the users `unblinded` pubkey if we can get it, just for completeness
+            let userEdKeyPair: KeyPair? = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+            )
+            if let userEdPublicKey: [UInt8] = userEdKeyPair?.publicKey {
+                possibleKeys.insert(SessionId(.unblinded, publicKey: userEdPublicKey).hexString)
+            }
+        }
+        
+        return GroupMember
             .filter(GroupMember.Columns.groupId == groupId)
-            .filter(GroupMember.Columns.profileId == publicKey)
+            .filter(possibleKeys.contains(GroupMember.Columns.profileId))
             .filter(targetRoles.contains(GroupMember.Columns.role))
             .isNotEmpty(db)
+    }
+}
+
+// MARK: - Deprecated Conveneince Functions
+
+public extension OpenGroupManager {
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    func doesOpenGroupSupport(
+        capability: Capability.Variant,
+        on server: String?
+    ) -> Bool {
+        guard let server: String = server else { return false }
         
-        // If the publicKey provided matches a mod or admin directly then just return immediately
-        if isDirectModOrAdmin { return true }
-        
-        // Otherwise we need to check if it's a variant of the current users key and if so we want
-        // to check if any of those have mod/admin entries
-        guard let sessionId: SessionId = try? SessionId(from: publicKey) else { return false }
-        
-        // Conveniently the logic for these different cases works in order so we can fallthrough each
-        // case with only minor efficiency losses
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        switch sessionId.prefix {
-            case .standard:
-                guard publicKey == userSessionId.hexString else { return false }
-                fallthrough
-                
-            case .unblinded:
-                guard let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    return false
+        var openGroupSupportsCapability: Bool = false
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [weak self] db in
+                self?.doesOpenGroupSupport(db, capability: capability, on: server)
+            },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let value): openGroupSupportsCapability = (value == true)
                 }
-                guard sessionId.prefix != .unblinded || publicKey == SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString else {
-                    return false
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return openGroupSupportsCapability
+    }
+    
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    func isUserModeratorOrAdmin(
+        publicKey: String,
+        for roomToken: String?,
+        on server: String?,
+        currentUserSessionIds: Set<String>
+    ) -> Bool {
+        guard let roomToken: String = roomToken, let server: String = server else { return false }
+        
+        var userIsModeratorOrAdmin: Bool = false
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { [weak self] db in
+                self?.isUserModeratorOrAdmin(
+                    db,
+                    publicKey: publicKey,
+                    for: roomToken,
+                    on: server,
+                    currentUserSessionIds: currentUserSessionIds
+                )
+            },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let value): userIsModeratorOrAdmin = (value == true)
                 }
-                fallthrough
-                
-            case .blinded15, .blinded25:
-                guard
-                    let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                    let openGroupPublicKey: String = try? OpenGroup
-                        .select(.publicKey)
-                        .filter(id: groupId)
-                        .asRequest(of: String.self)
-                        .fetchOne(db),
-                    let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .blinded15KeyPair(serverPublicKey: openGroupPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
-                    ),
-                    let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .blinded25KeyPair(serverPublicKey: openGroupPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
-                    )
-                else { return false }
-                guard
-                    (
-                        sessionId.prefix != .blinded15 &&
-                        sessionId.prefix != .blinded25
-                    ) ||
-                    publicKey == SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString ||
-                    publicKey == SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-                else { return false }
-                
-                // If we got to here that means that the 'publicKey' value matches one of the current
-                // users 'standard', 'unblinded' or 'blinded' keys and as such we should check if any
-                // of them exist in the `modsAndAminKeys` Set
-                let possibleKeys: Set<String> = Set([
-                    userSessionId.hexString,
-                    SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
-                    SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
-                    SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-                ])
-                
-                return GroupMember
-                    .filter(GroupMember.Columns.groupId == groupId)
-                    .filter(possibleKeys.contains(GroupMember.Columns.profileId))
-                    .filter(targetRoles.contains(GroupMember.Columns.role))
-                    .isNotEmpty(db)
-            
-            case .group, .versionBlinded07: return false
-        }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return userIsModeratorOrAdmin
     }
 }
 

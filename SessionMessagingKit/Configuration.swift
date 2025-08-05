@@ -42,10 +42,14 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _022_GroupsRebuildChanges.self,
                     _023_GroupsExpiredFlag.self,
                     _024_FixBustedInteractionVariant.self,
-                    _025_DropLegacyClosedGroupKeyPairTable.self
+                    _025_DropLegacyClosedGroupKeyPairTable.self,
+                    _026_MessageDeduplicationTable.self
                 ],
+                [],  // Renamed `Setting` to `KeyValueStore`
                 [
-                    _026_AddProMessageFlag.self
+                    _027_MoveSettingsToLibSession.self,
+                    _028_RenameAttachments.self,
+                    _029_AddProMessageFlag.self
                 ]
             ]
         )

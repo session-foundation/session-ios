@@ -14,11 +14,14 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     private let library: PhotoLibrary
+    private let thumbnailSize: ImageDataManager.ThumbnailSize = .small
+    private let thumbnailPixelDimension: CGFloat
     private let onCollectionSelected: (PhotoCollection) -> Void
     private var photoCollections: CurrentValueSubject<[PhotoCollection], Error>
 
     // MARK: - Initialization
 
+    @MainActor
     init(
         library: PhotoLibrary,
         using dependencies: Dependencies,
@@ -26,6 +29,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     ) {
         self.dependencies = dependencies
         self.library = library
+        self.thumbnailPixelDimension = thumbnailSize.pixelDimension()
         self.onCollectionSelected = onCollectionSelected
         self.photoCollections = CurrentValueSubject(library.allPhotoCollections())
     }
@@ -59,31 +63,23 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
 
     let title: String = "notificationsSound".localized()
 
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(photoCollections)
-        .map { collections -> [SectionModel] in
+        .map { [thumbnailSize, thumbnailPixelDimension] collections -> [SectionModel] in
             [
                 SectionModel(
                     model: .content,
                     elements: collections.map { collection in
                         let contents: PhotoCollectionContents = collection.contents()
-                        let photoMediaSize: PhotoMediaSize = PhotoMediaSize(
-                            thumbnailSize: CGSize(
-                                width: IconSize.extraLarge.size,
-                                height: IconSize.extraLarge.size
-                            )
-                        )
-                        let lastAssetItem: PhotoPickerAssetItem? = contents.lastAssetItem(photoMediaSize: photoMediaSize)
+                        let lastAssetItem: PhotoPickerAssetItem? = contents.lastAssetItem(size: thumbnailSize, pixelDimension: thumbnailPixelDimension)
                         
                         return SessionCell.Info(
                             id: TableItem(collection: collection),
-                            leadingAccessory: .iconAsync(size: .extraLarge, shouldFill: true) { imageView in
-                                // Note: We need to capture 'lastAssetItem' otherwise it'll be released and we won't
-                                // be able to load the thumbnail
-                                lastAssetItem?.asyncThumbnail { [weak imageView] image in
-                                    imageView?.image = image
-                                }
-                            },
+                            leadingAccessory: .iconAsync(
+                                size: .extraLarge,
+                                source: lastAssetItem?.source,
+                                shouldFill: true
+                            ),
                             title: collection.localizedTitle(),
                             subtitle: "\(contents.assetCount)",
                             onTap: { [weak self] in

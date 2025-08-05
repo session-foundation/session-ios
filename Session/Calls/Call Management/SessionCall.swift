@@ -206,7 +206,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Actions
     
-    public func startSessionCall(_ db: Database) {
+    public func startSessionCall(_ db: ObservingDatabase) {
         let sessionId: String = self.sessionId
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .outgoing)
         
@@ -245,10 +245,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         try? webRTCSession
             .sendPreOffer(
-                db,
                 message: message,
+                threadId: thread.id,
                 interactionId: interaction?.id,
-                in: thread
+                authMethod: try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies)
             )
             .retry(5)
             // Start the timeout timer for the call

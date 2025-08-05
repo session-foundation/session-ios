@@ -25,12 +25,12 @@ internal extension LibSession {
 
 internal extension LibSessionCacheType {
     func handleGroupKeysUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         groupSessionId: SessionId
     ) throws {
         guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-            throw LibSessionError.invalidConfigObject
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
         }
         
         /// If the group had been flagged as "expired" (because it got no config messages when initially polling) then receiving a config
@@ -72,16 +72,34 @@ internal extension LibSessionCacheType {
 
 // MARK: - Outgoing Changes
 
+public extension LibSession.Cache {
+    func loadAdminKey(
+        groupIdentitySeed: Data,
+        groupSessionId: SessionId
+    ) throws {
+        guard let config: LibSession.Config = config(for: .groupKeys, sessionId: groupSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+        }
+        guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+        }
+        
+        var identitySeed: [UInt8] = Array(groupIdentitySeed)
+        groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
+        try LibSessionError.throwIfNeeded(conf)
+    }
+}
+
 internal extension LibSession {
     static func rekey(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
                 guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-                    throw LibSessionError.invalidConfigObject
+                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
                 }
                 
                 // Performing a `rekey` returns the updated key data which we don't use directly, this updated
@@ -97,14 +115,17 @@ internal extension LibSession {
     }
     
     static func keySupplement(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         memberIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> Data {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+            }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
             }
             
             return try memberIds.withUnsafeCStrArray { cMemberIds in
@@ -132,7 +153,7 @@ internal extension LibSession {
     }
     
     static func loadAdminKey(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupIdentitySeed: Data,
         groupSessionId: SessionId,
         using dependencies: Dependencies
@@ -140,14 +161,8 @@ internal extension LibSession {
         try dependencies.mutate(cache: .libSession) { cache in
             /// Disable the admin check because we are about to convert the user to being an admin and it's guaranteed to fail
             try cache.withCustomBehaviour(.skipGroupAdminCheck, for: groupSessionId) {
-                try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
-                    guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-                        throw LibSessionError.invalidConfigObject
-                    }
-                    
-                    var identitySeed: [UInt8] = Array(groupIdentitySeed)
-                    groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
-                    try LibSessionError.throwIfNeeded(conf)
+                try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { _ in
+                    try cache.loadAdminKey(groupIdentitySeed: groupIdentitySeed, groupSessionId: groupSessionId)
                 }
             }
         }
@@ -158,8 +173,11 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Int {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+            }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
             }
             
             return Int(groups_keys_size(conf))
@@ -171,11 +189,26 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Int {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                throw LibSessionError.invalidConfigObject
+            guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+            }
+            guard case .groupKeys(let conf, _, _) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
             }
             
             return Int(groups_keys_current_generation(conf))
         }
+    }
+}
+
+// MARK: - State Accses
+
+public extension LibSession.Cache {
+    func isAdmin(groupSessionId: SessionId) -> Bool {
+        guard case .groupKeys(let conf, _, _) = config(for: .groupKeys, sessionId: groupSessionId) else {
+            return false
+        }
+        
+        return groups_keys_is_admin(conf)
     }
 }

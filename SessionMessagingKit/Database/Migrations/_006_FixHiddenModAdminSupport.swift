@@ -12,7 +12,7 @@ enum _006_FixHiddenModAdminSupport: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "groupMember") { t in
             t.add(column: "isHidden", .boolean)
                 .notNull()
@@ -24,6 +24,6 @@ enum _006_FixHiddenModAdminSupport: Migration {
         // added/changed fields
         try db.execute(sql: "UPDATE openGroup SET infoUpdates = 0")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

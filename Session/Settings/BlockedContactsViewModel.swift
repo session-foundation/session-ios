@@ -9,6 +9,14 @@ import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("BlockedContactsViewModel", defaultLevel: .warn)
+}
+
+// MARK: - BlockedContactsViewModel
+
 public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource, PagedObservationSource {
     public static let pageSize: Int = 30
     
@@ -16,68 +24,21 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
-    private let selectedIdsSubject: CurrentValueSubject<Set<String>, Never> = CurrentValueSubject([])
-    public private(set) var pagedDataObserver: PagedDatabaseObserver<Contact, TableItem>?
+    
+    @available(*, deprecated, message: "No longer used now that we have updated this ViewModel to use the new ObservationBuilder mechanism")
+    var pagedDataObserver: PagedDatabaseObserver<Contact, TableItem>? = nil
+    
+    /// This value is the current state of the view
+    @MainActor @Published private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.pagedDataObserver = nil
+        self.internalState = State.initialState(using: dependencies)
         
-        // Note: Since this references self we need to finish initializing before setting it, we
-        // also want to skip the initial query and trigger it async so that the push animation
-        // doesn't stutter (it should load basically immediately but without this there is a
-        // distinct stutter)
-        self.pagedDataObserver = PagedDatabaseObserver(
-            pagedTable: Contact.self,
-            pageSize: BlockedContactsViewModel.pageSize,
-            idColumn: .id,
-            observedChanges: [
-                PagedData.ObservedChanges(
-                    table: Contact.self,
-                    columns: [.id, .isBlocked]
-                ),
-                PagedData.ObservedChanges(
-                    table: Profile.self,
-                    columns: [
-                        .id,
-                        .name,
-                        .nickname,
-                        .profilePictureFileName
-                    ],
-                    joinToPagedType: {
-                        let contact: TypedTableAlias<Contact> = TypedTableAlias()
-                        let profile: TypedTableAlias<Profile> = TypedTableAlias()
-                        
-                        return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(contact[.id])")
-                    }()
-                )
-            ],
-            /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed for the query
-            joinSQL: TableItem.optimisedJoinSQL,
-            filterSQL: TableItem.filterSQL,
-            orderSQL: TableItem.orderSQL,
-            dataQuery: TableItem.query(
-                filterSQL: TableItem.filterSQL,
-                orderSQL: TableItem.orderSQL
-            ),
-            onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
-                guard
-                    let data: [SectionModel] = self?.process(data: updatedData, for: updatedPageInfo)
-                        .mapToSessionTableViewData(for: self)  // Update the cell positions for background rounding
-                else { return }
-                
-                self?.pendingTableDataSubject.send(data)
-            },
-            using: dependencies
-        )
-        
-        // Run the initial query on a background thread so we don't block the push transition
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // The `.pageBefore` will query from a `0` offset loading the first page
-            self?.pagedDataObserver?.load(.pageBefore)
-        }
+        self.bindState()
     }
     
     // MARK: - Section
@@ -100,72 +61,278 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("blockBlockedNone".localized())
             .eraseToAnyPublisher()
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedIdsSubject
-        .prepend([])
-        .map { selectedContactIds in
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = $internalState
+        .map { state in
             SessionButton.Info(
                 style: .destructive,
                 title: "blockUnblock".localized(),
-                isEnabled: !selectedContactIds.isEmpty,
+                isEnabled: !state.selectedIds.isEmpty,
                 onTap: { [weak self] in self?.unblockTapped() }
             )
         }
         .eraseToAnyPublisher()
     
-    // MARK: - Functions
+    // MARK: - State
+
+    public struct State: ObservableKeyProvider {
+        enum ViewState: Equatable {
+            case loading
+            case empty
+            case loaded
+        }
+        
+        let viewState: ViewState
+        let selectedIds: Set<String>
+        let loadedPageInfo: PagedData.LoadedInfo<TableItem.ID>
+        let itemCache: [String: TableItem]
+        
+        @MainActor public func sections(viewModel: BlockedContactsViewModel) -> [SectionModel] {
+            BlockedContactsViewModel.sections(state: self, viewModel: viewModel)
+        }
+        
+        public var observedKeys: Set<ObservableKey> {
+            var result: Set<ObservableKey> = [
+                .loadPage(BlockedContactsViewModel.self),
+                .clearSelection(BlockedContactsViewModel.self),
+                .anyContactBlockedStatusChanged
+            ]
+            
+            itemCache.values.forEach { item in
+                result.insert(contentsOf: [
+                    .contact(item.id),
+                    .profile(item.id),
+                    .updateSelection(BlockedContactsViewModel.self, item.id)
+                ])
+            }
+            
+            return result
+        }
+        
+        static func initialState(using dependencies: Dependencies) -> State {
+            return State(
+                viewState: .loading,
+                selectedIds: [],
+                loadedPageInfo: PagedData.LoadedInfo(
+                    record: Contact.self,
+                    pageSize: BlockedContactsViewModel.pageSize,
+                    /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed
+                    /// for the query but differs from the JOINs that are actually used for performance reasons as the
+                    /// basic logic can be simpler for where it's used
+                    requiredJoinSQL: TableItem.optimisedJoinSQL,
+                    filterSQL: TableItem.filterSQL,
+                    groupSQL: nil,
+                    orderSQL: TableItem.orderSQL
+                ),
+                itemCache: [:]
+            )
+        }
+    }
     
-    private func process(
-        data: [TableItem],
-        for pageInfo: PagedData.PageInfo
-    ) -> [SectionModel] {
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
+            .debounce(for: .milliseconds(10))
+            .using(dependencies: dependencies)
+            .query(BlockedContactsViewModel.queryState)
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
+            }
+    }
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
+        var selectedIds: Set<String> = previousState.selectedIds
+        var itemCache: [String: TableItem] = previousState.itemCache
+        
+        /// Store a local copy of the events so we can manipulate it based on the state changes
+        var eventsToProcess: [ObservedEvent] = events
+        
+        if isInitialQuery {
+            /// Insert a fake event to force the initial page load
+            eventsToProcess.append(ObservedEvent(
+                key: .loadPage(BlockedContactsViewModel.self),
+                value: LoadPageEvent.initial
+            ))
+        }
+        
+        /// If there are no events we want to process then just return the current state
+        guard !eventsToProcess.isEmpty else { return previousState }
+        
+        /// Split the events between those that need database access and those that don't
+        let splitEvents: [Bool: [ObservedEvent]] = eventsToProcess
+            .grouped(by: \.requiresDatabaseQueryForBlockedContactsViewModel)
+        
+        /// Handle database events first
+        if let databaseEvents: Set<ObservedEvent> = splitEvents[true].map({ Set($0) }) {
+            do {
+                var fetchedItems: [TableItem] = []
+                let idsNeedingRequery: Set<String> = extractIdsNeedingRequery(
+                    events: databaseEvents,
+                    cache: itemCache
+                )
+                let loadPageEvent: LoadPageEvent? = databaseEvents
+                    .first(where: { $0.key.generic == .loadPage })?
+                    .value as? LoadPageEvent
+                
+                /// Identify any inserted/deleted records
+                var insertedIds: Set<String> = []
+                var deletedIds: Set<String> = []
+                
+                databaseEvents.forEach { event in
+                    switch (event.key.generic, event.value) {
+                        case (.contact, let event as ContactEvent),
+                            (GenericObservableKey(.anyContactBlockedStatusChanged), let event as ContactEvent):
+                            if case .isBlocked(true) = event.change {
+                                deletedIds.insert(event.id)
+                            }
+                            else if case .isBlocked(false) = event.change {
+                                insertedIds.insert(event.id)
+                            }
+                            
+                        default: break
+                    }
+                }
+                
+                try await dependencies[singleton: .storage].readAsync { db in
+                    /// Update loaded page info as needed
+                    if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
+                        loadResult = try loadResult.load(
+                            db,
+                            target: (
+                                loadPageEvent?.target(with: loadResult) ??
+                                .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
+                            )
+                        )
+                    }
+                    
+                    /// Fetch any records needed
+                    fetchedItems.append(
+                        contentsOf: try TableItem
+                            .query(
+                                filterSQL: TableItem.filterSQL,
+                                orderSQL: TableItem.orderSQL,
+                                ids: Array(idsNeedingRequery) + loadResult.newIds
+                            )
+                            .fetchAll(db)
+                    )
+                }
+                
+                /// Update the `itemCache` with the newly fetched values
+                fetchedItems.forEach { itemCache[$0.id] = $0 }
+                
+                /// Remove any deleted values
+                deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
+            } catch {
+                let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                Log.critical(.cat, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
+            }
+        }
+        
+        /// Then handle non-database events
+        let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[false]?
+            .reduce(into: [:]) { result, event in
+                result[event.key.generic, default: []].insert(event)
+            }
+        groupedOtherEvents?[.updateSelection]?.forEach { event in
+            guard let value: UpdateSelectionEvent = event.value as? UpdateSelectionEvent else { return }
+            
+            if value.isSelected {
+                selectedIds.insert(value.id)
+            }
+            else {
+                selectedIds.remove(value.id)
+            }
+        }
+        if groupedOtherEvents?[.clearSelection]?.isEmpty == false {
+            selectedIds.removeAll()
+        }
+        
+        /// Generate the new state
+        return State(
+            viewState: (loadResult.info.totalCount == 0 ? .empty : .loaded),
+            selectedIds: selectedIds,
+            loadedPageInfo: loadResult.info,
+            itemCache: itemCache
+        )
+    }
+    
+    private static func extractIdsNeedingRequery(
+        events: Set<ObservedEvent>,
+        cache: [String: TableItem]
+    ) -> Set<String> {
+        return events.reduce(into: []) { result, event in
+            switch (event.key.generic, event.value) {
+                case (.profile, let event as ProfileEvent):
+                    guard cache[event.id] != nil else { return }
+                    
+                    result.insert(event.id)
+                
+                case (.contact, let event as ContactEvent):
+                    guard cache[event.id] != nil else { return }
+                    
+                    result.insert(event.id)
+                    
+                default: break
+            }
+        }
+    }
+    
+    private static func sections(state: State, viewModel: BlockedContactsViewModel) -> [SectionModel] {
         return [
             [
                 SectionModel(
                     section: .contacts,
-                    elements: data
-                        .sorted { lhs, rhs -> Bool in
-                            let lhsValue: String = (lhs.profile?.displayName() ?? lhs.id)
-                            let rhsValue: String = (rhs.profile?.displayName() ?? rhs.id)
-                            
-                            return (lhsValue < rhsValue)
-                        }
-                        .map { [selectedIdsSubject] model -> SessionCell.Info<TableItem> in
+                    elements: state.loadedPageInfo.currentIds
+                        .compactMap { state.itemCache[$0] }
+                        .map { model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
                                 id: model,
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
                                 title: (
                                     model.profile?.displayName() ??
-                                    Profile.truncated(id: model.id, truncating: .middle)
+                                    model.id.truncated()
                                 ),
                                 trailingAccessory: .radio(
-                                    liveIsSelected: { selectedIdsSubject.value.contains(model.id) == true }
+                                    isSelected: state.selectedIds.contains(model.id)
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Contact"
                                 ),
-                                onTap: {
-                                    if !selectedIdsSubject.value.contains(model.id) {
-                                        selectedIdsSubject.send(selectedIdsSubject.value.inserting(model.id))
-                                    }
-                                    else {
-                                        selectedIdsSubject.send(selectedIdsSubject.value.removing(model.id))
-                                    }
+                                onTap: { [dependencies = viewModel.dependencies] in
+                                    dependencies.notifyAsync(
+                                        key: .updateSelection(BlockedContactsViewModel.self, model.id),
+                                        value: UpdateSelectionEvent(
+                                            id: model.id,
+                                            isSelected: !state.selectedIds.contains(model.id)
+                                        )
+                                    )
                                 }
                             )
                         }
                 )
             ],
-            (!data.isEmpty && (pageInfo.pageOffset + pageInfo.currentCount) < pageInfo.totalCount ?
+            (!state.loadedPageInfo.currentIds.isEmpty && state.loadedPageInfo.hasNextPage ?
                 [SectionModel(section: .loadMore)] :
                 []
             )
         ].flatMap { $0 }
     }
     
-    private func unblockTapped() {
-        guard !selectedIdsSubject.value.isEmpty else { return }
+    // MARK: - Functions
+    
+    @MainActor private func unblockTapped() {
+        guard !internalState.selectedIds.isEmpty else { return }
         
-        let contactIds: Set<String> = selectedIdsSubject.value
+        let contactIds: Set<String> = internalState.selectedIds
         let contactNames: [String] = contactIds
             .compactMap { contactId in
                 guard
@@ -173,9 +340,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .first(where: { section in section.model == .contacts }),
                     let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })
-                else {
-                    return Profile.truncated(id: contactId, truncating: .middle)
-                }
+                else { return contactId.truncated() }
                 
                 return info.title?.text
             }
@@ -206,77 +371,95 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 confirmTitle: "blockUnblock".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
-            ) { [weak self, dependencies] _ in
+            ) { [dependencies] _ in
                 // Unblock the contacts
-                dependencies[singleton: .storage].write { db in
-                    _ = try Contact
-                        .filter(ids: contactIds)
-                        .updateAllAndConfig(
-                            db,
-                            Contact.Columns.isBlocked.set(to: false),
-                            using: dependencies
-                        )
-                }
-                
-                self?.selectedIdsSubject.send([])
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        _ = try Contact
+                            .filter(ids: contactIds)
+                            .updateAllAndConfig(
+                                db,
+                                Contact.Columns.isBlocked.set(to: false),
+                                using: dependencies
+                            )
+                        contactIds.forEach { id in
+                            db.addContactEvent(id: id, change: .isBlocked(false))
+                        }
+                    },
+                    completion: { _ in
+                        dependencies.notifyAsync(key: .clearSelection(BlockedContactsViewModel.self))
+                    }
+                )
             }
         )
         self.transitionToScreen(confirmationModal, transitionType: .present)
     }
     
+    @MainActor func loadPageBefore() {
+        dependencies.notifyAsync(
+            key: .loadPage(BlockedContactsViewModel.self),
+            value: LoadPageEvent.previousPage(firstIndex: internalState.loadedPageInfo.firstIndex)
+        )
+    }
+    
+    @MainActor func loadPageAfter() {
+        dependencies.notifyAsync(
+            key: .loadPage(BlockedContactsViewModel.self),
+            value: LoadPageEvent.nextPage(lastIndex: internalState.loadedPageInfo.lastIndex)
+        )
+    }
+    
     // MARK: - TableItem
 
-    public struct TableItem: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
+    public struct TableItem: FetchableRecordWithRowId, Sendable, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
         public typealias Columns = CodingKeys
         public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case rowId
             case id
             case profile
         }
         
         public var differenceIdentifier: String { id }
         
-        public let rowId: Int64
+        @available(*, deprecated, message: "This is required for the `PagedDatabaseObserver` but we are no longer using it, this can be removed once the `SessionTableViewController` is refactored")
+        public let rowId: Int64 = 0
         public let id: String
         public let profile: Profile?
     
         static func query(
             filterSQL: SQL,
-            orderSQL: SQL
-        ) -> (([Int64]) -> any FetchRequest<TableItem>) {
-            return { rowIds -> any FetchRequest<TableItem> in
-                let contact: TypedTableAlias<Contact> = TypedTableAlias()
-                let profile: TypedTableAlias<Profile> = TypedTableAlias()
+            orderSQL: SQL,
+            ids: [String]
+        ) -> any FetchRequest<TableItem> {
+            let contact: TypedTableAlias<Contact> = TypedTableAlias()
+            let profile: TypedTableAlias<Profile> = TypedTableAlias()
+            
+            /// **Note:** The `numColumnsBeforeProfile` value **MUST** match the number of fields before
+            /// the `TableItem.profileKey` entry below otherwise the query will fail to
+            /// parse and might throw
+            ///
+            /// Explicitly set default values for the fields ignored for search results
+            let numColumnsBeforeProfile: Int = 1
+            
+            let request: SQLRequest<TableItem> = """
+                SELECT
+                    \(contact[.id]),
+                    \(profile.allColumns)
                 
-                /// **Note:** The `numColumnsBeforeProfile` value **MUST** match the number of fields before
-                /// the `TableItem.profileKey` entry below otherwise the query will fail to
-                /// parse and might throw
-                ///
-                /// Explicitly set default values for the fields ignored for search results
-                let numColumnsBeforeProfile: Int = 2
+                FROM \(Contact.self)
+                LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(contact[.id])
+                WHERE \(contact[.id]) IN \(ids)
+                ORDER BY \(orderSQL)
+            """
+            
+            return request.adapted { db in
+                let adapters = try splittingRowAdapters(columnCounts: [
+                    numColumnsBeforeProfile,
+                    Profile.numberOfSelectedColumns(db)
+                ])
                 
-                let request: SQLRequest<TableItem> = """
-                    SELECT
-                        \(contact[.rowId]) AS \(TableItem.Columns.rowId),
-                        \(contact[.id]),
-                        \(profile.allColumns)
-                    
-                    FROM \(Contact.self)
-                    LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(contact[.id])
-                    WHERE \(contact[.rowId]) IN \(rowIds)
-                    ORDER BY \(orderSQL)
-                """
-                
-                return request.adapted { db in
-                    let adapters = try splittingRowAdapters(columnCounts: [
-                        numColumnsBeforeProfile,
-                        Profile.numberOfSelectedColumns(db)
-                    ])
-                    
-                    return ScopeAdapter.with(TableItem.self, [
-                        .profile: adapters[1]
-                    ])
-                }
+                return ScopeAdapter.with(TableItem.self, [
+                    .profile: adapters[1]
+                ])
             }
         }
         
@@ -299,5 +482,22 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             
             return SQL("IFNULL(IFNULL(\(profile[.nickname]), \(profile[.name])), \(contact[.id])) ASC")
         }()
+    }
+}
+
+// MARK: - Convenience
+
+private extension ObservedEvent {
+    var requiresDatabaseQueryForBlockedContactsViewModel: Bool {
+        /// Any event requires a database query
+        switch (key, key.generic) {
+            case (_, .loadPage): return true
+            case (_, .contact): return true
+            case (_, .profile): return true
+            case (.anyContactBlockedStatusChanged, _): return true
+            case (_, .updateSelection): return false
+            case (_, .clearSelection): return false
+            default: return false
+        }
     }
 }

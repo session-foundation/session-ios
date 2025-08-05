@@ -6,15 +6,17 @@ import SessionUIKit
 @testable import SessionMessagingKit
 
 class MockImageDataManager: Mock<ImageDataManagerType>, ImageDataManagerType {
-    func load(
-        _ source: ImageDataManager.DataSource,
-        onComplete: @escaping (SessionUIKit.ImageDataManager.ProcessedImageData?) -> Void)
-    {
-        onComplete(mock(args: ["mock", source]))
+    @discardableResult func load(
+        _ source: ImageDataManager.DataSource
+    ) async -> ImageDataManager.ProcessedImageData? {
+        return mock(args: [source])
     }
     
-    @discardableResult func load(_ source: ImageDataManager.DataSource) async -> SessionUIKit.ImageDataManager.ProcessedImageData? {
-        return mock(args: ["mock", source])
+    func load(
+        _ source: ImageDataManager.DataSource,
+        onComplete: @escaping (ImageDataManager.ProcessedImageData?) -> Void
+    ) {
+        mockNoReturn(args: [source], untrackedArgs: [onComplete])
     }
     
     func cacheImage(_ image: UIImage, for identifier: String) async {

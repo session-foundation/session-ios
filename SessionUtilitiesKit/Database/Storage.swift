@@ -38,11 +38,6 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 
 open class Storage {
     public static let base32: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-    public struct CurrentlyRunningMigration: ThreadSafeType {
-        public let identifier: TargetMigrations.Identifier
-        public let migration: Migration.Type
-    }
-    
     public static let queuePrefix: String = "SessionDatabase"
     public static let dbFileName: String = "Session.sqlite"
     private static let SQLCipherKeySpecLength: Int = 48
@@ -69,23 +64,13 @@ open class Storage {
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
     
-    // MARK: - Migration Variables
-    
-    @ThreadSafeObject private var migrationProgressUpdater: ((String, CGFloat) -> ())?
-    @ThreadSafe private var internalCurrentlyRunningMigration: CurrentlyRunningMigration? = nil
-    @ThreadSafe private var migrationsCompleted: Bool = false
-    
-    public var hasCompletedMigrations: Bool { migrationsCompleted }
-    public var currentlyRunningMigration: CurrentlyRunningMigration? {
-        internalCurrentlyRunningMigration
-    }
-    
     // MARK: - Database State Variables
     
     private var startupError: Error?
     public private(set) var isValid: Bool = false
     public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
+    public private(set) var hasCompletedMigrations: Bool = false
     
     /// This property gets set the first time we successfully read from the database
     public private(set) var hasSuccessfullyRead: Bool = false
@@ -164,7 +149,13 @@ open class Storage {
         /// **Note:** If we fail to get/generate the keySpec then don't bother continuing to setup the Database as it'll just be invalid,
         /// in this case the App/Extensions will have logic that checks the `isValid` flag of the database
         do {
-            var tmpKeySpec: Data = try getOrGenerateDatabaseKeySpec()
+            var tmpKeySpec: Data = try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+                forKey: .dbCipherKeySpec,
+                length: Storage.SQLCipherKeySpecLength,
+                cat: .storage,
+                legacyKey: "GRDBDatabaseCipherKeySpec",
+                legacyService: "TSKeyChainService"
+            )
             tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
         }
         catch { return }
@@ -177,7 +168,13 @@ open class Storage {
 
         /// Load in the SQLCipher keys
         config.prepareDatabase { [weak self] db in
-            var keySpec: Data = try self?.getOrGenerateDatabaseKeySpec() ?? { throw StorageError.invalidKeySpec }()
+            var keySpec: Data = try self?.dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+                forKey: .dbCipherKeySpec,
+                length: Storage.SQLCipherKeySpecLength,
+                cat: .storage,
+                legacyKey: "GRDBDatabaseCipherKeySpec",
+                legacyService: "TSKeyChainService"
+            ) ?? { throw KeychainStorageError.keySpecInvalid }()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -185,7 +182,9 @@ open class Storage {
             // using explicit BLOB syntax, e.g.:
             //
             // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
-            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw StorageError.invalidKeySpec }())
+            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? {
+                throw KeychainStorageError.keySpecInvalid
+            }())
             keySpec.insert(contentsOf: [120, 39], at: 0)    // "x'" prefix
             keySpec.append(39)                              // "'" suffix
             
@@ -249,10 +248,10 @@ open class Storage {
     
     public typealias KeyedMigration = (key: String, identifier: TargetMigrations.Identifier, migration: Migration.Type)
     
-    public static func appliedMigrationIdentifiers(_ db: Database) -> Set<String> {
+    public static func appliedMigrationIdentifiers(_ db: ObservingDatabase) -> Set<String> {
         let migrator: DatabaseMigrator = DatabaseMigrator()
         
-        return (try? migrator.appliedIdentifiers(db))
+        return (try? migrator.appliedIdentifiers(db.originalDb))
             .defaulting(to: [])
     }
     
@@ -334,7 +333,8 @@ open class Storage {
             .map { _, _, migration in migration.minExpectedRunDuration }
         let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
         
-        self._migrationProgressUpdater.set(to: { targetKey, progress in
+        // Store the logic to handle migration progress and completion
+        let progressUpdater: (String, CGFloat) -> Void = { (targetKey: String, progress: CGFloat) in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _, _ in key == targetKey }) else {
                 return
             }
@@ -348,18 +348,25 @@ open class Storage {
             DispatchQueue.main.async {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
-        })
-        
-        // Store the logic to run when the migration completes
-        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter] result in
+        }
+        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
             // Make sure to transition the progress updater to 100% for the final migration (just
             // in case the migration itself didn't update to 100% itself)
             if let lastMigrationKey: String = unperformedMigrations.last?.key {
-                self?.migrationProgressUpdater?(lastMigrationKey, 1)
+                MigrationExecution.current?.progressUpdater(lastMigrationKey, 1)
             }
             
-            self?.migrationsCompleted = true
-            self?._migrationProgressUpdater.set(to: nil)
+            self?.hasCompletedMigrations = true
+            
+            // Output any events tracked during the migration and trigger any `postCommitActions` which
+            // should occur
+            if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
+                dependencies.notifyAsync(events: events)
+            }
+            
+            if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
+                actions.values.forEach { $0() }
+            }
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -390,55 +397,33 @@ open class Storage {
             return
         }
         
+        // Create the `MigrationContext` 
+        let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
+        
         // If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationKey: String = unperformedMigrations.first?.key {
-            self.migrationProgressUpdater?(firstMigrationKey, 0)
+            migrationContext.progressUpdater(firstMigrationKey, 0)
         }
         
-        // Note: The non-async migration should only be used for unit tests
-        guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
-        
-        migrator.asyncMigrate(dbWriter) { [dependencies] result in
-            let finalResult: Result<Void, Error> = {
-                switch result {
-                    case .failure(let error): return .failure(error)
-                    case .success: return .success(())
-                }
-            }()
+        MigrationExecution.$current.withValue(migrationContext) {
+            // Note: The non-async migration should only be used for unit tests
+            guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
             
-            // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
-            // performs subsequent database operations
-            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
-                migrationCompleted(finalResult)
+            migrator.asyncMigrate(dbWriter) { [dependencies] result in
+                let finalResult: Result<Void, Error> = {
+                    switch result {
+                        case .failure(let error): return .failure(error)
+                        case .success: return .success(())
+                    }
+                }()
+                
+                // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
+                // performs subsequent database operations
+                DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
+                    migrationCompleted(finalResult)
+                }
             }
         }
-    }
-    
-    public func willStartMigration(
-        _ db: Database,
-        _ migration: Migration.Type,
-        _ identifier: TargetMigrations.Identifier
-    ) {
-        internalCurrentlyRunningMigration = CurrentlyRunningMigration(
-            identifier: identifier,
-            migration: migration
-        )
-    }
-    
-    public func didCompleteMigration() {
-        internalCurrentlyRunningMigration = nil
-    }
-    
-    public static func update(
-        progress: CGFloat,
-        for migration: Migration.Type,
-        in target: TargetMigrations.Identifier,
-        using dependencies: Dependencies
-    ) {
-        // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
-        guard !SNUtilitiesKit.isRunningTests else { return }
-        
-        dependencies[singleton: .storage].migrationProgressUpdater?(target.key(with: migration), progress)
     }
     
     // MARK: - Security
@@ -450,65 +435,6 @@ open class Storage {
             toKey: .dbCipherKeySpec
         )
         return try dependencies[singleton: .keychain].data(forKey: .dbCipherKeySpec)
-    }
-    
-    private func getOrGenerateDatabaseKeySpec() throws -> Data {
-        do {
-            var keySpec: Data = try getDatabaseCipherKeySpec()
-            defer { keySpec.resetBytes(in: 0..<keySpec.count) }
-            
-            guard keySpec.count == Storage.SQLCipherKeySpecLength else { throw StorageError.invalidKeySpec }
-            
-            return keySpec
-        }
-        catch {
-            switch (error, (error as? KeychainStorageError)?.code) {
-                case (StorageError.invalidKeySpec, _):
-                    // For these cases it means either the keySpec or the keychain has become corrupt so in order to
-                    // get back to a "known good state" and behave like a new install we need to reset the storage
-                    // and regenerate the key
-                    if !SNUtilitiesKit.isRunningTests {
-                        // Try to reset app by deleting database.
-                        resetAllStorage()
-                    }
-                    fallthrough
-                
-                case (_, errSecItemNotFound):
-                    // No keySpec was found so we need to generate a new one
-                    do {
-                        var keySpec: Data = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(Storage.SQLCipherKeySpecLength))
-                        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
-                        
-                        try dependencies[singleton: .keychain].set(data: keySpec, forKey: .dbCipherKeySpec)
-                        return keySpec
-                    }
-                    catch {
-                        Log.error(.storage, "Setting keychain value failed with error: \(error)")
-                        Thread.sleep(forTimeInterval: 15)    // Sleep to allow any background behaviours to complete
-                        throw StorageError.keySpecCreationFailed
-                    }
-                    
-                default:
-                    // Because we use kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, the keychain will be inaccessible
-                    // after device restart until device is unlocked for the first time. If the app receives a push
-                    // notification, we won't be able to access the keychain to process that notification, so we should
-                    // just terminate by throwing an uncaught exception
-                    if dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground {
-                        let appState: UIApplication.State = dependencies[singleton: .appContext].reportedApplicationState
-                        Log.error(.storage, "CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
-                        
-                        // In this case we should have already detected the situation earlier and exited
-                        // gracefully (in the app delegate) using isDatabasePasswordAccessible(using:), but we
-                        // want to stop the app running here anyway
-                        Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                        throw StorageError.keySpecInaccessible
-                    }
-                    
-                    Log.error(.storage, "CipherKeySpec inaccessible; not main app.")
-                    Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                    throw StorageError.keySpecInaccessible
-            }
-        }
     }
     
     // MARK: - File Management
@@ -533,10 +459,17 @@ open class Storage {
             ].joined()
         )
         
+        /// Instruct GRDB to release as much memory as it can (non-blocking)
+        (dbWriter as? DatabasePool)?.releaseMemoryEventually()
+        
         /// Before triggering an `interrupt` (which will forcibly kill in-progress database queries) we want to try to cancel all
         /// database tasks to give them a small chance to resolve cleanly before we take a brute-force approach
         currentCalls.forEach { $0.cancel() }
         _currentCalls.performUpdate { _ in [] }
+        
+        /// We want to force a checkpoint (ie. write any data in the WAL to disk, to ensure the main database is in a valid state)
+        do { try checkpoint(.truncate) }
+        catch { Log.info(.storage, "Failed to checkpoint database due to error: \(error)") }
         
         /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
         /// and don't actually want any more transactions to occur)
@@ -584,7 +517,7 @@ open class Storage {
     
     public func resetAllStorage() {
         isValid = false
-        migrationsCompleted = false
+        hasCompletedMigrations = false
         dbWriter = nil
         
         deleteDatabaseFiles()
@@ -649,29 +582,138 @@ open class Storage {
         }
     }
     
+    /// This function manually performs `read`/`write` operations via Swift Concurrency and should only be called via the appropriate
+    /// `perform{x}Operation`functions to reduce duplication
+    private static func performOperation<T>(
+        _ info: CallInfo,
+        _ dbWriter: DatabaseWriter,
+        _ operation: @escaping (ObservingDatabase) throws -> T,
+        _ dependencies: Dependencies
+    ) async -> Result<T, Error> {
+        typealias DatabaseOutput = (
+            result: T,
+            events: [ObservedEvent],
+            postCommitActions: [() -> Void]
+        )
+        typealias DatabaseResult = (result: T, postCommitActions: [() -> Void])
+        
+        return await withThrowingTaskGroup(of: DatabaseResult.self) { group in
+            /// Add the task to perform the actual database operation
+            group.addTask {
+                let trackedOperation: @Sendable (Database) throws -> DatabaseOutput = { db in
+                    info.start()
+                    guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
+                    guard info.storage?.isSuspended == false else {
+                        throw StorageError.databaseSuspended
+                    }
+                    
+                    /// Create the `ObservingDatabase` and store it in the `ObservationContext` so objects can access
+                    /// it while the operation is running (this allows us to use things like `aroundInsert` without having to resort
+                    /// to hacks to give it access to the `ObservingDatabase` or `Dependencies` instances
+                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                    let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                        try operation(observingDatabase)
+                    }
+                    
+                    /// Update the state flags
+                    switch info.isWrite {
+                        case true: info.storage?.hasSuccessfullyWritten = true
+                        case false: info.storage?.hasSuccessfullyRead = true
+                    }
+                    
+                    return (
+                        result,
+                        observingDatabase.events,
+                        Array(observingDatabase.postCommitActions.values)
+                    )
+                }
+                
+                /// Do this outside of the actually db operation as it's more for debugging queries running on the main thread
+                /// than trying to slow the query itself
+                if !SNUtilitiesKit.isRunningTests && dependencies[feature: .forceSlowDatabaseQueries] {
+                    try await Task.sleep(for: .seconds(1))
+                }
+                
+                let output: DatabaseOutput = (info.isWrite ?
+                    try await dbWriter.write(trackedOperation) :
+                    try await dbWriter.read(trackedOperation)
+                )
+                
+                /// Trigger the observations
+                dependencies.notifyAsync(events: output.events)
+                
+                return (output.result, output.postCommitActions)
+            }
+            
+            /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
+            /// create a deadlock
+            if !info.isAsync {
+                group.addTask {
+                    /// If the debugger is attached then we want to have a lot of shorter sleep iterations as the clock doesn't get
+                    /// paused when stopped on a breakpoint (and we don't want to end up having a bunch of false positive
+                    /// database timeouts while debugging code)
+                    ///
+                    /// **Note:** `isDebuggerAttached` will always return `false` in production builds
+                    if isDebuggerAttached() {
+                        let numIterations: UInt64 = 50
+                        
+                        for _ in (0..<numIterations) {
+                            try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
+                        }
+                    }
+                    else if info.isWrite {
+                        /// This if statement is redundant **but** it means when we get symbolicated crash logs we can distinguish
+                        /// between the database threads which are reading and writing
+                        try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
+                    }
+                    else {
+                        try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
+                    }
+                    throw StorageError.transactionDeadlockTimeout
+                }
+            }
+            
+            /// Wait for the first task to finish
+            ///
+            /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
+            /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
+            let output: Result<DatabaseResult, Error> = await (
+                group.nextResult() ??
+                .failure(StorageError.invalidQueryResult)
+            )
+            group.cancelAll()
+            
+            /// If the database operation completed successfully we should trigger any of the `postCommitActions`
+            switch output {
+                case .failure: break
+                case .success(let result): result.postCommitActions.forEach { $0() }
+            }
+            
+            /// Return the actual result
+            return output.map { $0.result }
+        }
+    }
+    
     /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
     /// block the syncrhonous version because `GRDB` has an internal assertion when using it's built-in synchronous `read`/`write`
     /// functions to prevent reentrancy which is unsupported
-    ///
-    /// Unfortunately this results in the code getting messy when trying to chain multiple database transactions (even
-    /// when using `db.afterNextTransaction`) which is somewhat unintuitive
     ///
     /// The `async` variants don't need to worry about this reentrancy issue so instead we route we use those for all operations instead
     /// and just block the thread when we want to perform a synchronous operation
     ///
     /// **Note:** When running a synchronous operation the result will be returned and `asyncCompletion` will not be called, and
     /// vice-versa for an asynchronous operation
-    @discardableResult private static func performOperation<T>(
+    @discardableResult private func performOperation<T>(
         _ info: CallInfo,
         _ dependencies: Dependencies,
-        _ operation: @escaping (Database) throws -> T,
+        _ operation: @escaping (ObservingDatabase) throws -> T,
         _ asyncCompletion: ((Result<T, Error>) -> Void)? = nil
     ) -> Result<T, Error> {
         /// Ensure we are in a valid state
         let storageState: StorageState = StorageState(info.storage)
         
         guard case .valid(let dbWriter) = storageState else {
-            if info.isAsync { asyncCompletion?(.failure(storageState.forcedError)) }
+            info.errored(storageState.forcedError)
             return .failure(storageState.forcedError)
         }
         
@@ -682,116 +724,39 @@ open class Storage {
         /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
         info.schedule()
         
-        /// We need to prevent the task from starting before it's been added to our tracking (otherwise it will never be removed
-        /// resulting in incorrect logs) so create an `AsyncStream` that the task can wait on
-        var startSignalContinuation: AsyncStream<Void>.Continuation?
-        let startSignalStream = AsyncStream<Void> { continuation in
-            startSignalContinuation = continuation
-        }
-        
         /// Kick off and store the task in case we want to cancel it later
         info.task = Task {
-            _ = await startSignalStream.first { _ in true }
+            info.storage?.addCall(info)
+            defer { info.storage?.removeCall(info) }
             
-            await withThrowingTaskGroup(of: T.self) { group in
-                /// Add the task to perform the actual database operation
-                group.addTask {
-                    let trackedOperation: @Sendable (Database) throws -> T = { db in
-                        info.start()
-                        guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
-                        guard info.storage?.isSuspended == false else {
-                            throw StorageError.databaseSuspended
-                        }
-                        
-                        if dependencies[feature: .forceSlowDatabaseQueries] {
-                            Thread.sleep(forTimeInterval: 1)
-                        }
-                        
-                        let result: T = try operation(db)
-                        
-                        // Update the state flags
-                        switch info.isWrite {
-                            case true: info.storage?.hasSuccessfullyWritten = true
-                            case false: info.storage?.hasSuccessfullyRead = true
-                        }
-                        
-                        return result
-                    }
-                    
-                    return (info.isWrite ?
-                        try await dbWriter.write(trackedOperation) :
-                        try await dbWriter.read(trackedOperation)
-                    )
-                }
+            let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
                 
-                /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
-                /// create a deadlock
-                if !info.isAsync {
-                    group.addTask {
-                        let timeoutNanoseconds: UInt64 = UInt64(Storage.transactionDeadlockTimeoutSeconds * 1_000_000_000)
-                        
-                        /// If the debugger is attached then we want to have a lot of shorter sleep iterations as the clock doesn't get
-                        /// paused when stopped on a breakpoint (and we don't want to end up having a bunch of false positive
-                        /// database timeouts while debugging code)
-                        ///
-                        /// **Note:** `isDebuggerAttached` will always return `false` in production builds
-                        if isDebuggerAttached() {
-                            let numIterations: UInt64 = 50
-                            
-                            for _ in (0..<numIterations) {
-                                try await Task.sleep(nanoseconds: (timeoutNanoseconds / numIterations))
-                            }
-                        }
-                        else if info.isWrite {
-                            /// This if statement is redundant **but** it means when we get symbolicated crash logs we can distinguish
-                            /// between the database threads which are reading and writing
-                            try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                        }
-                        else {
-                            try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                        }
-                        throw StorageError.transactionDeadlockTimeout
-                    }
-                }
-                
-                /// Wait for the first task to finish
-                ///
-                /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
-                /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
-                let result: Result<T, Error> = await (
-                    group.nextResult() ??
-                    .failure(StorageError.invalidQueryResult)
-                )
-                group.cancelAll()
-                
-                /// Log the result
-                switch result {
-                    case .success: info.complete()
-                    case .failure(let error): info.errored(error)
-                }
-                
-                /// Now that we have completed the database operation we don't need to track the task anymore so we can
-                /// remove it
-                ///
-                /// **Note:** we want to remove it before `asyncCompletion` is called just in case that is a long running
-                /// process
-                info.storage?.removeCall(info)
-                
-                /// Send the result back
-                switch info.isAsync {
-                    case true: asyncCompletion?(result)
-                    case false:
-                        syncResultContainer?.value = result
-                        semaphore?.signal()
-                }
+            /// Log the result
+            switch result {
+                case .success: info.complete()
+                case .failure(let error): info.errored(error)
+            }
+            
+            /// Now that we have completed the database operation we don't need to track the task anymore so we can
+            /// remove it
+            ///
+            /// **Note:** we want to remove it before `asyncCompletion` is called just in case that is a long running
+            /// process
+            info.storage?.removeCall(info)
+            
+            /// Send the result back
+            switch info.isAsync {
+                case true: asyncCompletion?(result)
+                case false:
+                    syncResultContainer?.value = result
+                    semaphore?.signal()
             }
         }
-        info.storage?.addCall(info)
-        startSignalContinuation?.yield(())
-        startSignalContinuation?.finish()
         
         /// For the `async` operation the returned value should be ignored so just return the `invalidQueryResult` error
-        guard !info.isAsync else { return .failure(StorageError.invalidQueryResult) }
+        if info.behaviour == .asyncRead || info.behaviour == .asyncWrite{
+            return .failure(StorageError.invalidQueryResult)
+        }
         
         /// Block until we have a result
         semaphore?.wait()
@@ -803,14 +768,17 @@ open class Storage {
         _ functionName: String,
         _ lineNumber: Int,
         isWrite: Bool,
-        _ operation: @escaping (Database) throws -> T
+        _ operation: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .asyncWrite : .asyncRead))
         
         switch StorageState(self) {
             case .invalid(let error): return info.errored(error)
             case .valid:
-                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but it appears to asynchronously
+                /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
+                info.schedule()
+                
+                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but they appear to asynchronously
                 /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
                 /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
                 /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
@@ -820,37 +788,71 @@ open class Storage {
                 /// does) and hooking that into our `performOperation` function which uses the GRDB async/await functions that
                 /// support cancellation (as we want to support cancellation as well)
                 return Deferred { [dependencies] in
-                    let subject: PassthroughSubject<T, Error> = PassthroughSubject()
+                    let subject = PassthroughSubject<T, Error>()
+                    let bridge: PublisherBridge<T> = PublisherBridge(subject: subject)
                     
-                    Storage.performOperation(info, dependencies, operation) { [weak subject] result in
-                        /// If the query was cancelled then we shouldn't try to propagate the result (as it may result in
-                        /// interacting with deallocated objects)
-                        guard !info.cancelledViaCombine else { return }
+                    /// Kick off and store the task in case we want to cancel it later
+                    info.task = Task {
+                        info.storage?.addCall(info)
+                        defer { info.storage?.removeCall(info) }
                         
-                        switch result {
-                            case .success(let value):
-                                subject?.send(value)
-                                subject?.send(completion: .finished)
-                            
-                            case .failure(let error): subject?.send(completion: .failure(error))
+                        /// Ensure we are in a valid state
+                        let storageState: StorageState = StorageState(info.storage)
+                
+                        guard case .valid(let dbWriter) = storageState else {
+                            await bridge.send(result: .failure(storageState.forcedError), info: info)
+                            return
                         }
+                        
+                        let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
+                        
+                        if Task.isCancelled {
+                            return
+                        }
+                        
+                        await bridge.send(result: result, info: info)
                     }
                     
-                    return subject
+                    return subject.handleEvents(receiveCancel: { [weak self, weak info] in
+                        info?.cancel()
+                        self?.removeCall(info)
+                        Task { await bridge.cancel() }
+                    })
                 }
-                .handleEvents(receiveCancel: { [weak self] in
-                    info.cancel(cancelledViaCombine: true)
-                    self?.removeCall(info)
-                })
                 .eraseToAnyPublisher()
         }
+    }
+    
+    private func performSwiftConcurrencyOperation<T>(
+        _ fileName: String,
+        _ functionName: String,
+        _ lineNumber: Int,
+        isWrite: Bool,
+        _ operation: @escaping (ObservingDatabase) throws -> T
+    ) async throws -> T {
+        let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .swiftConcurrencyWrite : .swiftConcurrencyRead))
+        let storageState: StorageState = StorageState(self)
+        
+        guard case .valid(let dbWriter) = storageState else {
+            info.errored(storageState.forcedError)
+            throw storageState.forcedError
+        }
+        
+        info.schedule()
+        addCall(info)
+        defer { removeCall(info) }
+        
+        return try await Storage.performOperation(info, dbWriter, operation, dependencies)
+            .successOrThrow()
     }
     
     private func addCall(_ call: CallInfo) {
         _currentCalls.performUpdate { $0.inserting(call) }
     }
     
-    private func removeCall(_ call: CallInfo) {
+    private func removeCall(_ call: CallInfo?) {
+        guard let call: CallInfo = call else { return }
+        
         _currentCalls.performUpdate { $0.removing(call) }
     }
     
@@ -862,12 +864,12 @@ open class Storage {
         _currentObservers.performUpdate { $0.removing(observer) }
     }
     
-    private func stopAndRemoveObserver(forId id: String) {
+    private func stopAndRemoveObserver(forId id: String, explicitRemoval: Bool) {
         _currentObservers.performUpdate {
             $0.filter { info -> Bool in
                 guard info.id == id else { return true }
                 
-                info.stop()
+                info.stop(explicitRemoval: explicitRemoval)
                 return false
             }
         }
@@ -876,53 +878,81 @@ open class Storage {
     // MARK: - Functions
     
     @discardableResult public func write<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        updates: @escaping (Database) throws -> T?
+        updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
-        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
+        switch performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
             case .failure: return nil
             case .success(let result): return result
         }
     }
     
     open func writeAsync<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        updates: @escaping (Database) throws -> T,
+        updates: @escaping (ObservingDatabase) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void = { _ in }
     ) {
-        Storage.performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
+        performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
+    }
+    
+    @discardableResult public func writeAsync<T>(
+        fileName file: String = #fileID,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
+        updates: @escaping (ObservingDatabase) throws -> T
+    ) async throws -> T {
+        return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: true, updates)
     }
     
     open func writePublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        updates: @escaping (Database) throws -> T
+        updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         return performPublisherOperation(fileName, functionName, lineNumber, isWrite: true, updates)
     }
     
     @discardableResult public func read<T>(
-        fileName file: String = #file,
+        fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        _ value: @escaping (Database) throws -> T?
+        _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
-        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
+        switch performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
             case .failure: return nil
             case .success(let result): return result
         }
     }
     
+    public func readAsync<T>(
+        fileName file: String = #fileID,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
+        retrieve: @escaping (ObservingDatabase) throws -> T,
+        completion: @escaping (Result<T, Error>) -> Void
+    ) {
+        performOperation(CallInfo(self, file, funcN, line, .asyncRead), dependencies, retrieve, completion)
+    }
+    
+    @discardableResult public func readAsync<T>(
+        fileName file: String = #fileID,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
+        value: @escaping (ObservingDatabase) throws -> T
+    ) async throws -> T {
+        return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: false, value)
+    }
+    
     open func readPublisher<T>(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
-        value: @escaping (Database) throws -> T
+        value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
         return performPublisherOperation(fileName, functionName, lineNumber, isWrite: false, value)
     }
@@ -938,7 +968,7 @@ open class Storage {
     /// - returns: a DatabaseCancellable
     public func start<Reducer: ValueReducer>(
         _ observation: ValueObservation<Reducer>,
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         scheduling scheduler: ValueObservationScheduler = .async(onQueue: .main),
@@ -955,7 +985,7 @@ open class Storage {
         
         let cancellable: AnyDatabaseCancellable = observation
             .handleEvents(didCancel: { [weak self] in
-                info.stop()
+                info.stop(explicitRemoval: false)
                 self?.removeObserver(info)
             })
             .start(
@@ -973,7 +1003,7 @@ open class Storage {
     ///
     /// **Note:** This function **MUST NOT** be called from the main thread
     public func addObserver(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
@@ -995,7 +1025,7 @@ open class Storage {
     ///
     /// **Note:** This function **MUST NOT** be called from the main thread
     public func removeObserver(
-        fileName: String = #file,
+        fileName: String = #fileID,
         functionName: String = #function,
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
@@ -1003,7 +1033,7 @@ open class Storage {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
         guard let observer: IdentifiableTransactionObserver = observer else { return }
         
-        stopAndRemoveObserver(forId: observer.id)
+        stopAndRemoveObserver(forId: observer.id, explicitRemoval: true)
         
         /// This actually triggers a write to the database so can be blocked by other writes so shouldn't be called on the main thread,
         /// we don't dispatch to an async thread in here because `TransactionObserver` isn't `Sendable` so instead just require
@@ -1030,13 +1060,13 @@ public extension ValueObservation {
 }
 
 public extension Publisher where Failure == Error {
-    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (Database, Output) throws -> T) -> AnyPublisher<T, Error> {
+    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
         return self.flatMap { output -> AnyPublisher<T, Error> in
             dependencies[singleton: .storage].writePublisher(updates: { db in try updates(db, output) })
         }.eraseToAnyPublisher()
     }
     
-    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (Database, Output) throws -> T) -> AnyPublisher<T, Error> {
+    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
         return self.flatMap { output -> AnyPublisher<T, Error> in
             dependencies[singleton: .storage].readPublisher(value: { db in try value(db, output) })
         }.eraseToAnyPublisher()
@@ -1057,6 +1087,8 @@ private extension Storage {
             case asyncRead
             case syncWrite
             case asyncWrite
+            case swiftConcurrencyRead
+            case swiftConcurrencyWrite
         }
         
         private enum Event {
@@ -1083,7 +1115,6 @@ private extension Storage {
         let line: Int
         let behaviour: Behaviour
         var task: Task<(), Never>?
-        @ThreadSafe private(set) var cancelledViaCombine: Bool = false
         
         private var timer: DispatchSourceTimer?
         private var startTime: CFTimeInterval?
@@ -1091,14 +1122,14 @@ private extension Storage {
         
         var isWrite: Bool {
             switch behaviour {
-                case .syncWrite, .asyncWrite: return true
-                case .syncRead, .asyncRead: return false
+                case .syncWrite, .asyncWrite, .swiftConcurrencyWrite: return true
+                case .syncRead, .asyncRead, .swiftConcurrencyRead: return false
             }
         }
         var isAsync: Bool {
             switch behaviour {
-                case .asyncRead, .asyncWrite: return true
-                case .syncRead, .syncWrite: return false
+                case .asyncRead, .asyncWrite, .swiftConcurrencyWrite: return true
+                case .syncRead, .syncWrite, .swiftConcurrencyRead: return false
             }
         }
         
@@ -1203,17 +1234,19 @@ private extension Storage {
         
         func errored(_ error: Error) {
             log(.errored(error))
+            timer?.cancel()
+            timer = nil
         }
         
         func errored<T>(_ error: Error) -> AnyPublisher<T, Error> {
-            log(.errored(error))
+            errored(error)
             return Fail<T, Error>(error: error).eraseToAnyPublisher()
         }
         
-        func cancel(cancelledViaCombine: Bool = false) {
-            /// Cancelling the task with result in a log being added
-            self.cancelledViaCombine = cancelledViaCombine
+        func cancel() {
             task?.cancel()
+            timer?.cancel()
+            timer = nil
         }
         
         // MARK: - Conformance
@@ -1275,13 +1308,13 @@ private extension Storage {
             Log.verbose(.storage, "Started observer \(id) - [ \(callInfo) ]")
         }
         
-        func stop() {
+        func stop(explicitRemoval: Bool) {
             guard cancellable != nil || observer != nil else { return }
             
             cancellable?.cancel()
             cancellable = nil
             
-            if let observer: IdentifiableTransactionObserver = observer {
+            if let observer: IdentifiableTransactionObserver = observer, !explicitRemoval {
                 /// Need to set to `nil` first to prevent infinite loop
                 self.observer = nil
                 storage?.removeObserver(observer)
@@ -1323,6 +1356,42 @@ public protocol IdentifiableTransactionObserver: TransactionObserver {
     var id: String { get }
 }
 
+// MARK: - PublisherBridge
+
+private extension Storage {
+    actor PublisherBridge<T> {
+        private weak var subject: PassthroughSubject<T, Error>?
+        private var isFinished: Bool = false
+        
+        init(subject: PassthroughSubject<T, Error>) {
+            self.subject = subject
+        }
+
+        func send(result: Result<T, Error>, info: CallInfo) {
+            guard !isFinished, let subject = self.subject else { return }
+            
+            isFinished = true
+            
+            switch result {
+                case .success(let value):
+                    info.complete()
+                    subject.send(value)
+                    subject.send(completion: .finished)
+                    
+                case .failure(let error):
+                    info.errored(error)
+                    subject.send(completion: .failure(error))
+            }
+        }
+
+        func cancel() {
+            guard !isFinished else { return }
+            
+            isFinished = true
+        }
+    }
+}
+
 // MARK: - Debug Convenience
 
 public extension Storage {
@@ -1351,7 +1420,7 @@ public extension Storage {
             var keySpec: Data = try self?.decryptSecureExportedKey(
                 path: encryptedKeyPath,
                 password: encryptedKeyPassword
-            ) ?? { throw StorageError.invalidKeySpec }()
+            ) ?? { throw KeychainStorageError.keySpecInvalid }()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -1359,7 +1428,9 @@ public extension Storage {
             // using explicit BLOB syntax, e.g.:
             //
             // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
-            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw StorageError.invalidKeySpec }())
+            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? {
+                throw KeychainStorageError.keySpecInvalid
+            }())
             keySpec.insert(contentsOf: [120, 39], at: 0)    // "x'" prefix
             keySpec.append(39)                              // "'" suffix
             
@@ -1379,7 +1450,13 @@ public extension Storage {
     }
     
     func secureExportKey(password: String) throws -> String {
-        var keySpec: Data = try getOrGenerateDatabaseKeySpec()
+        var keySpec: Data = try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .dbCipherKeySpec,
+            length: Storage.SQLCipherKeySpecLength,
+            cat: .storage,
+            legacyKey: "GRDBDatabaseCipherKeySpec",
+            legacyService: "TSKeyChainService"
+        )
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
         guard var passwordData: Data = password.data(using: .utf8) else { throw StorageError.generic }

@@ -40,6 +40,11 @@ extension DeveloperSettingsViewModel {
             /// **Value:** `true`/`false` (default: `false`)
             case showStringKeys
             
+            /// Controls whether pubkeys included in the logs should be truncated or not
+            ///
+            /// **Value:** `true`/`false` (default: `true` in debug builds, `false` otherwise)
+            case truncatePubkeysInLogs
+            
             /// Controls whether the app communicates with mainnet or testnet by default
             ///
             /// **Value:** `"mainnet"`/`"testnet"` (default: `"mainnet"`)
@@ -70,6 +75,9 @@ extension DeveloperSettingsViewModel {
                     
                 case .showStringKeys:
                     dependencies.set(feature: .showStringKeys, to: (value == "true"))
+                    
+                case .truncatePubkeysInLogs:
+                    dependencies.set(feature: .truncatePubkeysInLogs, to: (value == "true"))
                     
                 case .serviceNetwork:
                     let network: ServiceNetwork

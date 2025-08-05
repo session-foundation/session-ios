@@ -7,13 +7,13 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleDataExtractionNotification(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: DataExtractionNotification,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> InsertedInteractionInfo? {
         guard
             threadVariant == .contact,
             let sender: String = message.sender,
@@ -32,9 +32,8 @@ extension MessageReceiver {
             cache.timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
-                timestampMs: (timestampMs * 1000),
-                userSessionId: dependencies[cache: .general].sessionId,
-                openGroup: nil
+                timestampMs: timestampMs,
+                openGroupUrlInfo: nil
             )
         }
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
@@ -45,7 +44,7 @@ extension MessageReceiver {
             expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies
         )
-        _ = try Interaction(
+        let interaction: Interaction = try Interaction(
             serverHash: message.serverHash,
             threadId: threadId,
             threadVariant: threadVariant,
@@ -70,5 +69,7 @@ extension MessageReceiver {
                 using: dependencies
             )
         }
+        
+        return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, wasRead, 0) }
     }
 }

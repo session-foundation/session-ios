@@ -34,20 +34,21 @@ public enum SendReadReceiptsJob: JobExecutor {
         }
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .readPublisher { db in try Authentication.with(db, swarmPublicKey: threadId, using: dependencies) }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
                 try MessageSender.preparedSend(
-                    db,
                     message: ReadReceipt(
                         timestamps: details.timestampMsValues.map { UInt64($0) }
                     ),
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: nil,
-                    fileIds: [],
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
@@ -111,12 +112,12 @@ public extension SendReadReceiptsJob {
     /// **Note:** This method assumes that the provided `interactionIds` are valid and won't filter out any invalid ids so
     /// ensure that is done correctly beforehand
     @discardableResult static func createOrUpdateIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         interactionIds: [Int64],
         using dependencies: Dependencies
     ) -> Job? {
-        guard db[.areReadReceiptsEnabled] == true else { return nil }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return nil }
         guard !interactionIds.isEmpty else { return nil }
         
         // Retrieve the timestampMs values for the specified interactions

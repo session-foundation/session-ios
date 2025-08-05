@@ -298,7 +298,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         guard force || lastSearchText != searchText else { return }
 
         lastSearchText = searchText
-        currentSearchCancellable?.cancel()
+        _currentSearchCancellable.perform { $0?.cancel() }
         
         _currentSearchCancellable.set(to: dependencies[singleton: .storage]
             .readPublisher { [dependencies] db -> [SectionModel] in

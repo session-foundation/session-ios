@@ -25,7 +25,7 @@ extension OpenGroupAPI {
 
         public let id: Int64
         public let sender: String?
-        public let posted: TimeInterval?
+        public let posted: TimeInterval
         public let edited: TimeInterval?
         public let deleted: Bool?
         public let seqNo: Int64
@@ -60,10 +60,10 @@ extension OpenGroupAPI.Message {
     public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
     
-        let maybeSender: String? = try? container.decode(String.self, forKey: .sender)
-        let maybeBase64EncodedData: String? = try? container.decode(String.self, forKey: .base64EncodedData)
-        let maybeBase64EncodedSignature: String? = try? container.decode(String.self, forKey: .base64EncodedSignature)
-        let maybeReactions: [String:Reaction]? = try? container.decode([String:Reaction].self, forKey: .reactions)
+        let maybeSender: String? = try container.decodeIfPresent(String.self, forKey: .sender)
+        let maybeBase64EncodedData: String? = try container.decodeIfPresent(String.self, forKey: .base64EncodedData)
+        let maybeBase64EncodedSignature: String? = try container.decodeIfPresent(String.self, forKey: .base64EncodedSignature)
+        let maybeReactions: [String: Reaction]? = try container.decodeIfPresent([String: Reaction].self, forKey: .reactions)
         
         // If we have data and a signature (ie. the message isn't a deletion) then validate the signature
         if let base64EncodedData: String = maybeBase64EncodedData, let base64EncodedSignature: String = maybeBase64EncodedSignature {
@@ -104,14 +104,14 @@ extension OpenGroupAPI.Message {
         
         self = OpenGroupAPI.Message(
             id: try container.decode(Int64.self, forKey: .id),
-            sender: try? container.decode(String.self, forKey: .sender),
-            posted: try? container.decode(TimeInterval.self, forKey: .posted),
-            edited: try? container.decode(TimeInterval.self, forKey: .edited),
-            deleted: try? container.decode(Bool.self, forKey: .deleted),
+            sender: try container.decodeIfPresent(String.self, forKey: .sender),
+            posted: try container.decode(TimeInterval.self, forKey: .posted),
+            edited: try container.decodeIfPresent(TimeInterval.self, forKey: .edited),
+            deleted: try container.decodeIfPresent(Bool.self, forKey: .deleted),
             seqNo: try container.decode(Int64.self, forKey: .seqNo),
-            whisper: ((try? container.decode(Bool.self, forKey: .whisper)) ?? false),
-            whisperMods: ((try? container.decode(Bool.self, forKey: .whisperMods)) ?? false),
-            whisperTo: try? container.decode(String.self, forKey: .whisperTo),
+            whisper: ((try container.decodeIfPresent(Bool.self, forKey: .whisper)) ?? false),
+            whisperMods: ((try container.decodeIfPresent(Bool.self, forKey: .whisperMods)) ?? false),
+            whisperTo: try container.decodeIfPresent(String.self, forKey: .whisperTo),
             base64EncodedData: maybeBase64EncodedData,
             base64EncodedSignature: maybeBase64EncodedSignature,
             reactions: !container.contains(.reactions) ? nil : (maybeReactions ?? [:])
@@ -125,8 +125,8 @@ extension OpenGroupAPI.Message.Reaction {
 
         self = OpenGroupAPI.Message.Reaction(
             count: try container.decode(Int64.self, forKey: .count),
-            reactors: try? container.decode([String].self, forKey: .reactors),
-            you: (try? container.decode(Bool.self, forKey: .you)) ?? false,
+            reactors: try container.decodeIfPresent([String].self, forKey: .reactors),
+            you: ((try container.decodeIfPresent(Bool.self, forKey: .you)) ?? false),
             index: (try container.decode(Int64.self, forKey: .index))
         )
     }

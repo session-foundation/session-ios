@@ -74,6 +74,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
     
     var isKeyboardVisible: Bool = false
+    private let disableLinkPreviewImageDownload: Bool
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
     
@@ -140,6 +141,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         threadId: String,
         threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment],
+        disableLinkPreviewImageDownload: Bool,
         using dependencies: Dependencies
     ) {
         guard !attachments.isEmpty else { return nil }
@@ -150,6 +152,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.threadVariant = threadVariant
         let attachmentItems = attachments.map { SignalAttachmentItem(attachment: $0, using: dependencies)}
         self.isAddMoreVisible = (mode == .sharedNavigation)
+        self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
 
         self.attachmentItemCollection = AttachmentItemCollection(attachmentItems: attachmentItems, isAddMoreVisible: isAddMoreVisible)
 
@@ -180,6 +183,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment],
         approvalDelegate: AttachmentApprovalViewControllerDelegate,
+        disableLinkPreviewImageDownload: Bool,
         using dependencies: Dependencies
     ) -> UINavigationController? {
         guard let vc = AttachmentApprovalViewController(
@@ -187,6 +191,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             threadId: threadId,
             threadVariant: threadVariant,
             attachments: attachments,
+            disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
             using: dependencies
         ) else { return nil }
         vc.approvalDelegate = approvalDelegate
@@ -436,7 +441,11 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         }
 
         Log.debug(.cat, "Cache miss.")
-        let viewController = AttachmentPrepViewController(attachmentItem: item, using: dependencies)
+        let viewController = AttachmentPrepViewController(
+            attachmentItem: item,
+            disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
+            using: dependencies
+        )
         viewController.prepDelegate = self
         cachedPages[item.uniqueIdentifier] = viewController
 

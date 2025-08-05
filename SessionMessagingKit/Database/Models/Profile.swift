@@ -8,12 +8,12 @@ import SessionUtilitiesKit
 
 /// This type is duplicate in both the database and within the LibSession config so should only ever have it's data changes via the
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
-public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
+public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
     internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
     internal static let groupMemberForeignKey = ForeignKey([GroupMember.Columns.profileId], to: [Columns.id])
-    internal static let contact = hasOne(Contact.self, using: contactForeignKey)
+    public static let contact = hasOne(Contact.self, using: contactForeignKey)
     public static let groupMembers = hasMany(GroupMember.self, using: groupMemberForeignKey)
     
     public typealias Columns = CodingKeys
@@ -24,10 +24,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         case lastNameUpdate
         case nickname
         
-        case profilePictureUrl
-        case profilePictureFileName
-        case profileEncryptionKey
-        case lastProfilePictureUpdate
+        case displayPictureUrl
+        case displayPictureEncryptionKey
+        case displayPictureLastUpdated
         
         case blocksCommunityMessageRequests
         case lastBlocksCommunityMessageRequests
@@ -45,17 +44,16 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     /// A custom name for the profile set by the current user
     public let nickname: String?
 
-    /// The URL from which to fetch the contact's profile picture.
-    public let profilePictureUrl: String?
-
-    /// The file name of the contact's profile picture on local storage.
-    public let profilePictureFileName: String?
+    /// The URL from which to fetch the contact's profile picture
+    ///
+    /// **Note:** This won't be updated until the display picture has actually been downloaded
+    public let displayPictureUrl: String?
 
     /// The key with which the profile is encrypted.
-    public let profileEncryptionKey: Data?
+    public let displayPictureEncryptionKey: Data?
     
     /// The timestamp (in seconds since epoch) that the profile picture was last updated
-    public let lastProfilePictureUpdate: TimeInterval?
+    public let displayPictureLastUpdated: TimeInterval?
     
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
@@ -70,10 +68,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         name: String,
         lastNameUpdate: TimeInterval? = nil,
         nickname: String? = nil,
-        profilePictureUrl: String? = nil,
-        profilePictureFileName: String? = nil,
-        profileEncryptionKey: Data? = nil,
-        lastProfilePictureUpdate: TimeInterval? = nil,
+        displayPictureUrl: String? = nil,
+        displayPictureEncryptionKey: Data? = nil,
+        displayPictureLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
         lastBlocksCommunityMessageRequests: TimeInterval? = nil
     ) {
@@ -81,10 +78,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         self.name = name
         self.lastNameUpdate = lastNameUpdate
         self.nickname = nickname
-        self.profilePictureUrl = profilePictureUrl
-        self.profilePictureFileName = profilePictureFileName
-        self.profileEncryptionKey = profileEncryptionKey
-        self.lastProfilePictureUpdate = lastProfilePictureUpdate
+        self.displayPictureUrl = displayPictureUrl
+        self.displayPictureEncryptionKey = displayPictureEncryptionKey
+        self.displayPictureLastUpdated = displayPictureLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
     }
@@ -97,8 +93,8 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
         """
         Profile(
             name: \(name),
-            profileKey: \(profileEncryptionKey?.description ?? "null"),
-            profilePictureUrl: \(profilePictureUrl ?? "null")
+            profileKey: \(displayPictureEncryptionKey?.description ?? "null"),
+            profilePictureUrl: \(displayPictureUrl ?? "null")
         )
         """
     }
@@ -110,10 +106,9 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             name: \(name),
             lastNameUpdate: \(lastNameUpdate.map { "\($0)" } ?? "null"),
             nickname: \(nickname.map { "\($0)" } ?? "null"),
-            profilePictureUrl: \(profilePictureUrl.map { "\"\($0)\"" } ?? "null"),
-            profilePictureFileName: \(profilePictureFileName.map { "\"\($0)\"" } ?? "null"),
-            profileEncryptionKey: \(profileEncryptionKey?.toHexString() ?? "null"),
-            lastProfilePictureUpdate: \(lastProfilePictureUpdate.map { "\($0)" } ?? "null"),
+            displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
+            displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
+            displayPictureLastUpdated: \(displayPictureLastUpdated.map { "\($0)" } ?? "null"),
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
         )
@@ -127,16 +122,16 @@ public extension Profile {
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        var profileKey: Data?
-        var profilePictureUrl: String?
+        var displayPictureKey: Data?
+        var displayPictureUrl: String?
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if
-            let profileKeyData: Data = try? container.decode(Data?.self, forKey: .profileEncryptionKey),
-            let profilePictureUrlValue: String = try? container.decode(String?.self, forKey: .profilePictureUrl)
+            let displayPictureKeyData: Data = try? container.decode(Data?.self, forKey: .displayPictureEncryptionKey),
+            let displayPictureUrlValue: String = try? container.decode(String?.self, forKey: .displayPictureUrl)
         {
-            profileKey = profileKeyData
-            profilePictureUrl = profilePictureUrlValue
+            displayPictureKey = displayPictureKeyData
+            displayPictureUrl = displayPictureUrlValue
         }
         
         self = Profile(
@@ -144,10 +139,9 @@ public extension Profile {
             name: try container.decode(String.self, forKey: .name),
             lastNameUpdate: try? container.decode(TimeInterval?.self, forKey: .lastNameUpdate),
             nickname: try? container.decode(String?.self, forKey: .nickname),
-            profilePictureUrl: profilePictureUrl,
-            profilePictureFileName: try? container.decode(String?.self, forKey: .profilePictureFileName),
-            profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: try? container.decode(TimeInterval?.self, forKey: .lastProfilePictureUpdate),
+            displayPictureUrl: displayPictureUrl,
+            displayPictureEncryptionKey: displayPictureKey,
+            displayPictureLastUpdated: try? container.decode(TimeInterval?.self, forKey: .displayPictureLastUpdated),
             blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
             lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests)
         )
@@ -160,10 +154,9 @@ public extension Profile {
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(lastNameUpdate, forKey: .lastNameUpdate)
         try container.encodeIfPresent(nickname, forKey: .nickname)
-        try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
-        try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
-        try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
-        try container.encodeIfPresent(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
+        try container.encodeIfPresent(displayPictureUrl, forKey: .displayPictureUrl)
+        try container.encodeIfPresent(displayPictureEncryptionKey, forKey: .displayPictureEncryptionKey)
+        try container.encodeIfPresent(displayPictureLastUpdated, forKey: .displayPictureLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
@@ -177,9 +170,11 @@ public extension Profile {
         let profileProto = SNProtoLokiProfile.builder()
         profileProto.setDisplayName(name)
         
-        if let profileKey: Data = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
-            dataMessageProto.setProfileKey(profileKey)
-            profileProto.setProfilePicture(profilePictureUrl)
+        if
+            let displayPictureEncryptionKey: Data = displayPictureEncryptionKey,
+            let displayPictureUrl: String = displayPictureUrl {
+            dataMessageProto.setProfileKey(displayPictureEncryptionKey)
+            profileProto.setProfilePicture(displayPictureUrl)
         }
         
         do {
@@ -196,56 +191,12 @@ public extension Profile {
 // MARK: - GRDB Interactions
 
 public extension Profile {
-    static func allContactProfiles(excluding idsToExclude: Set<String> = []) -> QueryInterfaceRequest<Profile> {
-        return Profile
-            .filter(!idsToExclude.contains(Profile.Columns.id))
-            .joining(
-                required: Profile.contact
-                    .filter(Contact.Columns.isApproved == true)
-                    .filter(Contact.Columns.didApproveMe == true)
-            )
-    }
-    
-    static func fetchAllContactProfiles(
-        excluding: Set<String> = [],
-        excludeCurrentUser: Bool = true,
-        using dependencies: Dependencies
-    ) -> [Profile] {
-        return dependencies[singleton: .storage]
-            .read { db in
-                // Sort the contacts by their displayName value
-                try Profile
-                    .allContactProfiles(
-                        excluding: excluding
-                            .inserting(excludeCurrentUser ? dependencies[cache: .general].sessionId.hexString : nil)
-                    )
-                    .fetchAll(db)
-                    .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
-            }
-            .defaulting(to: [])
-    }
-    
     static func displayName(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
-        customFallback: String? = nil,
-        using dependencies: Dependencies
+        customFallback: String? = nil
     ) -> String {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage]
-                .read { db in
-                    displayName(
-                        db,
-                        id: id,
-                        threadVariant: threadVariant,
-                        customFallback: customFallback,
-                        using: dependencies
-                    )
-                }
-                .defaulting(to: (customFallback ?? id))
-        }
-        
         let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
             .displayName(for: threadVariant)
         
@@ -253,17 +204,10 @@ public extension Profile {
     }
     
     static func displayNameNoFallback(
-        _ db: Database? = nil,
+        _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        using dependencies: Dependencies
+        threadVariant: SessionThread.Variant = .contact
     ) -> String? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in
-                displayNameNoFallback(db, id: id, threadVariant: threadVariant, using: dependencies)
-            }
-        }
-        
         return (try? Profile.fetchOne(db, id: id))?
             .displayName(for: threadVariant)
     }
@@ -276,37 +220,11 @@ public extension Profile {
             name: "",
             lastNameUpdate: nil,
             nickname: nil,
-            profilePictureUrl: nil,
-            profilePictureFileName: nil,
-            profileEncryptionKey: nil,
-            lastProfilePictureUpdate: nil,
+            displayPictureUrl: nil,
+            displayPictureEncryptionKey: nil,
+            displayPictureLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
             lastBlocksCommunityMessageRequests: nil
-        )
-    }
-    
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(using dependencies: Dependencies) -> Profile {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        return dependencies[singleton: .storage]
-            .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
-            .defaulting(to: defaultFor(userSessionId.hexString))
-    }
-    
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(_ db: Database, using dependencies: Dependencies) -> Profile {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
-        return (
-            (try? Profile.fetchOne(db, id: userSessionId.hexString)) ??
-            defaultFor(userSessionId.hexString)
         )
     }
     
@@ -314,13 +232,63 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreate(_ db: Database, id: String) -> Profile {
+    static func fetchOrCreate(_ db: ObservingDatabase, id: String) -> Profile {
         return (
             (try? Profile.fetchOne(db, id: id)) ??
             defaultFor(id)
         )
     }
 }
+
+// MARK: - Deprecated GRDB Interactions
+
+public extension Profile {
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    static func displayName(
+        id: ID,
+        threadVariant: SessionThread.Variant = .contact,
+        customFallback: String? = nil,
+        using dependencies: Dependencies
+    ) -> String {
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        var displayName: String?
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant) },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let name): displayName = name
+                }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return (displayName ?? (customFallback ?? id))
+    }
+    
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    static func displayNameNoFallback(
+        id: ID,
+        threadVariant: SessionThread.Variant = .contact,
+        using dependencies: Dependencies
+    ) -> String? {
+        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        var displayName: String?
+        dependencies[singleton: .storage].readAsync(
+            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant) },
+            completion: { result in
+                switch result {
+                    case .failure: break
+                    case .success(let name): displayName = name
+                }
+                semaphore.signal()
+            }
+        )
+        semaphore.wait()
+        return displayName
+    }
+}
+
 
 // MARK: - Search Queries
 
@@ -340,32 +308,6 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
-    // MARK: - Truncation
-    
-    enum Truncation {
-        case start
-        case middle
-        case end
-    }
-    
-    /// A standardised mechanism for truncating a user id for a given thread
-    static func truncated(id: String, threadVariant: SessionThread.Variant) -> String {
-        return truncated(id: id, truncating: .middle)
-    }
-    
-    /// A standardised mechanism for truncating a user id
-    ///
-    /// stringlint:ignore_contents
-    static func truncated(id: String, truncating: Truncation) -> String {
-        guard id.count > 8 else { return id }
-        
-        switch truncating {
-            case .start: return "...\(id.suffix(8))"
-            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"
-            case .end: return "\(id.prefix(8))..."
-        }
-    }
-    
     func displayNameForMention(
         for threadVariant: SessionThread.Variant = .contact,
         ignoringNickname: Bool = false,
@@ -380,14 +322,16 @@ public extension Profile {
     /// The name to display in the UI for a given thread variant
     func displayName(
         for threadVariant: SessionThread.Variant = .contact,
-        ignoringNickname: Bool = false
+        messageProfile: VisibleMessage.VMProfile? = nil,
+        ignoringNickname: Bool = false,
+        suppressId: Bool = false
     ) -> String {
         return Profile.displayName(
             for: threadVariant,
             id: id,
-            name: name,
+            name: (messageProfile?.displayName?.nullIfEmpty ?? name),
             nickname: (ignoringNickname ? nil : nickname),
-            suppressId: false
+            suppressId: suppressId
         )
     }
     
@@ -402,7 +346,7 @@ public extension Profile {
         if let nickname: String = nickname, !nickname.isEmpty { return nickname }
         
         guard let name: String = name, name != id, !name.isEmpty else {
-            return (customFallback ?? Profile.truncated(id: id, threadVariant: threadVariant))
+            return (customFallback ?? id.truncated(threadVariant: threadVariant))
         }
         
         switch (threadVariant, suppressId) {
@@ -411,7 +355,7 @@ public extension Profile {
             case (.community, false):
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
-                return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"
+                return "\(name) (\(id.truncated()))"
         }
     }
 }
@@ -425,6 +369,12 @@ public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable
     
     public var profileId: String { value.profileId }
     
+    public init(value: T, profile: Profile?, currentUserSessionId: SessionId) {
+        self.value = value
+        self.profile = profile
+        self.currentUserSessionId = currentUserSessionId
+    }
+    
     public func itemDescription(using dependencies: Dependencies) -> String? {
         return value.itemDescription(using: dependencies)
     }
@@ -437,6 +387,8 @@ public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable
         return T.compare(lhs: lhs, rhs: rhs)
     }
 }
+
+extension WithProfile: Differentiable where T: Differentiable {}
 
 public protocol ProfileAssociated: Equatable, Hashable {
     var profileId: String { get }
@@ -455,7 +407,7 @@ public extension ProfileAssociated {
 }
 
 public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
-    func fetchAllWithProfiles(_ db: Database, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
+    func fetchAllWithProfiles(_ db: ObservingDatabase, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
         let originalResult: [RowDecoder] = try self.fetchAll(db)
         let profiles: [String: Profile]? = try? Profile
             .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())
@@ -468,5 +420,27 @@ public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssocia
                 currentUserSessionId: dependencies[cache: .general].sessionId
             )
         }
+    }
+}
+
+// MARK: - Convenience
+
+public extension Profile {
+    func with(
+        name: String? = nil,
+        nickname: String?? = nil,
+        displayPictureUrl: String?? = nil
+    ) -> Profile {
+        return Profile(
+            id: id,
+            name: (name ?? self.name),
+            lastNameUpdate: lastNameUpdate,
+            nickname: (nickname ?? self.nickname),
+            displayPictureUrl: (displayPictureUrl ?? self.displayPictureUrl),
+            displayPictureEncryptionKey: displayPictureEncryptionKey,
+            displayPictureLastUpdated: displayPictureLastUpdated,
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests,
+            lastBlocksCommunityMessageRequests: lastBlocksCommunityMessageRequests
+        )
     }
 }

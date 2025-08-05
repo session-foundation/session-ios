@@ -8,7 +8,8 @@ public class NavBarSessionIcon: UIView {
     public init(
         showDebugUI: Bool = false,
         serviceNetworkTitle: String = "",
-        isMainnet: Bool = true
+        isMainnet: Bool = true,
+        isOffline: Bool = false
     ) {
         super.init(frame: .zero)
         
@@ -24,7 +25,7 @@ public class NavBarSessionIcon: UIView {
         logoImageView.pin(to: self)
         
         if showDebugUI {
-            setupNetworkUI(serviceNetworkTitle: serviceNetworkTitle, isMainnet: isMainnet)
+            setupNetworkUI(serviceNetworkTitle: serviceNetworkTitle, isMainnet: isMainnet, isOffline: isOffline)
         }
     }
     
@@ -36,7 +37,8 @@ public class NavBarSessionIcon: UIView {
     
     private func setupNetworkUI(
         serviceNetworkTitle: String,
-        isMainnet: Bool
+        isMainnet: Bool,
+        isOffline: Bool
     ) {
         let labelStackView: UIStackView = UIStackView()
         labelStackView.axis = .vertical
@@ -59,17 +61,19 @@ public class NavBarSessionIcon: UIView {
             labelStackView.addArrangedSubview(testnetLabel)
         }
         
-        let offlineLabel: UILabel = UILabel()
-        offlineLabel.font = Fonts.boldSpaceMono(ofSize: 14)
-        offlineLabel.themeAttributedText = ThemedAttributedString(
-            string: "Offline",  // stringlint:ignore
-            attributes: [
-                .themeForegroundColor: ThemeValue.textPrimary,
-                .themeStrokeColor: ThemeValue.backgroundPrimary,
-                .strokeWidth: -3
-            ]
-        )
-        offlineLabel.textAlignment = .center
-        labelStackView.addArrangedSubview(offlineLabel)
+        if isOffline {
+            let offlineLabel: UILabel = UILabel()
+            offlineLabel.font = Fonts.boldSpaceMono(ofSize: 14)
+            offlineLabel.themeAttributedText = ThemedAttributedString(
+                string: "Offline",  // stringlint:ignore
+                attributes: [
+                    .themeForegroundColor: ThemeValue.textPrimary,
+                    .themeStrokeColor: ThemeValue.backgroundPrimary,
+                    .strokeWidth: -3
+                ]
+            )
+            offlineLabel.textAlignment = .center
+            labelStackView.addArrangedSubview(offlineLabel)
+        }
     }
 }
