@@ -39,7 +39,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     
     private lazy var sendButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
-        result.accessibilityIdentifier = "Send message button"
+        result.accessibilityIdentifier = "Send button"
         result.accessibilityLabel = "Send button"
         result.isAccessibilityElement = true
         
