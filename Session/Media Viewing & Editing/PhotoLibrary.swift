@@ -238,14 +238,34 @@ class PhotoCollectionContents {
             Future { [weak self] resolver in
                 let options: PHVideoRequestOptions = PHVideoRequestOptions()
                 options.isNetworkAccessAllowed = true
+                options.deliveryMode = .highQualityFormat
                 
-                _ = self?.imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, info in
+                self?.imageManager.requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
                     
                     if let error: Error = info?[PHImageErrorKey] as? Error {
                         return resolver(.failure(error))
                     }
                     
-                    guard let exportSession = exportSession else {
+                    guard let avAsset: AVAsset = avAsset else {
+                        return resolver(Result.failure(PhotoLibraryError.assertionError(description: "avAsset was unexpectedly nil")))
+                    }
+                    
+                    let compatiblePresets = AVAssetExportSession.exportPresets(compatibleWith: avAsset)
+                    var bestExportPreset: String
+                    
+                    if compatiblePresets.contains(AVAssetExportPresetPassthrough) {
+                        bestExportPreset = AVAssetExportPresetPassthrough
+                        Log.debug("[PhotoLibrary] Using Passthrough export preset.")
+                    } else {
+                        bestExportPreset = AVAssetExportPresetHighestQuality
+                        Log.debug("[PhotoLibrary] Passthrough not available. Falling back to HighestQuality export preset.")
+                    }
+                    
+                    if (info?[PHImageCancelledKey] as? Bool) == true {
+                        return resolver(.failure(PhotoLibraryError.assertionError(description: "Video request cancelled")))
+                    }
+                    
+                    guard let exportSession: AVAssetExportSession = AVAssetExportSession(asset: avAsset, presetName: bestExportPreset) else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil")))
                         return
                     }
