@@ -384,7 +384,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                         }
                         
@@ -439,7 +440,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -461,7 +463,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                         }
                         
@@ -521,7 +524,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -589,7 +593,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -669,7 +674,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             let interaction2: Interaction = try Interaction(
                                 serverHash: "1235",
@@ -691,7 +697,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -770,7 +777,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -792,7 +800,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 openGroupWhisperTo: nil,
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
-                                mostRecentFailureText: nil
+                                mostRecentFailureText: nil,
+                                isProMessage: false
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -861,7 +870,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                     }
                     
@@ -929,7 +939,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                     }
                     

@@ -105,6 +105,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     item.id == id
                 })
         }
+        
         func setupTestSubscriptions() {
             viewModel.tableDataPublisher
                 .receive(on: ImmediateScheduler.shared)

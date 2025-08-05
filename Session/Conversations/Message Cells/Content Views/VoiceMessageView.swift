@@ -55,8 +55,8 @@ public final class VoiceMessageView: UIView {
         result.set(.width, to: VoiceMessageView.toggleContainerSize + 2)
         result.set(.height, to: VoiceMessageView.toggleContainerSize + 2)
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }

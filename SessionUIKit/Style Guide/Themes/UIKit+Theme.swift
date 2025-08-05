@@ -52,11 +52,10 @@ public extension UIView {
             switch newValue {
                 case .color(let color): layer.borderColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    let color: UIColor? = (
+                    layer.borderColor = (
                         alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
                         ThemeManager.color(for: value, in: theme)
-                    )
-                    layer.borderColor = color?.cgColor
+                    ).cgColor
                     
                 case .none: layer.borderColor = nil
             }
@@ -88,7 +87,7 @@ public extension UILabel {
                         alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
                         ThemeManager.color(for: value, in: theme)
                     )
-                
+                    
                 case .none: textColor = nil
             }
         }
@@ -319,7 +318,7 @@ public extension UIContextualAction {
             }
             
             self.backgroundColor = UIColor(dynamicProvider: { _ in
-                (ThemeManager.currentTheme.color(for: newValue) ?? .clear)
+                ThemeManager.color(for: newValue)
             })
         }
         get { return nil }
@@ -356,9 +355,7 @@ public extension GradientView {
                     self?.layer.sublayers?.first(where: { $0 is CAGradientLayer })?.removeFromSuperlayer()
                     
                     let maybeColors: [CGColor]? = newValue?.compactMap {
-                        let result: UIColor? = ThemeManager.color(for: $0, in: theme)
-                        
-                        return result?.cgColor
+                        ThemeManager.color(for: $0, in: theme).cgColor
                     }
                     
                     guard let colors: [CGColor] = maybeColors, colors.count == newValue?.count else {
@@ -391,11 +388,10 @@ public extension CAShapeLayer {
             switch newValue {
                 case .color(let color): strokeColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    let color: UIColor? = (
+                    strokeColor = (
                         alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
                         ThemeManager.color(for: value, in: theme)
-                    )
-                    strokeColor = color?.cgColor
+                    ).cgColor
                 
                 case .none: strokeColor = nil
             }
@@ -416,11 +412,10 @@ public extension CAShapeLayer {
             switch newValue {
                 case .color(let color): fillColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    let color: UIColor? = (
+                    fillColor = (
                         alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
                         ThemeManager.color(for: value, in: theme)
-                    )
-                    fillColor = color?.cgColor
+                    ).cgColor
                 
                 case .none: fillColor = nil
             }
@@ -443,11 +438,10 @@ public extension CALayer {
             switch newValue {
                 case .color(let color): backgroundColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    let color: UIColor? = (
+                    backgroundColor = (
                         alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
                         ThemeManager.color(for: value, in: theme)
-                    )
-                    backgroundColor = color?.cgColor
+                    ).cgColor
                     
                 case .none: backgroundColor = nil
             }
@@ -480,11 +474,10 @@ public extension CATextLayer {
             switch newValue {
                 case .color(let color): foregroundColor = color.cgColor
                 case .theme(let theme, let value, let alpha):
-                    let color: UIColor? = (
+                    foregroundColor = (
                         alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
                         ThemeManager.color(for: value, in: theme)
-                    )
-                    foregroundColor = color?.cgColor
+                    ).cgColor
                 
                 case .none: foregroundColor = nil
             }
@@ -538,5 +531,19 @@ extension UITextView: AttributedTextAssignable {
     public var attributedTextValue: NSAttributedString? {
         get { self.attributedText }
         set { self.attributedText = newValue }
+    }
+}
+
+// MARK: - Convenience
+
+private extension ThemeManager {
+    static func color(for value: ThemeValue, in targetTheme: Theme? = nil) -> UIColor {
+        let color: UIColor? = ThemeManager.color(
+            for: value,
+            in: (targetTheme ?? ThemeManager.currentTheme),
+            with: ThemeManager.primaryColor
+        )
+        
+        return (color ?? .clear)
     }
 }

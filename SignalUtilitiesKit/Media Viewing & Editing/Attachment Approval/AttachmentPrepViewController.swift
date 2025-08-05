@@ -34,9 +34,7 @@ public class AttachmentPrepViewController: OWSViewController {
     
     // MARK: - UI
     
-    fileprivate static let verticalCenterOffset: CGFloat = (
-        AttachmentTextToolbar.kMinTextViewHeight + (AttachmentTextToolbar.kToolbarMargin * 2)
-    )
+    fileprivate static let verticalCenterOffset: CGFloat = 126
     
     public lazy var scrollView: UIScrollView = {
         // Scroll View - used to zoom/pan on images and video

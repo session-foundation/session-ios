@@ -48,7 +48,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                 [],  // Renamed `Setting` to `KeyValueStore`
                 [
                     _027_MoveSettingsToLibSession.self,
-                    _028_RenameAttachments.self
+                    _028_RenameAttachments.self,
+                    _029_AddProMessageFlag.self
                 ]
             ]
         )

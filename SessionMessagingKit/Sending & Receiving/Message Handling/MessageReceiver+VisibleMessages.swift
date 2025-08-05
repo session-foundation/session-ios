@@ -186,19 +186,26 @@ extension MessageReceiver {
             using: dependencies
         )
         do {
+            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(message.proProof) })
+            let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(
+                message.text,
+                isProMessage: isProMessage,
+                dependencies: dependencies
+            )
+            
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 authorId: sender,
                 variant: variant,
-                body: message.text,
+                body: processedMessageBody,
                 timestampMs: Int64(messageSentTimestamp * 1000),
                 wasRead: wasRead,
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
-                    body: message.text,
+                    body: processedMessageBody,
                     quoteAuthorId: dataMessage.quote?.author,
                     using: dependencies
                 ),
@@ -214,6 +221,7 @@ extension MessageReceiver {
                 // If we received an outgoing message then we can assume the interaction has already
                 // been sent, otherwise we should just use whatever the default state is
                 state: (variant == .standardOutgoing ? .sent : nil),
+                isProMessage: isProMessage,
                 using: dependencies
             ).inserted(db)
         }
@@ -671,6 +679,41 @@ extension MessageReceiver {
             )
             
             _ = try pendingReadReceipt.delete(db)
+        }
+    }
+    
+    private static func truncateMessageTextIfNeeded(
+        _ text: String?,
+        isProMessage: Bool,
+        dependencies: Dependencies
+    ) -> String? {
+        guard let text = text else { return nil }
+        
+        let utf16View = text.utf16
+        // TODO: Remove after Session Pro is enabled
+        let isSessionProEnabled: Bool = (dependencies.hasSet(feature: .sessionProEnabled) && dependencies[feature: .sessionProEnabled])
+        let offset: Int = (isSessionProEnabled && !isProMessage) ?
+            LibSession.CharacterLimit :
+            LibSession.ProCharacterLimit
+        
+        guard utf16View.count > offset else { return text }
+        
+        // Get the index at the maxUnits position in UTF16
+        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: offset)
+        
+        // Try converting that UTF16 index back to a String.Index
+        if let endIndex = String.Index(endUTF16Index, within: text) {
+            return String(text[..<endIndex])
+        } else {
+            // Fallback: safely step back until there is a valid boundary
+            var adjustedIndex = endUTF16Index
+            while adjustedIndex > utf16View.startIndex {
+                adjustedIndex = utf16View.index(before: adjustedIndex)
+                if let validIndex = String.Index(adjustedIndex, within: text) {
+                    return String(text[..<validIndex])
+                }
+            }
+            return text // If all else fails, return original string
         }
     }
 }

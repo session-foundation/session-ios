@@ -85,7 +85,8 @@ extension Interaction: Mocked {
         openGroupWhisperTo: nil,
         state: .sent,
         recipientReadTimestampMs: nil,
-        mostRecentFailureText: nil
+        mostRecentFailureText: nil,
+        isProMessage: false
     )
 }
 
@@ -121,7 +122,7 @@ extension Preferences.NotificationSettings: Mocked {
 }
 
 extension ImageDataManager.DataSource: Mocked {
-    static var mock: ImageDataManager.DataSource = ImageDataManager.DataSource.data("Id", Data([1, 2, 3]))
+    static var mock: ImageDataManager.DataSource = ImageDataManager.DataSource.data("mock", Data([1, 2, 3]))
 }
 
 enum MockLibSessionConvertible: Int, Codable, LibSessionConvertibleEnum, Mocked {

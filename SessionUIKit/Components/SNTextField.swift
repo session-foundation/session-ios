@@ -70,7 +70,7 @@ public final class SNTextField: UITextField {
             set(.height, to: height)
         }
         
-        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
+        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _, _ in
             self?.keyboardAppearance = theme.keyboardAppearance
         }
     }

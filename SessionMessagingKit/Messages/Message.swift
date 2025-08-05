@@ -20,6 +20,8 @@ public class Message: Codable {
         
         case expiresInSeconds
         case expiresStartedAtMs
+        
+        case proProof
     }
     
     public var id: String?
@@ -42,6 +44,8 @@ public class Message: Codable {
     // MARK: - Disappearing Messages
     public var expiresInSeconds: TimeInterval?
     public var expiresStartedAtMs: Double?
+    
+    public var proProof: String?
 
     // MARK: - Validation
     
@@ -99,7 +103,8 @@ public class Message: Codable {
         openGroupWhisperTo: String? = nil,
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,
-        expiresStartedAtMs: Double? = nil
+        expiresStartedAtMs: Double? = nil,
+        proProof: String? = nil
     ) {
         self.id = id
         self.sentTimestampMs = sentTimestampMs
@@ -112,6 +117,7 @@ public class Message: Codable {
         self.serverHash = serverHash
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
+        self.proProof = proProof
     }
 
     // MARK: - Proto Conversion
@@ -653,6 +659,11 @@ public extension Message {
     ) -> Self {
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
+        return self
+    }
+    
+    func with(proProof: String?) -> Self {
+        self.proProof = proProof
         return self
     }
 }

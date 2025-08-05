@@ -2336,7 +2336,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2360,7 +2361,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2384,7 +2386,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2408,7 +2411,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                     }
                 }
@@ -2958,7 +2962,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             openGroupWhisperTo: nil,
                             state: .sent,
                             recipientReadTimestampMs: nil,
-                            mostRecentFailureText: nil
+                            mostRecentFailureText: nil,
+                            isProMessage: false
                         ).inserted(db)
                         
                         try ConfigDump(

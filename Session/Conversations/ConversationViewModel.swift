@@ -72,6 +72,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
     public let dependencies: Dependencies
     
+    public var isSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
+    
     public let legacyGroupsBannerFont: UIFont = .systemFont(ofSize: Values.miniFontSize)
     public lazy var legacyGroupsBannerMessage: ThemedAttributedString = {
         let localizationKey: String
@@ -404,6 +406,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public private(set) var unobservedInteractionDataChanges: [SectionModel]?
     public private(set) var interactionData: [SectionModel] = []
     public private(set) var reactionExpandedInteractionIds: Set<Int64> = []
+    public private(set) var messageExpandedInteractionIds: Set<Int64> = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Interaction, MessageViewModel>?
     
     public var onInteractionChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
@@ -742,6 +745,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 sentTimestampMs: Double(sentTimestampMs)
             ),
             linkPreviewUrl: linkPreviewDraft?.urlString,
+            isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies
         )
         let optimisticAttachments: [Attachment]? = attachments
@@ -1093,6 +1097,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     public func collapseReactions(for interactionId: Int64) {
         reactionExpandedInteractionIds.remove(interactionId)
+    }
+    
+    public func expandMessage(for interactionId: Int64) {
+        messageExpandedInteractionIds.insert(interactionId)
     }
     
     public func deletionActions(for cellViewModels: [MessageViewModel]) -> MessageViewModel.DeletionBehaviours? {

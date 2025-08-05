@@ -5,7 +5,7 @@ import Lucide
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
-    public static let explanationFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
+    nonisolated public static let explanationFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
     private static let closeSize: CGFloat = 24
     
     public private(set) var info: Info

@@ -77,7 +77,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct title
             it("has the correct title") {
-                await expect { await viewModel.title }.toEventually(equal("sessionNotifications".localized()))
+                expect(viewModel.title).to(equal("sessionNotifications".localized()))
             }
             
             // MARK: -- has the correct number of items
@@ -226,13 +226,14 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    await viewModel.footerButtonInfo
+                    viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { info in footerButtonInfo = info }
                         )
                 )
+                await expect(footerButtonInfo).toEventuallyNot(beNil())
                 
                 expect(footerButtonInfo).to(equal(
                     SessionButton.Info(
@@ -277,7 +278,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
-                await cancellables.append(
+                cancellables.append(
                     viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
@@ -287,6 +288,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                             }
                         )
                 )
+                await expect(footerButtonInfo).toEventuallyNot(beNil())
                 
                 // Wait for the state to load
                 await expect(viewModel.tableData).toEventuallyNot(beEmpty())
@@ -335,13 +337,14 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                 
                 cancellables.append(
-                    await viewModel.footerButtonInfo
+                    viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { info in footerButtonInfo = info }
                         )
                 )
+                await expect(footerButtonInfo).toEventuallyNot(beNil())
                 
                 // Disabled again
                 expect(footerButtonInfo).to(equal(
@@ -365,7 +368,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 
                 beforeEach {
                     cancellables.append(
-                        await viewModel.footerButtonInfo
+                        viewModel.footerButtonInfo
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
@@ -404,13 +407,14 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                         var didDismissScreen: Bool = false
                         
                         cancellables.append(
-                            await viewModel.navigatableState.dismissScreen
+                            viewModel.navigatableState.dismissScreen
                                 .receive(on: ImmediateScheduler.shared)
                                 .sink(
                                     receiveCompletion: { _ in },
                                     receiveValue: { _ in didDismissScreen = true }
                                 )
                         )
+                        await expect(footerButtonInfo).toEventuallyNot(beNil())
                         
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         

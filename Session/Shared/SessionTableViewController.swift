@@ -476,12 +476,13 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 cell.update(
                     with: info,
                     tableSize: tableView.bounds.size,
-                    onToggleExpansion: { [dependencies = viewModel.dependencies] in
+                    onToggleExpansion: { [dependencies = self.viewModel.dependencies] in
                         UIView.setAnimationsEnabled(false)
                         cell.setNeedsLayout()
                         cell.layoutIfNeeded()
                         tableView.beginUpdates()
                         tableView.endUpdates()
+                        // Only re-enable animations if the feature flag isn't disabled
                         if dependencies[feature: .animationsEnabled] {
                             UIView.setAnimationsEnabled(true)
                         }

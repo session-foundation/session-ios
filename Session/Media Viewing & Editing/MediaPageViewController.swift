@@ -817,6 +817,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         label.textAlignment = .center
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.8
+        label.numberOfLines = 1
+        label.lineBreakMode = .byTruncatingTail
+        label.set(.width, lessThanOrEqualTo: 185)
 
         return label
     }()

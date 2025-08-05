@@ -11,11 +11,13 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     // MARK: - Variables
     
     private static let linkPreviewViewInset: CGFloat = 6
+    private static let thresholdForCharacterLimit: Int = 200
 
     private var disposables: Set<AnyCancellable> = Set()
     private let dependencies: Dependencies
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
+    private var sessionProState: SessionProManagerType?
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -113,7 +115,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         result.addSubview(blurView)
         blurView.pin(to: result)
         
-        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
             blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
         
@@ -147,6 +149,41 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
         return label
     }()
+    
+    private lazy var proStackView: UIStackView = {
+        let result = UIStackView(arrangedSubviews: [ characterLimitLabel, sessionProBadge ])
+        result.axis = .vertical
+        result.spacing = Values.verySmallSpacing
+        result.alignment = .center
+        result.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
+        result.alpha = 0
+        
+        return result
+    }()
+    private lazy var characterLimitLabelTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.addTarget(self, action: #selector(characterLimitLabelTapped))
+        result.isEnabled = false
+        
+        return result
+    }()
+    
+    private lazy var characterLimitLabel: UILabel = {
+        let label: UILabel = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: Values.smallFontSize)
+        label.themeTextColor = .textPrimary
+        label.textAlignment = .center
+        
+        return label
+    }()
+    
+    private lazy var sessionProBadge: SessionProBadge = {
+        let result: SessionProBadge = SessionProBadge(size: .small)
+        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
+        
+        return result
+    }()
 
     private lazy var additionalContentContainer = UIView()
     
@@ -160,10 +197,22 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         self.dependencies = dependencies
         self.threadVariant = threadVariant
         self.delegate = delegate
+        self.sessionProState = dependencies[singleton: .sessionProState]
         
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
+        
+        self.sessionProState?.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self] isPro in
+                    self?.sessionProBadge.isHidden = isPro
+                    self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
+                }
+            )
+            .store(in: &disposables)
     }
 
     override init(frame: CGRect) {
@@ -190,7 +239,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         addSubview(blurView)
         blurView.pin(to: self)
         
-        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
             blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
         
@@ -219,6 +268,11 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         mainStackView.pin(.top, to: .bottom, of: separator)
         mainStackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self)
         mainStackView.pin(.bottom, to: .bottom, of: self)
+        
+        // Pro stack view
+        addSubview(proStackView)
+        proStackView.pin(.bottom, to: .bottom, of: inputTextView)
+        proStackView.center(.horizontal, in: sendButton)
 
         addSubview(disabledInputLabel)
 
@@ -244,14 +298,27 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
         invalidateIntrinsicContentSize()
+        self.bottomStackView?.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
     }
 
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
-        let hasText = !text.isEmpty
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         sendButton.isHidden = !hasText
         voiceMessageButtonContainer.isHidden = hasText
         autoGenerateLinkPreviewIfPossible()
+
         delegate?.inputTextViewDidChangeContent(inputTextView)
+    }
+    
+    func updateNumberOfCharactersLeft(_ text: String) {
+        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
+            for: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
+        characterLimitLabel.text = "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))"
+        characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
+        proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0
+        characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
     func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {
@@ -559,6 +626,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     @objc private func disabledInputTapped() {
         delegate?.handleDisabledInputTapped()
     }
+    
+    @objc private func characterLimitLabelTapped() {
+        delegate?.handleCharacterLimitLabelTapped()
+    }
 
     // MARK: - Convenience
     
@@ -580,6 +651,7 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     func handleSendButtonTapped()
     func handleDisabledInputTapped()
     func handleDisabledVoiceMessageButtonTapped()
+    func handleCharacterLimitLabelTapped()
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
     func didPasteImageFromPasteboard(_ image: UIImage)

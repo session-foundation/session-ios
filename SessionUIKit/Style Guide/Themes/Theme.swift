@@ -70,8 +70,20 @@ public enum Theme: Int, Sendable, CaseIterable, Codable {
         }
     }
     
-    public func color(for value: ThemeValue) -> UIColor? { return ThemeManager.color(for: value, in: self) }
-    public func color(for value: ThemeValue) -> Color? { return ThemeManager.color(for: value, in: self) }
+    internal var defaultPrimary: Theme.PrimaryColor {
+        let maybeTargetColor: Color? = {
+            switch self {
+                case .classicDark: return Theme_ClassicDark.themeSwiftUI[.defaultPrimary]
+                case .classicLight: return Theme_ClassicLight.themeSwiftUI[.defaultPrimary]
+                case .oceanDark: return Theme_OceanDark.themeSwiftUI[.defaultPrimary]
+                case .oceanLight: return Theme_OceanLight.themeSwiftUI[.defaultPrimary]
+            }
+        }()
+        
+        guard let targetColor: Color = maybeTargetColor else { return .green }
+        
+        return (Theme.PrimaryColor.allCases.first(where: { $0.colorSwiftUI == targetColor }) ?? .green)
+    }
 }
 
 // MARK: - ColorType Convenience

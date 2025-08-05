@@ -96,7 +96,7 @@ public extension ImageDataManagerType {
         
         load(source, onComplete: onComplete)
     }
-    
+    // TODO: Is this needeed????
     func cachedImage(
         attachment: Attachment,
         using dependencies: Dependencies

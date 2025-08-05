@@ -29,6 +29,7 @@ final class ThemeMessagePreviewView: UIView {
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
+            shouldExpanded: false,
             lastSearchText: nil,
             using: dependencies
         )
@@ -52,6 +53,7 @@ final class ThemeMessagePreviewView: UIView {
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
+            shouldExpanded: false,
             lastSearchText: nil,
             using: dependencies
         )

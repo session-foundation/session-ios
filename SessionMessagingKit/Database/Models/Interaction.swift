@@ -69,6 +69,9 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         case state
         case recipientReadTimestampMs
         case mostRecentFailureText
+        
+        // Session Pro
+        case isProMessage
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
@@ -219,6 +222,9 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
     /// The reason why the most recent attempt to send this message failed
     public private(set) var mostRecentFailureText: String?
     
+    /// A flag indicating if the message sender is a Session Pro user when the message is sent
+    public let isProMessage: Bool
+    
     // MARK: - Relationships
          
     public var thread: QueryInterfaceRequest<SessionThread> {
@@ -280,7 +286,8 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         openGroupWhisperTo: String?,
         state: State,
         recipientReadTimestampMs: Int64?,
-        mostRecentFailureText: String?
+        mostRecentFailureText: String?,
+        isProMessage: Bool
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -303,6 +310,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         self.state = (variant.isLocalOnly ? .localOnly : state)
         self.recipientReadTimestampMs = recipientReadTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
+        self.isProMessage = isProMessage
     }
     
     public init(
@@ -324,6 +332,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil,
         state: Interaction.State? = nil,
+        isProMessage: Bool = false,
         using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
@@ -360,6 +369,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
+        self.isProMessage = isProMessage
     }
     
     // MARK: - Custom Database Interaction
@@ -428,7 +438,8 @@ public extension Interaction {
             openGroupWhisperTo: try? container.decode(String?.self, forKey: .openGroupWhisperTo),
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
-            mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText)
+            mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
+            isProMessage: (try? container.decode(Bool.self, forKey: .isProMessage)).defaulting(to: false)
         )
     }
 }
@@ -471,7 +482,8 @@ public extension Interaction {
             openGroupWhisperTo: self.openGroupWhisperTo,
             state: (state ?? self.state),
             recipientReadTimestampMs: (recipientReadTimestampMs ?? self.recipientReadTimestampMs),
-            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText)
+            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
+            isProMessage: self.isProMessage
         )
     }
     

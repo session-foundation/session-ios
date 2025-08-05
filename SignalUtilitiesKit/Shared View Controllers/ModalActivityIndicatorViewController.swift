@@ -20,7 +20,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
     lazy var dimmingView: UIView = {
         let result = UIVisualEffectView()
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
+        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _, _ in
             result?.effect = UIBlurEffect(
                 style: (theme.interfaceStyle == .light ?
                     UIBlurEffect.Style.systemUltraThinMaterialLight :
@@ -66,8 +66,8 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         
         result.accessibilityIdentifier = "Loading animation"
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }

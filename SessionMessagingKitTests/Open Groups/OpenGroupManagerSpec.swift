@@ -41,7 +41,8 @@ class OpenGroupManagerSpec: QuickSpec {
             openGroupWhisperTo: nil,
             state: .sending,
             recipientReadTimestampMs: nil,
-            mostRecentFailureText: nil
+            mostRecentFailureText: nil,
+            isProMessage: false
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(
             id: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),

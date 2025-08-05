@@ -103,10 +103,41 @@ internal extension UIColor {
     static let oceanLight7: UIColor = #colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1)        // #FCFFFF
 }
 
-public extension UIColor {
-    static let primary: UIColor = UIColor(dynamicProvider: { _ in
-        return ThemeManager.primaryColor.color
-    })
+internal extension UIColor {
+    /// This value shouldn't be used dirrectly, it should be resolved via the `ThemeManager.color(for:in:with:)` function, due
+    /// to this the _actual_ colour value is set to an obvious colour to help indicate incorrect usage
+    private static let _primaryValue: UIColor = UIColor(red: 1, green: 0, blue: 1, alpha: 1)
+    
+    static func primary(file: String = #file, function: String = #function) -> UIColor {
+        #if DEBUG
+        validateAuthorizedCaller(file: file, function: function)
+        #endif
+        return _primaryValue
+    }
+    
+    #if DEBUG
+    // stringlint:ignore_contents
+    private static let authorizedCallers: Set<String> = [
+        "ThemeManager.swift - color(for:in:with:)",
+        "ThemeManager.swift - isPrimary",
+        "Theme+ClassicDark.swift - Theme_ClassicDark",
+        "Theme+ClassicLight.swift - Theme_ClassicLight",
+        "Theme+OceanDark.swift - Theme_OceanDark",
+        "Theme+OceanLight.swift - Theme_OceanLight"
+    ]
+    
+    private static func validateAuthorizedCaller(file: String, function: String) {
+        if !authorizedCallers.contains("\(URL(fileURLWithPath: file).lastPathComponent) - \(function)") {
+            fatalError("""
+                ❌ UNAUTHORIZED USAGE OF UIColor.primaryColor ❌
+                
+                Called from: \(function) in \(file)
+                
+                Use ThemeManager.color(for:in:with:) instead!
+            """)
+        }
+    }
+    #endif
 }
 
 internal extension Color {
@@ -156,9 +187,9 @@ internal extension Color {
     static let oceanLight7: Color = Color(#colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1))        // #FCFFFF
 }
 
-public extension Color {
-    static var primary: Color {
-        return Color(UIColor.primary)
+internal extension Color {
+    static func primary(file: String = #file, function: String = #function) -> Color {
+        return Color(UIColor.primary(file: file, function: function))
     }
 }
 

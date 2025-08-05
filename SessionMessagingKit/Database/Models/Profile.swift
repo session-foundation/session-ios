@@ -308,6 +308,17 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
+    func displayNameForMention(
+        for threadVariant: SessionThread.Variant = .contact,
+        ignoringNickname: Bool = false,
+        currentUserSessionIds: Set<String> = []
+    ) -> String {
+        guard !currentUserSessionIds.contains(id) else {
+            return "you".localized()
+        }
+        return displayName(for: threadVariant, ignoringNickname: ignoringNickname)
+    }
+    
     /// The name to display in the UI for a given thread variant
     func displayName(
         for threadVariant: SessionThread.Variant = .contact,

@@ -63,19 +63,19 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct title
             it("has the correct title") {
-                await expect { await viewModel.title }.toEventually(equal("notificationsContent".localized()))
+                expect(viewModel.title).to(equal("notificationsContent".localized()))
             }
 
             // MARK: -- has the correct number of items
             it("has the correct number of items") {
-                expect(viewModel.tableData.count).to(equal(1))
-                expect(viewModel.tableData.first?.elements.count).to(equal(3))
+                await expect(viewModel.tableData.count).toEventually(equal(1))
+                await expect(viewModel.tableData.first?.elements.count).toEventually(equal(3))
             }
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
-                expect(viewModel.tableData.first?.elements)
-                    .to(
+                await expect(viewModel.tableData.first?.elements)
+                    .toEventually(
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
@@ -164,7 +164,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 it("dismisses the screen") {
                     var didDismissScreen: Bool = false
                     
-                    dismissCancellable = await viewModel.navigatableState.dismissScreen
+                    dismissCancellable = viewModel.navigatableState.dismissScreen
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }

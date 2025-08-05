@@ -197,9 +197,9 @@ private extension MentionSelectionView {
             isLast: Bool,
             using dependencies: Dependencies
         ) {
-            displayNameLabel.text = (currentUserSessionIds.contains(profile.id) ?
-                "you".localized() :
-                profile.displayName(for: threadVariant)
+            displayNameLabel.text = profile.displayNameForMention(
+                for: threadVariant,
+                currentUserSessionIds: currentUserSessionIds
             )
             profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
             profilePictureView.update(

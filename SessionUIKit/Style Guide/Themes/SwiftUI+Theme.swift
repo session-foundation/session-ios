@@ -4,65 +4,72 @@ import SwiftUI
 
 public extension View {
     func foregroundColor(themeColor: ThemeValue) -> some View {
-        return self.foregroundColor(ThemeManager.color(for: themeColor))
+        return ThemeColorResolver(themeValue: themeColor) { color in
+            self.foregroundColor(color)
+        }
     }
     
     func backgroundColor(themeColor: ThemeValue) -> some View {
-        let targetColor: Color? = ThemeManager.color(for: themeColor)
-        
         if #available(iOSApplicationExtension 14.0, *) {
-            return self.background(targetColor?.ignoresSafeArea())
-        } else {
-            return self.background(targetColor)
+            return ThemeColorResolver(themeValue: themeColor) { color in
+                self.background(color.ignoresSafeArea())
+            }
+        }
+        else {
+            return ThemeColorResolver(themeValue: themeColor) { color in
+                self.background(color)
+            }
         }
     }
     
     func shadow(themeColor: ThemeValue, radius: CGFloat) -> some View {
-        return self.shadow(
-            color: ThemeManager.color(for: themeColor) ?? Color.primary,
-            radius: radius
-        )
+        return ThemeColorResolver(themeValue: themeColor) { color in
+            self.shadow(color: color, radius: radius)
+        }
     }
 }
 
 public extension Shape {
     func fill(themeColor: ThemeValue) -> some View {
-        return self.fill(ThemeManager.color(for: themeColor) ?? Color.primary)
+        return ThemeColorResolver(themeValue: themeColor) { color in
+            self.fill(color)
+        }
     }
     
     func stroke(themeColor: ThemeValue, lineWidth: CGFloat = 1) -> some View {
-        return self.stroke(
-            ThemeManager.color(for: themeColor) ?? Color.primary,
-            lineWidth: lineWidth
-        )
+        return ThemeColorResolver(themeValue: themeColor) { color in
+            self.stroke(color, lineWidth: lineWidth)
+        }
     }
     
     func stroke(themeColor: ThemeValue, style: StrokeStyle) -> some View {
-        return self.stroke(
-            ThemeManager.color(for: themeColor) ?? Color.primary,
-            style: style
-        )
+        return ThemeColorResolver(themeValue: themeColor) { color in
+            self.stroke(color, style: style)
+        }
     }
 }
 
-public extension Color {
-    init?(_ value: ThemeValue) {
-        guard let result = Color.resolve(value, for: ThemeManager.currentTheme) else { return nil }
+// MARK: - ThemeColorResolver
+
+private struct ThemeColorResolver<Content: View>: View {
+    let themeValue: ThemeValue
+    let content: (Color) -> Content
+    #if DEBUG
+    @Environment(\.previewTheme) private var previewTheme
+    #endif
+    
+    var body: some View {
+        var targetTheme: Theme = ThemeManager.currentTheme
+        var targetPrimaryColor: Theme.PrimaryColor = ThemeManager.primaryColor
         
-        self = result
-    }
-}
-
-public extension Text {
-    func foregroundColor(themeColor: ThemeValue) -> Text {
-        return self.foregroundColor(ThemeManager.color(for: themeColor))
-    }
-}
-
-// MARK: - Convenience
-
-private extension ThemeManager {
-    static func color<T: ColorType>(for value: ThemeValue) -> T? {
-        return ThemeManager.color(for: value, in: currentTheme)
+        #if DEBUG
+        if let (theme, primaryColor) = previewTheme {
+            targetTheme = theme
+            targetPrimaryColor = primaryColor
+        }
+        #endif
+        
+        let color: Color? = ThemeManager.color(for: themeValue, in: targetTheme, with: targetPrimaryColor)
+        return content(color ?? .clear)
     }
 }

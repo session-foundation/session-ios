@@ -76,6 +76,18 @@ public extension FeatureStorage {
     static let updatedGroupsDeleteAttachmentsBeforeNow: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsDeleteAttachmentsBeforeNow"
     )
+    
+    static let sessionProEnabled: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "sessionPro"
+    )
+    
+    static let mockCurrentUserSessionPro: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "mockCurrentUserSessionPro"
+    )
+    
+    static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "treatAllIncomingMessagesAsProMessages"
+    )
 }
 
 // MARK: - FeatureOption

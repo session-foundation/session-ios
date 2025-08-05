@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension CGRect {
+public extension CGRect {
     init(center: CGPoint, size: CGSize) {
         let originX = center.x - size.width / 2
         let originY = center.y - size.height / 2
