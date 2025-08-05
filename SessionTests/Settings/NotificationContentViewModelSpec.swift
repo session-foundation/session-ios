@@ -4,6 +4,7 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUtil
 import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
@@ -11,7 +12,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class NotificationContentViewModelSpec: QuickSpec {
+class NotificationContentViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -28,9 +29,25 @@ class NotificationContentViewModelSpec: QuickSpec {
             ],
             using: dependencies
         )
-        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
-            using: dependencies
+        @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
+        @TestState var localConfig: LibSession.Config! = {
+            var conf: UnsafeMutablePointer<config_object>!
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            return .local(conf)
+        }()
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: {
+                $0.defaultInitialSetup(
+                    configs: [
+                        .local: localConfig
+                    ]
+                )
+            }
         )
+        @TestState var viewModel: NotificationContentViewModel! = TestState.create {
+            await NotificationContentViewModel(using: dependencies)
+        }
         @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
             .sink(
                 receiveCompletion: { _ in },
@@ -40,6 +57,10 @@ class NotificationContentViewModelSpec: QuickSpec {
         
         // MARK: - a NotificationContentViewModel
         describe("a NotificationContentViewModel") {
+            beforeEach {
+                try await require { viewModel.tableData.count }.toEventually(beGreaterThan(0))
+            }
+            
             // MARK: -- has the correct title
             it("has the correct title") {
                 expect(viewModel.title).to(equal("notificationsContent".localized()))
@@ -47,14 +68,14 @@ class NotificationContentViewModelSpec: QuickSpec {
 
             // MARK: -- has the correct number of items
             it("has the correct number of items") {
-                expect(viewModel.tableData.count).to(equal(1))
-                expect(viewModel.tableData.first?.elements.count).to(equal(3))
+                await expect(viewModel.tableData.count).toEventually(equal(1))
+                await expect(viewModel.tableData.first?.elements.count).toEventually(equal(3))
             }
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
-                expect(viewModel.tableData.first?.elements)
-                    .to(
+                await expect(viewModel.tableData.first?.elements)
+                    .toEventually(
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
@@ -86,15 +107,16 @@ class NotificationContentViewModelSpec: QuickSpec {
             
             // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
-                mockStorage.write { db in
-                    db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
-                }
-                viewModel = NotificationContentViewModel(using: dependencies)
+                mockLibSessionCache
+                    .when { $0.get(.preferencesNotificationPreviewType) }
+                    .thenReturn(Preferences.NotificationPreviewType.nameNoPreview)
+                viewModel = await NotificationContentViewModel(using: dependencies)
                 dataChangeCancellable = viewModel.tableDataPublisher
                     .sink(
                         receiveCompletion: { _ in },
                         receiveValue: { viewModel.updateTableData($0) }
                     )
+                try await require { viewModel.tableData.count }.toEventually(beGreaterThan(0))
                 
                 expect(viewModel.tableData.first?.elements)
                     .to(
@@ -131,10 +153,11 @@ class NotificationContentViewModelSpec: QuickSpec {
             context("when tapping an item") {
                 // MARK: ---- updates the saved preference
                 it("updates the saved preference") {
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    expect(dependencies[singleton: .storage, key: .preferencesNotificationPreviewType])
-                        .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
+                    await expect(mockLibSessionCache).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
+                    })
                 }
                 
                 // MARK: ---- dismisses the screen
@@ -146,9 +169,9 @@ class NotificationContentViewModelSpec: QuickSpec {
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    expect(didDismissScreen).to(beTrue())
+                    await expect(didDismissScreen).toEventually(beTrue())
                 }
             }
         }

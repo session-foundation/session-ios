@@ -25,21 +25,39 @@ public extension Log.Category {
 // MARK: - DisplayPictureManager
 
 public class DisplayPictureManager {
-    public typealias UploadResult = (downloadUrl: String, fileName: String, encryptionKey: Data)
+    public typealias UploadResult = (downloadUrl: String, filePath: String, encryptionKey: Data)
     
     public enum Update {
         case none
         
         case contactRemove
-        case contactUpdateTo(url: String, key: Data, fileName: String?)
+        case contactUpdateTo(url: String, key: Data, filePath: String)
         
         case currentUserRemove
         case currentUserUploadImageData(Data)
-        case currentUserUpdateTo(url: String, key: Data, fileName: String?)
+        case currentUserUpdateTo(url: String, key: Data, filePath: String)
         
         case groupRemove
         case groupUploadImageData(Data)
-        case groupUpdateTo(url: String, key: Data, fileName: String?)
+        case groupUpdateTo(url: String, key: Data, filePath: String)
+        
+        static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
+            return from(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback, using: dependencies)
+        }
+        
+        public static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
+            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback, using: dependencies)
+        }
+        
+        static func from(_ url: String?, key: Data?, fallback: Update, using dependencies: Dependencies) -> Update {
+            guard
+                let url: String = url,
+                let key: Data = key,
+                let filePath: String = try? dependencies[singleton: .displayPictureManager].path(for: url)
+            else { return fallback }
+            
+            return .contactUpdateTo(url: url, key: key, filePath: filePath)
+        }
     }
     
     public static let maxBytes: UInt = (5 * 1000 * 1000)
@@ -51,6 +69,17 @@ public class DisplayPictureManager {
     private let dependencies: Dependencies
     private let scheduleDownloads: PassthroughSubject<(), Never> = PassthroughSubject()
     private var scheduleDownloadsCancellable: AnyCancellable?
+    
+    /// `NSCache` has more nuanced memory management systems than just listening for `didReceiveMemoryWarningNotification`
+    /// and can clear out values gradually, it can also remove items based on their "cost" so is better suited than our custom `LRUCache`
+    ///
+    /// Additionally `NSCache` is thread safe so we don't need to do any custom `ThreadSafeObject` work to interact with it
+    private var cache: NSCache<NSString, NSString> = {
+        let result: NSCache<NSString, NSString> = NSCache()
+        result.totalCostLimit = 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
+        
+        return result
+    }()
     
     // MARK: - Initalization
     
@@ -72,45 +101,35 @@ public class DisplayPictureManager {
     
     public func sharedDataDisplayPictureDirPath() -> String {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
-            .appendingPathComponent("ProfileAvatars")   // stringlint:ignore
+            .appendingPathComponent("DisplayPictures")   // stringlint:ignore
             .path
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
         
         return path
     }
     
-    // MARK: - Loading
-    
-    public func loadDisplayPictureFromDisk(for fileName: String) -> Data? {
-        guard let filePath: String = try? filepath(for: fileName) else { return nil }
-
-        return try? Data(contentsOf: URL(fileURLWithPath: filePath))
-    }
-    
     // MARK: - File Paths
     
     /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual
     /// image data so generate a name for the file and then determine the extension separately
-    public func generateFilenameWithoutExtension(for url: String) -> String {
-        return (dependencies[singleton: .crypto]
-            .generate(.hash(message: url.bytes))?
-            .toHexString())
-            .defaulting(to: UUID().uuidString)
-    }
-    
-    public func generateFilename(format: ImageFormat = .jpeg) -> String {
-        return dependencies[singleton: .crypto]
-            .generate(.uuid())
-            .defaulting(to: UUID())
-            .uuidString
-            .appendingFileExtension(format.fileExtension)
-    }
-    
-    public func filepath(for filename: String) throws -> String {
-        guard !filename.isEmpty else { throw DisplayPictureError.invalidCall }
+    public func path(for urlString: String?) throws -> String {
+        guard
+            let urlString: String = urlString,
+            !urlString.isEmpty
+        else { throw DisplayPictureError.invalidCall }
+        
+        let urlHash = try {
+            guard let cachedHash: String = cache.object(forKey: urlString as NSString) as? String else {
+                return try dependencies[singleton: .crypto]
+                    .tryGenerate(.hash(message: Array(urlString.utf8)))
+                    .toHexString()
+            }
+            
+            return cachedHash
+        }()
         
         return URL(fileURLWithPath: sharedDataDisplayPictureDirPath())
-            .appendingPathComponent(filename)
+            .appendingPathComponent(urlHash)
             .path
     }
     
@@ -129,26 +148,20 @@ public class DisplayPictureManager {
             .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
             .sink(
                 receiveValue: { [dependencies] _ in
-                    let pendingInfo: Set<DownloadInfo> = dependencies.mutate(cache: .displayPicture) { cache in
-                        let result: Set<DownloadInfo> = cache.downloadsToSchedule
+                    let pendingInfo: Set<Owner> = dependencies.mutate(cache: .displayPicture) { cache in
+                        let result: Set<Owner> = cache.downloadsToSchedule
                         cache.downloadsToSchedule.removeAll()
                         return result
                     }
                     
                     dependencies[singleton: .storage].writeAsync { db in
-                        pendingInfo.forEach { info in
-                            // If the current file is invalid then clear out the 'profilePictureFileName'
-                            // and try to re-download the file
-                            if info.currentFileInvalid {
-                                info.owner.clearCurrentFile(db)
-                            }
-                            
+                        pendingInfo.forEach { owner in
                             dependencies[singleton: .jobRunner].add(
                                 db,
                                 job: Job(
                                     variant: .displayPictureDownload,
                                     shouldBeUnique: true,
-                                    details: DisplayPictureDownloadJob.Details(owner: info.owner)
+                                    details: DisplayPictureDownloadJob.Details(owner: owner)
                                 ),
                                 canStartJob: true
                             )
@@ -158,11 +171,11 @@ public class DisplayPictureManager {
             )
     }
     
-    public func scheduleDownload(for owner: Owner, currentFileInvalid invalid: Bool = false) {
+    public func scheduleDownload(for owner: Owner) {
         guard owner.canDownloadImage else { return }
         
         dependencies.mutate(cache: .displayPicture) { cache in
-            cache.downloadsToSchedule.insert(DownloadInfo(owner: owner, currentFileInvalid: invalid))
+            cache.downloadsToSchedule.insert(owner)
         }
         scheduleDownloads.send(())
     }
@@ -172,7 +185,7 @@ public class DisplayPictureManager {
     public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
         return Just(())
             .setFailureType(to: DisplayPictureError.self)
-            .tryMap { [weak self, dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data, Data) in
+            .tryMap { [dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data) in
                 // If the profile avatar was updated or removed then encrypt with a new profile key
                 // to ensure that other users know that our profile picture was updated
                 let newEncryptionKey: Data
@@ -245,17 +258,10 @@ public class DisplayPictureManager {
                 // * Send asset service info to Signal Service
                 Log.verbose(.displayPictureManager, "Updating local profile on service with new avatar.")
                 
-                let fileName: String = dependencies[singleton: .crypto].generate(.uuid())
-                    .defaulting(to: UUID())
-                    .uuidString
-                    .appendingFileExtension(fileExtension)
-                
-                guard let filePath: String = try? self?.filepath(for: fileName) else {
-                    throw DisplayPictureError.invalidFilename
-                }
+                let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
                 
                 // Write the avatar to disk
-                do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
+                do { try finalImageData.write(to: URL(fileURLWithPath: temporaryFilePath), options: [.atomic]) }
                 catch {
                     Log.error(.displayPictureManager, "Updating service with profile failed.")
                     throw DisplayPictureError.writeFailed
@@ -264,7 +270,7 @@ public class DisplayPictureManager {
                 // Encrypt the avatar for upload
                 guard
                     let encryptedData: Data = dependencies[singleton: .crypto].generate(
-                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
+                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey)
                     )
                 else {
                     Log.error(.displayPictureManager, "Updating service with profile failed.")
@@ -283,14 +289,21 @@ public class DisplayPictureManager {
                     throw DisplayPictureError.uploadFailed
                 }
                 
-                return (preparedUpload, fileName, newEncryptionKey, finalImageData)
+                return (preparedUpload, temporaryFilePath, newEncryptionKey)
             }
-            .flatMap { [dependencies] preparedUpload, fileName, newEncryptionKey, finalImageData -> AnyPublisher<(FileUploadResponse, String, Data, Data), Error> in
+            .flatMap { [dependencies] preparedUpload, temporaryFilePath, newEncryptionKey -> AnyPublisher<(FileUploadResponse, String, Data), Error> in
                 preparedUpload.send(using: dependencies)
-                    .map { _, response -> (FileUploadResponse, String, Data, Data) in
-                        (response, fileName, newEncryptionKey, finalImageData)
+                    .map { _, response -> (FileUploadResponse, String, Data) in
+                        (response, temporaryFilePath, newEncryptionKey)
                     }
                     .eraseToAnyPublisher()
+            }
+            .tryMap { [dependencies] fileUploadResponse, temporaryFilePath, newEncryptionKey -> (String, String, Data) in
+                let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
+                let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
+                try dependencies[singleton: .fileManager].moveItem(atPath: temporaryFilePath, toPath: finalFilePath)
+                
+                return (downloadUrl, finalFilePath, newEncryptionKey)
             }
             .mapError { error in
                 Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
@@ -301,22 +314,16 @@ public class DisplayPictureManager {
                     default: return DisplayPictureError.uploadFailed
                 }
             }
-            .map { [dependencies] fileUploadResponse, fileName, newEncryptionKey, finalImageData -> UploadResult in
-                let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
-                
+            .map { [dependencies] downloadUrl, finalFilePath, newEncryptionKey -> UploadResult in
                 /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
-                let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                Task {
-                    await dependencies[singleton: .imageDataManager].loadImageData(
-                        identifier: fileName,
-                        source: .data(finalImageData)
+                Task(priority: .userInitiated) {
+                    await dependencies[singleton: .imageDataManager].load(
+                        .url(URL(fileURLWithPath: finalFilePath))
                     )
-                    semaphore.signal()
                 }
-                semaphore.wait()
                 
                 Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
-                return (downloadUrl, fileName, newEncryptionKey)
+                return (downloadUrl, finalFilePath, newEncryptionKey)
             }
             .eraseToAnyPublisher()
     }
@@ -337,53 +344,14 @@ public extension DisplayPictureManager {
         case community(OpenGroup)
         case file(String)
         
-        var fileName: String? {
-            switch self {
-                case .user(let profile): return profile.profilePictureFileName
-                case .group(let group): return group.displayPictureFilename
-                case .community(let openGroup): return openGroup.displayPictureFilename
-                case .file(let name): return name
-            }
-        }
-        
         var canDownloadImage: Bool {
             switch self {
-                case .user(let profile): return (profile.profilePictureUrl?.isEmpty == false)
+                case .user(let profile): return (profile.displayPictureUrl?.isEmpty == false)
                 case .group(let group): return (group.displayPictureUrl?.isEmpty == false)
                 case .community(let openGroup): return (openGroup.imageId?.isEmpty == false)
                 case .file: return false
             }
         }
-        
-        fileprivate func clearCurrentFile(_ db: Database) {
-            switch self {
-                case .user(let profile):
-                    _ = try? Profile
-                        .filter(id: profile.id)
-                        .updateAll(db, Profile.Columns.profilePictureFileName.set(to: nil))
-                    
-                case .group(let group):
-                    _ = try? ClosedGroup
-                        .filter(id: group.id)
-                        .updateAll(db, ClosedGroup.Columns.displayPictureFilename.set(to: nil))
-                    
-                case .community(let openGroup):
-                    _ = try? OpenGroup
-                        .filter(id: openGroup.id)
-                        .updateAll(db, OpenGroup.Columns.displayPictureFilename.set(to: nil))
-                    
-                case .file: return
-            }
-        }
-    }
-}
-
-// MARK: - DisplayPictureManager.DownloadInfo
-
-public extension DisplayPictureManager {
-    struct DownloadInfo: Hashable {
-        let owner: Owner
-        let currentFileInvalid: Bool
     }
 }
 
@@ -391,7 +359,7 @@ public extension DisplayPictureManager {
 
 public extension DisplayPictureManager {
     class Cache: DisplayPictureCacheType {
-        public var downloadsToSchedule: Set<DisplayPictureManager.DownloadInfo> = []
+        public var downloadsToSchedule: Set<DisplayPictureManager.Owner> = []
     }
 }
 
@@ -408,9 +376,9 @@ public extension Cache {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol DisplayPictureImmutableCacheType: ImmutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.DownloadInfo> { get }
+    var downloadsToSchedule: Set<DisplayPictureManager.Owner> { get }
 }
 
 public protocol DisplayPictureCacheType: DisplayPictureImmutableCacheType, MutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.DownloadInfo> { get set }
+    var downloadsToSchedule: Set<DisplayPictureManager.Owner> { get set }
 }

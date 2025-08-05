@@ -93,6 +93,7 @@ final class InfoMessageCell: MessageCell {
         with cellViewModel: MessageViewModel,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
+        shouldExpanded: Bool,
         lastSearchText: String?,
         using dependencies: Dependencies
     ) {

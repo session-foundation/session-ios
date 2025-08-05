@@ -26,7 +26,7 @@ class EmojiPickerSheet: BaseVC {
         result.addSubview(blurView)
         blurView.pin(to: result)
 
-        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _ in
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
             blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
         

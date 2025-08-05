@@ -13,14 +13,10 @@ struct QuoteView_SwiftUI: View {
         var authorId: String
         var quotedText: String?
         var threadVariant: SessionThread.Variant
-        var currentUserSessionId: String?
-        var currentUserBlinded15SessionId: String?
-        var currentUserBlinded25SessionId: String?
+        var currentUserSessionIds: Set<String>
         var direction: Direction
         var attachment: Attachment?
     }
-    
-    @State private var thumbnail: UIImage? = nil
     
     private static let thumbnailSize: CGFloat = 48
     private static let iconSize: CGFloat = 24
@@ -33,16 +29,7 @@ struct QuoteView_SwiftUI: View {
     private var info: Info
     private var onCancel: (() -> ())?
     
-    private var isCurrentUser: Bool {
-        return [
-            info.currentUserSessionId,
-            info.currentUserBlinded15SessionId,
-            info.currentUserBlinded25SessionId
-        ]
-        .compactMap { $0 }
-        .asSet()
-        .contains(info.authorId)
-    }
+    private var isCurrentUser: Bool { info.currentUserSessionIds.contains(info.authorId) }
     private var quotedText: String? {
         if let quotedText = info.quotedText, !quotedText.isEmpty {
             return quotedText
@@ -76,17 +63,6 @@ struct QuoteView_SwiftUI: View {
         self.dependencies = dependencies
         self.info = info
         self.onCancel = onCancel
-        
-        if let attachment = info.attachment, attachment.isVisualMedia {
-            attachment.thumbnail(
-                size: .small,
-                using: dependencies,
-                success: { [self] _, imageRetriever, _ in
-                    self.thumbnail = imageRetriever()
-                },
-                failure: {}
-            )
-        }
     }
     
     var body: some View {
@@ -95,42 +71,48 @@ struct QuoteView_SwiftUI: View {
             spacing: Values.smallSpacing
         ) {
             if let attachment: Attachment = info.attachment {
-                // Attachment thumbnail
-                if let image: UIImage = {
-                    if let thumbnail = self.thumbnail {
-                        return thumbnail
-                    }
+                ZStack() {
+                    RoundedRectangle(
+                        cornerRadius: Self.cornerRadius
+                    )
+                    .fill(themeColor: .messageBubble_overlay)
+                    .frame(
+                        width: Self.thumbnailSize,
+                        height: Self.thumbnailSize
+                    )
                     
-                    let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
-                    return UIImage(named: fallbackImageName)?
-                        .withRenderingMode(.alwaysTemplate)
-                }() {
-                    ZStack() {
-                        RoundedRectangle(
-                            cornerRadius: Self.cornerRadius
-                        )
-                        .fill(themeColor: .messageBubble_overlay)
-                        .frame(
-                            width: Self.thumbnailSize,
-                            height: Self.thumbnailSize
-                        )
+                    SessionAsyncImage(
+                        attachment: attachment,
+                        thumbnailSize: .medium,
+                        using: dependencies
+                    ) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
                         
-                        Image(uiImage: image)
-                            .foregroundColor(themeColor: {
-                                switch info.mode {
-                                    case .regular: return (info.direction == .outgoing ?
-                                        .messageBubble_outgoingText :
-                                            .messageBubble_incomingText
-                                    )
-                                    case .draft: return .textPrimary
-                                }
-                            }())
-                            .frame(
-                                width: Self.iconSize,
-                                height: Self.iconSize,
-                                alignment: .center
-                            )
+                        if let image = UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate) {
+                            Image(uiImage: image)
+                                .foregroundColor(themeColor: {
+                                    switch info.mode {
+                                        case .regular: return (info.direction == .outgoing ?
+                                            .messageBubble_outgoingText :
+                                                .messageBubble_incomingText
+                                        )
+                                        case .draft: return .textPrimary
+                                    }
+                                }())
+                        }
+                        else {
+                            Color.clear
+                        }
                     }
+                    .frame(
+                        width: Self.iconSize,
+                        height: Self.iconSize,
+                        alignment: .center
+                    )
                 }
             } else {
                 // Line view
@@ -173,9 +155,7 @@ struct QuoteView_SwiftUI: View {
                         MentionUtilities.highlightMentions(
                             in: quotedText,
                             threadVariant: info.threadVariant,
-                            currentUserSessionId: info.currentUserSessionId,
-                            currentUserBlinded15SessionId: info.currentUserBlinded15SessionId,
-                            currentUserBlinded25SessionId: info.currentUserBlinded25SessionId,
+                            currentUserSessionIds: info.currentUserSessionIds,
                             location: {
                                 switch (info.mode, info.direction) {
                                     case (.draft, _): return .quoteDraft
@@ -227,13 +207,14 @@ struct QuoteView_SwiftUI: View {
 struct QuoteView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeColor(.backgroundPrimary).ignoresSafeArea()
             VStack(spacing: 20) {
                 QuoteView_SwiftUI(
                     info: QuoteView_SwiftUI.Info(
                         mode: .draft,
                         authorId: "",
                         threadVariant: .contact,
+                        currentUserSessionIds: [],
                         direction: .outgoing
                     ),
                     using: Dependencies.createEmpty()
@@ -245,6 +226,7 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                         mode: .regular,
                         authorId: "",
                         threadVariant: .contact,
+                        currentUserSessionIds: [],
                         direction: .incoming,
                         attachment: Attachment(
                             variant: .standard,

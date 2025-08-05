@@ -66,10 +66,35 @@ struct DocumentView_SwiftUI: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, Values.mediumSpacing)
             
-            Image(systemName: (attachment.isAudio ? "play.fill" : "arrow.down"))
-                .font(.system(size: Values.mediumFontSize))
-                .foregroundColor(themeColor: textColor)
-                .padding(.trailing, Self.inset)
+            if attachment.state == .uploading || attachment.state == .downloading {
+                ProgressView()
+                    .foregroundColor(themeColor: .textPrimary)
+                    .frame(
+                        width: Values.mediumFontSize,
+                        height: Values.mediumFontSize
+                    )
+                    .padding(.trailing, Self.inset)
+            }
+            else if
+                attachment.state == .failedDownload || attachment.state == .failedUpload,
+                let invalidImage: UIImage = UIImage(named: "warning")?.withRenderingMode(.alwaysTemplate)
+            {
+                Image(uiImage: invalidImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(
+                        width: 24,
+                        height: 24
+                    )
+                    .foregroundColor(themeColor: textColor)
+                    .padding(.trailing, Self.inset)
+            }
+            else {
+                Image(systemName: (attachment.isAudio ? "play.fill" : "arrow.down"))
+                    .font(.system(size: Values.mediumFontSize))
+                    .foregroundColor(themeColor: textColor)
+                    .padding(.trailing, Self.inset)
+            }
         }
         .frame(width: maxWidth)
     }

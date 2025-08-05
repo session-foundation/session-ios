@@ -64,8 +64,8 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         result.set(.width, to: OpenGroupSuggestionGrid.cellHeight)
         result.set(.height, to: OpenGroupSuggestionGrid.cellHeight)
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }
@@ -183,7 +183,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
                     regions: [
                         OpenGroup.select(.name).filter(ids: openGroupIds),
                         OpenGroup.select(.roomDescription).filter(ids: openGroupIds),
-                        OpenGroup.select(.displayPictureFilename).filter(ids: openGroupIds)
+                        OpenGroup.select(.displayPictureOriginalUrl).filter(ids: openGroupIds)
                     ],
                     fetch: { db in try OpenGroup.filter(ids: openGroupIds).fetchAll(db) }
                 )
@@ -357,8 +357,8 @@ extension OpenGroupSuggestionGrid {
         fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
             label.text = room.name
             
-            let maybePath: String? = openGroup.displayPictureFilename
-                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
+            let maybePath: String? = openGroup.displayPictureOriginalUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
             
             switch maybePath {
                 case .some(let path):

@@ -2,12 +2,14 @@
 
 import Foundation
 import GRDB
+import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleReadReceipt(
-        _ db: Database,
+        _ db: ObservingDatabase,
         message: ReadReceipt,
-        serverExpirationTimestamp: TimeInterval?
+        serverExpirationTimestamp: TimeInterval?,
+        using dependencies: Dependencies
     ) throws {
         guard let sender: String = message.sender else { return }
         guard let timestampMsValues: [Int64] = message.timestamps?.map({ Int64($0) }) else { return }
@@ -17,7 +19,8 @@ extension MessageReceiver {
             db,
             threadId: sender,
             timestampMsValues: timestampMsValues,
-            readTimestampMs: readTimestampMs
+            readTimestampMs: readTimestampMs,
+            using: dependencies
         )
         
         guard !pendingTimestampMs.isEmpty else { return }

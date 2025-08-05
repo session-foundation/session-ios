@@ -19,15 +19,17 @@ extension PushNotificationAPI {
             private let serviceInfo: ServiceInfo
             
             override var verificationBytes: [UInt8] {
-                /// A signature is signed using the account's Ed25519 private key (or Ed25519 subaccount, if using
-                /// subaccount authentication with a `subaccount_token`, for future closed group subscriptions),
-                /// and signs the value:
-                /// `"UNSUBSCRIBE" || HEX(ACCOUNT) || SIG_TS`
-                ///
-                /// Where `SIG_TS` is the `sig_ts` value as a base-10 string and must be within 24 hours of the current time.
-                "UNSUBSCRIBE".bytes
-                    .appending(contentsOf: authMethod.swarmPublicKey.bytes)
-                    .appending(contentsOf: "\(timestamp)".data(using: .ascii)?.bytes)
+                get throws {
+                    /// A signature is signed using the account's Ed25519 private key (or Ed25519 subaccount, if using
+                    /// subaccount authentication with a `subaccount_token`, for future closed group subscriptions),
+                    /// and signs the value:
+                    /// `"UNSUBSCRIBE" || HEX(ACCOUNT) || SIG_TS`
+                    ///
+                    /// Where `SIG_TS` is the `sig_ts` value as a base-10 string and must be within 24 hours of the current time.
+                    "UNSUBSCRIBE".bytes
+                        .appending(contentsOf: try authMethod.swarmPublicKey.bytes)
+                        .appending(contentsOf: "\(timestamp)".data(using: .ascii)?.bytes)
+                }
             }
             
             // MARK: - Initialization

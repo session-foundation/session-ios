@@ -114,7 +114,7 @@ extension ConversationVC:
             self.showBlockedModalIfNeeded()
             return
         }
-        guard viewModel.dependencies[singleton: .storage, key: .areCallsEnabled] else {
+        guard viewModel.dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "callsPermissionsRequired".localized(),
@@ -231,6 +231,30 @@ extension ConversationVC:
         
         return true
     }
+    
+    // MARK: - Session Pro CTA
+    
+    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+        let dependencies: Dependencies = viewModel.dependencies
+        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
+            return false
+        }
+        self.hideInputAccessoryView()
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: dependencies[singleton: .sessionProState],
+                variant: .longerMessages,
+                dataManager: viewModel.dependencies[singleton: .imageDataManager],
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                }
+            )
+        )
+        present(sessionProModal, animated: true, completion: nil)
+        
+        return true
+    }
 
     // MARK: - SendMediaNavDelegate
 
@@ -305,7 +329,7 @@ extension ConversationVC:
     // MARK: - ExpandingAttachmentsButtonDelegate
 
     func handleGIFButtonTapped() {
-        guard viewModel.dependencies[singleton: .storage, key: .isGiphyEnabled] else {
+        guard viewModel.dependencies.mutate(cache: .libSession, { $0.get(.isGiphyEnabled) }) else {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "giphyWarning".localized(),
@@ -316,16 +340,9 @@ extension ConversationVC:
                     ),
                     confirmTitle: "theContinue".localized()
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage].writeAsync(
-                        updates: { db in
-                            db[.isGiphyEnabled] = true
-                        },
-                        completion: { _ in
-                            DispatchQueue.main.async {
-                                self?.handleGIFButtonTapped()
-                            }
-                        }
-                    )
+                    dependencies.setAsync(.isGiphyEnabled, true) {
+                        self?.handleGIFButtonTapped()
+                    }
                 }
             )
             
@@ -454,6 +471,7 @@ extension ConversationVC:
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: attachments,
             approvalDelegate: self,
+            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
             using: self.viewModel.dependencies
         ) else { return }
         navController.modalPresentationStyle = .fullScreen
@@ -502,6 +520,46 @@ extension ConversationVC:
         self.showBlockedModalIfNeeded()
     }
     
+    func handleCharacterLimitLabelTapped() {
+        guard !showSessionProCTAIfNeeded() else { return }
+        
+        self.hideInputAccessoryView()
+        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: viewModel.isSessionPro
+        )
+        let limit: Int = (viewModel.isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: (
+                    (numberOfCharactersLeft >= 0) ?
+                        "modalMessageCharacterDisplayTitle".localized() :
+                        "modalMessageCharacterTooLongTitle".localized()
+                ),
+                body: .text(
+                    (
+                        (numberOfCharactersLeft >= 0) ?
+                            "modalMessageCharacterDisplayDescription"
+                                .putNumber(numberOfCharactersLeft)
+                                .put(key: "limit", value: limit)
+                                .localized() :
+                            "modalMessageCharacterTooLongDescription"
+                                .put(key: "limit", value: limit)
+                                .localized()
+                    ),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
+    }
+    
     func handleDisabledAttachmentButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
@@ -539,11 +597,42 @@ extension ConversationVC:
     // MARK: --Message Sending
     
     func handleSendButtonTapped() {
+        guard LibSession.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            isSessionPro: viewModel.isSessionPro
+        ) >= 0 else {
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isSessionPro)
+            return
+        }
+        
         sendMessage(
             text: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
             linkPreviewDraft: snInputView.linkPreviewInfo?.draft,
             quoteModel: snInputView.quoteDraftInfo?.model
         )
+    }
+    
+    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        guard !showSessionProCTAIfNeeded() else { return }
+        
+        self.hideInputAccessoryView()
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "modalMessageCharacterTooLongTitle".localized(),
+                body: .text(
+                    "modalMessageTooLongDescription"
+                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .localized(),
+                    scrollMode: .never
+                ),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text,
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(confirmationModal, animated: true, completion: nil)
     }
 
     func sendMessage(
@@ -627,116 +716,132 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        DispatchQueue.global(qos:.userInitiated).asyncAfter(deadline: .now() + 0.01, using: viewModel.dependencies) { [dependencies = viewModel.dependencies] in
-            // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
-            // this can take up to 0.5s
-            let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?
-                .cloneAsQuoteThumbnail(using: dependencies)
-            
-            // Actually send the message
-            dependencies[singleton: .storage]
-                .writePublisher { [weak self] db in
-                    // Update the thread to be visible (if it isn't already)
-                    if self?.viewModel.threadData.threadShouldBeVisible == false {
-                        _ = try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
-                                SessionThread.Columns.isDraft.set(to: false),
-                                using: dependencies
-                            )
-                    }
-                    
-                    // Insert the interaction and associated it with the optimistically inserted message so
-                    // we can remove it once the database triggers a UI update
-                    let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
-                    self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
-                    
-                    // If there is a LinkPreview draft then check the state of any existing link previews and
-                    // insert a new one if needed
-                    if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
-                        let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
-                            .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
-                        ]
-                        let linkPreviewAttachmentId: String? = try? insertedInteraction.linkPreview
-                            .select(.attachmentId)
-                            .asRequest(of: String.self)
-                            .fetchOne(db)
-                        let linkPreviewAttachmentState: Attachment.State = linkPreviewAttachmentId
-                            .map {
-                                try? Attachment
-                                    .filter(id: $0)
-                                    .select(.state)
-                                    .asRequest(of: Attachment.State.self)
-                                    .fetchOne(db)
-                            }
-                            .defaulting(to: .invalid)
-                        
-                        // If we don't have a "valid" existing link preview then upsert a new one
-                        if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
-                            try LinkPreview(
-                                url: linkPreviewDraft.urlString,
-                                title: linkPreviewDraft.title,
-                                attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id,
-                                using: dependencies
-                            ).upsert(db)
-                        }
-                    }
-                    
-                    // If there is a Quote the insert it now
-                    if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = optimisticData.quoteModel {
-                        try Quote(
-                            interactionId: interactionId,
-                            authorId: quoteModel.authorId,
-                            timestampMs: quoteModel.timestampMs,
-                            body: nil,
-                            attachmentId: try quoteThumbnailAttachment?.inserted(db).id
-                        ).insert(db)
-                    }
-                    
-                    // Process any attachments
-                    try Attachment.process(
+        // Actually send the message
+        viewModel.dependencies[singleton: .storage]
+            .writePublisher { [weak self, dependencies = viewModel.dependencies] db in
+                // Update the thread to be visible (if it isn't already)
+                if self?.viewModel.threadData.threadShouldBeVisible == false {
+                    try SessionThread.updateVisibility(
                         db,
-                        attachments: optimisticData.attachmentData,
-                        for: insertedInteraction.id
-                    )
-                    
-                    try MessageSender.send(
-                        db,
-                        interaction: insertedInteraction,
                         threadId: threadId,
-                        threadVariant: threadVariant,
+                        isVisible: true,
+                        additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
                         using: dependencies
                     )
                 }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .sinkUntilComplete(
-                    receiveCompletion: { [weak self] result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                self?.viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
+                
+                // Insert the interaction and associated it with the optimistically inserted message so
+                // we can remove it once the database triggers a UI update
+                let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
+                self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
+                
+                // If there is a LinkPreview draft then check the state of any existing link previews and
+                // insert a new one if needed
+                if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
+                    let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
+                        .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
+                    ]
+                    let linkPreviewAttachmentId: String? = try? insertedInteraction.linkPreview
+                        .select(.attachmentId)
+                        .asRequest(of: String.self)
+                        .fetchOne(db)
+                    let linkPreviewAttachmentState: Attachment.State = linkPreviewAttachmentId
+                        .map {
+                            try? Attachment
+                                .filter(id: $0)
+                                .select(.state)
+                                .asRequest(of: Attachment.State.self)
+                                .fetchOne(db)
                         }
-                        
-                        self?.handleMessageSent()
+                        .defaulting(to: .invalid)
+                    
+                    // If we don't have a "valid" existing link preview then upsert a new one
+                    if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
+                        try LinkPreview(
+                            url: linkPreviewDraft.urlString,
+                            title: linkPreviewDraft.title,
+                            attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id,
+                            using: dependencies
+                        ).upsert(db)
                     }
+                }
+                
+                // If there is a Quote the insert it now
+                if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = optimisticData.quoteModel {
+                    try Quote(
+                        interactionId: interactionId,
+                        authorId: quoteModel.authorId,
+                        timestampMs: quoteModel.timestampMs,
+                        body: nil
+                    ).insert(db)
+                }
+                
+                // Process any attachments
+                try AttachmentUploader.process(
+                    db,
+                    attachments: optimisticData.attachmentData,
+                    for: insertedInteraction.id
                 )
-        }
+                
+                // If we are sending a blinded message then we need to update the blinded profile
+                // information to ensure the name is up to date (as it won't be updated otherwise
+                // because the message would get deduped when fetched from the poller)
+                // FIXME: Remove this once we don't generate unique Profile entries for the current users blinded ids
+                if (try? SessionId.Prefix(from: optimisticData.interaction.authorId)) != .standard {
+                    let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                    
+                    try? Profile.updateIfNeeded(
+                        db,
+                        publicKey: optimisticData.interaction.authorId,
+                        displayNameUpdate: .contactUpdate(currentUserProfile.name),
+                        displayPictureUpdate: DisplayPictureManager.Update.from(
+                            currentUserProfile,
+                            fallback: .none,
+                            using: dependencies
+                        ),
+                        sentTimestamp: (Double(optimisticData.interaction.timestampMs) / 1000),
+                        using: dependencies
+                    )
+                }
+                
+                try MessageSender.send(
+                    db,
+                    interaction: insertedInteraction,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    using: dependencies
+                )
+            }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            self?.viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
+                    }
+                    
+                    self?.handleMessageSent()
+                }
+            )
     }
 
     func handleMessageSent() {
-        if viewModel.dependencies[singleton: .storage, key: .playNotificationSoundInForeground] {
+        if viewModel.dependencies.mutate(cache: .libSession, { $0.get(.playNotificationSoundInForeground) }) {
             let soundID = Preferences.Sound.systemSoundId(for: .messageSent, quiet: true)
             AudioServicesPlaySystemSound(soundID)
         }
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
-            dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .outgoing)
-            
+        Task {
+            await viewModel.dependencies[singleton: .typingIndicators].didStopTyping(
+                threadId: threadId,
+                direction: .outgoing
+            )
+        }
+        
+        viewModel.dependencies[singleton: .storage].writeAsync { db in
             _ = try SessionThread
                 .filter(id: threadId)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: ""))
@@ -756,11 +861,9 @@ extension ConversationVC:
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
-                dependencies[singleton: .storage].writeAsync { db in
-                    db[.areLinkPreviewsEnabled] = true
+                dependencies.setAsync(.areLinkPreviewsEnabled, true) {
+                    self?.snInputView.autoGenerateLinkPreview()
                 }
-                
-                self?.snInputView.autoGenerateLinkPreview()
             }
         )
         
@@ -775,17 +878,20 @@ extension ConversationVC:
         let newText: String = (inputTextView.text ?? "")
         
         if !newText.isEmpty {
-            viewModel.dependencies[singleton: .typingIndicators].startIfNeeded(
-                threadId: viewModel.threadData.threadId,
-                threadVariant: viewModel.threadData.threadVariant,
-                threadIsBlocked: (viewModel.threadData.threadIsBlocked == true),
-                threadIsMessageRequest: (viewModel.threadData.threadIsMessageRequest == true),
-                direction: .outgoing,
-                timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-            )
+            Task { [threadData = viewModel.threadData, dependencies = viewModel.dependencies] in
+                await viewModel.dependencies[singleton: .typingIndicators].startIfNeeded(
+                    threadId: threadData.threadId,
+                    threadVariant: threadData.threadVariant,
+                    direction: .outgoing,
+                    timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                )
+            }
         }
         
         updateMentions(for: newText)
+        // Note: When calculating the number of characters left, we need to use the original mention
+        // text which contains the session id rather than display name.
+        snInputView.updateNumberOfCharactersLeft(replaceMentions(in: newText))
     }
     
     // MARK: --Attachments
@@ -801,6 +907,7 @@ extension ConversationVC:
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: [ attachment ],
             approvalDelegate: self,
+            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
             using: self.viewModel.dependencies
         ) else { return }
         approvalVC.modalPresentationStyle = .fullScreen
@@ -815,9 +922,14 @@ extension ConversationVC:
         
         mentions.append(mentionInfo)
         
+        let displayNameForMention: String = mentionInfo.profile.displayNameForMention(
+            for: self.viewModel.threadData.threadVariant,
+            currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
+        )
+        
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:ignore
+            with: "@\(displayNameForMention) " // stringlint:ignore
         )
         
         snInputView.text = newText
@@ -825,7 +937,12 @@ extension ConversationVC:
         snInputView.hideMentionsUI()
         
         mentions = mentions.filter { mentionInfo -> Bool in
-            newText.contains(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant))
+            newText.contains(
+                mentionInfo.profile.displayNameForMention(
+                    for: self.viewModel.threadData.threadVariant,
+                    currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
+                )
+            )
         }
     }
     
@@ -857,9 +974,7 @@ extension ConversationVC:
             currentMentionStartIndex = lastCharacterIndex
             snInputView.showMentionsUI(
                 for: self.viewModel.mentions(),
-                currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
-                currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId
+                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
             )
         }
         else if lastCharacter.isWhitespace || lastCharacter == "@" { // the lastCharacter == "@" is to check for @@
@@ -871,9 +986,7 @@ extension ConversationVC:
                 let query = String(newText[newText.index(after: currentMentionStartIndex)...]) // + 1 to get rid of the @
                 snInputView.showMentionsUI(
                     for: self.viewModel.mentions(for: query),
-                    currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
-                    currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
-                    currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId
+                    currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
                 )
             }
         }
@@ -888,8 +1001,13 @@ extension ConversationVC:
     // stringlint:ignore_contents
     func replaceMentions(in text: String) -> String {
         var result = text
+        
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
+            let displayNameForMention: String = mention.profile.displayNameForMention(
+                for: mention.threadVariant,
+                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
+            )
+            guard let range = result.range(of: "@\(displayNameForMention)") else { continue }
             result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
         }
         
@@ -1060,7 +1178,8 @@ extension ConversationVC:
                                 serverHash: nil,
                                 serverExpirationTimestamp: nil,
                                 using: dependencies
-                            )
+                            )?
+                            .interactionId
                         
                         let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
                             .with(sentTimestampMs: UInt64(currentTimestampMs))
@@ -1173,16 +1292,28 @@ extension ConversationVC:
                         
                         guard albumView.numItems > 1 || !mediaView.attachment.isVideo else {
                             guard
-                                let originalFilePath: String = mediaView.attachment.originalFilePath(using: viewModel.dependencies),
-                                viewModel.dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
+                                let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                                    .createTemporaryFileForOpening(
+                                        downloadUrl: mediaView.attachment.downloadUrl,
+                                        mimeType: mediaView.attachment.contentType,
+                                        sourceFilename: mediaView.attachment.sourceFilename
+                                    ),
+                                viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
                             else { return Log.warn(.conversation, "Missing video file") }
                             
                             /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
                             /// doesn't prevent video audio from playing
                             try? AVAudioSession.sharedInstance().setCategory(.playback)
-                            let viewController: AVPlayerViewController = AVPlayerViewController()
-                            viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
-                            self.navigationController?.present(viewController, animated: true)
+                            let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies = viewModel.dependencies] in
+                                /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                                guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                                    return
+                                }
+                                
+                                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                            }
+                            viewController.player = AVPlayer(url: URL(fileURLWithPath: path))
+                            self.present(viewController, animated: true)
                             return
                         }
                         
@@ -1221,24 +1352,43 @@ extension ConversationVC:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
-                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies)
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .createTemporaryFileForOpening(
+                            downloadUrl: attachment.downloadUrl,
+                            mimeType: attachment.contentType,
+                            sourceFilename: attachment.sourceFilename
+                        ),
+                    viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
                 else { return }
                 
                 /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
                 /// doesn't prevent video audio from playing
                 try? AVAudioSession.sharedInstance().setCategory(.playback)
-                let viewController: AVPlayerViewController = AVPlayerViewController()
-                viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
+                let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies = viewModel.dependencies] in
+                    /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                    guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                        return
+                    }
+                    
+                    try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                }
+                viewController.player = AVPlayer(url: URL(fileURLWithPath: path))
                 self.navigationController?.present(viewController, animated: true)
                 
             case .genericAttachment:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
-                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies)
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .createTemporaryFileForOpening(
+                            downloadUrl: attachment.downloadUrl,
+                            mimeType: attachment.contentType,
+                            sourceFilename: attachment.sourceFilename
+                        ),
+                    viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
                 else { return }
                 
-                let fileUrl: URL = URL(fileURLWithPath: originalFilePath)
+                let fileUrl: URL = URL(fileURLWithPath: path)
                 
                 // Open a preview of the document for text, pdf or microsoft files
                 if
@@ -1257,6 +1407,9 @@ extension ConversationVC:
                 
                 // Otherwise share the file
                 let shareVC = UIActivityViewController(activityItems: [ fileUrl ], applicationActivities: nil)
+                shareVC.completionWithItemsHandler = { [dependencies = viewModel.dependencies] _, success, _, _ in
+                    UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                }
                 
                 if UIDevice.current.isIPad {
                     shareVC.excludedActivityTypes = []
@@ -1481,7 +1634,8 @@ extension ConversationVC:
             shouldShowClearAllButton: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                 publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
-                on: self.viewModel.threadData.openGroupServer
+                on: self.viewModel.threadData.openGroupServer,
+                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
             )
         )
         reactionListSheet.modalPresentationStyle = .overFullScreen
@@ -1519,6 +1673,21 @@ extension ConversationVC:
         }
     }
     
+    func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel) {
+        self.viewModel.expandMessage(for: cellViewModel.id)
+        
+        UIView.setAnimationsEnabled(false)
+        cell.setNeedsLayout()
+        cell.layoutIfNeeded()
+        tableView.beginUpdates()
+        tableView.endUpdates()
+        
+        // Only re-enable animations if the feature flag isn't disabled
+        if viewModel.dependencies[feature: .animationsEnabled] {
+            UIView.setAnimationsEnabled(true)
+        }
+    }
+    
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones) {
         react(cellViewModel, with: emoji.rawValue, remove: false)
     }
@@ -1530,63 +1699,59 @@ extension ConversationVC:
     }
     
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
-        guard cellViewModel.threadVariant == .community else { return }
+        guard
+            cellViewModel.threadVariant == .community,
+            let roomToken: String = viewModel.threadData.openGroupRoomToken,
+            let server: String = viewModel.threadData.openGroupServer,
+            let publicKey: String = viewModel.threadData.openGroupPublicKey,
+            let capabilities: Set<Capability.Variant> = viewModel.threadData.openGroupCapabilities,
+            let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
+        else { return }
         
-        viewModel.dependencies[singleton: .storage]
-            .readPublisher { [dependencies = viewModel.dependencies] db -> (Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
-                guard
-                    let openGroup: OpenGroup = try? OpenGroup
-                        .fetchOne(db, id: cellViewModel.threadId),
-                    let openGroupServerMessageId: Int64 = try? Interaction
-                        .select(.openGroupServerMessageId)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: Int64.self)
-                        .fetchOne(db)
-                else { throw StorageError.objectNotFound }
-                
-                let preparedRequest: Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
-                    .preparedReactionDeleteAll(
-                        db,
-                        emoji: emoji,
-                        id: openGroupServerMessageId,
-                        in: openGroup.roomToken,
-                        on: openGroup.server,
-                        using: dependencies
-                    )
-                let pendingChange: OpenGroupAPI.PendingChange = dependencies[singleton: .openGroupManager]
-                    .addPendingReaction(
-                        emoji: emoji,
-                        id: openGroupServerMessageId,
-                        in: openGroup.roomToken,
-                        on: openGroup.server,
-                        type: .removeAll
-                    )
-                
-                return (preparedRequest, pendingChange)
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-            .flatMap { [dependencies = viewModel.dependencies] preparedRequest, pendingChange in
-                preparedRequest.send(using: dependencies)
-                    .handleEvents(
-                        receiveOutput: { _, response in
-                            dependencies[singleton: .openGroupManager].updatePendingChange(
-                                pendingChange,
-                                seqNo: response.seqNo
-                            )
-                        }
-                    )
-                    .eraseToAnyPublisher()
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { [dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage].writeAsync { db in
-                        _ = try Reaction
-                            .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter(Reaction.Columns.emoji == emoji)
-                            .deleteAll(db)
-                    }
-                }
+        let pendingChange: OpenGroupAPI.PendingChange = viewModel.dependencies[singleton: .openGroupManager]
+            .addPendingReaction(
+                emoji: emoji,
+                id: openGroupServerMessageId,
+                in: roomToken,
+                on: server,
+                type: .removeAll
             )
+        
+        Result {
+            try OpenGroupAPI.preparedReactionDeleteAll(
+                emoji: emoji,
+                id: openGroupServerMessageId,
+                roomToken: roomToken,
+                authMethod: Authentication.community(
+                    info: LibSession.OpenGroupCapabilityInfo(
+                        roomToken: roomToken,
+                        server: server,
+                        publicKey: publicKey,
+                        capabilities: capabilities
+                    )
+                ),
+                using: viewModel.dependencies
+            )
+        }
+        .publisher
+        .flatMap { [dependencies = viewModel.dependencies] in $0.send(using: dependencies) }
+        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
+        .sinkUntilComplete(
+            receiveCompletion: { [dependencies = viewModel.dependencies] _ in
+                dependencies[singleton: .storage].writeAsync { db in
+                    _ = try Reaction
+                        .filter(Reaction.Columns.interactionId == cellViewModel.id)
+                        .filter(Reaction.Columns.emoji == emoji)
+                        .deleteAll(db)
+                }
+            },
+            receiveValue: { [dependencies = viewModel.dependencies] _, response in
+                dependencies[singleton: .openGroupManager].updatePendingChange(
+                    pendingChange,
+                    seqNo: response.seqNo
+                )
+            }
+        )
     }
     
     func react(_ cellViewModel: MessageViewModel, with emoji: String, remove: Bool) {
@@ -1598,6 +1763,7 @@ extension ConversationVC:
         else { return }
         
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
+        let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
@@ -1655,148 +1821,162 @@ extension ConversationVC:
             }
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-        .flatMap { [dependencies = viewModel.dependencies] pendingChange -> AnyPublisher<Network.PreparedRequest<Void>, Error> in
-            dependencies[singleton: .storage].writePublisher { [weak self] db -> Network.PreparedRequest<Void> in
-                // Update the thread to be visible (if it isn't already)
-                if self?.viewModel.threadData.threadShouldBeVisible == false {
-                    _ = try SessionThread
-                        .filter(id: cellViewModel.threadId)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.shouldBeVisible.set(to: true),
-                            using: dependencies
-                        )
-                }
-                
-                let pendingReaction: Reaction? = {
-                    guard !remove else {
-                        return try? Reaction
-                            .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter(Reaction.Columns.authorId == cellViewModel.currentUserSessionId)
-                            .filter(Reaction.Columns.emoji == emoji)
-                            .fetchOne(db)
-                    }
-                    
-                    let sortId: Int64 = Reaction.getSortId(
-                        db,
-                        interactionId: cellViewModel.id,
-                        emoji: emoji
-                    )
-                    
-                    return Reaction(
-                        interactionId: cellViewModel.id,
-                        serverHash: nil,
-                        timestampMs: sentTimestampMs,
-                        authorId: cellViewModel.currentUserSessionId,
-                        emoji: emoji,
-                        count: 1,
-                        sortId: sortId
-                    )
-                }()
-                
-                // Update the database
-                if remove {
-                    try Reaction
+        .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupAPI.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
+            // Update the thread to be visible (if it isn't already)
+            if self?.viewModel.threadData.threadShouldBeVisible == false {
+                try SessionThread.updateVisibility(
+                    db,
+                    threadId: cellViewModel.threadId,
+                    isVisible: true,
+                    using: dependencies
+                )
+            }
+            
+            let pendingReaction: Reaction? = {
+                guard !remove else {
+                    return try? Reaction
                         .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                        .filter(Reaction.Columns.authorId == cellViewModel.currentUserSessionId)
+                    // TODO: [Database Relocation] Stop `currentUserSessionIds` from being nullable
+                        .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
                         .filter(Reaction.Columns.emoji == emoji)
-                        .deleteAll(db)
-                }
-                else {
-                    try pendingReaction?.insert(db)
-                    
-                    // Add it to the recent list
-                    Emoji.addRecent(db, emoji: emoji)
+                        .fetchOne(db)
                 }
                 
-                switch threadVariant {
-                    case .community:
-                        guard
-                            let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
-                            let openGroupServer: String = cellViewModel.threadOpenGroupServer,
-                            let openGroupRoom: String = openGroupRoom,
-                            let pendingChange: OpenGroupAPI.PendingChange = pendingChange,
-                            dependencies[singleton: .openGroupManager].doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
-                        else { throw MessageSenderError.invalidMessage }
-                        
-                        let preparedRequest: Network.PreparedRequest<Int64?> = try {
-                            guard !remove else {
-                                return try OpenGroupAPI
-                                    .preparedReactionDelete(
-                                        db,
-                                        emoji: emoji,
-                                        id: serverMessageId,
-                                        in: openGroupRoom,
-                                        on: openGroupServer,
-                                        using: dependencies
-                                    )
-                                    .map { _, response in response.seqNo }
-                            }
-                            
+                let sortId: Int64 = Reaction.getSortId(
+                    db,
+                    interactionId: cellViewModel.id,
+                    emoji: emoji
+                )
+                
+                return Reaction(
+                    interactionId: cellViewModel.id,
+                    serverHash: nil,
+                    timestampMs: sentTimestampMs,
+                    authorId: cellViewModel.currentUserSessionId,
+                    emoji: emoji,
+                    count: 1,
+                    sortId: sortId
+                )
+            }()
+            
+            // Update the database
+            if remove {
+                try Reaction
+                    .filter(Reaction.Columns.interactionId == cellViewModel.id)
+                // TODO: [Database Relocation] Stop `currentUserSessionIds` from being nullable
+                    .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
+                    .filter(Reaction.Columns.emoji == emoji)
+                    .deleteAll(db)
+            }
+            else {
+                try pendingReaction?.insert(db)
+                
+                // Add it to the recent list
+                Emoji.addRecent(db, emoji: emoji)
+            }
+            
+            switch threadVariant {
+                case .community:
+                    guard
+                        let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                        dependencies[singleton: .openGroupManager].doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
+                    else { throw MessageSenderError.invalidMessage }
+                    
+                default: break
+            }
+            
+            return (
+                pendingChange,
+                pendingReaction,
+                try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
+                try Authentication.with(db, threadId: threadId, threadVariant: threadVariant, using: dependencies)
+            )
+        }
+        .tryFlatMap { [dependencies = viewModel.dependencies] pendingChange, pendingReaction, destination, authMethod in
+            switch threadVariant {
+                case .community:
+                    guard
+                        let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
+                        let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                        let openGroupRoom: String = openGroupRoom,
+                        let pendingChange: OpenGroupAPI.PendingChange = pendingChange
+                    else { throw MessageSenderError.invalidMessage }
+                    
+                    let preparedRequest: Network.PreparedRequest<Int64?> = try {
+                        guard !remove else {
                             return try OpenGroupAPI
-                                .preparedReactionAdd(
-                                    db,
+                                .preparedReactionDelete(
                                     emoji: emoji,
                                     id: serverMessageId,
-                                    in: openGroupRoom,
-                                    on: openGroupServer,
+                                    roomToken: openGroupRoom,
+                                    authMethod: authMethod,
                                     using: dependencies
                                 )
                                 .map { _, response in response.seqNo }
-                        }()
+                        }
                         
-                        return preparedRequest
-                            .handleEvents(
-                                receiveOutput: { _, seqNo in
-                                    dependencies[singleton: .openGroupManager].updatePendingChange(
-                                        pendingChange,
-                                        seqNo: seqNo
-                                    )
-                                },
-                                receiveCompletion: { [weak self] result in
-                                    switch result {
-                                        case .finished: break
-                                        case .failure:
-                                            dependencies[singleton: .openGroupManager].removePendingChange(pendingChange)
-                                            
-                                            self?.handleReactionSentFailure(pendingReaction, remove: remove)
-                                    }
-                                }
+                        return try OpenGroupAPI
+                            .preparedReactionAdd(
+                                emoji: emoji,
+                                id: serverMessageId,
+                                roomToken: openGroupRoom,
+                                authMethod: authMethod,
+                                using: dependencies
                             )
-                            .map { _, _ in () }
-                        
-                    default:
-                        return try MessageSender.preparedSend(
-                            db,
-                            message: VisibleMessage(
-                                sentTimestampMs: UInt64(sentTimestampMs),
-                                text: nil,
-                                reaction: VisibleMessage.VMReaction(
-                                    timestamp: UInt64(cellViewModel.timestampMs),
-                                    publicKey: {
-                                        guard cellViewModel.variant == .standardIncoming else {
-                                            return cellViewModel.currentUserSessionId
-                                        }
-                                        
-                                        return cellViewModel.authorId
-                                    }(),
-                                    emoji: emoji,
-                                    kind: (remove ? .remove : .react)
+                            .map { _, response in response.seqNo }
+                    }()
+                    
+                    return preparedRequest
+                        .handleEvents(
+                            receiveOutput: { _, seqNo in
+                                dependencies[singleton: .openGroupManager].updatePendingChange(
+                                    pendingChange,
+                                    seqNo: seqNo
                                 )
-                            ),
-                            to: try Message.Destination
-                                .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant),
-                            namespace: try Message.Destination
-                                .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
-                                .defaultNamespace,
-                            interactionId: cellViewModel.id,
-                            fileIds: [],
-                            using: dependencies
+                            },
+                            receiveCompletion: { [weak self] result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure:
+                                        dependencies[singleton: .openGroupManager].removePendingChange(pendingChange)
+                                        
+                                        self?.handleReactionSentFailure(pendingReaction, remove: remove)
+                                }
+                            }
                         )
-                }
+                        .map { _, _ in () }
+                        .send(using: dependencies)
+                    
+                default:
+                    return try MessageSender.preparedSend(
+                        message: VisibleMessage(
+                            sentTimestampMs: UInt64(sentTimestampMs),
+                            text: nil,
+                            reaction: VisibleMessage.VMReaction(
+                                timestamp: UInt64(cellViewModel.timestampMs),
+                                publicKey: {
+                                    guard cellViewModel.variant == .standardIncoming else {
+                                        return cellViewModel.currentUserSessionId
+                                    }
+                                    
+                                    return cellViewModel.authorId
+                                }(),
+                                emoji: emoji,
+                                kind: (remove ? .remove : .react)
+                            )
+                        ),
+                        to: destination,
+                        namespace: .default,
+                        interactionId: cellViewModel.id,
+                        attachments: nil,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
+                    .map { _, _ in () }
+                    .send(using: dependencies)
             }
         }
-        .flatMap { [dependencies = viewModel.dependencies] request in request.send(using: dependencies) }
         .sinkUntilComplete()
     }
     
@@ -1938,9 +2118,21 @@ extension ConversationVC:
             using: viewModel.dependencies
         ) ?? []
         
+        // FIXME: This is an interim solution until the `ConversationViewModel` queries are refactored to use the new observation system
+        var finalCellViewModel: MessageViewModel = cellViewModel
+        
+        if
+            viewModel.threadData.currentUserSessionIds?.contains(cellViewModel.authorId) == true &&
+            cellViewModel.authorId != viewModel.threadData.currentUserSessionId
+        {
+            finalCellViewModel = finalCellViewModel.with(
+                profile: viewModel.dependencies.mutate(cache: .libSession) { $0.profile }
+            )
+        }
+        
         let messageInfoViewController = MessageInfoViewController(
             actions: actions,
-            messageViewModel: cellViewModel,
+            messageViewModel: finalCellViewModel,
             using: viewModel.dependencies
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
@@ -1984,31 +2176,6 @@ extension ConversationVC:
                 let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id)
             else { return }
             
-            if
-                let quote = try? interaction.quote.fetchOne(db),
-                let quotedAttachment = try? quote.attachment.fetchOne(db),
-                quotedAttachment.isVisualMedia,
-                quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
-                let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
-            {
-                let attachment: Attachment? = {
-                    if let attachment = try? quotedInteraction.attachments.fetchOne(db) {
-                        return attachment
-                    }
-                    if
-                        let linkPreview = try? quotedInteraction.linkPreview.fetchOne(db),
-                        let linkPreviewAttachment = try? linkPreview.attachment.fetchOne(db)
-                    {
-                        return linkPreviewAttachment
-                    }
-                       
-                    return nil
-                }()
-                try quote.with(
-                    attachmentId: attachment?.cloneAsQuoteThumbnail(using: dependencies)?.inserted(db).id
-                ).update(db)
-            }
-            
             // Remove message sending jobs for the same interaction in database
             // Prevent the same message being sent twice
             try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
@@ -2035,9 +2202,7 @@ extension ConversationVC:
             timestampMs: cellViewModel.timestampMs,
             attachments: cellViewModel.attachments,
             linkPreviewAttachment: cellViewModel.linkPreviewAttachment,
-            currentUserSessionId: cellViewModel.currentUserSessionId,
-            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? [])
         )
         
         guard let quoteDraft: QuotedReplyModel = maybeQuoteDraft else { return }
@@ -2072,8 +2237,9 @@ extension ConversationVC:
                         attachment.state == .uploaded
                     ),
                     let type: UTType = UTType(sessionMimeType: attachment.contentType),
-                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies),
-                    let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .path(for: attachment.downloadUrl),
+                    let data: Data = try? Data(contentsOf: URL(fileURLWithPath: path))
                 else { return }
             
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
@@ -2220,11 +2386,17 @@ extension ConversationVC:
                 )
             }
             .compactMap { attachment in
-                guard let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies) else {
-                    return nil
-                }
+                guard
+                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
+                        .createTemporaryFileForOpening(
+                            downloadUrl: attachment.downloadUrl,
+                            mimeType: attachment.contentType,
+                            sourceFilename: attachment.sourceFilename
+                        ),
+                    viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
+                else { return nil }
                 
-                return (attachment, originalFilePath)
+                return (attachment, path)
             }
         
         guard !mediaAttachments.isEmpty else { return }
@@ -2233,32 +2405,41 @@ extension ConversationVC:
             isSavingMedia: true,
             presentingViewController: self,
             using: viewModel.dependencies
-        ) { [weak self] in
-            mediaAttachments.forEach { attachment, originalFilePath in
-                PHPhotoLibrary.shared().performChanges(
-                    {
+        ) { [weak self, dependencies = viewModel.dependencies] in
+            PHPhotoLibrary.shared().performChanges(
+                {
+                    mediaAttachments.forEach { attachment, path in
                         if attachment.isImage || attachment.isAnimated {
                             PHAssetChangeRequest.creationRequestForAssetFromImage(
-                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                                atFileURL: URL(fileURLWithPath: path)
                             )
                         }
                         else if attachment.isVideo {
                             PHAssetChangeRequest.creationRequestForAssetFromVideo(
-                                atFileURL: URL(fileURLWithPath: originalFilePath)
-                            )
-                        }
-                    },
-                    completionHandler: { _, _ in
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
-                            self?.viewModel.showToast(
-                                text: "saved".localized(),
-                                backgroundColor: .toast_background,
-                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                atFileURL: URL(fileURLWithPath: path)
                             )
                         }
                     }
-                )
-            }
+                },
+                completionHandler: { [dependencies] _, _ in
+                    mediaAttachments.forEach { attachment, path in
+                        /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                        guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                            return
+                        }
+                        
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                        self?.viewModel.showToast(
+                            text: "saved".localized(),
+                            backgroundColor: .toast_background,
+                            inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                        )
+                    }
+                }
+            )
             
             // Send a 'media saved' notification if needed
             guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
@@ -2283,46 +2464,61 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage]
-                        .readPublisher { db -> Network.PreparedRequest<NoResponse> in
-                            guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                throw StorageError.objectNotFound
-                            }
-                            
-                            return try OpenGroupAPI
-                                .preparedUserBan(
-                                    db,
-                                    sessionId: cellViewModel.authorId,
-                                    from: [openGroup.roomToken],
-                                    on: openGroup.server,
-                                    using: dependencies
+                onConfirm: { [weak self, threadData = viewModel.threadData, dependencies = viewModel.dependencies] _ in
+                    Result {
+                        guard
+                            cellViewModel.threadVariant == .community,
+                            let roomToken: String = threadData.openGroupRoomToken,
+                            let server: String = threadData.openGroupServer,
+                            let publicKey: String = threadData.openGroupPublicKey,
+                            let capabilities: Set<Capability.Variant> = threadData.openGroupCapabilities,
+                            cellViewModel.openGroupServerMessageId != nil
+                        else { throw CryptoError.invalidAuthentication }
+                        
+                        return (
+                            roomToken,
+                            Authentication.community(
+                                info: LibSession.OpenGroupCapabilityInfo(
+                                    roomToken: roomToken,
+                                    server: server,
+                                    publicKey: publicKey,
+                                    capabilities: capabilities
                                 )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async { [weak self] in
-                                    switch result {
-                                        case .finished:
-                                            self?.viewModel.showToast(
-                                                text: "banUserBanned".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "banErrorFailed".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
+                            )
                         )
+                    }
+                    .publisher
+                    .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
+                        try OpenGroupAPI.preparedUserBan(
+                            sessionId: cellViewModel.authorId,
+                            from: [roomToken],
+                            authMethod: authMethod,
+                            using: dependencies
+                        ).send(using: dependencies)
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.main, using: dependencies)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            DispatchQueue.main.async { [weak self] in
+                                switch result {
+                                    case .finished:
+                                        self?.viewModel.showToast(
+                                            text: "banUserBanned".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                    case .failure:
+                                        self?.viewModel.showToast(
+                                            text: "banErrorFailed".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                }
+                                completion?()
+                            }
+                        }
+                    )
                     
                     self?.becomeFirstResponder()
                 },
@@ -2347,46 +2543,61 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage]
-                        .readPublisher { db in
-                            guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                throw StorageError.objectNotFound
-                            }
+                onConfirm: { [weak self, threadData = viewModel.threadData, dependencies = viewModel.dependencies] _ in
+                    Result {
+                        guard
+                            cellViewModel.threadVariant == .community,
+                            let roomToken: String = threadData.openGroupRoomToken,
+                            let server: String = threadData.openGroupServer,
+                            let publicKey: String = threadData.openGroupPublicKey,
+                            let capabilities: Set<Capability.Variant> = threadData.openGroupCapabilities,
+                            let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
+                        else { throw CryptoError.invalidAuthentication }
                         
-                            return try OpenGroupAPI
-                                .preparedUserBanAndDeleteAllMessages(
-                                    db,
-                                    sessionId: cellViewModel.authorId,
-                                    in: openGroup.roomToken,
-                                    on: openGroup.server,
-                                    using: dependencies
+                        return (
+                            roomToken,
+                            Authentication.community(
+                                info: LibSession.OpenGroupCapabilityInfo(
+                                    roomToken: roomToken,
+                                    server: server,
+                                    publicKey: publicKey,
+                                    capabilities: capabilities
                                 )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async { [weak self] in
-                                    switch result {
-                                        case .finished:
-                                            self?.viewModel.showToast(
-                                                text: "banUserBanned".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "banErrorFailed".localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
+                            )
                         )
+                    }
+                    .publisher
+                    .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
+                        try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
+                            sessionId: cellViewModel.authorId,
+                            roomToken: roomToken,
+                            authMethod: authMethod,
+                            using: dependencies
+                        ).send(using: dependencies)
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.main, using: dependencies)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            DispatchQueue.main.async { [weak self] in
+                                switch result {
+                                    case .finished:
+                                        self?.viewModel.showToast(
+                                            text: "banUserBanned".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                    case .failure:
+                                        self?.viewModel.showToast(
+                                            text: "banErrorFailed".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                }
+                                completion?()
+                            }
+                        }
+                    )
                     
                     self?.becomeFirstResponder()
                 },
@@ -2515,17 +2726,14 @@ extension ConversationVC:
         }
         
         // Get data
-        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: nil, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
+        let fileName = ("messageVoice".localized() as NSString)
+            .appendingPathExtension("m4a") // stringlint:ignore
+        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: fileName, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
         self.audioRecorder = nil
         
         guard let dataSource = dataSourceOrNil else {
             return Log.error(.conversation, "Couldn't load recorded data.")
         }
-        
-        // Create attachment
-        let fileName = ("messageVoice".localized() as NSString)
-            .appendingPathExtension("m4a") // stringlint:ignore
-        dataSource.sourceFilename = fileName
         
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio, using: viewModel.dependencies)
         
@@ -2601,6 +2809,16 @@ extension ConversationVC: UIDocumentInteractionControllerDelegate {
     func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
         return self
     }
+    
+    public func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) {
+        guard let temporaryFileUrl: URL = controller.url else { return }
+        
+        /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
+        /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
+        if temporaryFileUrl.path.starts(with: viewModel.dependencies[singleton: .fileManager].temporaryDirectory) {
+            try? viewModel.dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
+        }
+    }
 }
 
 // MARK: - Message Request Actions
@@ -2633,9 +2851,8 @@ extension ConversationVC {
         
         switch threadVariant {
             case .contact:
-                // If the contact doesn't exist then we should create it so we can store the 'isApproved' state
-                // (it'll be updated with correct profile info if they accept the message request so this
-                // shouldn't cause weird behaviours)
+                /// If the contact doesn't exist then we should create it so we can store the `isApproved` state (it'll be updated
+                /// with correct profile info if they accept the message request so this shouldn't cause weird behaviours)
                 guard
                     let contact: Contact = viewModel.dependencies[singleton: .storage].read({ [dependencies = viewModel.dependencies] db in
                         Contact.fetchOrCreate(db, id: threadId, using: dependencies)
@@ -2675,16 +2892,19 @@ extension ConversationVC {
                         }
                         
                         // Default 'didApproveMe' to true for the person approving the message request
+                        let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
                         try contact.upsert(db)
                         try Contact
                             .filter(id: contact.id)
                             .updateAllAndConfig(
                                 db,
                                 Contact.Columns.isApproved.set(to: true),
-                                Contact.Columns.didApproveMe
-                                    .set(to: contact.didApproveMe || !isDraft),
+                                Contact.Columns.didApproveMe.set(to: updatedDidApproveMe),
                                 using: dependencies
                             )
+                        db.addContactEvent(id: contact.id, change: .isApproved(true))
+                        db.addContactEvent(id: contact.id, change: .didApproveMe(updatedDidApproveMe))
+                        db.addEvent(contact.id, forKey: .messageRequestAccepted)
                     }
                     .map { _ in () }
                     .catch { _ in Just(()).eraseToAnyPublisher() }
@@ -2838,19 +3058,21 @@ extension ConversationVC {
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
-                let groupMemberProfiles: [WithProfile<GroupMember>] = dependencies[singleton: .storage]
+                let groupMemberProfileIds: [String] = dependencies[singleton: .storage]
                     .read { db in
                         try GroupMember
+                            .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)
-                            .fetchAllWithProfiles(db, using: dependencies)
+                            .asRequest(of: String.self)
+                            .fetchAll(db)
                     }
                     .defaulting(to: [])
+                let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                 let viewController: NewClosedGroupVC = NewClosedGroupVC(
                     hideCloseButton: true,
                     prefilledName: closedGroupName,
-                    preselectedProfiles: groupMemberProfiles
-                        .filter { $0.profileId != $0.currentUserSessionId.hexString }
-                        .map { $0.profile ?? Profile(id: $0.profileId, name: "") },
+                    preselectedContactIds: groupMemberProfileIds
+                        .filter { $0 != currentUserSessionId.hexString },
                     using: dependencies
                 )
                 
@@ -2911,9 +3133,7 @@ extension ConversationVC {
 // MARK: - MediaPresentationContextProvider
 
 extension ConversationVC: MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        guard case let .gallery(galleryItem, _) = mediaItem else { return nil }
-        
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         // Note: According to Apple's docs the 'indexPathsForVisibleRows' method returns an
         // unsorted array which means we can't use it to determine the desired 'visibleCell'
         // we are after, due to this we will need to iterate all of the visible cells to find
@@ -2924,7 +3144,7 @@ extension ConversationVC: MediaPresentationContextProvider {
                     .albumView?
                     .itemViews
                     .contains(where: { mediaView in
-                        mediaView.attachment.id == galleryItem.attachment.id
+                        mediaView.attachment.id == mediaId
                     }))
                     .defaulting(to: false)
             }
@@ -2932,7 +3152,7 @@ extension ConversationVC: MediaPresentationContextProvider {
         let maybeTargetView: MediaView? = maybeMessageCell?
             .albumView?
             .itemViews
-            .first(where: { $0.attachment.id == galleryItem.attachment.id })
+            .first(where: { $0.attachment.id == mediaId })
         
         guard
             let messageCell: VisibleMessageCell = maybeMessageCell,
@@ -2993,7 +3213,7 @@ extension ConversationVC: MediaPresentationContextProvider {
         }
         
         return MediaPresentationContext(
-            mediaView: targetView,
+            mediaView: targetView.imageView,
             presentationFrame: presentationFrame,
             cornerRadius: cornerRadius,
             cornerMask: cornerMask

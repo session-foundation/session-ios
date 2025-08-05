@@ -167,7 +167,11 @@ extension ContextMenuVC {
     
     static func viewModelCanReply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) -> Bool {
         return (
-            cellViewModel.threadVariant != .legacyGroup && (
+            cellViewModel.threadVariant != .legacyGroup &&
+            (
+                cellViewModel.linkPreview == nil ||
+                cellViewModel.linkPreview?.variant != .openGroupInvitation
+            ) && (
                 cellViewModel.variant == .standardIncoming || (
                     cellViewModel.variant == .standardOutgoing &&
                     cellViewModel.state != .failed &&
@@ -246,7 +250,8 @@ extension ContextMenuVC {
             dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                 publicKey: threadViewModel.currentUserSessionId,
                 for: threadViewModel.openGroupRoomToken,
-                on: threadViewModel.openGroupServer
+                on: threadViewModel.openGroupServer,
+                currentUserSessionIds: (threadViewModel.currentUserSessionIds ?? [])
             )
         )
         let shouldShowEmojiActions: Bool = {

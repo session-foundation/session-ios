@@ -59,12 +59,24 @@ extension Dependencies {
 
 // MARK: - Conformance
 
-extension Database: Mocked {
-    static var mock: Database {
+extension ObservingDatabase: Mocked {
+    static var mock: Self {
         var result: Database!
         try! DatabaseQueue().read { result = $0 }
-        return result!
+        return ObservingDatabase.create(result!, using: .any) as! Self
     }
+}
+
+extension ObservedEvent: Mocked {
+    static var mock: ObservedEvent = ObservedEvent(key: "mock", value: nil)
+}
+
+extension UUID: Mocked {
+    static var mock: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+}
+
+extension URL: Mocked {
+    static var mock: URL = URL(fileURLWithPath: "mock")
 }
 
 extension URLRequest: Mocked {
@@ -102,6 +114,22 @@ extension JobRunner.JobResult: Mocked {
 
 extension FileProtectionType: Mocked {
     static var mock: FileProtectionType = .complete
+}
+
+extension Log.Category: Mocked {
+    static var mock: Log.Category = .create("mock", defaultLevel: .debug)
+}
+
+extension Setting.BoolKey: Mocked {
+    static var mock: Setting.BoolKey = "mockBool"
+}
+
+extension Setting.EnumKey: Mocked {
+    static var mock: Setting.EnumKey = "mockEnum"
+}
+
+extension FileManager.ItemReplacementOptions: Mocked {
+    static var mock: FileManager.ItemReplacementOptions = FileManager.ItemReplacementOptions()
 }
 
 // MARK: - Encodable Convenience

@@ -58,12 +58,15 @@ open class SessionHostingViewController<Content>: UIHostingController<ModifiedCo
 
         navigationItem.backButtonTitle = ""
         view.themeBackgroundColor = .backgroundPrimary
-        ThemeManager.applyNavigationStylingIfNeeded(to: self)
 
         setNeedsStatusBarAppearanceUpdate()
     }
     
     public override func viewWillAppear(_ animated: Bool) {
+        /// Apply the nav styling in `viewWillAppear` instead of `viewDidLoad` as it's possible the nav stack isn't fully setup
+        /// and could crash when trying to access it (whereas by the time `viewWillAppear` is called it should be setup)
+        ThemeManager.applyNavigationStylingIfNeeded(to: self)
+        
         if shouldHideNavigationBar {
             self.navigationController?.setNavigationBarHidden(true, animated: animated)
         }

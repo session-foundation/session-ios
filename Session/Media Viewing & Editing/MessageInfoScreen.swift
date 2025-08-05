@@ -20,6 +20,7 @@ struct MessageInfoScreen: View {
     var isMessageFailed: Bool {
         return [.failed, .failedToSync].contains(messageViewModel.state)
     }
+    private var isCurrentUser: Bool { (messageViewModel.currentUserSessionIds ?? []).contains(messageViewModel.authorId) }
     
     var body: some View {
         ZStack (alignment: .topLeading) {
@@ -173,7 +174,7 @@ struct MessageInfoScreen: View {
                     }
                         
                     // Attachment Info
-                    if let attachments = messageViewModel.attachments {
+                    if let attachments = messageViewModel.attachments, !attachments.isEmpty {
                         let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                         
                         ZStack {
@@ -182,7 +183,7 @@ struct MessageInfoScreen: View {
                                 spacing: Values.mediumSpacing
                             ) {
                                 InfoBlock(title: "attachmentsFileId".localized()) {
-                                    Text(attachment.serverId ?? "")
+                                    Text(attachment.downloadUrl.map { Attachment.fileId(for: $0) } ?? "")
                                         .font(.system(size: Values.mediumFontSize))
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -282,9 +283,14 @@ struct MessageInfoScreen: View {
                                 ) {
                                     let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
                                         size: .message,
-                                        publicKey: messageViewModel.authorId,
+                                        publicKey: (
+                                            // Prioritise the profile.id because we override it for
+                                            // messages sent by the current user in communities
+                                            messageViewModel.profile?.id ??
+                                            messageViewModel.authorId
+                                        ),
                                         threadVariant: .contact,    // Always show the display picture in 'contact' mode
-                                        displayPictureFilename: nil,
+                                        displayPictureUrl: nil,
                                         profile: messageViewModel.profile,
                                         profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                                         using: dependencies
@@ -310,7 +316,13 @@ struct MessageInfoScreen: View {
                                         alignment: .leading,
                                         spacing: Values.verySmallSpacing
                                     ) {
-                                        if !messageViewModel.authorName.isEmpty  {
+                                        if isCurrentUser {
+                                            Text("you".localized())
+                                                .bold()
+                                                .font(.system(size: Values.mediumLargeFontSize))
+                                                .foregroundColor(themeColor: .textPrimary)
+                                        }
+                                        else if !messageViewModel.authorName.isEmpty {
                                             Text(messageViewModel.authorName)
                                                 .bold()
                                                 .font(.system(size: Values.mediumLargeFontSize))
@@ -484,9 +496,7 @@ struct MessageBubble: View {
                                     authorId: quote.authorId,
                                     quotedText: quote.body,
                                     threadVariant: messageViewModel.threadVariant,
-                                    currentUserSessionId: messageViewModel.currentUserSessionId,
-                                    currentUserBlinded15SessionId: messageViewModel.currentUserBlinded15SessionId,
-                                    currentUserBlinded25SessionId: messageViewModel.currentUserBlinded25SessionId,
+                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
                                     direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
                                     attachment: messageViewModel.quoteAttachment
                                 ),
@@ -509,6 +519,7 @@ struct MessageBubble: View {
                         using: dependencies
                     ) {
                         AttributedText(bodyText)
+                            .foregroundColor(themeColor: bodyLabelTextColor)
                             .padding(.all, Self.inset)
                     }
                 }
@@ -612,7 +623,10 @@ struct MessageInfoView_Previews: PreviewProvider {
             expiresInSeconds: nil,
             state: .failed,
             isSenderModeratorOrAdmin: false,
-            currentUserProfile: Profile.fetchOrCreateCurrentUser(using: dependencies),
+            currentUserProfile: Profile(
+                id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                name: "TestUser"
+            ),
             quote: nil,
             quoteAttachment: nil,
             linkPreview: nil,

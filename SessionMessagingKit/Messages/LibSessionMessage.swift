@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class LibSessionMessage: Message, NotProtoConvertible {
@@ -19,10 +18,10 @@ public final class LibSessionMessage: Message, NotProtoConvertible {
 
     // MARK: - Initialization
     
-    internal init(ciphertext: Data) {
+    internal init(ciphertext: Data, sender: String? = nil) {
         self.ciphertext = ciphertext
         
-        super.init()
+        super.init(sender: sender)
     }
     
     // MARK: - Codable
@@ -72,5 +71,24 @@ public extension LibSessionMessage {
         else { throw MessageReceiverError.decryptionFailed }
         
         return (SessionId(.standard, publicKey: Array(plaintext[0..<pubkeyBytesCount])), currentGen)
+    }
+    
+    static func validateGroupKickedMessage(
+        plaintext: Data,
+        userSessionId: SessionId,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws {
+        /// Ignore the message if the `memberSessionIds` doesn't contain the current users session id,
+        /// it was sent before the user joined the group or if the `adminSignature` isn't valid
+        guard
+            let (memberId, keysGen): (SessionId, Int) = try? LibSessionMessage.groupKicked(plaintext: plaintext),
+            let currentKeysGen: Int = try? LibSession.currentGeneration(
+                groupSessionId: groupSessionId,
+                using: dependencies
+            ),
+            memberId == userSessionId,
+            keysGen >= currentKeysGen
+        else { throw MessageReceiverError.invalidMessage }
     }
 }

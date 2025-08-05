@@ -65,17 +65,6 @@ public extension String {
         return ranges
     }
     
-    static func filterNotificationText(_ text: String?) -> String? {
-        guard let text = text?.filteredForDisplay else { return nil }
-
-        // iOS strips anything that looks like a printf formatting character from
-        // the notification body, so if we want to dispay a literal "%" in a notification
-        // it must be escaped.
-        // see https://developer.apple.com/documentation/uikit/uilocalnotification/1616646-alertbody
-        // for more details.
-        return text.replacingOccurrences(of: "%", with: "%%")
-    }
-    
     func appending(_ other: String?) -> String {
         guard let value: String = other else { return self }
         
@@ -185,7 +174,19 @@ private extension CharacterSet {
     static let bidiPopDirectionalIsolate: String.UTF16View.Element = 0x2069
     
     static let bidiControlCharacterSet: CharacterSet = {
-        return CharacterSet(charactersIn: "\(bidiLeftToRightIsolate)\(bidiRightToLeftIsolate)\(bidiFirstStrongIsolate)\(bidiLeftToRightEmbedding)\(bidiRightToLeftEmbedding)\(bidiLeftToRightOverride)\(bidiRightToLeftOverride)\(bidiPopDirectionalFormatting)\(bidiPopDirectionalIsolate)")
+        let bidiCodeUnits: [String.UTF16View.Element] = [
+            bidiLeftToRightIsolate, bidiRightToLeftIsolate, bidiFirstStrongIsolate,
+            bidiLeftToRightEmbedding, bidiRightToLeftEmbedding,
+            bidiLeftToRightOverride, bidiRightToLeftOverride,
+            bidiPopDirectionalFormatting, bidiPopDirectionalIsolate
+        ]
+
+        return CharacterSet(
+            charactersIn: bidiCodeUnits
+                .compactMap { UnicodeScalar($0) }
+                .map { String($0) }
+                .joined()
+        )
     }()
     
     static let unsafeFilenameCharacterSet: CharacterSet = CharacterSet(charactersIn: "\u{202D}\u{202E}")
@@ -220,6 +221,15 @@ public extension String {
         }
         
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    /// iOS strips anything that looks like a printf formatting character from the notification body, so if we want to dispay a literal "%" in
+    /// a notification it must be escaped.
+    ///
+    /// See https://developer.apple.com/documentation/usernotifications/unnotificationcontent/body for
+    /// more details.
+    var filteredForNotification: String {
+        self.replacingOccurrences(of: "%", with: "%%")
     }
     
     private var hasExcessiveDiacriticals: Bool {
@@ -265,15 +275,19 @@ public extension String {
         
         var balancedString: String = ""
         
+        func charStr(_ utf16: String.UTF16View.Element) -> String {
+            return String(UnicodeScalar(utf16)!)
+        }
+        
         // If we have too many isolate pops, prepend FSI to balance
         while isolatePopCount > isolateStartsCount {
-            balancedString.append("\(CharacterSet.bidiFirstStrongIsolate)")
+            balancedString.append(charStr(CharacterSet.bidiFirstStrongIsolate))
             isolateStartsCount += 1
         }
         
         // If we have too many formatting pops, prepend LRE to balance
         while formattingPopCount > formattingStartsCount {
-            balancedString.append("\(CharacterSet.bidiLeftToRightEmbedding)")
+            balancedString.append(charStr(CharacterSet.bidiLeftToRightEmbedding))
             formattingStartsCount += 1
         }
         
@@ -281,13 +295,13 @@ public extension String {
         
         // If we have too many formatting starts, append PDF to balance
         while formattingStartsCount > formattingPopCount {
-            balancedString.append("\(CharacterSet.bidiPopDirectionalFormatting)")
+            balancedString.append(charStr(CharacterSet.bidiPopDirectionalFormatting))
             formattingPopCount += 1
         }
         
         // If we have too many isolate starts, append PDI to balance
         while isolateStartsCount > isolatePopCount {
-            balancedString.append("\(CharacterSet.bidiPopDirectionalIsolate)")
+            balancedString.append(charStr(CharacterSet.bidiPopDirectionalIsolate))
             isolatePopCount += 1
         }
         
@@ -312,5 +326,18 @@ public extension String {
         }
         filtered += remainder
         return filtered
+    }
+}
+
+// MARK: - Truncation
+
+public extension String {
+    /// A standardised mechanism for truncating a user id
+    ///
+    /// stringlint:ignore_contents
+    func truncated(prefix: Int = 4, suffix: Int = 4) -> String {
+        guard count > (prefix + suffix) else { return self }
+        
+        return "\(self.prefix(prefix))...\(self.suffix(suffix))"
     }
 }

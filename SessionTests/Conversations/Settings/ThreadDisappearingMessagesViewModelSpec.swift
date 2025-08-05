@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 
 @testable import Session
 
-class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
+class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -32,8 +32,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
-                    creationDateTimestamp: 0,
-                    using: dependencies
+                    creationDateTimestamp: 0
                 ).insert(db)
             }
         )
@@ -286,9 +285,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 
                 // Change to another setting
-                viewModel.tableData.first?.elements.first?.onTap?()
+                await viewModel.tableData.first?.elements.first?.onTap?()
                 // Change back
-                viewModel.tableData.first?.elements.last?.onTap?()
+                await viewModel.tableData.first?.elements.last?.onTap?()
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -366,7 +365,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             )
                     )
                     
-                    viewModel.tableData.first?.elements.last?.onTap?()
+                    await viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
                 // MARK: ---- shows the set button
@@ -404,14 +403,14 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 )
                         )
                         
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        expect(didDismissScreen).to(beTrue())
+                        await expect(didDismissScreen).toEventually(beTrue())
                     }
                     
                     // MARK: ------ saves the updated config
                     it("saves the updated config") {
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
                         let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")

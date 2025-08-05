@@ -31,14 +31,7 @@ class MessageSendJobSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                cache.when { $0.config(for: .any, sessionId: .any) }.thenReturn(nil)
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
@@ -75,7 +68,7 @@ class MessageSendJobSpec: QuickSpec {
                 jobRunner
                     .when { $0.insert(.any, job: .any, before: .any) }
                     .then { args, untrackedArgs in
-                        let db: Database = untrackedArgs[0] as! Database
+                        let db: ObservingDatabase = untrackedArgs[0] as! ObservingDatabase
                         var job: Job = args[0] as! Job
                         job.id = 1000
                         
@@ -110,10 +103,43 @@ class MessageSendJobSpec: QuickSpec {
                 expect(permanentFailure).to(beTrue())
             }
             
+            // MARK: -- fails when not give a thread id
+            it("fails when not give a thread id") {
+                job = Job(
+                    variant: .messageSend,
+                    threadId: nil,
+                    details: MessageSendJob.Details(
+                        destination: .contact(publicKey: "Test"),
+                        message: VisibleMessage(
+                            text: "Test"
+                        )
+                    )
+                )
+                
+                var error: Error? = nil
+                var permanentFailure: Bool = false
+                
+                MessageSendJob.run(
+                    job,
+                    scheduler: DispatchQueue.main,
+                    success: { _, _ in },
+                    failure: { _, runError, runPermanentFailure in
+                        error = runError
+                        permanentFailure = runPermanentFailure
+                    },
+                    deferred: { _ in },
+                    using: dependencies
+                )
+                
+                expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
+                expect(permanentFailure).to(beTrue())
+            }
+            
             // MARK: -- fails when given incorrect details
             it("fails when given incorrect details") {
                 job = Job(
                     variant: .messageSend,
+                    threadId: "Test",
                     details: MessageReceiveJob.Details(
                         messages: [MessageReceiveJob.Details.MessageInfo]()
                     )
@@ -163,10 +189,11 @@ class MessageSendJobSpec: QuickSpec {
                         state: .sending,
                         recipientReadTimestampMs: nil,
                         mostRecentFailureText: nil,
-                        transientDependencies: nil
+                        isProMessage: false
                     )
                     job = Job(
                         variant: .messageSend,
+                        threadId: "Test1",
                         interactionId: interaction.id!,
                         details: MessageSendJob.Details(
                             destination: .contact(publicKey: "Test"),
@@ -186,6 +213,7 @@ class MessageSendJobSpec: QuickSpec {
                 it("fails when there is no job id") {
                     job = Job(
                         variant: .messageSend,
+                        threadId: "Test1",
                         interactionId: interaction.id!,
                         details: MessageSendJob.Details(
                             destination: .contact(publicKey: "Test"),
@@ -218,6 +246,7 @@ class MessageSendJobSpec: QuickSpec {
                 it("fails when there is no interaction id") {
                     job = Job(
                         variant: .messageSend,
+                        threadId: "Test1",
                         details: MessageSendJob.Details(
                             destination: .contact(publicKey: "Test"),
                             message: VisibleMessage(
@@ -249,6 +278,7 @@ class MessageSendJobSpec: QuickSpec {
                 it("fails when there is no interaction for the provided interaction id") {
                     job = Job(
                         variant: .messageSend,
+                        threadId: "Test1",
                         interactionId: 12345,
                         details: MessageSendJob.Details(
                             destination: .contact(publicKey: "Test"),
@@ -402,6 +432,7 @@ class MessageSendJobSpec: QuickSpec {
                                             behaviour: .runOnce,
                                             shouldBlock: false,
                                             shouldSkipLaunchBecomeActive: false,
+                                            threadId: "Test1",
                                             interactionId: 100,
                                             details: AttachmentUploadJob.Details(
                                                 messageSendJobId: 54321,

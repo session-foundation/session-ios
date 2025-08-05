@@ -13,8 +13,8 @@ enum _017_RebuildFTSIfNeeded_2_4_5: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        func ftsIsValid(_ db: Database, _ tableName: String) -> Bool {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        func ftsIsValid(_ db: ObservingDatabase, _ tableName: String) -> Bool {
             return (
                 ((try? db.tableExists(tableName)) == true) &&            // Table itself
                 ((try? db.triggerExists("__\(tableName)_ai")) == true) &&  // Insert trigger
@@ -77,6 +77,6 @@ enum _017_RebuildFTSIfNeeded_2_4_5: Migration {
             }
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

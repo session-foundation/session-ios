@@ -4,7 +4,6 @@
 
 import Foundation
 import Combine
-import GRDB
 import SessionUtilitiesKit
 
 public enum SessionNetworkAPI {
@@ -18,7 +17,6 @@ public enum SessionNetworkAPI {
     /// `GET/info`
 
     public static func prepareInfo(
-        _ db: Database,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Info> {
         return try Network.PreparedRequest(
@@ -35,13 +33,12 @@ public enum SessionNetworkAPI {
             requestAndPathBuildTimeout: Network.defaultTimeout,
             using: dependencies
         )
-        .signed(db, with: SessionNetworkAPI.signRequest, using: dependencies)
+        .signed(with: SessionNetworkAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Authentication
     
     fileprivate static func signatureHeaders(
-        _ db: Database,
         url: URL,
         method: HTTPMethod,
         body: Data?,
@@ -52,7 +49,6 @@ public enum SessionNetworkAPI {
             .appending(url.query.map { value in "?\(value)" })
         
         let signResult: (publicKey: String, signature: [UInt8]) = try sign(
-            db,
             timestamp: timestamp,
             method: method.rawValue,
             path: path,
@@ -68,7 +64,6 @@ public enum SessionNetworkAPI {
     }
     
     private static func sign(
-        _ db: Database,
         timestamp: UInt64,
         method: String,
         path: String,
@@ -81,9 +76,11 @@ public enum SessionNetworkAPI {
         }()
         
         guard
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            !dependencies[cache: .general].ed25519SecretKey.isEmpty,
             let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                .versionBlinded07KeyPair(ed25519SecretKey: userEdKeyPair.secretKey)
+                .versionBlinded07KeyPair(
+                    ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                )
             ),
             let signatureResult: [UInt8] = dependencies[singleton: .crypto].generate(
                 .signatureVersionBlind07(
@@ -91,10 +88,10 @@ public enum SessionNetworkAPI {
                     method: method,
                     path: path,
                     body: bodyString,
-                    ed25519SecretKey: userEdKeyPair.secretKey
+                    ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                 )
             )
-        else { throw NetworkError.signingFailed }
+        else { throw CryptoError.signatureGenerationFailed }
         
         return (
             publicKey: SessionId(.versionBlinded07, publicKey: blinded07KeyPair.publicKey).hexString,
@@ -103,22 +100,17 @@ public enum SessionNetworkAPI {
     }
     
     private static func signRequest<R>(
-        _ db: Database,
         preparedRequest: Network.PreparedRequest<R>,
         using dependencies: Dependencies
     ) throws -> Network.Destination {
-        guard let url: URL = preparedRequest.destination.url else {
-            throw NetworkError.signingFailed
-        }
-        
-        guard case let .server(info) = preparedRequest.destination else {
-            throw NetworkError.signingFailed
-        }
+        guard
+            let url: URL = preparedRequest.destination.url,
+            case let .server(info) = preparedRequest.destination
+        else { throw NetworkError.invalidPreparedRequest }
         
         return .server(
             info: info.updated(
                 with: try signatureHeaders(
-                    db,
                     url: url,
                     method: preparedRequest.method,
                     body: preparedRequest.body,

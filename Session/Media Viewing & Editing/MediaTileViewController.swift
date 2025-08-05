@@ -481,7 +481,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             item: GalleryGridCellItem(
                 galleryItem: section.elements[indexPath.row],
                 using: dependencies
-            )
+            ),
+            using: dependencies
         )
 
         return cell
@@ -708,15 +709,15 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             .putNumber(indexPaths.count)
             .localized()
 
-        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, dependencies = viewModel.dependencies] _ in
+        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, threadId = viewModel.threadId, dependencies = viewModel.dependencies] _ in
             dependencies[singleton: .storage].writeAsync { db in
-                let interactionIds: Set<Int64> = items
-                    .map { $0.interactionId }
-                    .asSet()
-                
                 _ = try Attachment
                     .filter(ids: items.map { $0.attachment.id })
                     .deleteAll(db)
+                
+                items.forEach { item in
+                    db.addAttachmentEvent(id: item.attachment.id, messageId: item.interactionId, type: .deleted)
+                }
                 
                 // Add the garbage collection job to delete orphaned attachment files
                 dependencies[singleton: .jobRunner].add(
@@ -732,10 +733,16 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 )
                 
                 // Delete any interactions which had all of their attachments removed
-                _ = try Interaction
-                    .filter(ids: interactionIds)
-                    .having(Interaction.interactionAttachments.isEmpty)
-                    .deleteAll(db)
+                try items.forEach { item in
+                    let remainingAttachmentCount: Int = try InteractionAttachment
+                        .filter(InteractionAttachment.Columns.interactionId == item.interactionId)
+                        .fetchCount(db)
+                    
+                    if remainingAttachmentCount == 0 {
+                        _ = try Interaction.deleteOne(db, id: item.interactionId)
+                        db.addMessageEvent(id: item.interactionId, threadId: threadId, type: .deleted)
+                    }
+                }
             }
             
             self?.endSelectMode()
@@ -882,9 +889,13 @@ class GalleryGridCellItem: PhotoGridItem {
         
         return .photo
     }
-
-    func asyncThumbnail(completion: @escaping (UIImage?) -> Void) {
-        galleryItem.thumbnailImage(using: dependencies, async: completion)
+    
+    var source: ImageDataManager.DataSource {
+        ImageDataManager.DataSource.thumbnailFrom(
+            attachment: galleryItem.attachment,
+            size: .medium,
+            using: dependencies
+        ) ?? .image("", nil)
     }
 }
 
@@ -901,7 +912,10 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
         guard let focusedIndexPath: IndexPath = self.viewModel.focusedIndexPath else { return nil }
 
         return MediaDismissAnimationController(
-            galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item],
+            attachment: self.viewModel
+                .galleryData[focusedIndexPath.section]
+                .elements[focusedIndexPath.item]
+                .attachment,
             using: dependencies
         )
     }
@@ -916,7 +930,10 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
         guard let focusedIndexPath: IndexPath = self.viewModel.focusedIndexPath else { return nil }
 
         return MediaZoomAnimationController(
-            galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item],
+            attachment: self.viewModel
+                .galleryData[focusedIndexPath.section]
+                .elements[focusedIndexPath.item]
+                .attachment,
             shouldBounce: false,
             using: dependencies
         )
@@ -926,9 +943,7 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
 // MARK: - MediaPresentationContextProvider
 
 extension MediaTileViewController: MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        guard case let .gallery(galleryItem, _) = mediaItem else { return nil }
-
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         // Note: According to Apple's docs the 'indexPathsForVisibleRows' method returns an
         // unsorted array which means we can't use it to determine the desired 'visibleCell'
         // we are after, due to this we will need to iterate all of the visible cells to find
@@ -938,7 +953,7 @@ extension MediaTileViewController: MediaPresentationContextProvider {
                 guard
                     let cell: PhotoGridViewCell = cell as? PhotoGridViewCell,
                     let item: GalleryGridCellItem = cell.item as? GalleryGridCellItem,
-                    item.galleryItem.attachment.id == galleryItem.attachment.id
+                    item.galleryItem.attachment.id == mediaId
                 else { return false }
                 
                 return true

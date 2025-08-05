@@ -12,7 +12,7 @@ enum _016_MakeBrokenProfileTimestampsNullable: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.create(table: "tmpProfile") { t in
             t.column("id", .text)
                 .notNull()
@@ -38,6 +38,6 @@ enum _016_MakeBrokenProfileTimestampsNullable: Migration {
         try db.drop(table: "profile")
         try db.rename(table: "tmpProfile", to: "profile")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

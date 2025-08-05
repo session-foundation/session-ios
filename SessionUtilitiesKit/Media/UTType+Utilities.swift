@@ -106,6 +106,15 @@ public extension UTType {
     var isText: Bool { UTType.supportedTextTypes.contains(self) }
     var isMicrosoftDoc: Bool { UTType.supportedMicrosoftDocTypes.contains(self) }
     var isVisualMedia: Bool { isImage || isVideo || isAnimated }
+    var sessionMimeType: String? {
+        guard
+            let mimeType: String = preferredMIMEType,
+            let fileExtension: String = UTType.genericMimeTypesToExtensionTypes[mimeType],
+            let targetMimeType: String = UTType.genericExtensionTypesToMimeTypes[fileExtension]
+        else { return preferredMIMEType }
+        
+        return targetMimeType
+    }
     
     // MARK: - Initialization
     
@@ -973,7 +982,7 @@ public extension UTType {
         "audio/midi" : "midi",
         "audio/mod" : "mod",
         "audio/mp4" : "m4a",
-        "audio/mpeg" : "mpg",
+        "audio/mpeg" : "mp3",
         "audio/mpeg3" : "mp3",
         "audio/ogg" : "oga",
         "audio/s3m" : "s3m",

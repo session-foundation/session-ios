@@ -594,8 +594,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         guard !isReplacingThread else { return }
         
         stopObservingChanges()
-        viewModel.updateDraft(to: snInputView.text)
-        inputAccessoryView?.resignFirstResponder()        
+        viewModel.updateDraft(to: replaceMentions(in: snInputView.text))
+        inputAccessoryView?.resignFirstResponder()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -792,7 +792,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.profile != updatedThreadData.profile ||
             viewModel.threadData.additionalProfile != updatedThreadData.additionalProfile ||
-            viewModel.threadData.displayPictureFilename != updatedThreadData.displayPictureFilename
+            viewModel.threadData.threadDisplayPictureUrl != updatedThreadData.threadDisplayPictureUrl
         {
             updateNavBarButtons(
                 threadData: updatedThreadData,
@@ -888,7 +888,48 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // Only set the draft content on the initial load
         if initialLoad, let draft: String = updatedThreadData.threadMessageDraft, !draft.isEmpty {
-            snInputView.text = draft
+            let (string, mentions) = MentionUtilities.getMentions(
+                in: draft,
+                currentUserSessionIds: (updatedThreadData.currentUserSessionIds ?? []),
+                displayNameRetriever: { [dependencies = viewModel.dependencies] sessionId, _ in
+                    // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
+                    return Profile.displayNameNoFallback(
+                        id: sessionId,
+                        threadVariant: updatedThreadData.threadVariant,
+                        using: dependencies
+                    )
+                }
+            )
+            snInputView.text = string
+            snInputView.updateNumberOfCharactersLeft(draft)
+            
+            // Fetch the mention info asynchronously
+            if !mentions.isEmpty {
+                viewModel.dependencies[singleton: .storage].readAsync(
+                    retrieve: { db in
+                        try Profile
+                            .filter(ids: mentions.map { $0.profileId })
+                            .fetchAll(db)
+                    },
+                    completion: { [weak self] result in
+                        guard
+                            let self = self,
+                            case let .success(profiles) = result
+                        else { return }
+                        
+                        self.mentions = self.mentions.appending(
+                            contentsOf: profiles.map {
+                                MentionInfo(
+                                    profile: $0,
+                                    threadVariant: updatedThreadData.threadVariant,
+                                    openGroupServer: updatedThreadData.openGroupServer,
+                                    openGroupRoomToken: updatedThreadData.openGroupRoomToken
+                                )
+                            }
+                        )
+                    }
+                )
+            }
         }
         
         // Now we have done all the needed diffs update the viewModel with the latest data
@@ -1383,7 +1424,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             profilePictureView.update(
                 publicKey: threadData.threadId,  // Contact thread uses the contactId
                 threadVariant: threadData.threadVariant,
-                displayPictureFilename: threadData.displayPictureFilename,
+                displayPictureUrl: threadData.threadDisplayPictureUrl,
                 profile: threadData.profile,
                 additionalProfile: threadData.additionalProfile,
                 using: viewModel.dependencies
@@ -1647,6 +1688,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         }
                     },
                     showExpandedReactions: viewModel.reactionExpandedInteractionIds
+                        .contains(cellViewModel.id),
+                    shouldExpanded: viewModel.messageExpandedInteractionIds
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
                     using: viewModel.dependencies
@@ -1980,10 +2023,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.searchController.resultsBar.startLoading()
             
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.pagedDataObserver?.load(.jumpTo(
-                    id: interactionInfo.id,
-                    paddingForInclusive: 5
-                ))
+                self?.viewModel.pagedDataObserver?.load(.jumpTo(id: interactionInfo.id, padding: 5))
             }
             return
         }

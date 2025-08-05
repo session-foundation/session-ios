@@ -6,15 +6,25 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    @discardableResult public static func handleVisibleMessage(
-        _ db: Database,
+    public typealias InsertedInteractionInfo = (
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        interactionId: Int64,
+        interactionVariant: Interaction.Variant?,
+        wasRead: Bool,
+        numPreviousInteractionsForMessageRequest: Int
+    )
+    
+    internal static func handleVisibleMessage(
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
-    ) throws -> Int64 {
+    ) throws -> InsertedInteractionInfo {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
         }
@@ -31,18 +41,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: {
-                    guard
-                        let profilePictureUrl: String = profile.profilePictureUrl,
-                        let profileKey: Data = profile.profileKey
-                    else { return .contactRemove }
-                    
-                    return .contactUpdateTo(
-                        url: profilePictureUrl,
-                        key: profileKey,
-                        fileName: nil
-                    )
-                }(),
+                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: messageSentTimestamp,
                 using: dependencies
@@ -77,15 +76,15 @@ extension MessageReceiver {
             ),
             using: dependencies
         )
-        let maybeOpenGroup: OpenGroup? = {
+        let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = {
             guard threadVariant == .community else { return nil }
             
-            return try? OpenGroup.fetchOne(db, id: threadId)
+            return try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
         }()
         let variant: Interaction.Variant = try {
             guard
                 let senderSessionId: SessionId = try? SessionId(from: sender),
-                let openGroup: OpenGroup = maybeOpenGroup
+                let openGroupUrlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo
             else {
                 return (sender == userSessionId.hexString ?
                     .standardOutgoing :
@@ -101,7 +100,7 @@ extension MessageReceiver {
                             .sessionId(
                                 userSessionId.hexString,
                                 matchesBlindedId: sender,
-                                serverPublicKey: openGroup.publicKey
+                                serverPublicKey: openGroupUrlInfo.publicKey
                             )
                         )
                     else { return .standardIncoming }
@@ -119,6 +118,30 @@ extension MessageReceiver {
                     throw MessageReceiverError.invalidSender
             }
         }()
+        let generateCurrentUserSessionIds: () -> Set<String> = {
+            guard threadVariant == .community else { return [userSessionId.hexString] }
+            
+            let openGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                .fetchOne(db, id: threadId)
+            
+            return Set([
+                userSessionId,
+                SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded15,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                ),
+                SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded25,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                )
+            ].compactMap { $0 }.map { $0.hexString })
+        }
         
         // Handle emoji reacts first (otherwise it's essentially an invalid message)
         if let interactionId: Int64 = try handleEmojiReactIfNeeded(
@@ -128,10 +151,12 @@ extension MessageReceiver {
             associatedWithProto: proto,
             sender: sender,
             messageSentTimestamp: messageSentTimestamp,
-            openGroup: maybeOpenGroup,
+            openGroupUrlInfo: openGroupUrlInfo,
+            currentUserSessionIds: generateCurrentUserSessionIds(),
+            suppressNotifications: suppressNotifications,
             using: dependencies
         ) {
-            return interactionId
+            return (threadId, threadVariant, interactionId, nil, true, 0)
         }
         // Try to insert the interaction
         //
@@ -148,8 +173,7 @@ extension MessageReceiver {
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     timestampMs: Int64(messageSentTimestamp * 1000),
-                    userSessionId: userSessionId,
-                    openGroup: maybeOpenGroup
+                    openGroupUrlInfo: openGroupUrlInfo
                 )
             }
         )
@@ -162,19 +186,26 @@ extension MessageReceiver {
             using: dependencies
         )
         do {
+            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(message.proProof) })
+            let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(
+                message.text,
+                isProMessage: isProMessage,
+                dependencies: dependencies
+            )
+            
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 authorId: sender,
                 variant: variant,
-                body: message.text,
+                body: processedMessageBody,
                 timestampMs: Int64(messageSentTimestamp * 1000),
                 wasRead: wasRead,
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
-                    body: message.text,
+                    body: processedMessageBody,
                     quoteAuthorId: dataMessage.quote?.author,
                     using: dependencies
                 ),
@@ -190,6 +221,7 @@ extension MessageReceiver {
                 // If we received an outgoing message then we can assume the interaction has already
                 // been sent, otherwise we should just use whatever the default state is
                 state: (variant == .standardOutgoing ? .sent : nil),
+                isProMessage: isProMessage,
                 using: dependencies
             ).inserted(db)
         }
@@ -297,12 +329,11 @@ extension MessageReceiver {
         message.attachmentIds = attachments.map { $0.id }
         
         // Persist quote if needed
-        let quote: Quote? = try? Quote(
-            db,
+        try? Quote(
             proto: dataMessage,
             interactionId: interactionId,
             thread: thread
-        )?.inserted(db)
+        )?.insert(db)
         
         // Parse link preview if needed
         let linkPreview: LinkPreview? = try? LinkPreview(
@@ -332,7 +363,6 @@ extension MessageReceiver {
         if isContactTrusted || thread.variant != .contact {
             attachments
                 .map { $0.id }
-                .appending(quote?.attachmentId)
                 .appending(linkPreview?.attachmentId)
                 .forEach { attachmentId in
                     dependencies[singleton: .jobRunner].add(
@@ -352,7 +382,12 @@ extension MessageReceiver {
         
         // Cancel any typing indicators if needed
         if isMainAppActive {
-            dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: thread.id, direction: .incoming)
+            Task {
+                await dependencies[singleton: .typingIndicators].didStopTyping(
+                    threadId: thread.id,
+                    direction: .incoming
+                )
+            }
         }
         
         // Update the contact's approval status of the current user if needed (if we are getting messages from
@@ -383,27 +418,101 @@ extension MessageReceiver {
         }
         
         // Notify the user if needed
-        guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
+        guard
+            !suppressNotifications &&
+            variant == .standardIncoming &&
+            !interaction.wasRead
+        else { return (threadId, threadVariant, interactionId, variant, interaction.wasRead, 0) }
         
-        // Use the same identifier for notifications when in backgroud polling to prevent spam
-        dependencies[singleton: .notificationsManager].notifyUser(
-            db,
-            for: interaction,
-            in: thread,
-            applicationState: (isMainAppActive ? .active : .background)
+        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.isMessageRequest(
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
+        }
+        let numPreviousInteractionsForMessageRequest: Int = {
+            guard isMessageRequest else { return 0 }
+            
+            switch interaction.serverHash {
+                case .some(let serverHash):
+                    return (try? Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.serverHash != serverHash)
+                        .fetchCount(db))
+                        .defaulting(to: 0)
+
+                case .none:
+                    return (try? Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
+                        .fetchCount(db))
+                        .defaulting(to: 0)
+            }
+        }()
+        
+        try? dependencies[singleton: .notificationsManager].notifyUser(
+            cat: .messageReceiver,
+            message: message,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIdentifier: (interaction.serverHash ?? "\(interactionId)"),
+            interactionVariant: interaction.variant,
+            attachmentDescriptionInfo: attachments.map { $0.descriptionInfo },
+            openGroupUrlInfo: openGroupUrlInfo,
+            applicationState: (isMainAppActive ? .active : .background),
+            extensionBaseUnreadCount: nil,
+            currentUserSessionIds: generateCurrentUserSessionIds(),
+            displayNameRetriever: { sessionId, _ in
+                Profile.displayNameNoFallback(
+                    db,
+                    id: sessionId,
+                    threadVariant: threadVariant
+                )
+            },
+            groupNameRetriever: { threadId, threadVariant in
+                switch threadVariant {
+                    case .group:
+                        let groupId: SessionId = SessionId(.group, hex: threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupName(groupSessionId: groupId)
+                        }
+                        
+                    case .community:
+                        return try? OpenGroup
+                            .select(.name)
+                            .filter(id: threadId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                    default: return nil
+                }
+            },
+            shouldShowForMessageRequest: {
+                // We only want to show a notification for the first interaction in the thread
+                return (numPreviousInteractionsForMessageRequest == 0)
+            }
         )
         
-        return interactionId
+        return (
+            threadId,
+            threadVariant,
+            interactionId,
+            variant,
+            interaction.wasRead,
+            numPreviousInteractionsForMessageRequest
+        )
     }
     
     private static func handleEmojiReactIfNeeded(
-        _ db: Database,
+        _ db: ObservingDatabase,
         thread: SessionThread,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
         sender: String,
         messageSentTimestamp: TimeInterval,
-        openGroup: OpenGroup?,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
+        currentUserSessionIds: Set<String>,
+        suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> Int64? {
         guard
@@ -411,6 +520,8 @@ extension MessageReceiver {
             proto.dataMessage?.reaction != nil
         else { return nil }
         
+        // Since we have database access here make sure the original message for this reaction exists
+        // before handling it or showing a notification
         let maybeInteractionId: Int64? = try? Interaction
             .select(.id)
             .filter(Interaction.Columns.threadId == thread.id)
@@ -438,7 +549,7 @@ extension MessageReceiver {
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
                 let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let reaction: Reaction = try Reaction(
+                _ = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
                     timestampMs: timestampMs,
@@ -452,19 +563,55 @@ extension MessageReceiver {
                         threadId: thread.id,
                         threadVariant: thread.variant,
                         timestampMs: timestampMs,
-                        userSessionId: userSessionId,
-                        openGroup: openGroup
+                        openGroupUrlInfo: openGroupUrlInfo
                     )
                 }
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
-                if sender != userSessionId.hexString && !timestampAlreadyRead {
-                    dependencies[singleton: .notificationsManager].notifyUser(
-                        db,
-                        forReaction: reaction,
-                        in: thread,
-                        applicationState: (isMainAppActive ? .active : .background)
+                if
+                    !suppressNotifications &&
+                    sender != userSessionId.hexString &&
+                    !timestampAlreadyRead
+                {
+                    try? dependencies[singleton: .notificationsManager].notifyUser(
+                        cat: .messageReceiver,
+                        message: message,
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        interactionIdentifier: (message.serverHash ?? "\(interactionId)"),
+                        interactionVariant: .standardIncoming,
+                        attachmentDescriptionInfo: nil,
+                        openGroupUrlInfo: openGroupUrlInfo,
+                        applicationState: (isMainAppActive ? .active : .background),
+                        extensionBaseUnreadCount: nil,
+                        currentUserSessionIds: currentUserSessionIds,
+                        displayNameRetriever: { sessionId, _ in
+                            Profile.displayNameNoFallback(
+                                db,
+                                id: sessionId,
+                                threadVariant: thread.variant
+                            )
+                        },
+                        groupNameRetriever: { threadId, threadVariant in
+                            switch threadVariant {
+                                case .group:
+                                    let groupId: SessionId = SessionId(.group, hex: threadId)
+                                    return dependencies.mutate(cache: .libSession) { cache in
+                                        cache.groupName(groupSessionId: groupId)
+                                    }
+                                    
+                                case .community:
+                                    return try? OpenGroup
+                                        .select(.name)
+                                        .filter(id: threadId)
+                                        .asRequest(of: String.self)
+                                        .fetchOne(db)
+                                    
+                                default: return nil
+                            }
+                        },
+                        shouldShowForMessageRequest: { false }
                     )
                 }
                 
@@ -480,7 +627,7 @@ extension MessageReceiver {
     }
     
     private static func updateRecipientAndReadStatesForOutgoingInteraction(
-        _ db: Database,
+        _ db: ObservingDatabase,
         thread: SessionThread,
         interactionId: Int64,
         messageSentTimestamp: TimeInterval,
@@ -492,14 +639,16 @@ extension MessageReceiver {
         
         // Immediately update any existing outgoing message 'State' records to be 'sent' (can
         // also remove the failure text as it's redundant if the message is in the sent state)
-        _ = try? Interaction
-            .filter(id: interactionId)
-            .filter(Interaction.Columns.state != Interaction.State.sent)
-            .updateAll(
-                db,
-                Interaction.Columns.state.set(to: Interaction.State.sent),
-                Interaction.Columns.mostRecentFailureText.set(to: nil)
-            )
+        if (try? Interaction.select(.state).filter(id: interactionId).asRequest(of: Interaction.State.self).fetchOne(db)) != .sent {
+            _ = try? Interaction
+                .filter(id: interactionId)
+                .updateAll(
+                    db,
+                    Interaction.Columns.state.set(to: Interaction.State.sent),
+                    Interaction.Columns.mostRecentFailureText.set(to: nil)
+                )
+            db.addMessageEvent(id: interactionId, threadId: thread.id, type: .updated(.state(.sent)))
+        }
         
         // For outgoing messages mark all older interactions as read (the user should have seen
         // them if they send a message - also avoids a situation where the user has "phantom"
@@ -525,10 +674,46 @@ extension MessageReceiver {
                 db,
                 threadId: thread.id,
                 timestampMsValues: [pendingReadReceipt.interactionTimestampMs],
-                readTimestampMs: pendingReadReceipt.readTimestampMs
+                readTimestampMs: pendingReadReceipt.readTimestampMs,
+                using: dependencies
             )
             
             _ = try pendingReadReceipt.delete(db)
+        }
+    }
+    
+    private static func truncateMessageTextIfNeeded(
+        _ text: String?,
+        isProMessage: Bool,
+        dependencies: Dependencies
+    ) -> String? {
+        guard let text = text else { return nil }
+        
+        let utf16View = text.utf16
+        // TODO: Remove after Session Pro is enabled
+        let isSessionProEnabled: Bool = (dependencies.hasSet(feature: .sessionProEnabled) && dependencies[feature: .sessionProEnabled])
+        let offset: Int = (isSessionProEnabled && !isProMessage) ?
+            LibSession.CharacterLimit :
+            LibSession.ProCharacterLimit
+        
+        guard utf16View.count > offset else { return text }
+        
+        // Get the index at the maxUnits position in UTF16
+        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: offset)
+        
+        // Try converting that UTF16 index back to a String.Index
+        if let endIndex = String.Index(endUTF16Index, within: text) {
+            return String(text[..<endIndex])
+        } else {
+            // Fallback: safely step back until there is a valid boundary
+            var adjustedIndex = endUTF16Index
+            while adjustedIndex > utf16View.startIndex {
+                adjustedIndex = utf16View.index(before: adjustedIndex)
+                if let validIndex = String.Index(adjustedIndex, within: text) {
+                    return String(text[..<validIndex])
+                }
+            }
+            return text // If all else fails, return original string
         }
     }
 }

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -13,14 +14,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     public static let newConversationButtonSize: CGFloat = 60
     
     private let viewModel: HomeViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
-        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
-    }
-    private var hasLoadedInitialStateData: Bool = false
-    private var hasLoadedInitialThreadData: Bool = false
-    private var isLoadingMore: Bool = false
-    private var isAutoLoadingNextPage: Bool = false
-    private var viewHasAppeared: Bool = false
+    private var disposables: Set<AnyCancellable> = Set()
+    
+    /// Currently loaded version of the data for the `tableView`, will always match the value in the `viewModel` unless it's part way
+    /// through updating it's state
+    private var sections: [HomeViewModel.SectionModel] = []
+    private var initialConversationLoadComplete: Bool = false
+    public var afterInitialConversationsLoad: (() -> Void)?
     
     // MARK: - LibSessionRespondingViewController
     
@@ -31,20 +31,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     init(using dependencies: Dependencies) {
         self.viewModel = HomeViewModel(using: dependencies)
         
-        /// Dispatch adding the database observation to a background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
-            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
-        }
-        
         super.init(nibName: nil, bundle: nil)
     }
 
     required init?(coder: NSCoder) {
         preconditionFailure("Use init() instead.")
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - UI
@@ -297,7 +288,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         super.viewDidLoad()
         
         // Preparation
-        updateNavBarButtons(userProfile: self.viewModel.state.userProfile)
+        updateNavBarButtons(
+            userProfile: self.viewModel.state.userProfile,
+            serviceNetwork: self.viewModel.state.serviceNetwork,
+            forceOffline: self.viewModel.state.forceOffline
+        )
         setUpNavBarSessionHeading()
         
         // Recovery phrase reminder
@@ -339,22 +334,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         newConversationButton.center(.horizontal, in: view)
         newConversationButton.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide, withInset: -Values.smallSpacing)
         
-        // Notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidBecomeActive(_:)),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidResignActive(_:)),
-            name: UIApplication.didEnterBackgroundNotification, object: nil
-        )
-        
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if
-            Identity.userExists(using: viewModel.dependencies),
+            viewModel.dependencies[cache: .general].userExists,
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
             viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {
@@ -363,100 +345,54 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Onion request path countries cache
         viewModel.dependencies.warmCache(cache: .ip2Country)
-    }
-    
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
         
-        startObservingChanges()
+        // Bind the UI to the view model
+        bindViewModel()
     }
     
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
         viewModel.dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: false)
-        
-        self.viewHasAppeared = true
-        self.autoLoadNextPageIfNeeded()
-    }
-    
-    public override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        
-        stopObservingChanges()
-    }
-    
-    @objc func applicationDidBecomeActive(_ notification: Notification) {
-        /// **Note:** When returning from the background we could have received notifications but the `PagedDatabaseObserver`
-        /// won't have them so we need to force a re-fetch of the current data to ensure everything is up to date
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.viewModel.pagedDataObserver?.resume()
-        }
-    }
-    
-    @objc func applicationDidResignActive(_ notification: Notification) {
-        /// When going into the background we should stop listening to database changes (we will resume/reload after returning from
-        /// the background)
-        viewModel.pagedDataObserver?.suspend()
     }
     
     // MARK: - Updating
     
-    public func startObservingChanges(onReceivedInitialChange: (() -> Void)? = nil) {
-        guard dataChangeObservable == nil else { return }
+    @MainActor public func afterInitialConversationsLoaded(_ closure: @escaping () -> Void) {
+        guard viewModel.state.viewState == .loading else { return closure() }
         
-        var runAndClearInitialChangeCallback: (() -> Void)?
+        afterInitialConversationsLoad = closure
         
-        runAndClearInitialChangeCallback = { [weak self] in
-            guard self?.hasLoadedInitialStateData == true && self?.hasLoadedInitialThreadData == true else { return }
-            
-            onReceivedInitialChange?()
-            runAndClearInitialChangeCallback = nil
-        }
-        
-        dataChangeObservable = viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableState,
-            onError: { _ in },
-            onChange: { [weak self] state in
-                // The default scheduler emits changes on the main thread
-                self?.handleUpdates(state)
-                runAndClearInitialChangeCallback?()
-            }
+        /// Since we wouldn't have added the `HomeVC` to the view hierarchy yet it's possible it hasn't loaded it's view yet
+        /// so we should trigger it to do so now if needed
+        loadViewIfNeeded()
+    }
+    
+    private func bindViewModel() {
+        viewModel.$state
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .sink { [weak self] state in self?.render(state: state) }
+            .store(in: &disposables)
+    }
+    
+    @MainActor private func render(state: HomeViewModel.State) {
+        // Update nav
+        updateNavBarButtons(
+            userProfile: state.userProfile,
+            serviceNetwork: state.serviceNetwork,
+            forceOffline: state.forceOffline
         )
         
-        self.viewModel.onThreadChange = { [weak self] updatedThreadData, changeset in
-            self?.handleThreadUpdates(updatedThreadData, changeset: changeset)
-            runAndClearInitialChangeCallback?()
-        }
-    }
-    
-    private func stopObservingChanges() {
-        // Stop observing database changes
-        self.dataChangeObservable?.cancel()
-        self.dataChangeObservable = nil
-        self.viewModel.onThreadChange = nil
-    }
-    
-    private func handleUpdates(_ updatedState: HomeViewModel.State, initialLoad: Bool = false) {
-        // Ensure the first load runs without animations (if we don't do this the cells will animate
-        // in from a frame of CGRect.zero)
-        guard hasLoadedInitialStateData else {
-            hasLoadedInitialStateData = true
-            UIView.performWithoutAnimation { handleUpdates(updatedState, initialLoad: true) }
-            return
-        }
-        
-        if updatedState.userProfile != self.viewModel.state.userProfile {
-            updateNavBarButtons(userProfile: updatedState.userProfile)
-        }
-        
         // Update the 'view seed' UI
-        if updatedState.showViewedSeedBanner != self.viewModel.state.showViewedSeedBanner {
+        let shouldHideSeedReminderView: Bool = !state.showViewedSeedBanner
+        
+        if seedReminderView.isHidden != shouldHideSeedReminderView {
             tableViewTopConstraint?.isActive = false
             loadingConversationsLabelTopConstraint?.isActive = false
-            seedReminderView.isHidden = !updatedState.showViewedSeedBanner
+            seedReminderView.isHidden = !state.showViewedSeedBanner
 
-            if updatedState.showViewedSeedBanner {
+            if state.showViewedSeedBanner {
                 loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .bottom, of: seedReminderView, withInset: Values.mediumSpacing)
                 tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
             }
@@ -464,65 +400,46 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .top, of: view, withInset: Values.veryLargeSpacing)
                 tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
             }
+            
+            view.layoutIfNeeded()
         }
         
-        self.viewModel.updateState(updatedState)
-    }
-    
-    private func handleThreadUpdates(
-        _ updatedData: [HomeViewModel.SectionModel],
-        changeset: StagedChangeset<[HomeViewModel.SectionModel]>,
-        initialLoad: Bool = false
-    ) {
-        // Ensure the first load runs without animations (if we don't do this the cells will animate
-        // in from a frame of CGRect.zero)
-        guard hasLoadedInitialThreadData else {
-            UIView.performWithoutAnimation { [weak self, dependencies = viewModel.dependencies] in
-                // Hide the 'loading conversations' label (now that we have received conversation data)
-                self?.loadingConversationsLabel.isHidden = true
+        // Update the overall view state (loading, empty, or loaded)
+        switch state.viewState {
+            case .loading:
+                loadingConversationsLabel.isHidden = false
+                emptyStateStackView.isHidden = true
                 
-                // Show the empty state if there is no data
-                self?.accountCreatedView.isHidden = (dependencies[cache: .onboarding].initialFlow != .register)
-                self?.emptyStateLogoView.isHidden = (dependencies[cache: .onboarding].initialFlow == .register)
-                self?.emptyStateStackView.isHidden = (
-                    !updatedData.isEmpty &&
-                    updatedData.contains(where: { !$0.elements.isEmpty })
-                )
+            case .empty(let isNewUser):
+                loadingConversationsLabel.isHidden = true
+                emptyStateStackView.isHidden = false
+                accountCreatedView.isHidden = !isNewUser
+                emptyStateLogoView.isHidden = isNewUser
                 
-                self?.viewModel.updateThreadData(updatedData)
-                self?.tableView.reloadData()
-                self?.hasLoadedInitialThreadData = true
+            case .loaded:
+                loadingConversationsLabel.isHidden = true
+                emptyStateStackView.isHidden = true
+        }
+        
+        // If we are still loading then don't try to load the table content (it'll be empty and we
+        // don't want to trigger the callbacks until a successful load)
+        guard state.viewState != .loading else { return }
+        
+        // Reload the table content (update without animations on the first render)
+        guard initialConversationLoadComplete else {
+            sections = state.sections(viewModel: viewModel)
+            
+            UIView.performWithoutAnimation {
+                tableView.reloadData()
+                afterInitialConversationsLoad?()
+                afterInitialConversationsLoad = nil
+                initialConversationLoadComplete = true
             }
             return
         }
         
-        // Hide the 'loading conversations' label (now that we have received conversation data)
-        loadingConversationsLabel.isHidden = true
-        
-        // Show the empty state if there is no data
-        if viewModel.dependencies[cache: .onboarding].initialFlow == .register {
-            accountCreatedView.isHidden = false
-            emptyStateLogoView.isHidden = true
-        } else {
-            accountCreatedView.isHidden = true
-            emptyStateLogoView.isHidden = false
-        }
-        
-        emptyStateStackView.isHidden = (
-            !updatedData.isEmpty &&
-            updatedData.contains(where: { !$0.elements.isEmpty })
-        )
-        
-        CATransaction.begin()
-        CATransaction.setCompletionBlock { [weak self] in
-            // Complete page loading
-            self?.isLoadingMore = false
-            self?.autoLoadNextPageIfNeeded()
-        }
-        
-        // Reload the table content (animate changes after the first load)
         tableView.reload(
-            using: changeset,
+            using: StagedChangeset(source: self.sections, target: state.sections(viewModel: viewModel)),
             deleteSectionsAnimation: .none,
             insertSectionsAnimation: .none,
             reloadSectionsAnimation: .none,
@@ -531,47 +448,15 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             reloadRowsAnimation: .none,
             interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
         ) { [weak self] updatedData in
-            self?.viewModel.updateThreadData(updatedData)
-        }
-        
-        CATransaction.commit()
-    }
-    
-    private func autoLoadNextPageIfNeeded() {
-        guard
-            self.hasLoadedInitialThreadData &&
-            !self.isAutoLoadingNextPage &&
-            !self.isLoadingMore
-        else { return }
-        
-        self.isAutoLoadingNextPage = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + PagedData.autoLoadNextPageDelay) { [weak self] in
-            self?.isAutoLoadingNextPage = false
-            
-            // Note: We sort the headers as we want to prioritise loading newer pages over older ones
-            let sections: [(HomeViewModel.Section, CGRect)] = (self?.viewModel.threadData
-                .enumerated()
-                .map { index, section in (section.model, (self?.tableView.rectForHeader(inSection: index) ?? .zero)) })
-                .defaulting(to: [])
-            let shouldLoadMore: Bool = sections
-                .contains { section, headerRect in
-                    section == .loadMore &&
-                    headerRect != .zero &&
-                    (self?.tableView.bounds.contains(headerRect) == true)
-                }
-            
-            guard shouldLoadMore else { return }
-            
-            self?.isLoadingMore = true
-            
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.pagedDataObserver?.load(.pageAfter)
-            }
+            self?.sections = updatedData
         }
     }
     
-    private func updateNavBarButtons(userProfile: Profile) {
+    private func updateNavBarButtons(
+        userProfile: Profile,
+        serviceNetwork: ServiceNetwork,
+        forceOffline: Bool
+    ) {
         // Profile picture view
         let profilePictureView = ProfilePictureView(
             size: .navigation,
@@ -583,10 +468,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         profilePictureView.update(
             publicKey: userProfile.id,
             threadVariant: .contact,
-            displayPictureFilename: nil,
+            displayPictureUrl: nil,
             profile: userProfile,
             profileIcon: {
-                switch (viewModel.dependencies[feature: .serviceNetwork], viewModel.dependencies[feature: .forceOffline]) {
+                switch (serviceNetwork, forceOffline) {
                     case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                     case (.testnet, true): return .letter("T", true)       // stringlint:ignore
                     default: return .none
@@ -603,37 +488,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Path status indicator
         let pathStatusView = PathStatusView(using: viewModel.dependencies)
         pathStatusView.accessibilityLabel = "Current onion routing path indicator"
-        
-        viewModel.dependencies.publisher(feature: .serviceNetwork)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: viewModel.dependencies)
-            .receive(on: DispatchQueue.main, using: viewModel.dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.main.async {
-                        self?.updateNavBarButtons(userProfile: userProfile)
-                    }
-                },
-                receiveValue: { [weak profilePictureView, dependencies = viewModel.dependencies] value in
-                    profilePictureView?.update(
-                        publicKey: userProfile.id,
-                        threadVariant: .contact,
-                        displayPictureFilename: nil,
-                        profile: userProfile,
-                        profileIcon: {
-                            switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
-                                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
-                            }
-                        }(),
-                        additionalProfile: nil,
-                        using: dependencies
-                    )
-                }
-            )
-            .store(in: &profilePictureView.disposables)
         
         // Container view
         let profilePictureViewContainer = UIView()
@@ -658,17 +512,15 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     // MARK: - UITableViewDataSource
     
     public func numberOfSections(in tableView: UITableView) -> Int {
-        return viewModel.threadData.count
+        return sections.count
     }
     
     public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        let section: HomeViewModel.SectionModel = viewModel.threadData[section]
-        
-        return section.elements.count
+        return sections[section].elements.count
     }
     
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let section: HomeViewModel.SectionModel = viewModel.threadData[indexPath.section]
+        let section: HomeViewModel.SectionModel = sections[indexPath.section]
         
         switch section.model {
             case .messageRequests:
@@ -692,7 +544,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let section: HomeViewModel.SectionModel = viewModel.threadData[section]
+        let section: HomeViewModel.SectionModel = sections[section]
         
         switch section.model {
             case .loadMore:
@@ -714,7 +566,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     // MARK: - UITableViewDelegate
     
     public func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        let section: HomeViewModel.SectionModel = viewModel.threadData[section]
+        let section: HomeViewModel.SectionModel = sections[section]
         
         switch section.model {
             case .loadMore: return HomeVC.loadingHeaderHeight
@@ -723,18 +575,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     public func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
-        guard self.hasLoadedInitialThreadData && self.viewHasAppeared && !self.isLoadingMore else { return }
-        
-        let section: HomeViewModel.SectionModel = self.viewModel.threadData[section]
-        
-        switch section.model {
-            case .loadMore:
-                self.isLoadingMore = true
-                
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    self?.viewModel.pagedDataObserver?.load(.pageAfter)
-                }
-                
+        switch sections[section].model {
+            case .loadMore: self.viewModel.loadNextPage()
             default: break
         }
     }
@@ -742,7 +584,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let section: HomeViewModel.SectionModel = sections[indexPath.section]
         
         switch section.model {
             case .messageRequests:
@@ -778,7 +620,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     public func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let section: HomeViewModel.SectionModel = sections[indexPath.section]
         let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
         
         switch section.model {
@@ -812,7 +654,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     public func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let section: HomeViewModel.SectionModel = sections[indexPath.section]
         let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
         
         switch section.model {

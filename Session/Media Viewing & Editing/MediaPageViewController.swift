@@ -498,11 +498,16 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             Log.error("[MediaPageViewController] currentViewController was unexpectedly nil")
             return
         }
-        guard let originalFilePath: String = currentViewController.galleryItem.attachment.originalFilePath(using: viewModel.dependencies) else {
-            return
-        }
+        guard
+            let path: String = try? viewModel.dependencies[singleton: .attachmentManager].createTemporaryFileForOpening(
+                downloadUrl: currentViewController.galleryItem.attachment.downloadUrl,
+                mimeType: currentViewController.galleryItem.attachment.contentType,
+                sourceFilename: currentViewController.galleryItem.attachment.sourceFilename
+            ),
+            viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
+        else { return }
         
-        let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: originalFilePath) ], applicationActivities: nil)
+        let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: path) ], applicationActivities: nil)
         
         if UIDevice.current.isIPad {
             shareVC.excludedActivityTypes = []
@@ -519,6 +524,14 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 Log.info("[MediaPageViewController] Did share with activityType: \(activityType.debugDescription)")
             }
             
+            /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+            if path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+            }
+            
+            /// Notify any conversations to update if a message was sent via Session
+            UIActivityViewController.notifyIfNeeded(completed, using: dependencies)
+            
             guard
                 let activityType = activityType,
                 activityType == .saveToCameraRoll,
@@ -529,7 +542,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             let threadId: String = self.viewModel.threadId
             let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
             
-            dependencies[singleton: .storage].write { db in
+            dependencies[singleton: .storage].writeAsync { db in
                 try MessageSender.send(
                     db,
                     message: DataExtractionNotification(
@@ -804,6 +817,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         label.textAlignment = .center
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.8
+        label.numberOfLines = 1
+        label.lineBreakMode = .byTruncatingTail
+        label.set(.width, lessThanOrEqualTo: 185)
 
         return label
     }()
@@ -854,15 +870,14 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             switch targetItem.interactionVariant {
                 case .standardIncoming:
                     return viewModel.dependencies[singleton: .storage]
-                        .read { [dependencies = viewModel.dependencies] db in
+                        .read { db in
                             Profile.displayName(
                                 db,
                                 id: targetItem.interactionAuthorId,
-                                threadVariant: threadVariant,
-                                using: dependencies
+                                threadVariant: threadVariant
                             )
                         }
-                        .defaulting(to: Profile.truncated(id: targetItem.interactionAuthorId, truncating: .middle))
+                        .defaulting(to: targetItem.interactionAuthorId.truncated())
                     
                 case .standardOutgoing:
                     return "you".localized() // "Short sender label for media sent by you"
@@ -897,12 +912,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
 extension MediaGalleryViewModel.Item: GalleryRailItem {
     public func buildRailItemView(using dependencies: Dependencies) -> UIView {
-        let imageView: UIImageView = UIImageView()
+        let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         
-        self.thumbnailImage(using: dependencies) { [weak imageView] image in
-            DispatchQueue.main.async {
-                imageView?.image = image
+        if attachment.downloadUrl != nil {
+            Task(priority: .userInitiated) {
+                await imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
             }
         }
 
@@ -966,7 +981,7 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
         guard let currentItem: MediaGalleryViewModel.Item = currentItem else { return nil }
         guard self == presented || self.navigationController == presented else { return nil }
 
-        return MediaZoomAnimationController(galleryItem: currentItem, using: viewModel.dependencies)
+        return MediaZoomAnimationController(attachment: currentItem.attachment, using: viewModel.dependencies)
     }
 
     public func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
@@ -974,7 +989,7 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
         guard self == dismissed || self.navigationController == dismissed else { return nil }
         guard !self.viewModel.albumData.isEmpty else { return nil }
 
-        let animationController = MediaDismissAnimationController(galleryItem: currentItem, interactionController: mediaInteractiveDismiss, using: viewModel.dependencies)
+        let animationController = MediaDismissAnimationController(attachment: currentItem.attachment, interactionController: mediaInteractiveDismiss, using: viewModel.dependencies)
         mediaInteractiveDismiss?.interactiveDismissDelegate = animationController
 
         return animationController
@@ -995,7 +1010,7 @@ extension MediaPageViewController: UIViewControllerTransitioningDelegate {
 // MARK: - MediaPresentationContextProvider
 
 extension MediaPageViewController: MediaPresentationContextProvider {
-    func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
+    func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         guard
             let mediaView: SessionImageView = currentViewController?.mediaView,
             let mediaSuperview: UIView = mediaView.superview,
@@ -1011,21 +1026,10 @@ extension MediaPageViewController: MediaPresentationContextProvider {
             }()
         else { return nil }
         
-        var topInset: CGFloat = 0
-        var leftInset: CGFloat = 0
-        var scaledWidth: CGFloat = mediaSize.width
-        var scaledHeight: CGFloat = mediaSize.height
-
-        if mediaSize.width > mediaSize.height {
-            scaledWidth = mediaSuperview.frame.width
-            scaledHeight = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
-            topInset = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
-        }
-        else if mediaSize.width < mediaSize.height {
-            scaledWidth = (mediaSize.width * (mediaSuperview.frame.height / mediaSize.height))
-            scaledHeight = mediaSuperview.frame.height
-            leftInset = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
-        }
+        let scaledWidth: CGFloat = mediaSuperview.frame.width
+        let scaledHeight: CGFloat = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
+        let topInset: CGFloat = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
+        let leftInset: CGFloat = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
         
         return MediaPresentationContext(
             mediaView: mediaView,

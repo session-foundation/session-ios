@@ -28,13 +28,14 @@ public enum MessageSendJob: JobExecutor {
         using dependencies: Dependencies
     ) {
         guard
+            let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         /// We need to include `fileIds` when sending messages with attachments to Open Groups so extract them from any
         /// associated attachments
-        var messageFileIds: [String] = []
+        var messageAttachments: [(attachment: Attachment, fileId: String)] = []
         let messageType: String = {
             switch details.destination {
                 case .syncMessage: return "\(type(of: details.message)) (SyncMessage)"
@@ -46,7 +47,7 @@ public enum MessageSendJob: JobExecutor {
         switch job.behaviour {
             case .runOnceAfterConfigSyncIgnoringPermanentFailure:
                 guard
-                    let sessionId: SessionId = try? SessionId(from: job.threadId),
+                    let sessionId: SessionId = try? SessionId(from: threadId),
                     let variant: ConfigDump.Variant = details.requiredConfigSyncVariant
                 else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
                 
@@ -82,7 +83,7 @@ public enum MessageSendJob: JobExecutor {
                 let interactionId: Int64 = job.interactionId
             else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
             
-            // Retrieve the current attachment state
+            /// Retrieve the current attachment state
             let attachmentState: AttachmentState = dependencies[singleton: .storage]
                 .read { db in try MessageSendJob.fetchAttachmentState(db, interactionId: interactionId) }
                 .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
@@ -150,8 +151,8 @@ public enum MessageSendJob: JobExecutor {
                 return deferred(job)
             }
 
-            // Store the fileIds so they can be sent with the open group message content
-            messageFileIds = attachmentState.preparedFileIds
+            /// Store the fileIds so they can be sent with the open group message content
+            messageAttachments = attachmentState.preparedAttachments
         }
         
         /// If this message is being sent to an updated group then we should first make sure that we have a encryption keys
@@ -202,18 +203,31 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
-                try MessageSender.preparedSend(
+            .readPublisher(value: { [dependencies] db -> AuthenticationMethod in
+                try Authentication.with(
                     db,
+                    threadId: {
+                        switch details.destination {
+                            case .syncMessage: return dependencies[cache: .general].sessionId.hexString
+                            default: return threadId
+                        }
+                    }(),
+                    threadVariant: details.destination.threadVariant,
+                    using: dependencies
+                )
+            })
+            .tryFlatMap { authMethod in
+                try MessageSender.preparedSend(
                     message: details.message,
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: job.interactionId,
-                    fileIds: messageFileIds,
+                    attachments: messageAttachments,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
@@ -221,6 +235,7 @@ public enum MessageSendJob: JobExecutor {
                     switch result {
                         case .finished:
                             Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
+                            dependencies.setAsync(.hasSentAMessage, true)
                             success(job, false)
                             
                         case .failure(let error):
@@ -268,24 +283,24 @@ public extension MessageSendJob {
     struct AttachmentState {
         public let error: Error?
         public let pendingUploadAttachmentIds: [String]
-        public let preparedFileIds: [String]
         public let allAttachmentIds: [String]
+        public let preparedAttachments: [(attachment: Attachment, fileId: String)]
         
         init(
             error: Error? = nil,
             pendingUploadAttachmentIds: [String] = [],
-            preparedFileIds: [String] = [],
-            allAttachmentIds: [String] = []
+            allAttachmentIds: [String] = [],
+            preparedAttachments: [(Attachment, String)] = []
         ) {
             self.error = error
             self.pendingUploadAttachmentIds = pendingUploadAttachmentIds
-            self.preparedFileIds = preparedFileIds
             self.allAttachmentIds = allAttachmentIds
+            self.preparedAttachments = preparedAttachments
         }
     }
     
     static func fetchAttachmentState(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionId: Int64
     ) throws -> AttachmentState {
         // If the original interaction no longer exists then don't bother sending the message (ie. the
@@ -298,18 +313,14 @@ public extension MessageSendJob {
         let allAttachmentStateInfo: [Attachment.StateInfo] = try Attachment
             .stateInfo(interactionId: interactionId)
             .fetchAll(db)
-        let maybeFileIds: [String?] = allAttachmentStateInfo
-            .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
-            .map { Attachment.fileId(for: $0.downloadUrl) }
-        let fileIds: [String] = maybeFileIds.compactMap { $0 }
+        let allAttachmentIds: [String] = allAttachmentStateInfo.map(\.attachmentId)
 
         // If there were failed attachments then this job should fail (can't send a
         // message which has associated attachments if the attachments fail to upload)
         guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
             return AttachmentState(
                 error: AttachmentError.notUploaded,
-                preparedFileIds: fileIds,
-                allAttachmentIds: allAttachmentStateInfo.map(\.attachmentId)
+                allAttachmentIds: allAttachmentIds
             )
         }
 
@@ -320,9 +331,6 @@ public extension MessageSendJob {
         /// device - both `LinkPreview` and `Quote` can have this case)
         let pendingUploadAttachmentIds: [String] = allAttachmentStateInfo
             .filter { attachment -> Bool in
-                // Non-media quotes won't have thumbnails so so don't try to upload them
-                guard attachment.downloadUrl != Attachment.nonMediaQuoteFileId else { return false }
-
                 switch attachment.state {
                     case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
                         return true
@@ -335,11 +343,25 @@ public extension MessageSendJob {
                 }
             }
             .map { $0.attachmentId }
+        let preparedAttachmentIds: [String] = allAttachmentIds.filter { !pendingUploadAttachmentIds.contains($0) }
+        let attachments: [String: Attachment] = try Attachment
+            .fetchAll(db, ids: preparedAttachmentIds)
+            .reduce(into: [:]) { result, next in result[next.id] = next }
+        let preparedAttachments: [(Attachment, String)] = allAttachmentStateInfo
+            .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
+            .compactMap { info in
+                guard
+                    let attachment: Attachment = attachments[info.attachmentId],
+                    let fileId: String = Attachment.fileId(for: info.downloadUrl)
+                else { return nil }
+                
+                return (attachment, fileId)
+            }
         
         return AttachmentState(
             pendingUploadAttachmentIds: pendingUploadAttachmentIds,
-            preparedFileIds: fileIds,
-            allAttachmentIds: allAttachmentStateInfo.map(\.attachmentId)
+            allAttachmentIds: allAttachmentIds,
+            preparedAttachments: preparedAttachments
         )
     }
 }
@@ -351,7 +373,6 @@ extension MessageSendJob {
         private enum CodingKeys: String, CodingKey {
             case destination
             case message
-            @available(*, deprecated, message: "replaced by 'Message.Destination.syncMessage'") case isSyncMessage
             case variant
             case requiredConfigSyncVariant
         }

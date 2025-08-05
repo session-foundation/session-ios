@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVFoundation
 import Combine
 import CoreServices
 import UniformTypeIdentifiers
@@ -10,7 +11,7 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
-final class ShareNavController: UINavigationController, ShareViewDelegate {
+final class ShareNavController: UINavigationController {
     public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
     
     /// The `ShareNavController` is initialized from a storyboard so we need to manually initialize this
@@ -47,15 +48,18 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
                 // stringlint:ignore_start
-                Log.setup(with: Logger(
-                    primaryPrefix: "SessionShareExtension",
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
-                    using: dependencies
-                ))
+                if !Log.loggerExists(withPrefix: "SessionShareExtension") {
+                    Log.setup(with: Logger(
+                        primaryPrefix: "SessionShareExtension",
+                        customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
+                        using: dependencies
+                    ))
+                    LibSession.clearLoggers()
+                    LibSession.setupLogger(using: dependencies)
+                }
                 // stringlint:ignore_stop
                 
                 // Setup LibSession
-                LibSession.setupLogger(using: dependencies)
                 dependencies.warmCache(cache: .libSessionNetwork)
                 
                 // Configure the different targets
@@ -75,12 +79,19 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
                             SNUIKit.configure(
                                 with: SAESNUIKitConfig(using: dependencies),
-                                themeSettings: dependencies[singleton: .storage].read { db -> ThemeSettings in
-                                    (db[.theme], db[.themePrimaryColor], db[.themeMatchSystemDayNightCycle])
+                                themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                                    (
+                                        cache.get(.theme),
+                                        cache.get(.themePrimaryColor),
+                                        cache.get(.themeMatchSystemDayNightCycle)
+                                    )
                                 }
                             )
                             
-                            self?.versionMigrationsDidComplete()
+                            let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
+                                .loadUserMetadata()
+                            
+                            self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                         }
                 }
             },
@@ -104,23 +115,23 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ThemeManager.traitCollectionDidChange(previousTraitCollection)
     }
 
-    func versionMigrationsDidComplete() {
+    func versionMigrationsDidComplete(userMetadata: ExtensionHelper.UserMetadata?) {
         Log.assertOnMainThread()
 
         /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
         /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
         ///
         /// **Note:** We only want to do this if the app is active and ready for app extensions to run
-        if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[singleton: .storage, key: .isReadyForAppExtensions] {
+        if dependencies[singleton: .appContext].isAppForegroundAndActive && userMetadata != nil {
             dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                dependencies.mutate(cache: .libSession) { $0.syncAllPendingChanges(db) }
+                dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushes(db) }
             }
         }
 
-        checkIsAppReady(migrationsCompleted: true)
+        checkIsAppReady(migrationsCompleted: true, userMetadata: userMetadata)
     }
 
-    func checkIsAppReady(migrationsCompleted: Bool) {
+    func checkIsAppReady(migrationsCompleted: Bool, userMetadata: ExtensionHelper.UserMetadata?) {
         Log.assertOnMainThread()
 
         // If something went wrong during startup then show the UI still (it has custom UI for
@@ -128,15 +139,16 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         guard
             migrationsCompleted,
             dependencies[singleton: .storage].isValid,
-            !dependencies[singleton: .appReadiness].isAppReady
-        else { return showLockScreenOrMainContent() }
+            !dependencies[singleton: .appReadiness].isAppReady,
+            userMetadata != nil
+        else { return showLockScreenOrMainContent(userMetadata: userMetadata) }
 
         // Note that this does much more than set a flag;
         // it will also run all deferred blocks.
         dependencies[singleton: .appReadiness].setAppReady()
         dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
 
-        showLockScreenOrMainContent()
+        showLockScreenOrMainContent(userMetadata: userMetadata)
     }
     
     override func viewDidLoad() {
@@ -150,7 +162,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         Log.assertOnMainThread()
         Log.flush()
         
-        if dependencies[singleton: .storage, key: .isScreenLockEnabled] {
+        if dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) }) {
             self.dismiss(animated: false) { [weak self] in
                 Log.assertOnMainThread()
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
@@ -170,22 +182,32 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     // MARK: - Updating
     
-    private func showLockScreenOrMainContent() {
-        if dependencies[singleton: .storage, key: .isScreenLockEnabled] && !dependencies[defaults: .appGroup, key: .isMainAppActive] {
-            showLockScreen()
+    private func showLockScreenOrMainContent(userMetadata: ExtensionHelper.UserMetadata?) {
+        if dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) }) {
+            showLockScreen(userMetadata: userMetadata)
         }
         else {
-            showMainContent()
+            showMainContent(userMetadata: userMetadata)
         }
     }
     
-    private func showLockScreen() {
-        let screenLockVC = SAEScreenLockViewController(shareViewDelegate: self, using: dependencies)
+    private func showLockScreen(userMetadata: ExtensionHelper.UserMetadata?) {
+        let screenLockVC = SAEScreenLockViewController(
+            hasUserMetadata: userMetadata != nil,
+            onUnlock: { [weak self] in self?.showMainContent(userMetadata: userMetadata) },
+            onCancel: { [weak self] in
+                self?.shareViewWasCompleted(threadId: nil, interactionId: nil)
+            }
+        )
         setViewControllers([ screenLockVC ], animated: false)
     }
     
-    private func showMainContent() {
-        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(using: dependencies)
+    private func showMainContent(userMetadata: ExtensionHelper.UserMetadata?) {
+        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(
+            userMetadata: userMetadata,
+            itemProviders: try? extractItemProviders(),
+            using: dependencies
+        )
         threadPickerVC.shareNavController = self
         
         setViewControllers([ threadPickerVC ], animated: false)
@@ -206,16 +228,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ShareNavController.attachmentPrepPublisher = publisher
     }
     
-    func shareViewWasUnlocked() {
-        showMainContent()
-    }
-    
-    func shareViewWasCompleted() {
-        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
-    }
-    
-    func shareViewWasCancelled() {
-        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+    func shareViewWasCompleted(threadId: String?, interactionId: Int64?) {
+        dependencies[defaults: .appGroup, key: .lastSharedThreadId] = threadId
+        
+        if let interactionId: Int64 = interactionId {
+            dependencies[defaults: .appGroup, key: .lastSharedMessageId] = Int(interactionId)
+        }
+        
+        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
     
     func shareViewFailed(error: Error) {
@@ -226,11 +246,32 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             return
         }
         
+        Log.error("Failed to share due to error: \(error)")
+        let errorTitle: String = {
+            switch error {
+                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSending".localized()
+                case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
+                    return Constants.app_name
+                
+                case is AttachmentError: return "attachmentsErrorSending".localized()
+                
+                default: return Constants.app_name
+            }
+        }()
+        let errorText: String = {
+            switch error {
+                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSize".localized()
+                case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
+                    return "attachmentsErrorSending".localized()
+                
+                default: return "\(error)"
+            }
+        }()
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Constants.app_name,
-                body: .text("\(error)"),
+                title: errorTitle,
+                body: .text(errorText),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.extensionContext?.cancelRequest(withError: error) }
@@ -259,6 +300,23 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 
                 return dataSource
         }
+    }
+    
+    private func extractItemProviders() throws -> [NSItemProvider]? {
+        guard let inputItems = self.extensionContext?.inputItems else {
+            throw ShareViewControllerError.assertionError(description: "no input item")
+        }
+
+        for inputItemRaw in inputItems {
+            guard let inputItem = inputItemRaw as? NSExtensionItem else {
+                Log.error("invalid inputItem \(inputItemRaw)")
+                continue
+            }
+            
+            return ShareNavController.preferredItemProviders(inputItem: inputItem)
+        }
+        
+        throw ShareViewControllerError.assertionError(description: "no input item")
     }
 
     private class func preferredItemProviders(inputItem: NSExtensionItem) -> [NSItemProvider]? {
@@ -313,27 +371,16 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
 
     private func selectItemProviders() -> AnyPublisher<[NSItemProvider], Error> {
-        guard let inputItems = self.extensionContext?.inputItems else {
-            let error = ShareViewControllerError.assertionError(description: "no input item")
-            return Fail(error: error)
+        do {
+            let result: [NSItemProvider] = try extractItemProviders() ?? {
+                throw ShareViewControllerError.assertionError(description: "no input item")
+            }()
+            
+            return Just(result)
+                .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
-
-        for inputItemRaw in inputItems {
-            guard let inputItem = inputItemRaw as? NSExtensionItem else {
-                Log.error("invalid inputItem \(inputItemRaw)")
-                continue
-            }
-            
-            if let itemProviders = ShareNavController.preferredItemProviders(inputItem: inputItem) {
-                return Just(itemProviders)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
-        }
-        let error = ShareViewControllerError.assertionError(description: "no input item")
-        return Fail(error: error)
-            .eraseToAnyPublisher()
+        catch { return Fail(error: error).eraseToAnyPublisher() }
     }
     
     // MARK: - LoadedItem
@@ -727,13 +774,8 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     
     // MARK: - Functions
     
-    func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool) {
-        dependencies[singleton: .storage].write { db in
-            db[.theme] = theme
-            db[.themePrimaryColor] = primaryColor
-            db[.themeMatchSystemDayNightCycle] = matchSystemNightModeSetting
-        }
-    }
+    /// Unable to change the theme from the Share extension
+    func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool) {}
     
     func navBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
@@ -742,7 +784,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
-                    isMainnet: (dependencies[feature: .serviceNetwork] != .mainnet)
+                    isMainnet: (dependencies[feature: .serviceNetwork] == .mainnet)
                 )
         }
     }
@@ -762,36 +804,16 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     
     func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String]) {}
     
-    func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage {
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        var cachedIcon: UIImage?
-        
-        Task {
-            switch await dependencies[singleton: .imageDataManager].cachedImage(identifier: cacheKey)?.type {
-                case .staticImage(let image): cachedIcon = image
-                case .animatedImage(let frames, _): cachedIcon = frames.first // Shouldn't be possible
-                case .none: break
-            }
-            
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        switch cachedIcon {
-            case .some(let image): return image
-            case .none:
-                let generatedImage: UIImage = generator()
-                Task {
-                    await dependencies[singleton: .imageDataManager].cacheImage(
-                        generatedImage,
-                        for: cacheKey
-                    )
-                }
-                return generatedImage
-        }
-    }
-    
     func shouldShowStringKeys() -> Bool {
         return dependencies[feature: .showStringKeys]
+    }
+    
+    func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+        return AVURLAsset.asset(
+            for: path,
+            mimeType: mimeType,
+            sourceFilename: sourceFilename,
+            using: dependencies
+        )
     }
 }
