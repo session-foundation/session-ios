@@ -165,6 +165,9 @@ public struct UserProfileModel: View {
                         
                         if info.isProUser {
                             SessionProBadge_SwiftUI(size: .large)
+                                .onTapGesture {
+                                    info.onProBadgeTapped?()
+                                }
                         }
                     }
                     
@@ -230,7 +233,7 @@ public struct UserProfileModel: View {
                             .buttonStyle(PlainButtonStyle())
                             
                             Button {
-                                copySessionId()
+                                copySessionId(sessionId)
                             } label: {
                                 Text(isSessionIdCopied ? "copied".localized() : "copy".localized())
                                     .font(.Body.baseBold)
@@ -255,6 +258,7 @@ public struct UserProfileModel: View {
                             )
                             .font(.Body.smallRegular)
                             .foregroundColor(themeColor: .textSecondary)
+                            .multilineTextAlignment(.center)
                         }
                         
                         GeometryReader { geometry in
@@ -298,6 +302,7 @@ public struct UserProfileModel: View {
                         .foregroundColor(themeColor: .textPrimary)
                         .padding(.horizontal, Values.mediumSpacing)
                         .padding(.vertical, Values.smallSpacing)
+                        .frame(maxWidth: 260)
                 }
                 .overlay(
                     GeometryReader { geometry in
@@ -311,7 +316,7 @@ public struct UserProfileModel: View {
             backgroundThemeColor: .toast_background,
             isPresented: $isShowingTooltip,
             frame: $tooltipContentFrame,
-            position: .top,
+            position: .topLeft,
             viewId: tooltipViewId
         )
         .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
@@ -325,8 +330,8 @@ public struct UserProfileModel: View {
         }
     }
     
-    private func copySessionId() {
-        UIPasteboard.general.string = info.sessionId
+    private func copySessionId(_ sessionId: String) {
+        UIPasteboard.general.string = sessionId
         
         // Ensure we are on the main thread just in case
         DispatchQueue.main.async {
@@ -352,6 +357,7 @@ public extension UserProfileModel {
         let isProUser: Bool
         let isMessageRequestsEnabled: Bool
         let onStartThread: (() -> Void)?
+        let onProBadgeTapped: (() -> Void)?
         
         public init(
             sessionId: String?,
@@ -361,7 +367,8 @@ public extension UserProfileModel {
             nickname: String?,
             isProUser: Bool,
             isMessageRequestsEnabled: Bool,
-            onStartThread: (() -> Void)?
+            onStartThread: (() -> Void)?,
+            onProBadgeTapped: (() -> Void)?
         ) {
             self.sessionId = sessionId
             self.blindedId = blindedId
@@ -371,6 +378,7 @@ public extension UserProfileModel {
             self.isProUser = isProUser
             self.isMessageRequestsEnabled = isMessageRequestsEnabled
             self.onStartThread = onStartThread
+            self.onProBadgeTapped = onProBadgeTapped
         }
     }
 }

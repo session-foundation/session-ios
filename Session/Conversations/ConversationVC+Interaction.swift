@@ -234,7 +234,7 @@ extension ConversationVC:
     
     // MARK: - Session Pro CTA
     
-    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+    @discardableResult func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) -> Bool {
         let dependencies: Dependencies = viewModel.dependencies
         guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
             return false
@@ -243,7 +243,7 @@ extension ConversationVC:
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 delegate: dependencies[singleton: .sessionProState],
-                variant: .longerMessages,
+                variant: variant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
@@ -527,7 +527,7 @@ extension ConversationVC:
     }
     
     func handleCharacterLimitLabelTapped() {
-        guard !showSessionProCTAIfNeeded() else { return }
+        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
         
         self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
@@ -619,7 +619,7 @@ extension ConversationVC:
     }
     
     func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded() else { return }
+        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -1504,10 +1504,10 @@ extension ConversationVC:
     }
     
     func showUserProfileModal(for cellViewModel: MessageViewModel) {
-        guard viewModel.threadData.threadCanWrite == true else { return }
-        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
-        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
-        
+//        guard viewModel.threadData.threadCanWrite == true else { return }
+//        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
+//        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
+//        
         let dependencies: Dependencies = viewModel.dependencies
         
         let (info, _) = ProfilePictureView.getProfilePictureInfo(
@@ -1550,6 +1550,9 @@ extension ConversationVC:
                             openGroupServer: cellViewModel.threadOpenGroupServer,
                             openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
                         )
+                    },
+                    onProBadgeTapped: { [weak self] in
+                        self?.showSessionProCTAIfNeeded(.generic)
                     }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
