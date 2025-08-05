@@ -52,6 +52,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         self.prefilledName = prefilledName
         
         let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+        let finalPreselectedContactIds: Set<String> = Set(preselectedContactIds)
+            .subtracting([currentUserSessionId.hexString])
         
         // FIXME: This should be changed to be an async process (ideally coming from a view model)
         self.contacts = dependencies[singleton: .storage]
@@ -61,10 +63,12 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     SELECT \(contact.allColumns)
                     FROM \(contact)
                     WHERE (
-                        \(contact[.id]) IN \(Set(preselectedContactIds)) OR (
-                            \(contact[.isApproved]) = TRUE AND
-                            \(contact[.didApproveMe]) = TRUE AND
-                            \(contact[.isBlocked]) = FALSE
+                        \(SQL("\(contact[.id]) != \(currentUserSessionId.hexString)")) AND (
+                            \(contact[.id]) IN \(Set(finalPreselectedContactIds)) OR (
+                                \(contact[.isApproved]) = TRUE AND
+                                \(contact[.didApproveMe]) = TRUE AND
+                                \(contact[.isBlocked]) = FALSE
+                            )
                         )
                     )
                 """
@@ -73,7 +77,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     db,
                     using: dependencies
                 )
-                let missingIds: Set<String> = Set(preselectedContactIds)
+                let missingIds: Set<String> = finalPreselectedContactIds
                     .subtracting(fetchedResults.map { $0.profileId })
                 
                 return fetchedResults
@@ -88,7 +92,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             .defaulting(to: [])
             .sorted()
         
-        self.selectedProfileIds = Set(preselectedContactIds)
+        self.selectedProfileIds = finalPreselectedContactIds
         
         super.init(nibName: nil, bundle: nil)
     }

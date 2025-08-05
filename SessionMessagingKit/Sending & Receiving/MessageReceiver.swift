@@ -508,6 +508,11 @@ public enum MessageReceiver {
             case (.group, is GroupUpdateInviteResponseMessage): return
             case (.group, is GroupUpdateDeleteMemberContentMessage): return
             case (.group, is GroupUpdateMemberLeftMessage): return
+                
+            /// A `LibSessionMessage` may not contain a timestamp and may contain custom instructions regardless of the
+            /// state of the group so we should always process it (it should contain it's own versioning which can be used to determine
+            /// if it's old)
+            case (.group, is LibSessionMessage): return
             
             /// No special logic for these, just make sure that either the conversation is already visible, or we are allowed to
             /// make a config change
@@ -539,7 +544,11 @@ public enum MessageReceiver {
                     let deleteAttachmentsBefore: TimeInterval = (cache.groupDeleteAttachmentsBefore(groupSessionId: groupSessionId) ?? 0)
                     
                     guard
-                        messageSentTimestamp > deleteBefore && (
+                        (
+                            deleteBefore == 0 ||
+                            messageSentTimestamp > deleteBefore
+                        ) && (
+                            deleteAttachmentsBefore == 0 ||
                             (message as? VisibleMessage)?.dataMessageHasAttachments == false ||
                             messageSentTimestamp > deleteAttachmentsBefore
                         )
