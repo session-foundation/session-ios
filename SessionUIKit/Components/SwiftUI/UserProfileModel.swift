@@ -11,6 +11,7 @@ public struct UserProfileModel: View {
     @State private var isSessionIdCopied: Bool = false
     @State private var isShowingTooltip: Bool = false
     @State private var tooltipContentFrame: CGRect = CGRect.zero
+    @State private var isShowingLightBoxForQRCode: Bool = false
     
     private let tooltipViewId: String = "UserProfileModelToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "UserProfileModel" // stringlint:ignore
@@ -129,9 +130,7 @@ public struct UserProfileModel: View {
                                 .padding(.vertical, 5)
                                 .padding(.horizontal, 10)
                                 .onTapGesture {
-                                    withAnimation {
-                                        self.isProfileImageExpanding.toggle()
-                                    }
+                                    // TODO:
                                 }
                                 
                                 Image("ic_user_round_fill")

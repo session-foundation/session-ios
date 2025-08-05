@@ -45,7 +45,7 @@ public struct QRCodeView: View {
                 RoundedRectangle(cornerRadius: Self.cornerRadius)
                     .fill(themeColor: backgroundThemeColor)
                 
-                Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground))
+                Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground, iconName: logo))
                     .resizable()
                     .renderingMode(.template)
                     .foregroundColor(themeColor: qrCodeThemeColor)
@@ -56,27 +56,27 @@ public struct QRCodeView: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
                 
-                if let logo = logo {
-                    ZStack(alignment: .center) {
-                        Rectangle()
-                            .fill(themeColor: backgroundThemeColor)
-                        
-                        Image(logo)
-                            .resizable()
-                            .renderingMode(.template)
-                            .foregroundColor(themeColor: qrCodeThemeColor)
-                            .scaledToFit()
-                            .frame(
-                                maxWidth: .infinity,
-                                maxHeight: .infinity
-                            )
-                            .padding(.all, 4)
-                    }
-                    .frame(
-                        width: Self.logoSize,
-                        height: Self.logoSize
-                    )
-                }
+//                if let logo = logo {
+//                    ZStack(alignment: .center) {
+//                        Rectangle()
+//                            .fill(themeColor: backgroundThemeColor)
+//                        
+//                        Image(logo)
+//                            .resizable()
+//                            .renderingMode(.template)
+//                            .foregroundColor(themeColor: qrCodeThemeColor)
+//                            .scaledToFit()
+//                            .frame(
+//                                maxWidth: .infinity,
+//                                maxHeight: .infinity
+//                            )
+//                            .padding(.all, 4)
+//                    }
+//                    .frame(
+//                        width: Self.logoSize,
+//                        height: Self.logoSize
+//                    )
+//                }
             }
             .frame(
                 maxWidth: 400,
