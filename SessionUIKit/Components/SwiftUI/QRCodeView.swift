@@ -55,28 +55,6 @@ public struct QRCodeView: View {
                         maxHeight: .infinity
                     )
                     .padding(.vertical, Values.smallSpacing)
-                
-//                if let logo = logo {
-//                    ZStack(alignment: .center) {
-//                        Rectangle()
-//                            .fill(themeColor: backgroundThemeColor)
-//                        
-//                        Image(logo)
-//                            .resizable()
-//                            .renderingMode(.template)
-//                            .foregroundColor(themeColor: qrCodeThemeColor)
-//                            .scaledToFit()
-//                            .frame(
-//                                maxWidth: .infinity,
-//                                maxHeight: .infinity
-//                            )
-//                            .padding(.all, 4)
-//                    }
-//                    .frame(
-//                        width: Self.logoSize,
-//                        height: Self.logoSize
-//                    )
-//                }
             }
             .frame(
                 maxWidth: 400,
