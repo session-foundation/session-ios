@@ -11,7 +11,7 @@ enum _012_AddFTSIfNeeded: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Fix an issue that the fullTextSearchTable was dropped unintentionally and global search won't work.
         // This issue only happens to internal test users.
         if try db.tableExists("interaction_fts") == false {
@@ -24,6 +24,6 @@ enum _012_AddFTSIfNeeded: Migration {
             }
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

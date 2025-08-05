@@ -2,7 +2,7 @@
 //
 // stringlint:disable
 
-import Foundation
+import UIKit
 import KeychainSwift
 
 // MARK: - Singleton
@@ -10,7 +10,7 @@ import KeychainSwift
 public extension Singleton {
     static let keychain: SingletonConfig<KeychainStorageType> = Dependencies.create(
         identifier: "keychain",
-        createInstance: { _ in KeychainStorage() }
+        createInstance: { dependencies in KeychainStorage(using: dependencies) }
     )
 }
 
@@ -23,11 +23,15 @@ public extension Log.Category {
 // MARK: - KeychainStorageError
 
 public enum KeychainStorageError: Error {
+    case keySpecInvalid
+    case keySpecCreationFailed
+    case keySpecInaccessible
     case failure(code: Int32?, logCategory: Log.Category, description: String)
     
     public var code: Int32? {
         switch self {
             case .failure(let code, _, _): return code
+            default: return nil
         }
     }
 }
@@ -46,17 +50,49 @@ public protocol KeychainStorageType: AnyObject {
     func removeAll() throws
     
     func migrateLegacyKeyIfNeeded(legacyKey: String, legacyService: String?, toKey key: KeychainStorage.DataKey) throws
+    @discardableResult func getOrGenerateEncryptionKey(
+        forKey key: KeychainStorage.DataKey,
+        length: Int,
+        cat: Log.Category,
+        legacyKey: String?,
+        legacyService: String?
+    ) throws -> Data
+}
+
+public extension KeychainStorageType {
+    @discardableResult func getOrGenerateEncryptionKey(
+        forKey key: KeychainStorage.DataKey,
+        length: Int,
+        cat: Log.Category
+    ) throws -> Data {
+        return try getOrGenerateEncryptionKey(
+            forKey: key,
+            length: length,
+            cat: cat,
+            legacyKey: nil,
+            legacyService: nil
+        )
+    }
 }
 
 // MARK: - KeychainStorage
 
 public class KeychainStorage: KeychainStorageType {
+    private let dependencies: Dependencies
     private let keychain: KeychainSwift = {
         let result: KeychainSwift = KeychainSwift()
         result.synchronizable = false // This is the default but better to be explicit
         
         return result
     }()
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+    
+    // MARK: - Functions
     
     public func string(forKey key: KeychainStorage.StringKey) throws -> String {
         guard let result: String = keychain.get(key.rawValue) else {
@@ -169,6 +205,62 @@ public class KeychainStorage: KeychainStorageType {
         
         // Remove the data from the old location
         SecItemDelete(query as CFDictionary)
+    }
+    
+    @discardableResult public func getOrGenerateEncryptionKey(
+        forKey key: KeychainStorage.DataKey,
+        length: Int,
+        cat: Log.Category,
+        legacyKey: String?,
+        legacyService: String?
+    ) throws -> Data {
+        do {
+            if let legacyKey: String = legacyKey {
+                try? migrateLegacyKeyIfNeeded(
+                    legacyKey: legacyKey,
+                    legacyService: legacyService,
+                    toKey: key
+                )
+            }
+            
+            var encryptionKey: Data = try data(forKey: key)
+            defer { encryptionKey.resetBytes(in: 0..<encryptionKey.count) }
+            
+            guard encryptionKey.count == length else { throw KeychainStorageError.keySpecInvalid }
+            
+            return encryptionKey
+        }
+        catch {
+            switch (error, (error as? KeychainStorageError)?.code) {
+                case (KeychainStorageError.keySpecInvalid, _), (_, errSecItemNotFound):
+                    // No keySpec was found so we need to generate a new one
+                    do {
+                        var keySpec: Data = try dependencies[singleton: .crypto]
+                            .tryGenerate(.randomBytes(length))
+                        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
+                        
+                        try dependencies[singleton: .keychain].set(data: keySpec, forKey: key)
+                        return keySpec
+                    }
+                    catch {
+                        Log.error(cat, "Setting keychain value failed with error: \(error.localizedDescription)")
+                        throw KeychainStorageError.keySpecCreationFailed
+                    }
+                    
+                default:
+                    /// Because we use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, the keychain will
+                    /// be inaccessible after device restart until device is unlocked for the first time. If the app receives a push
+                    /// notification we won't be able to access the keychain to process that notification so we should just error
+                    if dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground {
+                        let appState: UIApplication.State = dependencies[singleton: .appContext].reportedApplicationState
+                        Log.error(cat, "CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
+                        throw KeychainStorageError.keySpecInaccessible
+                    }
+                    
+                    Log.error(cat, "CipherKeySpec inaccessible; not main app.")
+                    throw KeychainStorageError.keySpecInaccessible
+            }
+        }
     }
 }
 

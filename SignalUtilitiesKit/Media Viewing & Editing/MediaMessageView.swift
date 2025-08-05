@@ -21,6 +21,7 @@ public class MediaMessageView: UIView {
     private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
     public let attachment: SignalAttachment
+    private let disableLinkPreviewImageDownload: Bool
     
     private lazy var validImageData: Data? = {
         guard
@@ -57,7 +58,7 @@ public class MediaMessageView: UIView {
         
         return nil
     }()
-    private lazy var duration: TimeInterval? = attachment.duration()
+    private lazy var duration: TimeInterval? = attachment.duration(using: dependencies)
     private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
 
     // MARK: Initializers
@@ -69,12 +70,18 @@ public class MediaMessageView: UIView {
 
     // Currently we only use one mode (AttachmentApproval), so we could simplify this class, but it's kind
     // of nice that it's written in a flexible way in case we'd want to use it elsewhere again in the future.
-    public required init(attachment: SignalAttachment, mode: MediaMessageView.Mode, using dependencies: Dependencies) {
+    public required init(
+        attachment: SignalAttachment,
+        mode: MediaMessageView.Mode,
+        disableLinkPreviewImageDownload: Bool,
+        using dependencies: Dependencies
+    ) {
         if attachment.hasError { Log.error("[MediaMessageView] \(attachment.error.debugDescription)") }
         
         self.dependencies = dependencies
         self.attachment = attachment
         self.mode = mode
+        self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
         
         // Set the linkPreviewUrl if it's a url
         if attachment.isUrl, let linkPreviewURL: String = LinkPreview.previewUrl(for: attachment.text(), using: dependencies) {
@@ -119,8 +126,8 @@ public class MediaMessageView: UIView {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isHidden = true
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }
@@ -142,7 +149,7 @@ public class MediaMessageView: UIView {
             if let imageData: Data = validImageData, let dataUrl: URL = attachment.dataUrl {
                 view.layer.minificationFilter = .trilinear
                 view.layer.magnificationFilter = .trilinear
-                view.loadImage(identifier: dataUrl.absoluteString, from: imageData)
+                view.loadImage(.data(dataUrl.absoluteString, imageData))
             }
             else {
                 view.contentMode = .scaleAspectFit
@@ -343,7 +350,11 @@ public class MediaMessageView: UIView {
                 // error message will be broken
                 stackView.axis = .horizontal
                 
-                loadLinkPreview(linkPreviewURL: linkPreviewUrl, using: dependencies)
+                loadLinkPreview(
+                    linkPreviewURL: linkPreviewUrl,
+                    skipImageDownload: disableLinkPreviewImageDownload,
+                    using: dependencies
+                )
             }
         }
     }
@@ -446,10 +457,14 @@ public class MediaMessageView: UIView {
     
     // MARK: - Link Loading
     
-    private func loadLinkPreview(linkPreviewURL: String, using dependencies: Dependencies) {
+    private func loadLinkPreview(
+        linkPreviewURL: String,
+        skipImageDownload: Bool,
+        using dependencies: Dependencies
+    ) {
         loadingView.startAnimating()
         
-        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, using: dependencies)
+        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, skipImageDownload: skipImageDownload, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(

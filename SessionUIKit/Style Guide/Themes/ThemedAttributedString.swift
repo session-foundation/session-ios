@@ -6,7 +6,7 @@ import UIKit
 
 public extension NSAttributedString.Key {
     internal static let themedKeys: Set<NSAttributedString.Key> = [
-        .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor
+        .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor, .themeStrikethroughColor
     ]
     
     internal static let keysToIgnoreValidation: Set<NSAttributedString.Key> = [
@@ -17,6 +17,7 @@ public extension NSAttributedString.Key {
     static let themeBackgroundColor = NSAttributedString.Key("org.getsession.themeBackgroundColor")
     static let themeStrokeColor = NSAttributedString.Key("org.getsession.themeStrokeColor")
     static let themeUnderlineColor = NSAttributedString.Key("org.getsession.themeUnderlineColor")
+    static let themeStrikethroughColor = NSAttributedString.Key("org.getsession.themeStrikethroughColor")
     
     internal var originalKey: NSAttributedString.Key? {
         switch self {
@@ -24,6 +25,7 @@ public extension NSAttributedString.Key {
             case .themeBackgroundColor: return .backgroundColor
             case .themeStrokeColor: return .strokeColor
             case .themeUnderlineColor: return .underlineColor
+            case .themeStrikethroughColor: return .strikethroughColor
             default: return nil
         }
     }
@@ -131,7 +133,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         value.addAttribute(name, value: attrValue, range: targetRange)
         return self
     }
-    
+
     public func addAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attrs)

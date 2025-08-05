@@ -2,11 +2,11 @@
 
 import Foundation
 
-public struct SessionId: Equatable, Hashable, CustomStringConvertible {
+public struct SessionId: Codable, Sendable, Equatable, Hashable, CustomStringConvertible {
     public static let byteCount: Int = 33
     public static let invalid: SessionId = SessionId(.standard, publicKey: [])
     
-    public enum Prefix: String, CaseIterable, Hashable {
+    public enum Prefix: String, Sendable, Codable, CaseIterable, Hashable {
         case standard = "05"            // Used for identified users, open groups, etc.
         case blinded15 = "15"           // Used for authentication and participants in open groups with blinding enabled
         case blinded25 = "25"           // Used for authentication and participants in open groups with blinding enabled

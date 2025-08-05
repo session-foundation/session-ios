@@ -18,17 +18,22 @@ public struct MentionInfo: FetchableRecord, Decodable, ColumnExpressible {
     public let threadVariant: SessionThread.Variant
     public let openGroupServer: String?
     public let openGroupRoomToken: String?
+    
+    public init(profile: Profile, threadVariant: SessionThread.Variant, openGroupServer: String? = nil, openGroupRoomToken: String? = nil) {
+        self.profile = profile
+        self.threadVariant = threadVariant
+        self.openGroupServer = openGroupServer
+        self.openGroupRoomToken = openGroupRoomToken
+    }
 }
 
 public extension MentionInfo {
     // stringlint:ignore_contents
     static func query(
-        userPublicKey: String,
         threadId: String,
         threadVariant: SessionThread.Variant,
         targetPrefixes: [SessionId.Prefix],
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         pattern: FTS5Pattern?
     ) -> AdaptedFetchRequest<SQLRequest<MentionInfo>>? {
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
@@ -47,11 +52,6 @@ public extension MentionInfo {
             }
             .joined(operator: .or)
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
-        let currentUserIds: Set<String> = [
-            userPublicKey,
-            currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId
-        ].compactMap { $0 }.asSet()
         
         /// The query needs to differ depending on the thread variant because the behaviour should be different:
         ///
@@ -98,9 +98,9 @@ public extension MentionInfo {
                         \(targetJoin)
                         \(targetWhere) AND (
                             \(SQL("\(profile[.id]) = \(threadId)")) OR
-                            \(SQL("\(profile[.id]) IN \(currentUserIds)"))
+                            \(SQL("\(profile[.id]) IN \(currentUserSessionIds)"))
                         )
-                        ORDER BY \(SQL("\(profile[.id]) IN \(currentUserIds)")) DESC
+                        ORDER BY \(SQL("\(profile[.id]) IN \(currentUserSessionIds)")) DESC
                     """)
                     
                 case .legacyGroup, .group:
@@ -118,7 +118,7 @@ public extension MentionInfo {
                         \(targetWhere)
                         GROUP BY \(profile[.id])
                         ORDER BY
-                            \(SQL("\(profile[.id]) IN \(currentUserIds)")) DESC,
+                            \(SQL("\(profile[.id]) IN \(currentUserSessionIds)")) DESC,
                             IFNULL(\(profile[.nickname]), \(profile[.name])) ASC
                     """)
                     
@@ -140,7 +140,7 @@ public extension MentionInfo {
                         \(targetWhere)
                         GROUP BY \(profile[.id])
                         ORDER BY
-                            \(SQL("\(profile[.id]) IN \(currentUserIds)")) DESC,
+                            \(SQL("\(profile[.id]) IN \(currentUserSessionIds)")) DESC,
                             \(interaction[.timestampMs].desc)
                         LIMIT 20
                     """)

@@ -20,7 +20,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
     lazy var dimmingView: UIView = {
         let result = UIVisualEffectView()
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
+        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _, _ in
             result?.effect = UIBlurEffect(
                 style: (theme.interfaceStyle == .light ?
                     UIBlurEffect.Style.systemUltraThinMaterialLight :
@@ -66,8 +66,8 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         
         result.accessibilityIdentifier = "Loading animation"
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }
@@ -84,7 +84,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    public required init(
+    @MainActor public required init(
         canCancel: Bool = false,
         message: String? = nil,
         onAppear: @escaping (ModalActivityIndicatorViewController) -> Void
@@ -100,15 +100,13 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         self.modalTransitionStyle = .crossDissolve
     }
 
-    public class func present(
+    @MainActor public class func present(
         fromViewController: UIViewController?,
         canCancel: Bool = false,
         message: String? = nil,
         onAppear: @escaping (ModalActivityIndicatorViewController) -> Void
     ) {
         guard let fromViewController: UIViewController = fromViewController else { return }
-        
-        Log.assertOnMainThread()
         
         fromViewController.present(
             ModalActivityIndicatorViewController(canCancel: canCancel, message: message, onAppear: onAppear),
@@ -210,43 +208,38 @@ public extension Publisher {
             return self.eraseToAnyPublisher()
         }
         
-        var modalActivityIndicator: ModalActivityIndicatorViewController?
-        
-        switch Thread.isMainThread {
-            case true: modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
-            case false:
-                DispatchQueue.main.sync {
-                    modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
+        return Deferred {
+            Future<ModalActivityIndicatorViewController, Never> { promise in
+                Task { @MainActor in
+                    promise(.success(ModalActivityIndicatorViewController(onAppear: { _ in })))
                 }
-                
-        }
-        
-        return self
-            .handleEvents(
-                receiveSubscription: { [weak viewController] _ in
-                    guard let indicator: ModalActivityIndicatorViewController = modalActivityIndicator else {
-                        return
-                    }
-                    
-                    switch Thread.isMainThread {
-                        case true: viewController?.present(indicator, animated: true)
-                        case false:
-                            DispatchQueue.main.async {
-                                viewController?.present(indicator, animated: true)
-                            }
-                    }
-                }
-            )
-            .asResult()
-            .flatMap { result -> AnyPublisher<Output, Failure> in
-                Deferred {
-                    Future<Output, Failure> { resolver in
-                        modalActivityIndicator?.dismiss(completion: {
-                            resolver(result)
-                        })
-                    }
-                }.eraseToAnyPublisher()
             }
-            .eraseToAnyPublisher()
+        }
+        .flatMap { indicator -> AnyPublisher<Output, Failure> in
+            self
+                .handleEvents(
+                    receiveSubscription: { [weak viewController] _ in
+                        switch Thread.isMainThread {
+                            case true: viewController?.present(indicator, animated: true)
+                            case false:
+                                DispatchQueue.main.async {
+                                    viewController?.present(indicator, animated: true)
+                                }
+                        }
+                    }
+                )
+                .asResult()
+                .flatMap { result -> AnyPublisher<Output, Failure> in
+                    Deferred {
+                        Future<Output, Failure> { resolver in
+                            indicator.dismiss(completion: {
+                                resolver(result)
+                            })
+                        }
+                    }.eraseToAnyPublisher()
+                }
+                .eraseToAnyPublisher()
+        }
+        .eraseToAnyPublisher()
     }
 }

@@ -135,7 +135,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     .preparedSendMessage(
                         message: SnodeMessage(
                             recipient: groupSessionId.hexString,
-                            data: encryptedDeleteMessageData.base64EncodedString(),
+                            data: encryptedDeleteMessageData,
                             ttl: Message().ttl,
                             timestampMs: UInt64(messageSendTimestamp)
                         ),
@@ -153,26 +153,29 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 let preparedMemberContentRemovalMessage: Network.PreparedRequest<Void>? = { () -> Network.PreparedRequest<Void>? in
                     guard !memberIdsToRemoveContent.isEmpty else { return nil }
                     
-                    return dependencies[singleton: .storage].write { db in
-                        try MessageSender.preparedSend(
-                            db,
-                            message: GroupUpdateDeleteMemberContentMessage(
-                                memberSessionIds: Array(memberIdsToRemoveContent),
-                                messageHashes: [],
-                                sentTimestampMs: UInt64(targetChangeTimestampMs),
-                                authMethod: Authentication.groupAdmin(
-                                    groupSessionId: groupSessionId,
-                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
-                                ),
-                                using: dependencies
+                    return try? MessageSender.preparedSend(
+                        message: GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: Array(memberIdsToRemoveContent),
+                            messageHashes: [],
+                            sentTimestampMs: UInt64(targetChangeTimestampMs),
+                            authMethod: Authentication.groupAdmin(
+                                groupSessionId: groupSessionId,
+                                ed25519SecretKey: Array(groupIdentityPrivateKey)
                             ),
-                            to: .closedGroup(groupPublicKey: groupSessionId.hexString),
-                            namespace: .groupMessages,
-                            interactionId: nil,
-                            fileIds: [],
                             using: dependencies
-                        )
-                    }
+                        ),
+                        to: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                        namespace: .groupMessages,
+                        interactionId: nil,
+                        attachments: nil,
+                        authMethod: Authentication.groupAdmin(
+                            groupSessionId: groupSessionId,
+                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                        ),
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
+                    .map { _, _ in () }
                 }()
                 
                 /// Combine the two requests to be sent at the same time

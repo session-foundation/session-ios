@@ -61,7 +61,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .writePublisher { db -> AuthenticationMethod in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -72,17 +72,20 @@ public enum GroupPromoteMemberJob: JobExecutor {
                         using: dependencies
                     )
                 
-                return try MessageSender.preparedSend(
-                    db,
+                return try Authentication.with(db, swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
+            }
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                try MessageSender.preparedSend(
                     message: message,
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,
                     interactionId: nil,
-                    fileIds: [],
+                    attachments: nil,
+                    authMethod: authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
-                )
+                ).send(using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
@@ -151,10 +154,9 @@ public enum GroupPromoteMemberJob: JobExecutor {
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
-        let memberZeroName: String = memberIds.first.map {
-            profileInfo[$0]?.displayName(for: .group) ??
-            Profile.truncated(id: $0, truncating: .middle)
-        }.defaulting(to: "anonymous".localized())
+        let memberZeroName: String = memberIds.first
+            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
             case 1:
@@ -166,7 +168,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
             case 2:
                 let memberOneName: String = (
                     profileInfo[memberIds[1]]?.displayName(for: .group) ??
-                    Profile.truncated(id: memberIds[1], truncating: .middle)
+                    memberIds[1].truncated()
                 )
                 
                 return "adminPromotionFailedDescriptionTwo"

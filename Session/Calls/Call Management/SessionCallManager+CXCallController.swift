@@ -41,7 +41,7 @@ extension SessionCallManager {
             requestTransaction(transaction, completion: completion)
         }
         else {
-            answerCallAction()
+            Task { @MainActor [weak self] in self?.answerCallAction() }
             completion?(nil)
         }
     }

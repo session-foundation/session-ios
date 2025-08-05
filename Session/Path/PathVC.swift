@@ -36,8 +36,8 @@ final class PathVC: BaseVC {
         result.set(.width, to: 64)
         result.set(.height, to: 64)
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] _, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }
@@ -331,7 +331,7 @@ private final class LineView: UIView {
         ).cgPath
         result.layer.cornerRadius = (PathVC.dotSize / 2)
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
+        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _, _ in
             result?.layer.shadowOpacity = (theme.interfaceStyle == .light ? 0.4 : 1)
             result?.layer.shadowRadius = (theme.interfaceStyle == .light ? 1 : 2)
         }

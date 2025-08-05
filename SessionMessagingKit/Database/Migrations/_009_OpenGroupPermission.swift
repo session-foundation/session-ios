@@ -10,7 +10,7 @@ enum _009_OpenGroupPermission: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "openGroup") { t in
             t.add(column: "permissions", .integer)
                 .defaults(to: OpenGroup.Permissions.all)
@@ -21,6 +21,6 @@ enum _009_OpenGroupPermission: Migration {
         // added/changed fields
         try db.execute(sql: "UPDATE openGroup SET infoUpdates = 0")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

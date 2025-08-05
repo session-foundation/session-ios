@@ -60,11 +60,11 @@ public extension Setting.BoolKey {
     /// A flag indicating whether the user has ever saved a thread
     static let hasSavedThread: Setting.BoolKey = "hasSavedThread"
     
+    /// A flag indicating whether the user has ever received or tried to send a message (whether succesffully or not)
+    static let hasSavedMessage: Setting.BoolKey = "hasSavedMessage"
+    
     /// A flag indicating whether the user has ever send a message
     static let hasSentAMessage: Setting.BoolKey = "hasSentAMessageKey"
-    
-    /// A flag indicating whether the app is ready for app extensions to run
-    static let isReadyForAppExtensions: Setting.BoolKey = "isReadyForAppExtensions"
     
     /// Controls whether concurrent audio messages should automatically be played after the one the user starts
     /// playing finishes
@@ -83,37 +83,49 @@ public extension Setting.BoolKey {
 }
 
 // stringlint:ignore_contents
-public extension Setting.StringKey {
+public extension KeyValueStore.StringKey {
     /// This is the most recently recorded Push Notifications token
-    static let lastRecordedPushToken: Setting.StringKey = "lastRecordedPushToken"
+    static let lastRecordedPushToken: KeyValueStore.StringKey = "lastRecordedPushToken"
     
     /// This is the most recently recorded Voip token
-    static let lastRecordedVoipToken: Setting.StringKey = "lastRecordedVoipToken"
+    static let lastRecordedVoipToken: KeyValueStore.StringKey = "lastRecordedVoipToken"
     
     /// This is the last six emoji used by the user
-    static let recentReactionEmoji: Setting.StringKey = "recentReactionEmoji"
+    static let recentReactionEmoji: KeyValueStore.StringKey = "recentReactionEmoji"
     
     /// This is the preferred skin tones preference for the given emoji
-    static func emojiPreferredSkinTones(emoji: String) -> Setting.StringKey {
-        return Setting.StringKey("preferredSkinTones-\(emoji)")
+    static func emojiPreferredSkinTones(emoji: String) -> KeyValueStore.StringKey {
+        return KeyValueStore.StringKey("preferredSkinTones-\(emoji)")
     }
 }
 
 // stringlint:ignore_contents
-public extension Setting.DoubleKey {
-    /// The duration of the timeout for screen lock in seconds
-    @available(*, unavailable, message: "Screen Lock should always be instant now")
-    static let screenLockTimeoutSeconds: Setting.DoubleKey = "screenLockTimeoutSeconds"
-}
-
-// stringlint:ignore_contents
-public extension Setting.IntKey {
+public extension KeyValueStore.IntKey {
     /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
     /// a database change on launch so the database will output an error if it fails to write
-    static let activeCounter: Setting.IntKey = "activeCounter"
+    static let activeCounter: KeyValueStore.IntKey = "activeCounter"
 }
 
 public enum Preferences {
+    public struct NotificationSettings {
+        public let previewType: Preferences.NotificationPreviewType
+        public let sound: Preferences.Sound
+        public let mentionsOnly: Bool
+        public let mutedUntil: TimeInterval?
+        
+        public init(
+            previewType: Preferences.NotificationPreviewType,
+            sound: Preferences.Sound,
+            mentionsOnly: Bool,
+            mutedUntil: TimeInterval?
+        ) {
+            self.previewType = previewType
+            self.sound = sound
+            self.mentionsOnly = mentionsOnly
+            self.mutedUntil = mutedUntil
+        }
+    }
+    
     // stringlint:ignore_contents
     public static var isCallKitSupported: Bool {
 #if targetEnvironment(simulator)

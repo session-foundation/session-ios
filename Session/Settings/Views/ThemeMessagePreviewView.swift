@@ -23,13 +23,13 @@ final class ThemeMessagePreviewView: UIView {
                     interactionId: -1,
                     authorId: "",
                     timestampMs: 0,
-                    body: "appearancePreview1".localized(),
-                    attachmentId: nil
+                    body: "appearancePreview1".localized()
                 ),
                 cellType: .textOnlyMessage
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
+            shouldExpanded: false,
             lastSearchText: nil,
             using: dependencies
         )
@@ -53,6 +53,7 @@ final class ThemeMessagePreviewView: UIView {
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
+            shouldExpanded: false,
             lastSearchText: nil,
             using: dependencies
         )

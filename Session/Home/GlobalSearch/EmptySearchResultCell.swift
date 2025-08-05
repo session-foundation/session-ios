@@ -26,8 +26,8 @@ class EmptySearchResultCell: UITableViewCell {
         result.set(.width, to: 40)
         result.set(.height, to: 40)
         
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
+        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _, resolve in
+            guard let textPrimary: UIColor = resolve(.textPrimary) else { return }
             
             result?.color = textPrimary
         }

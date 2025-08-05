@@ -52,6 +52,16 @@ import SessionUtilitiesKit
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
+    
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        
+        // CoreAnimation animations are stopped when a view is taken off screen, so ensure animations
+        // are restored if necessary
+        if window != nil && isAnimating {
+            startAnimation()
+        }
+    }
 
     // MARK: - Notifications
 
@@ -104,8 +114,8 @@ import SessionUtilitiesKit
 
     private class DotView: UIView {
         private let dotType: DotType
-
         private let shapeLayer = CAShapeLayer()
+        private var baseColor: UIColor = .white
 
         @available(*, unavailable, message:"use other constructor instead.")
         required init?(coder aDecoder: NSCoder) {
@@ -127,9 +137,10 @@ import SessionUtilitiesKit
 
             layer.addSublayer(shapeLayer)
             
-            ThemeManager.onThemeChange(observer: self) { [weak self] _, _ in
+            ThemeManager.onThemeChange(observer: self) { [weak self] _, _, resolve in
                 guard self?.shapeLayer.animationKeys()?.isEmpty == false else { return }
                 
+                self?.baseColor = (resolve(.messageBubble_incomingText) ?? .white)
                 self?.startAnimation()
             }
         }
@@ -138,14 +149,13 @@ import SessionUtilitiesKit
         fileprivate func startAnimation() {
             stopAnimation()
 
-            let baseColor: UIColor = (ThemeManager.currentTheme.color(for: .messageBubble_incomingText) ?? .white)
             let timeIncrement: CFTimeInterval = 0.15
             var colorValues = [CGColor]()
             var pathValues = [CGPath]()
             var keyTimes = [CFTimeInterval]()
             var animationDuration: CFTimeInterval = 0
 
-            let addDotKeyFrame = { (keyFrameTime: CFTimeInterval, progress: CGFloat) in
+            let addDotKeyFrame = { [baseColor] (keyFrameTime: CFTimeInterval, progress: CGFloat) in
                 let dotColor = baseColor.withAlphaComponent(progress.clamp01().lerp(0.4, 1.0))
                 colorValues.append(dotColor.cgColor)
                 let radius = progress.clamp01().lerp(TypingIndicatorView.kMinRadiusPt, TypingIndicatorView.kMaxRadiusPt)

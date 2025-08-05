@@ -80,7 +80,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
 // MARK: - Protobuf
 
 public extension LinkPreview {
-    init?(_ db: Database, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
+    init?(_ db: ObservingDatabase, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
         guard let previewProto = proto.preview.first else { throw LinkPreviewError.noPreview }
         guard URL(string: previewProto.url) != nil else { throw LinkPreviewError.invalidInput }
         guard LinkPreview.isValidLinkUrl(previewProto.url) else { throw LinkPreviewError.invalidInput }
@@ -220,10 +220,10 @@ public extension LinkPreview {
         selectedRange: NSRange? = nil,
         using dependencies: Dependencies
     ) -> String? {
-        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else { return nil }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else { return nil }
         guard let body: String = body else { return nil }
 
-        if let cachedUrl = previewUrlCache.get(key: body) {
+        if let cachedUrl = _previewUrlCache.performMap({ $0.get(key: body) }) {
             guard cachedUrl.count > 0 else {
                 return nil
             }
@@ -303,7 +303,7 @@ public extension LinkPreview {
 
         // Exit early if link previews are not enabled in order to avoid
         // tainting the cache.
-        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else { return }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else { return }
 
         serialQueue.sync {
             linkPreviewDraftCache = linkPreviewDraft
@@ -312,9 +312,10 @@ public extension LinkPreview {
     
     static func tryToBuildPreviewInfo(
         previewUrl: String?,
+        skipImageDownload: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<LinkPreviewDraft, Error> {
-        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else {
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else {
             return Fail(error: LinkPreviewError.featureDisabled)
                 .eraseToAnyPublisher()
         }
@@ -338,6 +339,7 @@ public extension LinkPreview {
                     linkData: data,
                     response: response,
                     linkUrlString: previewUrl,
+                    skipImageDownload: skipImageDownload,
                     using: dependencies
                 )
             }
@@ -411,29 +413,27 @@ public extension LinkPreview {
         linkData: Data,
         response: URLResponse,
         linkUrlString: String,
+        skipImageDownload: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<LinkPreviewDraft, Error> {
         do {
             let contents = try parse(linkData: linkData, response: response)
-
             let title = contents.title
-            guard let imageUrl = contents.imageUrl else {
-                return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
 
-            guard URL(string: imageUrl) != nil else {
+            // If we don't want to download the image then just return the non-image content
+            guard !skipImageDownload else {
                 return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
             }
-            guard let imageFileExtension = fileExtension(forImageUrl: imageUrl) else {
-                return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
-            guard let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType else {
+            
+            // If the image isn't valid then just return the non-image content
+            guard
+                let imageUrl: String = contents.imageUrl,
+                URL(string: imageUrl) != nil,
+                let imageFileExtension: String = fileExtension(forImageUrl: imageUrl),
+                let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType
+            else {
                 return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
@@ -510,8 +510,14 @@ public extension LinkPreview {
             )
             .tryMap { asset, _ -> Data in
                 let type: UTType? = UTType(sessionMimeType: imageMimeType)
-                let imageSize = Data.imageSize(for: asset.filePath, type: type, using: dependencies)
-                
+                let imageSize = Data.mediaSize(
+                    for: asset.filePath,
+                    type: type,
+                    mimeType: imageMimeType,
+                    sourceFilename: nil,
+                    using: dependencies
+                )
+
                 guard imageSize.width > 0, imageSize.height > 0 else {
                     throw LinkPreviewError.invalidContent
                 }

@@ -18,13 +18,13 @@ extension SessionCell {
         let isEnabled: Bool
         let accessibility: Accessibility?
         let confirmationInfo: ConfirmationModal.Info?
-        let onTap: (() -> Void)?
-        let onTapView: ((UIView?) -> Void)?
+        let onTap: (@MainActor () -> Void)?
+        let onTapView: (@MainActor (UIView?) -> Void)?
         
-        var currentBoolValue: Bool {
+        var boolValue: Bool {
             return (
-                (leadingAccessory?.currentBoolValue ?? false) ||
-                (trailingAccessory?.currentBoolValue ?? false)
+                (leadingAccessory?.boolValue ?? false) ||
+                (trailingAccessory?.boolValue ?? false)
             )
         }
         
@@ -42,8 +42,8 @@ extension SessionCell {
             isEnabled: Bool = true,
             accessibility: Accessibility? = nil,
             confirmationInfo: ConfirmationModal.Info? = nil,
-            onTap: (() -> Void)? = nil,
-            onTapView: ((UIView?) -> Void)? = nil
+            onTap: (@MainActor () -> Void)? = nil,
+            onTapView: (@MainActor (UIView?) -> Void)? = nil
         ) {
             self.id = id
             self.position = position
@@ -126,7 +126,7 @@ public extension SessionCell.Info {
         isEnabled: Bool = true,
         accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
-        onTap: (() -> Void)? = nil
+        onTap: (@MainActor () -> Void)? = nil
     ) {
         self.id = id
         self.position = position
@@ -182,7 +182,7 @@ public extension SessionCell.Info {
         isEnabled: Bool = true,
         accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
-        onTap: (() -> Void)? = nil
+        onTap: (@MainActor () -> Void)? = nil
     ) {
         self.id = id
         self.position = position
@@ -211,7 +211,7 @@ public extension SessionCell.Info {
         isEnabled: Bool = true,
         accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
-        onTap: (() -> Void)? = nil
+        onTap: (@MainActor () -> Void)? = nil
     ) {
         self.id = id
         self.position = position
@@ -241,8 +241,8 @@ public extension SessionCell.Info {
         isEnabled: Bool = true,
         accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
-        onTap: (() -> Void)? = nil,
-        onTapView: ((UIView?) -> Void)? = nil
+        onTap: (@MainActor () -> Void)? = nil,
+        onTapView: (@MainActor (UIView?) -> Void)? = nil
     ) {
         self.id = id
         self.position = position

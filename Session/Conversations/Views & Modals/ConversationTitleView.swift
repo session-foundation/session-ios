@@ -109,7 +109,7 @@ final class ConversationTitleView: UIView {
         self.oldSize = bounds.size
     }
     
-    public func update(
+    @MainActor public func update(
         with name: String,
         isNoteToSelf: Bool,
         isMessageRequest: Bool,
@@ -119,22 +119,6 @@ final class ConversationTitleView: UIView {
         userCount: Int?,
         disappearingMessagesConfig: DisappearingMessagesConfiguration?
     ) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.update(
-                    with: name,
-                    isNoteToSelf: isNoteToSelf,
-                    isMessageRequest: isMessageRequest,
-                    threadVariant: threadVariant,
-                    mutedUntilTimestamp: mutedUntilTimestamp,
-                    onlyNotifyForMentions: onlyNotifyForMentions,
-                    userCount: userCount,
-                    disappearingMessagesConfig: disappearingMessagesConfig
-                )
-            }
-            return
-        }
-        
         let shouldHaveSubtitle: Bool = (
             !isMessageRequest && (
                 Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) ||

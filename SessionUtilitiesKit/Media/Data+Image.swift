@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVKit
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -82,9 +83,10 @@ public extension Data {
     }
     
     var sizeForWebpData: CGSize {
-        guard let source: CGImageSource = CGImageSourceCreateWithData(self as CFData, nil) else {
-            return .zero
-        }
+        guard
+            guessedImageFormat == .webp,
+            let source: CGImageSource = CGImageSourceCreateWithData(self as CFData, nil)
+        else { return .zero }
         
         // Check if there's at least one image
         let count: Int = CGImageSourceGetCount(source)
@@ -232,16 +234,29 @@ public extension Data {
         return ImageDimensions(pixelSize: CGSize(width: width, height: height), depthBytes: depthBytes)
     }
     
-    static func imageSize(for path: String, type: UTType?, using dependencies: Dependencies) -> CGSize {
+    static func mediaSize(
+        for path: String,
+        type: UTType?,
+        mimeType: String?,
+        sourceFilename: String?,
+        using dependencies: Dependencies
+    ) -> CGSize {
         let fileUrl: URL = URL(fileURLWithPath: path)
-        let isAnimated: Bool = (type?.isAnimated ?? false)
+        let maybePixelSize: CGSize? = extractSize(
+            from: path,
+            type: type,
+            mimeType: mimeType,
+            sourceFilename: sourceFilename,
+            using: dependencies
+        )
         
-        guard
-            let data: Data = try? Data(validImageDataAt: path, type: type, using: dependencies),
-            let pixelSize: CGSize = imageSize(at: path, with: data, type: type, isAnimated: isAnimated)
-        else { return .zero }
+        guard let pixelSize: CGSize = maybePixelSize else { return .zero }
         
-        guard type != .webP else { return pixelSize }
+        // WebP and videos shouldn't have orientations so no need for any logic to rotate the size
+        switch (type, type?.isVideo, type?.isAnimated) {
+            case (.webP, _, _), (_, true, _), (_, _, true): return pixelSize
+            default: break
+        }
                 
         // With CGImageSource we avoid loading the whole image into memory.
         let options: [String: Any] = [kCGImageSourceShouldCache as String: NSNumber(booleanLiteral: false)]
@@ -253,73 +268,102 @@ public extension Data {
             let height: CGFloat = properties[kCGImagePropertyPixelHeight as String] as? CGFloat
         else { return .zero }
         
-        guard let orientation: UIImage.Orientation = (properties[kCGImagePropertyOrientation as String] as? Int).map({ UIImage.Orientation(exif: $0) }) else {
+        guard
+            let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation] as? UInt32,
+            let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+        else {
             return CGSize(width: width, height: height)
         }
         
-        return apply(orientation: orientation, to: CGSize(width: width, height: height))
+        return apply(
+            orientation: UIImage.Orientation(cgOrientation),
+            to: CGSize(width: width, height: height)
+        )
     }
                      
     private static func apply(orientation: UIImage.Orientation, to imageSize: CGSize) -> CGSize {
         switch orientation {
-            case .up,               // EXIF = 1
-                .upMirrored,        // EXIF = 2
-                .down,              // EXIF = 3
-                .downMirrored:      // EXIF = 4
-                return imageSize
-                
-            case .leftMirrored,     // EXIF = 5
-                .left,              // EXIF = 6
-                .rightMirrored,     // EXIF = 7
-                .right:             // EXIF = 8
+            case .up, .upMirrored, .down, .downMirrored: return imageSize
+            case .leftMirrored, .left, .rightMirrored, .right:
                 return CGSize(width: imageSize.height, height: imageSize.width)
-                
                 
             @unknown default: return imageSize
         }
     }
     
-    private static func imageSize(at path: String, with data: Data?, type: UTType?, isAnimated: Bool) -> CGSize? {
+    private static func extractSize(
+        from path: String,
+        type: UTType?,
+        mimeType: String?,
+        sourceFilename: String?,
+        using dependencies: Dependencies
+    ) -> CGSize? {
         let fileUrl: URL = URL(fileURLWithPath: path)
         
-        // Need to custom handle WebP images via libwebp
-        guard type != .webP else {
-            guard let targetData: Data = (data ?? (try? Data(contentsOf: fileUrl, options: [.dataReadingMapped]))) else {
-                return nil
-            }
-            
-            let imageSize: CGSize = targetData.sizeForWebpData
-            
-            guard imageSize.width > 0, imageSize.height > 0 else { return nil }
-            
-            return imageSize
+        switch (type, type?.isVideo) {
+            case (.webP, _):
+                // Need to custom handle WebP images
+                guard let targetData: Data = try? Data(contentsOf: fileUrl, options: [.dataReadingMapped]) else {
+                    return nil
+                }
+                
+                let imageSize: CGSize = targetData.sizeForWebpData
+                
+                guard imageSize.width > 0, imageSize.height > 0 else { return nil }
+                
+                return imageSize
+                
+            case (_, true):
+                // Videos don't have the same metadata as images so also need custom handling
+                let assetInfo: (asset: AVURLAsset, cleanup: () -> Void)? = AVURLAsset.asset(
+                    for: path,
+                    mimeType: mimeType,
+                    sourceFilename: sourceFilename,
+                    using: dependencies
+                )
+                
+                guard
+                    let asset: AVURLAsset = assetInfo?.asset,
+                    let track: AVAssetTrack = asset.tracks(withMediaType: .video).first
+                else { return nil }
+                
+                let size: CGSize = track.naturalSize
+                let transformedSize: CGSize = size.applying(track.preferredTransform)
+                let videoSize: CGSize = CGSize(
+                    width: abs(transformedSize.width),
+                    height: abs(transformedSize.height)
+                )
+                
+                guard videoSize.width > 0, videoSize.height > 0 else { return nil }
+                
+                return videoSize
+                
+            default:
+                // Otherwise use our custom code
+                guard
+                    let imageSource = CGImageSourceCreateWithURL(fileUrl as CFURL, nil),
+                    let dimensions: ImageDimensions = imageDimensions(source: imageSource),
+                    dimensions.pixelSize.width > 0,
+                    dimensions.pixelSize.height > 0,
+                    dimensions.depthBytes > 0
+                else { return nil }
+                
+                return dimensions.pixelSize
         }
-        
-        // Otherwise use our custom code
-        guard
-            let imageSource = CGImageSourceCreateWithURL(fileUrl as CFURL, nil),
-            let dimensions: ImageDimensions = imageDimensions(source: imageSource),
-            dimensions.pixelSize.width > 0,
-            dimensions.pixelSize.height > 0,
-            dimensions.depthBytes > 0
-        else { return nil }
-        
-        return dimensions.pixelSize
     }
 }
 
 private extension UIImage.Orientation {
-    init?(exif: Int) {
-        switch exif {
-            case 1: self = .up
-            case 2: self = .upMirrored
-            case 3: self = .down
-            case 4: self = .downMirrored
-            case 5: self = .leftMirrored
-            case 6: self = .left
-            case 7: self = .rightMirrored
-            case 8: self = .right
-            default: return nil
+    init(_ cgOrientation: CGImagePropertyOrientation) {
+        switch cgOrientation {
+            case .up: self = .up
+            case .upMirrored: self = .upMirrored
+            case .down: self = .down
+            case .downMirrored: self = .downMirrored
+            case .left: self = .left
+            case .leftMirrored: self = .leftMirrored
+            case .right: self = .right
+            case .rightMirrored: self = .rightMirrored
         }
     }
 }

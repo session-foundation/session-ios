@@ -1,12 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit
+import Foundation
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
-import SessionUIKit
 
-public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
+public struct Interaction: Codable, Identifiable, Equatable, Hashable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "interaction" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     internal static let linkPreviewForeignKey = ForeignKey(
@@ -70,6 +69,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case state
         case recipientReadTimestampMs
         case mostRecentFailureText
+        
+        // Session Pro
+        case isProMessage
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
@@ -220,11 +222,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// The reason why the most recent attempt to send this message failed
     public private(set) var mostRecentFailureText: String?
     
-    // MARK: - Internal Values Used During Creation
-    
-    /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
-    /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
-    private let transientDependencies: EquatableIgnoring<Dependencies>?
+    /// A flag indicating if the message sender is a Session Pro user when the message is sent
+    public let isProMessage: Bool
     
     // MARK: - Relationships
          
@@ -288,7 +287,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         state: State,
         recipientReadTimestampMs: Int64?,
         mostRecentFailureText: String?,
-        transientDependencies: EquatableIgnoring<Dependencies>?
+        isProMessage: Bool
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -311,7 +310,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.state = (variant.isLocalOnly ? .localOnly : state)
         self.recipientReadTimestampMs = recipientReadTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
-        self.transientDependencies = transientDependencies
+        self.isProMessage = isProMessage
     }
     
     public init(
@@ -333,6 +332,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil,
         state: Interaction.State? = nil,
+        isProMessage: Bool = false,
         using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
@@ -369,7 +369,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
-        self.transientDependencies = EquatableIgnoring(value: dependencies)
+        self.isProMessage = isProMessage
     }
     
     // MARK: - Custom Database Interaction
@@ -387,17 +387,22 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         _ = try insert()
         
         // Start the disappearing messages timer if needed
-        switch (self.transientDependencies?.value, self.expiresStartedAtMs) {
-            case (_, .none): break
-            case (.none, .some):
-                Log.error("[Interaction] Could not update disappearing messages job due to missing transientDependencies.")
+        switch ObservationContext.observingDb {
+            case .none: Log.error("[Interaction] Could not process 'aroundInsert' due to missing observingDb.")
+            case .some(let observingDb):
+                observingDb.dependencies.setAsync(.hasSavedMessage, true)
+                observingDb.addMessageEvent(id: id, threadId: threadId, type: .created)
                 
-            case (.some(let dependencies), .some):
-                dependencies[singleton: .jobRunner].upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
-                    canStartJob: true
-                )
+                if self.expiresStartedAtMs != nil {
+                    observingDb.dependencies[singleton: .jobRunner].upsert(
+                        observingDb,
+                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                            observingDb,
+                            using: observingDb.dependencies
+                        ),
+                        canStartJob: true
+                    )
+                }
         }
     }
     
@@ -434,7 +439,7 @@ public extension Interaction {
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
             mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
-            transientDependencies: decoder.dependencies.map { EquatableIgnoring(value: $0) }
+            isProMessage: (try? container.decode(Bool.self, forKey: .isProMessage)).defaulting(to: false)
         )
     }
 }
@@ -478,11 +483,11 @@ public extension Interaction {
             state: (state ?? self.state),
             recipientReadTimestampMs: (recipientReadTimestampMs ?? self.recipientReadTimestampMs),
             mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
-            transientDependencies: self.transientDependencies
+            isProMessage: self.isProMessage
         )
     }
     
-    func withDisappearingMessagesConfiguration(_ db: Database, threadVariant: SessionThread.Variant) -> Interaction {
+    func withDisappearingMessagesConfiguration(_ db: ObservingDatabase, threadVariant: SessionThread.Variant) -> Interaction {
         guard threadVariant != .community else { return self }
         
         if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
@@ -501,43 +506,69 @@ public extension Interaction {
 public extension Interaction {
     struct ReadInfo: Decodable, FetchableRecord {
         let id: Int64
+        let serverHash: String?
         let variant: Interaction.Variant
         let timestampMs: Int64
         let wasRead: Bool
     }
     
     static func fetchAppBadgeUnreadCount(
-        _ db: Database,
+        _ db: ObservingDatabase,
         using dependencies: Dependencies
     ) throws -> Int {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
+        struct ThreadIdVariant: Decodable, Hashable, FetchableRecord {
+            let id: String
+            let variant: SessionThread.Variant
+        }
         
-        return try Interaction
-            .filter(Interaction.Columns.wasRead == false)
-            .filter(Interaction.Variant.variantsToIncrementUnreadCount.contains(Interaction.Columns.variant))
+        let potentialMessageRequestThreadInfo: Set<ThreadIdVariant> = try SessionThread
+            .select(.id, .variant)
             .filter(
-                // Only count mentions if 'onlyNotifyForMentions' is set
-                thread[.onlyNotifyForMentions] == false ||
-                Interaction.Columns.hasMention == true
+                SessionThread.Columns.variant == SessionThread.Variant.contact ||
+                SessionThread.Columns.variant == SessionThread.Variant.group
             )
-            .joining(
-                required: Interaction.thread
-                    .aliased(thread)
-                    .joining(optional: SessionThread.contact)
-                    .joining(optional: SessionThread.closedGroup)
-                    .filter(
-                        // Ignore muted threads
-                        SessionThread.Columns.mutedUntilTimestamp == nil ||
-                        SessionThread.Columns.mutedUntilTimestamp < dependencies.dateNow.timeIntervalSince1970
-                    )
-                    .filter(
-                        // Ignore message request threads
-                        SessionThread.Columns.variant != SessionThread.Variant.contact ||
-                        !SessionThread.isMessageRequest(userSessionId: userSessionId)
-                    )
+            .asRequest(of: ThreadIdVariant.self)
+            .fetchSet(db)
+        let messageRequestThreadIds: Set<String> = Set(
+            dependencies.mutate(cache: .libSession) { libSession in
+                potentialMessageRequestThreadInfo.compactMap {
+                    guard libSession.isMessageRequest(threadId: $0.id, threadVariant: $0.variant) else {
+                        return nil
+                    }
+                    
+                    return $0.id
+                }
+            }
+        )
+        
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let request: SQLRequest<Int64> = """
+            SELECT \(interaction[.id])
+            FROM \(Interaction.self)
+            JOIN \(SessionThread.self) ON (
+                \(thread[.id]) = \(interaction[.threadId]) AND
+                -- Ignore message request threads (these should be counted by the PN extension but
+                -- seeing the "Message Requests" banner is considered marking the "Unread Message
+                -- Request" notification as read)
+                \(thread[.id]) NOT IN \(messageRequestThreadIds) AND (
+                    -- Ignore muted threads
+                    \(thread[.mutedUntilTimestamp]) IS NULL OR
+                    \(thread[.mutedUntilTimestamp]) < \(dependencies.dateNow.timeIntervalSince1970)
+                )
             )
-            .fetchCount(db)
+            WHERE (
+                \(interaction[.wasRead]) = false AND
+                \(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount) AND (
+                    -- Only count mentions if 'onlyNotifyForMentions' is set
+                    \(thread[.onlyNotifyForMentions]) = false ||
+                    \(interaction[.hasMention])
+                )
+            )
+        """
+        
+        return try request.fetchCount(db)
     }
     
     /// This will update the `wasRead` state the the interaction
@@ -548,7 +579,7 @@ public extension Interaction {
     ///   - includingOlder: Setting this to `true` will updated the `wasRead` flag for all older interactions as well
     ///   - trySendReadReceipt: Setting this to `true` will schedule a `ReadReceiptJob`
     static func markAsRead(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionId: Int64?,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -561,7 +592,7 @@ public extension Interaction {
         // Since there is no guarantee on the order messages are inserted into the database
         // fetch the timestamp for the interaction and set everything before that as read
         let maybeInteractionInfo: Interaction.ReadInfo? = try Interaction
-            .select(.id, .variant, .timestampMs, .wasRead)
+            .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
             .filter(id: interactionId)
             .asRequest(of: Interaction.ReadInfo.self)
             .fetchOne(db)
@@ -583,6 +614,12 @@ public extension Interaction {
             _ = try Interaction
                 .filter(id: interactionId)
                 .updateAll(db, Columns.wasRead.set(to: true))
+            db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
+            
+            /// Need to trigger an unread message request count update as well
+            if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
+                db.addEvent(.messageRequestMessageRead)
+            }
             
             try Interaction.scheduleReadJobs(
                 db,
@@ -591,6 +628,7 @@ public extension Interaction {
                 interactionInfo: [
                     Interaction.ReadInfo(
                         id: interactionId,
+                        serverHash: nil,
                         variant: variant,
                         timestampMs: 0,
                         wasRead: false
@@ -609,7 +647,7 @@ public extension Interaction {
             .filter(Interaction.Columns.timestampMs <= interactionInfo.timestampMs)
             .filter(Interaction.Columns.wasRead == false)
         let interactionInfoToMarkAsRead: [Interaction.ReadInfo] = try interactionQuery
-            .select(.id, .variant, .timestampMs, .wasRead)
+            .select(.id, .serverHash, .variant, .timestampMs, .wasRead)
             .asRequest(of: Interaction.ReadInfo.self)
             .fetchAll(db)
         
@@ -632,6 +670,15 @@ public extension Interaction {
         
         // Update the `wasRead` flag to true
         try interactionQuery.updateAll(db, Columns.wasRead.set(to: true))
+        interactionInfoToMarkAsRead.forEach { info in
+            db.addMessageEvent(id: info.id, threadId: threadId, type: .updated(.wasRead(true)))
+        }
+        db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
+        
+        /// Need to trigger an unread message request count update as well
+        if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
+            db.addEvent(.messageRequestMessageRead)
+        }
         
         // Retrieve the interaction ids we want to update
         try Interaction.scheduleReadJobs(
@@ -650,27 +697,28 @@ public extension Interaction {
     ///
     /// **Note:** This method won't update the 'wasRead' flag (it will be updated via the above method)
     @discardableResult static func markAsRecipientRead(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         timestampMsValues: [Int64],
-        readTimestampMs: Int64
+        readTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws -> Set<Int64> {
-        guard db[.areReadReceiptsEnabled] == true else { return [] }
+        guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return [] }
         
         struct InterationRowState: Codable, FetchableRecord {
             public typealias Columns = CodingKeys
             public enum CodingKeys: String, CodingKey {
-                case rowId
+                case id
                 case state
             }
             
-            var rowId: Int64
+            var id: Int64
             var state: Interaction.State
         }
         
         // Get the row ids for the interactions which should be updated
         let interactionInfo: [InterationRowState] = try Interaction
-            .select(Column.rowID.forKey(InterationRowState.Columns.rowId), Interaction.Columns.state)
+            .select(.id, .state)
             .filter(Interaction.Columns.threadId == threadId)
             .filter(timestampMsValues.contains(Columns.timestampMs))
             .filter(Variant.variantsWhichSupportReadReceipts.contains(Columns.variant))
@@ -681,20 +729,20 @@ public extension Interaction {
         // timestamps are for pending read receipts
         guard !interactionInfo.isEmpty else { return timestampMsValues.asSet() }
         
-        let allRowIds: Set<Int64> = Set(interactionInfo.map { $0.rowId })
+        let allIds: Set<Int64> = Set(interactionInfo.map { $0.id })
         let sentInteractionIds: Set<Int64> = interactionInfo
             .filter { $0.state != .sending }
-            .map { $0.rowId }
+            .map { $0.id }
             .asSet()
-        let sendingInteractionInfo: Set<Int64> = interactionInfo
+        let sendingInteractionIds: Set<Int64> = interactionInfo
             .filter { $0.state == .sending }
-            .map { $0.rowId }
+            .map { $0.id }
             .asSet()
         
         // Update the 'recipientReadTimestampMs' if it doesn't match (need to do this to prevent
         // the UI update from being triggered for a redundant update)
         try Interaction
-            .filter(sentInteractionIds.contains(Column.rowID))
+            .filter(sentInteractionIds.contains(Interaction.Columns.id))
             .filter(Interaction.Columns.recipientReadTimestampMs == nil)
             .updateAll(
                 db,
@@ -704,7 +752,7 @@ public extension Interaction {
         // If the message still appeared to be sending then mark it as sent (can also remove the
         // failure text as it's redundant if the message is in the sent state)
         try Interaction
-            .filter(sendingInteractionInfo.contains(Column.rowID))
+            .filter(sendingInteractionIds.contains(Interaction.Columns.id))
             .filter(Interaction.Columns.state == Interaction.State.sending)
             .updateAll(
                 db,
@@ -712,10 +760,19 @@ public extension Interaction {
                 Interaction.Columns.mostRecentFailureText.set(to: nil)
             )
         
+        // Send events for the read receipt
+        sentInteractionIds.forEach { id in
+            db.addMessageEvent(id: id, threadId: threadId, type: .updated(.recipientReadTimestampMs(readTimestampMs)))
+        }
+        sendingInteractionIds.forEach { id in
+            db.addMessageEvent(id: id, threadId: threadId, type: .updated(.state(.sent)))
+            db.addMessageEvent(id: id, threadId: threadId, type: .updated(.recipientReadTimestampMs(readTimestampMs)))
+        }
+        
         // Retrieve the set of timestamps which were updated
         let timestampsUpdated: Set<Int64> = try Interaction
             .select(Columns.timestampMs)
-            .filter(allRowIds.contains(Column.rowID))
+            .filter(allIds.contains(Interaction.Columns.id))
             .filter(timestampMsValues.contains(Columns.timestampMs))
             .filter(Variant.variantsWhichSupportReadReceipts.contains(Columns.variant))
             .asRequest(of: Int64.self)
@@ -728,7 +785,7 @@ public extension Interaction {
     }
     
     static func scheduleReadJobs(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         interactionInfo: [Interaction.ReadInfo],
@@ -776,15 +833,15 @@ public extension Interaction {
         // Clear out any notifications for the interactions we mark as read
         dependencies[singleton: .notificationsManager].cancelNotifications(
             identifiers: interactionInfo
-                .map { interactionInfo in
+                .map { info in
                     Interaction.notificationIdentifier(
-                        for: interactionInfo.id,
+                        for: (info.serverHash ?? "\(info.id)"),
                         threadId: threadId,
                         shouldGroupMessagesForThread: false
                     )
                 }
                 .appending(Interaction.notificationIdentifier(
-                    for: 0,
+                    for: "0",
                     threadId: threadId,
                     shouldGroupMessagesForThread: true
                 ))
@@ -894,43 +951,52 @@ public extension Interaction {
     func notificationIdentifier(shouldGroupMessagesForThread: Bool) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         return Interaction.notificationIdentifier(
-            for: (id ?? 0),
+            for: (serverHash ?? "\(id ?? 0)"),
             threadId: threadId,
             shouldGroupMessagesForThread: shouldGroupMessagesForThread
         )
     }
     
-    static func notificationIdentifier(for id: Int64, threadId: String, shouldGroupMessagesForThread: Bool) -> String {
+    static func notificationIdentifier(
+        for interactionIdentifier: String,
+        threadId: String,
+        shouldGroupMessagesForThread: Bool
+    ) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         guard !shouldGroupMessagesForThread else { return threadId }
         
-        return "\(threadId)-\(id)"
+        return "\(threadId)-\(interactionIdentifier)"
     }
     
     static func isUserMentioned(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         body: String?,
         quoteAuthorId: String? = nil,
         using dependencies: Dependencies
     ) -> Bool {
-        var publicKeysToCheck: [String] = [
+        var publicKeysToCheck: Set<String> = [
             dependencies[cache: .general].sessionId.hexString
         ]
         
         // If the thread is an open group then add the blinded id as a key to check
         if let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId) {
             if
-                let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
                 let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEd25519KeyPair.secretKey)
+                    .blinded15KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 ),
                 let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded25KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEd25519KeyPair.secretKey)
+                    .blinded25KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 )
             {
-                publicKeysToCheck.append(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)
-                publicKeysToCheck.append(SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString)
+                publicKeysToCheck.insert(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)
+                publicKeysToCheck.insert(SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString)
             }
         }
         
@@ -943,7 +1009,7 @@ public extension Interaction {
     
     // stringlint:ignore_contents
     static func isUserMentioned(
-        publicKeysToCheck: [String],
+        publicKeysToCheck: Set<String>,
         body: String?,
         quoteAuthorId: String? = nil
     ) -> Bool {
@@ -961,7 +1027,7 @@ public extension Interaction {
     
     /// Use the `Interaction.previewText` method directly where possible rather than this one to avoid database queries
     static func notificationPreviewText(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interaction: Interaction,
         using dependencies: Dependencies
     ) -> String {
@@ -987,7 +1053,7 @@ public extension Interaction {
                 return Interaction.previewText(
                     variant: interaction.variant,
                     body: interaction.body,
-                    authorDisplayName: Profile.displayName(db, id: interaction.threadId, using: dependencies),
+                    authorDisplayName: Profile.displayName(db, id: interaction.threadId),
                     using: dependencies
                 )
 
@@ -1092,9 +1158,8 @@ public extension Interaction {
 // MARK: - Interaction.Variant Convenience
 
 public extension Interaction.Variant {
-    static let variantsToIncrementUnreadCount: [Interaction.Variant] = [
-        .standardIncoming, .infoCall
-    ]
+    static let variantsToIncrementUnreadCount: [Interaction.Variant] = Interaction.Variant.allCases
+        .filter { $0.canBeUnread }
     static let variantsWhichSupportReadReceipts: Set<Interaction.Variant> = [
         .standardOutgoing
     ]
@@ -1203,7 +1268,7 @@ public extension Interaction.Variant {
     
     /// This flag controls whether the `wasRead` flag is automatically set to true based on the message variant (as a result they will
     /// or won't affect the unread count)
-    fileprivate var canBeUnread: Bool {
+    var canBeUnread: Bool {
         switch self {
             case .standardIncoming: return true
             case .infoCall: return true
@@ -1223,75 +1288,6 @@ public extension Interaction.Variant {
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted:
                 return false
-        }
-    }
-}
-
-// MARK: - Interaction.State Convenience
-
-public extension Interaction.State {
-    func statusIconInfo(
-        variant: Interaction.Variant,
-        hasBeenReadByRecipient: Bool,
-        hasAttachments: Bool
-    ) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
-        guard variant == .standardOutgoing else {
-            return (nil, nil, .messageBubble_deliveryStatus)
-        }
-
-        switch (self, hasBeenReadByRecipient, hasAttachments) {
-            case (.deleted, _, _), (.localOnly, _, _):
-                return (nil, nil, .messageBubble_deliveryStatus)
-            
-            case (.sending, _, true):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "uploading".localized(),
-                    .messageBubble_deliveryStatus
-                )
-                
-            case (.sending, _, _):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "sending".localized(),
-                    .messageBubble_deliveryStatus
-                )
-
-            case (.sent, false, _):
-                return (
-                    UIImage(systemName: "checkmark.circle"),
-                    "disappearingMessagesSent".localized(),
-                    .messageBubble_deliveryStatus
-                )
-
-            case (.sent, true, _):
-                return (
-                    UIImage(systemName: "eye.fill"),
-                    "read".localized(),
-                    .messageBubble_deliveryStatus
-                )
-                
-            case (.failed, _, _):
-                return (
-                    UIImage(systemName: "exclamationmark.triangle"),
-                    "messageStatusFailedToSend".localized(),
-                    .danger
-                )
-                
-            case (.failedToSync, _, _):
-                return (
-                    UIImage(systemName: "exclamationmark.triangle"),
-                    "messageStatusFailedToSync".localized(),
-                    .warning
-                )
-                
-            case (.syncing, _, _):
-                return (
-                    UIImage(systemName: "ellipsis.circle"),
-                    "messageStatusSyncing".localized(),
-                    .warning
-                )
-
         }
     }
 }
@@ -1326,7 +1322,7 @@ public extension Interaction {
     /// When deleting a message we should also delete any reactions which were on the message, so fetch and
     /// return those hashes as well
     static func serverHashesForDeletion(
-        _ db: Database,
+        _ db: ObservingDatabase,
         interactionIds: Set<Int64>,
         additionalServerHashesToRemove: [String] = []
     ) throws -> Set<String> {
@@ -1347,7 +1343,7 @@ public extension Interaction {
     }
     
     static func markAllAsDeleted(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         options: DeletionOption,
@@ -1373,7 +1369,7 @@ public extension Interaction {
     }
     
     static func markAsDeleted(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         interactionIds: Set<Int64>,
@@ -1401,84 +1397,33 @@ public extension Interaction {
         
         /// Remove any notifications for the messages
         dependencies[singleton: .notificationsManager].cancelNotifications(
-            identifiers: interactionIds.reduce(into: []) { result, id in
-                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: true))
-                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: false))
+            identifiers: interactionInfo.reduce(into: []) { result, info in
+                result.append(Interaction.notificationIdentifier(
+                    for: (info.serverHash ?? "\(info.id)"),
+                    threadId: threadId,
+                    shouldGroupMessagesForThread: true)
+                )
+                result.append(Interaction.notificationIdentifier(
+                    for: (info.serverHash ?? "\(info.id)"),
+                    threadId: threadId,
+                    shouldGroupMessagesForThread: false)
+                )
             }
         )
         
-        /// Retrieve any attachments for the messages
+        /// Retrieve any attachments for the messages and delete them from the database
+        let interactionAttachments: [InteractionAttachment] = try InteractionAttachment
+            .filter(interactionIds.contains(InteractionAttachment.Columns.interactionId))
+            .fetchAll(db)
         let attachments: [Attachment] = try Attachment
             .joining(required: Attachment.interaction.filter(interactionIds.contains(Interaction.Columns.id)))
             .fetchAll(db)
-        
-        /// If attachments were removed then we also need to tetrieve any quotes of the interactions which had attachments and
-        /// remove their thumbnails
-        ///
-        /// **Note:** This needs to happen before the attachments are deleted otherwise the joins in the query will fail
-        if !attachments.isEmpty {
-            let quote: TypedTableAlias<Quote> = TypedTableAlias()
-            let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-            let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
-            var blinded15SessionIdHexString: String = ""
-            var blinded25SessionIdHexString: String = ""
-            
-            /// If it's a `community` conversation then we need to get the blinded ids
-            if threadVariant == .community {
-                blinded15SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: .blinded15,
-                    using: dependencies
-                )?.hexString).defaulting(to: "")
-                blinded25SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: .blinded25,
-                    using: dependencies
-                )?.hexString).defaulting(to: "")
-            }
-            
-            /// Construct a request which gets the `quote.attachmentId` for any `Quote` entries related
-            /// to the removed `interactionIds`
-            let request: SQLRequest<String> = """
-                SELECT \(quote[.attachmentId])
-                FROM \(Quote.self)
-                JOIN \(Interaction.self) ON (
-                    \(interaction[.timestampMs]) = \(quote[.timestampMs]) AND (
-                        \(interaction[.authorId]) = \(quote[.authorId]) OR (
-                            -- A users outgoing message is stored in some cases using their standard id
-                            -- but the quote will use their blinded id so handle that case
-                            \(interaction[.authorId]) = \(dependencies[cache: .general].sessionId.hexString) AND
-                            (
-                                \(quote[.authorId]) = \(blinded15SessionIdHexString) OR
-                                \(quote[.authorId]) = \(blinded25SessionIdHexString)
-                            )
-                        )
-                    )
-                )
-                JOIN \(InteractionAttachment.self) ON (
-                    \(interactionAttachment[.interactionId]) = \(interaction[.id]) AND
-                    \(interactionAttachment[.attachmentId]) IN \(attachments.map { $0.id })
-                )
-            
-                WHERE (
-                    \(quote[.attachmentId]) IS NOT NULL AND
-                    \(interaction[.id]) IN \(interactionIds)
-                )
-            """
-            
-            let quoteAttachmentIds: [String] = try request.fetchAll(db)
-            
-            _ = try Attachment
-                .filter(ids: quoteAttachmentIds)
-                .deleteAll(db)
-        }
-        
-        /// Delete any attachments from the database
         try attachments.forEach { try $0.delete(db) }
+        
+        /// Notify about the attachment deletion
+        interactionAttachments.forEach { info in
+            db.addAttachmentEvent(id: info.attachmentId, messageId: info.interactionId, type: .deleted)
+        }
         
         /// Delete the reactions from the database
         _ = try Reaction
@@ -1543,11 +1488,18 @@ public extension Interaction {
                 }
             }
         
+        /// Notify about the deletion
+        interactionIds.forEach { id in
+            db.addMessageEvent(id: id, threadId: threadId, type: .deleted)
+        }
+        
         /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
         /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
         /// but we should still try to handle it immediately
         if !attachments.isEmpty {
-            let attachmentPaths: [String] = attachments.compactMap { $0.originalFilePath(using: dependencies) }
+            let attachmentPaths: [String] = attachments.compactMap {
+                try? dependencies[singleton: .attachmentManager].path(for: $0.downloadUrl)
+            }
             
             DispatchQueue.global(qos: .background).async {
                 attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }

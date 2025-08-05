@@ -50,7 +50,7 @@ struct PNModeScreen: View {
     
     var body: some View {
         ZStack(alignment: .center) {
-            ThemeManager.currentTheme.color(for: .backgroundPrimary).ignoresSafeArea()
+            ThemeColor(.backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .leading,
@@ -127,7 +127,7 @@ struct PNModeScreen: View {
     
     private func register() {
         // Store whether we want to use APNS
-        dependencies.mutate(cache: .onboarding) { $0.setUserAPNS(currentSelection == .fast) }
+        dependencies.mutate(cache: .onboarding) { $0.setUseAPNS(currentSelection == .fast) }
         
         // If we are registering then we can just continue on
         guard dependencies[cache: .onboarding].initialFlow != .register else {

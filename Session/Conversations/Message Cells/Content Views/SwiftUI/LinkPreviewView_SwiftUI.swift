@@ -39,7 +39,7 @@ public struct LinkPreviewView_SwiftUI: View {
             alignment: .leading
         ) {
             if state is LinkPreview.SentState {
-                ThemeManager.currentTheme.color(for: .messageBubble_overlay).ignoresSafeArea()
+                ThemeColor(.messageBubble_overlay).ignoresSafeArea()
             }
             
             HStack(

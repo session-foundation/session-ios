@@ -11,7 +11,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         // Add the new 'Profile' properties
         try db.alter(table: "profile") { t in
             t.add(column: "blocksCommunityMessageRequests", .boolean)
@@ -42,7 +42,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
                 """,
                 arguments: [userSessionId.hexString]
             )
-            let userProfileConfig: LibSession.Config = try cache.loadState(
+            try cache.loadState(
                 for: .userProfile,
                 sessionId: userSessionId,
                 userEd25519SecretKey: Array(userEd25519SecretKey),
@@ -50,17 +50,15 @@ enum _015_BlockCommunityMessageRequests: Migration {
                 cachedData: configDump
             )
             
-            let rawBlindedMessageRequestValue: Int32 = try LibSession.rawBlindedMessageRequestValue(in: userProfileConfig)
-            
             // Use the value in the config if we happen to have one, otherwise use the default
             try db.execute(sql: """
                 DELETE FROM setting
                 WHERE key = 'checkForCommunityMessageRequests'
             """)
             
-            var targetValue: Bool = (rawBlindedMessageRequestValue < 0 ?
+            var targetValue: Bool = (!cache.has(.checkForCommunityMessageRequests) ?
                 true :
-                (rawBlindedMessageRequestValue > 0)
+                cache.get(.checkForCommunityMessageRequests)
             )
             let boolAsData: Data = withUnsafeBytes(of: &targetValue) { Data($0) }
             try db.execute(
@@ -72,6 +70,6 @@ enum _015_BlockCommunityMessageRequests: Migration {
             )
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

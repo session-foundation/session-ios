@@ -23,6 +23,9 @@ public extension SnodeAPI {
         /// `USER_GROUPS` config messages
         case configUserGroups = 5
         
+        /// `Local` config messages (not actually stored in this namespace, but need an identifier)
+        case configLocal = 9999
+        
         /// Messages sent to an updated closed group are stored in this namespace
         case groupMessages = 11
         
@@ -83,7 +86,7 @@ public extension SnodeAPI {
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
                     .configGroupInfo, .configGroupMembers, .configGroupKeys,
-                    .unknown, .all:
+                    .configLocal, .unknown, .all:
                     return false
             }
         }
@@ -98,7 +101,7 @@ public extension SnodeAPI {
         
         public var isCurrentUserNamespace: Bool {
             switch self {
-                case .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups:
+                case .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups, .configLocal:
                     return true
                     
                 case .configGroupInfo, .configGroupMembers, .configGroupKeys, .groupMessages,
@@ -110,7 +113,7 @@ public extension SnodeAPI {
         public var isConfigNamespace: Bool {
             switch self {
                 case .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups,
-                    .configGroupInfo, .configGroupMembers, .configGroupKeys:
+                    .configGroupInfo, .configGroupMembers, .configGroupKeys, .configLocal:
                     return true
                     
                 case .`default`, .legacyClosedGroup, .groupMessages, .revokedRetrievableGroupMessages,
@@ -126,7 +129,7 @@ public extension SnodeAPI {
         /// which was encrypted with a key included in the `configGroupKeys` within the same poll)
         public var processingOrder: Int {
             switch self {
-                case .configUserProfile, .configContacts, .configGroupKeys: return 0
+                case .configUserProfile, .configContacts, .configGroupKeys, .configLocal: return 0
                 case .configUserGroups, .configGroupInfo, .configGroupMembers: return 1
                 case .configConvoInfoVolatile: return 2
                     
@@ -143,7 +146,7 @@ public extension SnodeAPI {
                 case .configGroupKeys: return true
                 case .`default`, .legacyClosedGroup, .groupMessages, .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups, .configGroupInfo, .configGroupMembers,
-                    .revokedRetrievableGroupMessages, .unknown, .all:
+                    .revokedRetrievableGroupMessages, .configLocal, .unknown, .all:
                     return false
             }
         }
@@ -172,7 +175,7 @@ public extension SnodeAPI {
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
                     .configGroupInfo, .configGroupMembers, .configGroupKeys,
-                    .revokedRetrievableGroupMessages, .unknown, .all:
+                    .revokedRetrievableGroupMessages, .configLocal, .unknown, .all:
                     return 1
             }
         }
@@ -205,6 +208,7 @@ public extension SnodeAPI {
                 case .configContacts: return "configContacts"
                 case .configConvoInfoVolatile: return "configConvoInfoVolatile"
                 case .configUserGroups: return "configUserGroups"
+                case .configLocal: return "configLocal"
                 case .groupMessages: return "groupMessages"
                 case .configGroupInfo: return "configGroupInfo"
                 case .configGroupMembers: return "configGroupMembers"
