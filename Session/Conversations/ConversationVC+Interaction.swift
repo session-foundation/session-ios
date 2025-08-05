@@ -1504,10 +1504,10 @@ extension ConversationVC:
     }
     
     func showUserProfileModal(for cellViewModel: MessageViewModel) {
-//        guard viewModel.threadData.threadCanWrite == true else { return }
-//        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
-//        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
-//        
+        guard viewModel.threadData.threadCanWrite == true else { return }
+        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
+        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
+        
         let dependencies: Dependencies = viewModel.dependencies
         
         let (info, _) = ProfilePictureView.getProfilePictureInfo(
