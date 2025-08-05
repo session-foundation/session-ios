@@ -52,13 +52,15 @@ class PhotoPickerAssetItem: PhotoGridItem {
             return .video
         }
 
-        // TODO show GIF badge?
+        if asset.utType?.isAnimated == true {
+            return .animated
+        }
 
         return  .photo
     }
     
     var source: ImageDataManager.DataSource {
-        return .closureThumbnail(self.asset.localIdentifier, size) { [photoCollectionContents, asset, size, pixelDimension] in
+        return .asyncSource(self.asset.localIdentifier) { [photoCollectionContents, asset, size, pixelDimension] in
             await photoCollectionContents.requestThumbnail(
                 for: asset,
                 size: size,
@@ -148,44 +150,70 @@ class PhotoCollectionContents {
 
     // MARK: ImageManager
     
-    func requestThumbnail(for asset: PHAsset, size: ImageDataManager.ThumbnailSize, thumbnailSize: CGSize) async -> UIImage? {
+    func requestThumbnail(for asset: PHAsset, size: ImageDataManager.ThumbnailSize, thumbnailSize: CGSize) async -> ImageDataManager.DataSource? {
         var hasResumed: Bool = false
         
-        return await withCheckedContinuation { [imageManager] continuation in
-            let options = PHImageRequestOptions()
-            
-            switch size {
-                case .small: options.deliveryMode = .opportunistic
-                case .medium, .large: options.deliveryMode = .highQualityFormat
-            }
-            
-            imageManager.requestImage(
-                for: asset,
-                targetSize: thumbnailSize,
-                contentMode: .aspectFill,
-                options: options
-            ) { image, info in
-                guard !hasResumed else { return }
-                guard
-                    info?[PHImageErrorKey] == nil,
-                    (info?[PHImageCancelledKey] as? Bool) != true
-                else {
-                    hasResumed = true
-                    return continuation.resume(returning: nil)
+        /// The `requestImage` function will always return a static thumbnail so if it's an animated image then we need custom
+        /// handling (the default PhotoKit resizing can't resize animated images so we need to return the original file)
+        switch asset.utType?.isAnimated {
+            case .some(true):
+                return await withCheckedContinuation { [imageManager] continuation in
+                    let options = PHImageRequestOptions()
+                    options.deliveryMode = .highQualityFormat
+                    options.isNetworkAccessAllowed = true
+                    
+                    imageManager.requestImageDataAndOrientation(for: asset, options: options) { data, uti, orientation, info in
+                        guard !hasResumed else { return }
+                        
+                        guard let data = data, info?[PHImageErrorKey] == nil else {
+                            hasResumed = true
+                            continuation.resume(returning: nil)
+                            return
+                        }
+                        
+                        // Successfully fetched the data, resume with the animated result
+                        hasResumed = true
+                        continuation.resume(returning: .data(asset.localIdentifier, data))
+                    }
                 }
                 
-                switch size {
-                    case .small: break  // We want the first image, whether it is degraded or not
-                    case .medium, .large:
-                        // For medium and large thumbnails we want the full image so ignore any
-                        // degraded images
-                        guard (info?[PHImageResultIsDegradedKey] as? Bool) != true else { return }
-
+            default:
+                return await withCheckedContinuation { [imageManager] continuation in
+                    let options = PHImageRequestOptions()
+                    
+                    switch size {
+                        case .small: options.deliveryMode = .opportunistic
+                        case .medium, .large: options.deliveryMode = .highQualityFormat
+                    }
+                    
+                    imageManager.requestImage(
+                        for: asset,
+                        targetSize: thumbnailSize,
+                        contentMode: .aspectFill,
+                        options: options
+                    ) { image, info in
+                        guard !hasResumed else { return }
+                        guard
+                            info?[PHImageErrorKey] == nil,
+                            (info?[PHImageCancelledKey] as? Bool) != true
+                        else {
+                            hasResumed = true
+                            return continuation.resume(returning: nil)
+                        }
+                        
+                        switch size {
+                            case .small: break  // We want the first image, whether it is degraded or not
+                            case .medium, .large:
+                                // For medium and large thumbnails we want the full image so ignore any
+                                // degraded images
+                                guard (info?[PHImageResultIsDegradedKey] as? Bool) != true else { return }
+                                
+                        }
+                        
+                        continuation.resume(returning: .image("\(asset.localIdentifier)-\(size)", image))
+                        hasResumed = true
+                    }
                 }
-                
-                continuation.resume(returning: image)
-                hasResumed = true
-            }
         }
     }
 
@@ -480,5 +508,12 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
                               hideIfEmpty: true))
 
         return collections
+    }
+}
+
+private extension PHAsset {
+    var utType: UTType? {
+        return (value(forKey: "uniformTypeIdentifier") as? String) // stringlint:ignore
+            .map { UTType($0) }
     }
 }

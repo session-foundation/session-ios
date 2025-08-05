@@ -206,27 +206,6 @@ public actor ImageDataManager: ImageDataManagerType {
                     type: .staticImage(decodedImage)
                 )
                 
-            case .closureThumbnail(_, _, let imageRetrier):
-                guard let image: UIImage = await imageRetrier() else { return nil }
-                guard
-                    let cgImage: CGImage = image.cgImage,
-                    let decodingContext: CGContext = createDecodingContext(
-                        width: cgImage.width,
-                        height: cgImage.height
-                    ),
-                    let decodedImage: UIImage = predecode(cgImage: cgImage, using: decodingContext)
-                else {
-                    return ProcessedImageData(
-                        type: .staticImage(image)
-                    )
-                }
-                
-                /// Since there is likely custom (external) logic used to retrieve this thumbnail we don't save it to disk as there
-                /// is no way to know if it _should_ change between generations/launches or not
-                return ProcessedImageData(
-                    type: .staticImage(decodedImage)
-                )
-                
             /// Custom handle `placeholderIcon` generation
             case .placeholderIcon(let seed, let text, let size):
                 let image: UIImage = PlaceholderIcon.generate(seed: seed, text: text, size: size)
@@ -247,6 +226,11 @@ public actor ImageDataManager: ImageDataManagerType {
                 return ProcessedImageData(
                     type: .staticImage(decodedImage)
                 )
+                
+            case .asyncSource(_, let sourceRetriever):
+                guard let source: DataSource = await sourceRetriever() else { return nil }
+                
+                return await processSource(source)
                 
             default: break
         }
@@ -576,8 +560,8 @@ public extension ImageDataManager {
         case image(String, UIImage?)
         case videoUrl(URL, String, String?, ThumbnailManager)
         case urlThumbnail(URL, ImageDataManager.ThumbnailSize, ThumbnailManager)
-        case closureThumbnail(String, ImageDataManager.ThumbnailSize, @Sendable () async -> UIImage?)
         case placeholderIcon(seed: String, text: String, size: CGFloat)
+        case asyncSource(String, @Sendable () async -> DataSource?)
         
         public var identifier: String {
             switch self {
@@ -588,9 +572,6 @@ public extension ImageDataManager {
                 case .urlThumbnail(let url, let size, _):
                     return "\(url.absoluteString)-\(size)"
                 
-                case .closureThumbnail(let identifier, let size, _):
-                    return "\(identifier)-\(size)"
-                
                 case .placeholderIcon(let seed, let text, let size):
                     let content: (intSeed: Int, initials: String) = PlaceholderIcon.content(
                         seed: seed,
@@ -598,6 +579,9 @@ public extension ImageDataManager {
                     )
                     
                     return "\(seed)-\(content.initials)-\(Int(floor(size)))"
+                
+                /// We will use the identifier from the loaded source for caching purposes
+                case .asyncSource(let identifier, _): return identifier
             }
         }
         
@@ -608,8 +592,8 @@ public extension ImageDataManager {
                 case .image(_, let image): return image?.pngData()
                 case .videoUrl: return nil
                 case .urlThumbnail: return nil
-                case .closureThumbnail: return nil
                 case .placeholderIcon: return nil
+                case .asyncSource: return nil
             }
         }
         
@@ -635,7 +619,7 @@ public extension ImageDataManager {
                 case .urlThumbnail(let url, _, _): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
                     
                 // These cases have special handling which doesn't use `createImageSource`
-                case .image, .videoUrl, .closureThumbnail, .placeholderIcon: return nil
+                case .image, .videoUrl, .placeholderIcon, .asyncSource: return nil
             }
         }
         
@@ -665,18 +649,15 @@ public extension ImageDataManager {
                         lhsSize == rhsSize
                     )
                     
-                case (.closureThumbnail(let lhsIdentifier, let lhsSize, _), .closureThumbnail(let rhsIdentifier, let rhsSize, _)):
-                    return (
-                        lhsIdentifier == rhsIdentifier &&
-                        lhsSize == rhsSize
-                    )
-                    
                 case (.placeholderIcon(let lhsSeed, let lhsText, let lhsSize), .placeholderIcon(let rhsSeed, let rhsText, let rhsSize)):
                     return (
                         lhsSeed == rhsSeed &&
                         lhsText == rhsText &&
                         lhsSize == rhsSize
                     )
+                    
+                case (.asyncSource(let lhsIdentifier, _), .asyncSource(let rhsIdentifier, _)):
+                    return (lhsIdentifier == rhsIdentifier)
                     
                 default: return false
             }
@@ -702,14 +683,13 @@ public extension ImageDataManager {
                     url.hash(into: &hasher)
                     size.hash(into: &hasher)
                     
-                case .closureThumbnail(let identifier, let size, _):
-                    identifier.hash(into: &hasher)
-                    size.hash(into: &hasher)
-                    
                 case .placeholderIcon(let seed, let text, let size):
                     seed.hash(into: &hasher)
                     text.hash(into: &hasher)
                     size.hash(into: &hasher)
+                    
+                case .asyncSource(let identifier, _):
+                    identifier.hash(into: &hasher)
             }
         }
     }
@@ -830,13 +810,13 @@ public extension ImageDataManager.DataSource {
                 
                 return image.size
                 
-            case .urlThumbnail(_, let size, _), .closureThumbnail(_, let size, _):
+            case .urlThumbnail(_, let size, _):
                 let dimension: CGFloat = size.pixelDimension()
                 return CGSize(width: dimension, height: dimension)
                 
             case .placeholderIcon(_, _, let size): return CGSize(width: size, height: size)
                 
-            case .url, .data, .videoUrl: break
+            case .url, .data, .videoUrl, .asyncSource: break
         }
         
         /// Since we don't have a direct size, try to extract it from the data
