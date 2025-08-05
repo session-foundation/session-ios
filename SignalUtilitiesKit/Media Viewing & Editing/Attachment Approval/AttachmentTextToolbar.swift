@@ -40,7 +40,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     private lazy var sendButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
         result.accessibilityIdentifier = "Send message button"
-        result.accessibilityLabel = "Send message button"
+        result.accessibilityLabel = "Send button"
         result.isAccessibilityElement = true
         
         return result
@@ -55,7 +55,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         let maxWidth = UIScreen.main.bounds.width - InputViewButton.expandedSize - Values.smallSpacing - 2 * (Values.mediumSpacing - adjustment)
         let result = InputTextView(delegate: self, maxWidth: maxWidth)
         result.accessibilityLabel = "contentDescriptionMessageComposition".localized()
-        result.accessibilityIdentifier = "Message input box"
+        result.accessibilityIdentifier = "Text input box"
         result.isAccessibilityElement = true
         
         return result
