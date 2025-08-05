@@ -76,6 +76,11 @@ public struct UserProfileModel: View {
                                     sessionProState: self.sessionProState
                                 )
                                 .scaleEffect(scale, anchor: .topLeading)
+                                .onTapGesture {
+                                    withAnimation {
+                                        self.isProfileImageExpanding.toggle()
+                                    }
+                                }
                             }
                             .frame(
                                 width: ProfilePictureView.Size.userProfileModal.viewSize * scale,
@@ -105,11 +110,6 @@ public struct UserProfileModel: View {
                         .padding(.top, 12)
                         .padding(.vertical, 5)
                         .padding(.horizontal, 10)
-                        .onTapGesture {
-                            withAnimation {
-                                self.isProfileImageExpanding.toggle()
-                            }
-                        }
                     } else {
                         ZStack(alignment: .topTrailing) {
                             if let sessionId = info.sessionId {
@@ -205,8 +205,7 @@ public struct UserProfileModel: View {
                             .font(isIPhone5OrSmaller ? .Display.base : .Display.large)
                             .foregroundColor(themeColor: .textPrimary)
                             .multilineTextAlignment(.center)
-                            .lineLimit(info.blindedId == nil ? 0 : 1)
-                            .truncationMode(.middle)
+                            .shouldTruncate(info.sessionId == nil)
                             .padding(.horizontal, info.blindedId == nil ? 0 : Values.largeSpacing)
                     }
                     
@@ -214,7 +213,7 @@ public struct UserProfileModel: View {
                     if let sessionId = info.sessionId {
                         HStack(spacing: Values.mediumSpacing) {
                             Button {
-                                info.onStartThread?(sessionId, info.openGroupServer, info.openGroupPublicKey)
+                                close(info.onStartThread)
                             } label: {
                                 Text("message".localized())
                                     .font(.Body.baseBold)
@@ -261,19 +260,7 @@ public struct UserProfileModel: View {
                         GeometryReader { geometry in
                             HStack {
                                 Button {
-                                    let hexEncodedId: String = {
-                                        switch (info.sessionId, info.blindedId) {
-                                            case (.some(let sessionId), _): return sessionId
-                                            case (.none, .some(let blindedId)): return blindedId
-                                            default : return "" // Shouldn't happen
-                                        }
-                                    }()
-                                    
-                                    info.onStartThread?(
-                                        hexEncodedId,
-                                        info.openGroupServer,
-                                        info.openGroupPublicKey
-                                    )
+                                    close(info.onStartThread)
                                 } label: {
                                     Text("message".localized())
                                         .font(.system(size: Values.mediumFontSize))
@@ -363,10 +350,8 @@ public extension UserProfileModel {
         let displayName: String
         let nickname: String?
         let isProUser: Bool
-        let openGroupServer: String?
-        let openGroupPublicKey: String?
         let isMessageRequestsEnabled: Bool
-        let onStartThread: ((String, String?, String?) -> Void)?
+        let onStartThread: (() -> Void)?
         
         public init(
             sessionId: String?,
@@ -375,10 +360,8 @@ public extension UserProfileModel {
             displayName: String,
             nickname: String?,
             isProUser: Bool,
-            openGroupServer: String?,
-            openGroupPublicKey: String?,
             isMessageRequestsEnabled: Bool,
-            onStartThread: ((String, String?, String?) -> Void)?
+            onStartThread: (() -> Void)?
         ) {
             self.sessionId = sessionId
             self.blindedId = blindedId
@@ -386,10 +369,28 @@ public extension UserProfileModel {
             self.displayName = displayName
             self.nickname = nickname
             self.isProUser = isProUser
-            self.openGroupServer = openGroupServer
-            self.openGroupPublicKey = openGroupPublicKey
             self.isMessageRequestsEnabled = isMessageRequestsEnabled
             self.onStartThread = onStartThread
         }
+    }
+}
+
+struct ConditionalTruncation: ViewModifier {
+    let shouldTruncate: Bool
+
+    func body(content: Content) -> some View {
+        if shouldTruncate {
+            content
+                .lineLimit(1)
+                .truncationMode(.middle)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func shouldTruncate(_ condition: Bool) -> some View {
+        modifier(ConditionalTruncation(shouldTruncate: condition))
     }
 }

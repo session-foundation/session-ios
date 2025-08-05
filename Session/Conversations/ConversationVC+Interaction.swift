@@ -1504,6 +1504,10 @@ extension ConversationVC:
     }
     
     func showUserProfileModal(for cellViewModel: MessageViewModel) {
+        guard viewModel.threadData.threadCanWrite == true else { return }
+        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
+        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
+        
         let dependencies: Dependencies = viewModel.dependencies
         
         let (info, _) = ProfilePictureView.getProfilePictureInfo(
@@ -1517,11 +1521,21 @@ extension ConversationVC:
         
         guard let profileInfo: ProfilePictureView.Info = info else { return }
         
+        let (sessionId, blindedId): (String?, String?) = {
+            guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else {
+                return (cellViewModel.authorId, nil)
+            }
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
+                try? BlindedIdLookup.fetchOne(db, id: cellViewModel.authorId)
+            }
+            return (lookup?.sessionId, cellViewModel.authorId)
+        }()
+        
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModel(
                 info: .init(
-                    sessionId: cellViewModel.authorId,
-                    blindedId: cellViewModel.authorId,
+                    sessionId: sessionId,
+                    blindedId: blindedId,
                     profileInfo: profileInfo,
                     displayName: cellViewModel.authorName,
                     nickname: cellViewModel.profile?.displayName(
@@ -1529,10 +1543,14 @@ extension ConversationVC:
                         ignoringNickname: true
                     ),
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
-                    openGroupServer: cellViewModel.threadOpenGroupServer,
-                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey,
                     isMessageRequestsEnabled: false,
-                    onStartThread: self.startThread
+                    onStartThread: { [weak self] in
+                        self?.startThread(
+                            with: cellViewModel.authorId,
+                            openGroupServer: cellViewModel.threadOpenGroupServer,
+                            openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                        )
+                    }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
                 sessionProState: dependencies[singleton: .sessionProState]

@@ -16,6 +16,14 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
     public var body: some View {
         ZStack {
+            // Background
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+                .onTapGesture { close() }
+            
+            // Modal
             VStack {
                 Spacer()
                 
@@ -40,8 +48,6 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
             maxWidth: .infinity,
             maxHeight: .infinity
         )
-        .background(.ultraThinMaterial)
-        .onTapGesture { close() }
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .global)
                 .onEnded { value in
