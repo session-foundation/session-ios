@@ -250,6 +250,7 @@ public struct UserProfileModel: View {
                             )
                             .buttonStyle(PlainButtonStyle())
                         }
+                        .padding(.bottom, 12)
                     } else {
                         if !info.isMessageRequestsEnabled {
                             AttributedText("messageRequestsTurnedOff"
@@ -288,6 +289,7 @@ public struct UserProfileModel: View {
                             )
                         }
                         .frame(height: Values.largeButtonHeight)
+                        .padding(.bottom, 12)
                     }
                 }
             }

@@ -1531,6 +1531,11 @@ extension ConversationVC:
             return (lookup?.sessionId, cellViewModel.authorId)
         }()
         
+        let isMessasgeRequestsEnabled: Bool = {
+            guard cellViewModel.threadVariant == .community else { return true }
+            return cellViewModel.profile?.blocksCommunityMessageRequests != true
+        }()
+        
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModel(
                 info: .init(
@@ -1543,7 +1548,7 @@ extension ConversationVC:
                         ignoringNickname: true
                     ),
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
-                    isMessageRequestsEnabled: false,
+                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: { [weak self] in
                         self?.startThread(
                             with: cellViewModel.authorId,

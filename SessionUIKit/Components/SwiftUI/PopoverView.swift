@@ -94,17 +94,17 @@ internal struct PopoverOffset: ViewModifier {
 
     func offsetXFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
         let triangleSideLength : CGFloat = arrowLength / CGFloat(sqrt(0.75))
-        let arrowOffSet: CGFloat = 30 + triangleSideLength / 2
+        let arrowOffSet: CGFloat = 30 - triangleSideLength + frame.size.height / 2
         switch position {
             case .top, .bottom:
                 // Center horizontally
                 return originBounds.minX + (originBounds.size.width  - frame.size.width) / 2
             case .topLeft, .bottomLeft:
                 // Align right
-                return originBounds.maxX - frame.size.width + arrowOffSet
+                return originBounds.maxX - frame.size.width + arrowOffSet - triangleSideLength / 2
             case .topRight, .bottomRight:
                 // Align left
-                return originBounds.minX - arrowOffSet
+                return originBounds.minX - arrowOffSet + triangleSideLength / 2
             case .none:
                 return 0
         }
