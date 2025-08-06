@@ -64,30 +64,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             }
         )
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                cache
-                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-                    .thenReturn(())
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
-                cache
-                    .when { $0.isAdmin(groupSessionId: .any) }
-                    .thenReturn(false)
-                cache
-                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
-                    .then { args, untrackedArgs in
-                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
-                        try? callback?()
-                    }
-                    .thenReturn(())
-                cache.when { $0.isEmpty }.thenReturn(false)
-                cache
-                    .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
-                    .thenReturn(LibSession.PendingChanges())
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
@@ -128,7 +105,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     item.id == id
                 })
         }
-        @MainActor
+        
         func setupTestSubscriptions() {
             viewModel.tableDataPublisher
                 .receive(on: ImmediateScheduler.shared)
@@ -153,8 +130,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     try SessionThread(
                         id: user2Pubkey,
                         variant: .contact,
-                        creationDateTimestamp: 0,
-                        using: dependencies
+                        creationDateTimestamp: 0
                     ).insert(db)
                 }
                 
@@ -166,7 +142,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     },
                     using: dependencies
                 )
-                await setupTestSubscriptions()
+                setupTestSubscriptions()
             }
             
             // MARK: -- with any conversation type
@@ -189,8 +165,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         try SessionThread(
                             id: userPubkey,
                             variant: .contact,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     
@@ -202,7 +177,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         },
                         using: dependencies
                     )
-                    await setupTestSubscriptions()
+                    setupTestSubscriptions()
                 }
                 
                 // MARK: ---- has the correct title
@@ -243,8 +218,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         try SessionThread(
                             id: user2Pubkey,
                             variant: .contact,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     
@@ -256,7 +230,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         },
                         using: dependencies
                     )
-                    await setupTestSubscriptions()
+                    setupTestSubscriptions()
                 }
                 
                 // MARK: ---- has the correct title
@@ -316,7 +290,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     // MARK: ------ has the correct content
                     it("has the correct content") {
                         expect(modalInfo?.title).to(equal("nicknameSet".localized()))
-                        await expect(modalInfo?.body).to(equal(
+                        expect(modalInfo?.body).to(equal(
                             .input(
                                 explanation: "nicknameDescription"
                                     .put(key: "name", value: "TestUser")
@@ -387,8 +361,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         try SessionThread(
                             id: legacyGroupPubkey,
                             variant: .legacyGroup,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                         
                         try DisappearingMessagesConfiguration
@@ -425,7 +398,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         },
                         using: dependencies
                     )
-                    await setupTestSubscriptions()
+                    setupTestSubscriptions()
                 }
                 
                 // MARK: ---- has the correct title
@@ -484,7 +457,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             },
                             using: dependencies
                         )
-                        await setupTestSubscriptions()
+                        setupTestSubscriptions()
                     }
                     
                     // MARK: ------ has an edit icon
@@ -516,8 +489,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         try SessionThread(
                             id: groupPubkey,
                             variant: .group,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                         
                         try ClosedGroup(
@@ -550,7 +522,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         },
                         using: dependencies
                     )
-                    await setupTestSubscriptions()
+                    setupTestSubscriptions()
                 }
                 
                 // MARK: ---- has the correct title
@@ -614,7 +586,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             },
                             using: dependencies
                         )
-                        await setupTestSubscriptions()
+                        setupTestSubscriptions()
                     }
                     
                     // MARK: ------ has an edit icon
@@ -654,7 +626,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 },
                                 using: dependencies
                             )
-                            await setupTestSubscriptions()
+                            setupTestSubscriptions()
                             
                             let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                                 .toEventuallyNot(beNil())
@@ -675,7 +647,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         // MARK: -------- has the correct content
                         it("has the correct content") {
                             expect(modalInfo?.title).to(equal("updateGroupInformation".localized()))
-                            await expect(modalInfo?.body).to(equal(
+                            expect(modalInfo?.body).to(equal(
                                 .dualInput(
                                     explanation: "updateGroupInformationDescription"
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
@@ -845,8 +817,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         try SessionThread(
                             id: communityId,
                             variant: .community,
-                            creationDateTimestamp: 0,
-                            using: dependencies
+                            creationDateTimestamp: 0
                         ).insert(db)
                         
                         try OpenGroup(
@@ -868,7 +839,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         },
                         using: dependencies
                     )
-                    await setupTestSubscriptions()
+                    setupTestSubscriptions()
                 }
                 
                 // MARK: ---- has the correct title

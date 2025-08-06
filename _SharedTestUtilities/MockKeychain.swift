@@ -33,5 +33,14 @@ class MockKeychain: Mock<KeychainStorageType>, KeychainStorageType {
     func migrateLegacyKeyIfNeeded(legacyKey: String, legacyService: String?, toKey key: KeychainStorage.DataKey) throws {
         try mockThrowingNoReturn(args: [legacyKey, legacyService, key])
     }
+    
+    func getOrGenerateEncryptionKey(
+        forKey key: KeychainStorage.DataKey,
+        length: Int,
+        cat: Log.Category,
+        legacyKey: String?,
+        legacyService: String?
+    ) throws -> Data {
+        return try mockThrowing(args: [key, length, cat, legacyKey, legacyService])
+    }
 }
-

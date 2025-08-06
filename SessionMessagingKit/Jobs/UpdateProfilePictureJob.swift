@@ -33,18 +33,13 @@ public enum UpdateProfilePictureJob: JobExecutor {
         }
         
         let runJob: () -> () = {
-            // Note: The user defaults flag is updated in DisplayPictureManager
-            let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
-            let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
-                .map { dependencies[singleton: .displayPictureManager].loadDisplayPictureFromDisk(for: $0) }
-                .map { data in
-                    let isAnimated: Bool = ImageDataManager.isAnimatedImage(data)
-                    return .currentUserUploadImageData(
-                        data: data,
-                        sessionProProof: !isAnimated ? nil :
-                            dependencies.mutate(cache: .libSession, { $0.getProProof() })
-                    )
-                }
+            /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
+            let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+            let sessionProProof = dependencies.mutate(cache: .libSession) { $0.getProProof() }
+            let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
+                .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
+                .map { .currentUserUploadImageData(data: $0, sessionProProof: sessionProProof)}
                 .defaulting(to: .none)
             
             Profile

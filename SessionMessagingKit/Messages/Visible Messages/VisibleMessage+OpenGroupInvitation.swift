@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public extension VisibleMessage {
@@ -55,7 +54,7 @@ public extension VisibleMessage {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage.VMOpenGroupInvitation {
-    static func from(_ db: Database, linkPreview: LinkPreview) -> VisibleMessage.VMOpenGroupInvitation? {
+    static func from(linkPreview: LinkPreview) -> VisibleMessage.VMOpenGroupInvitation? {
         guard let name: String = linkPreview.title else { return nil }
         
         return VisibleMessage.VMOpenGroupInvitation(

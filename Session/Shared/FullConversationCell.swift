@@ -49,6 +49,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
 
     private lazy var unreadCountLabel: UILabel = {
         let result: UILabel = UILabel()
+        result.setContentHuggingPriority(.required, for: .horizontal)
+        result.setContentCompressionResistancePriority(.required, for: .horizontal)
         result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .conversationButton_unreadBubbleText
         result.textAlignment = .center
@@ -283,7 +285,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -311,7 +313,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -338,13 +340,11 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
                 using: dependencies
             ),
-            authorName: (cellViewModel.authorId != cellViewModel.currentUserSessionId ?
+            authorName: (!(cellViewModel.currentUserSessionIds ?? []).contains(cellViewModel.authorId ?? "") ?
                 cellViewModel.authorName(for: .contact) :
                 nil
             ),
-            currentUserSessionId: cellViewModel.currentUserSessionId,
-            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
             searchText: searchText.lowercased(),
             fontSize: Values.smallFontSize,
             textColor: .textPrimary,
@@ -362,7 +362,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -375,9 +375,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         timestampLabel.isHidden = true
         displayNameLabel.themeAttributedText = getHighlightedSnippet(
             content: cellViewModel.displayName,
-            currentUserSessionId: cellViewModel.currentUserSessionId,
-            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
             searchText: searchText.lowercased(),
             fontSize: Values.mediumFontSize,
             textColor: .textPrimary,
@@ -391,9 +389,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 bottomLabelStackView.isHidden = (cellViewModel.threadMemberNames ?? "").isEmpty
                 snippetLabel.themeAttributedText = getHighlightedSnippet(
                     content: (cellViewModel.threadMemberNames ?? ""),
-                    currentUserSessionId: cellViewModel.currentUserSessionId,
-                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     searchText: searchText.lowercased(),
                     fontSize: Values.smallFontSize,
                     textColor: .textPrimary,
@@ -442,7 +438,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            displayPictureFilename: cellViewModel.displayPictureFilename,
+            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -635,9 +631,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: MentionUtilities.highlightMentionsNoAttributes(
                 in: previewText,
                 threadVariant: cellViewModel.threadVariant,
-                currentUserSessionId: cellViewModel.currentUserSessionId,
-                currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                 using: dependencies
             ),
             attributes: [ .themeForegroundColor: textColor ]
@@ -649,9 +643,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     private func getHighlightedSnippet(
         content: String,
         authorName: String? = nil,
-        currentUserSessionId: String,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         searchText: String,
         fontSize: CGFloat,
         textColor: ThemeValue,
@@ -681,9 +673,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         let mentionReplacedContent: String = MentionUtilities.highlightMentionsNoAttributes(
             in: content,
             threadVariant: .contact,
-            currentUserSessionId: currentUserSessionId,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            currentUserSessionIds: currentUserSessionIds,
             using: dependencies
         )
         let result: ThemedAttributedString = ThemedAttributedString(

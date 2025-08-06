@@ -38,4 +38,6 @@ enum TestConstants {
 
 public enum TestError: Error, Equatable {
     case mock
+    case timeout
+    case unableToEvaluateExpression
 }

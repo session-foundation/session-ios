@@ -120,7 +120,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
         .eraseToAnyPublisher()
     
-    lazy var observation: TargetObservation = ObservationBuilder
+    lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(configSubject)
         .compactMap { [weak self] currentConfig -> [SectionModel]? in self?.content(currentConfig) }
             
@@ -368,7 +368,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     serverHash: nil,
                     serverExpirationTimestamp: nil,
                     using: dependencies
-                )
+                )?
+                .interactionId
             
             // Update libSession
             switch threadVariant {

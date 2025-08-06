@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class UnsendRequest: ControlMessage {
@@ -25,8 +24,8 @@ public final class UnsendRequest: ControlMessage {
     
     // MARK: - Initialization
     
-    public init(timestamp: UInt64, author: String) {
-        super.init()
+    public init(timestamp: UInt64, author: String, sender: String? = nil) {
+        super.init(sender: sender)
         
         self.timestamp = timestamp
         self.author = author
@@ -61,7 +60,7 @@ public final class UnsendRequest: ControlMessage {
         return UnsendRequest(timestamp: timestamp, author: author)
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         guard let timestamp = timestamp, let author = author else {
             Log.warn(.messageSender, "Couldn't construct unsend request proto from: \(self).")
             return nil

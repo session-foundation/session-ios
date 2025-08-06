@@ -66,7 +66,7 @@ open class SessionHostingViewController<Content>: UIHostingController<ModifiedCo
         /// Apply the nav styling in `viewWillAppear` instead of `viewDidLoad` as it's possible the nav stack isn't fully setup
         /// and could crash when trying to access it (whereas by the time `viewWillAppear` is called it should be setup)
         ThemeManager.applyNavigationStylingIfNeeded(to: self)
-
+        
         if shouldHideNavigationBar {
             self.navigationController?.setNavigationBarHidden(true, animated: animated)
         }

@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdatePromoteMessage: ControlMessage {
@@ -23,14 +22,16 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         groupIdentitySeed: Data,
         groupName: String,
         profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
-        sentTimestampMs: UInt64? = nil
+        sentTimestampMs: UInt64? = nil,
+        sender: String? = nil
     ) {
         self.groupIdentitySeed = groupIdentitySeed
         self.groupName = groupName
         self.profile = profile
         
         super.init(
-            sentTimestampMs: sentTimestampMs
+            sentTimestampMs: sentTimestampMs,
+            sender: sender
         )
     }
     
@@ -71,7 +72,7 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
+    public override func toProto() -> SNProtoContent? {
         do {
             let promoteMessageBuilder: SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuilder = SNProtoGroupUpdatePromoteMessage.builder(
                 groupIdentitySeed: groupIdentitySeed,

@@ -42,14 +42,20 @@ public final class CurrentUserPoller: SwarmPoller {
     
     // MARK: - Abstract Methods
     
-    override public func nextPollDelay() -> TimeInterval {
+    override public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
         // If there have been no failures then just use the 'minPollInterval'
-        guard failureCount > 0 else { return pollInterval }
+        guard failureCount > 0 else {
+            return Just(pollInterval)
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
         
         // Otherwise use a simple back-off with the 'retryInterval'
         let nextDelay: TimeInterval = TimeInterval(retryInterval * (Double(failureCount) * 1.2))
         
-        return min(maxRetryInterval, nextDelay)
+        return Just(min(maxRetryInterval, nextDelay))
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
     
     // stringlint:ignore_contents

@@ -77,7 +77,7 @@ public protocol PollerType: AnyObject {
     
     func pollerDidStart()
     func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error>
-    func nextPollDelay() -> TimeInterval
+    func nextPollDelay() -> AnyPublisher<TimeInterval, Error>
     func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse
 }
 
@@ -87,25 +87,27 @@ public extension PollerType {
     func startIfNeeded() { startIfNeeded(forceStartInBackground: false) }
     
     func startIfNeeded(forceStartInBackground: Bool) {
-        guard
-            forceStartInBackground ||
-            dependencies[singleton: .appContext].isMainAppAndActive
-        else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
-        
-        pollerQueue.async(using: dependencies) { [weak self, pollerName] in
-            guard self?.isPolling != true else { return }
+        Task { @MainActor [weak self, pollerName, pollerQueue, appContext = dependencies[singleton: .appContext], dependencies] in
+            guard
+                forceStartInBackground ||
+                appContext.isMainAppAndActive
+            else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
             
-            // Might be a race condition that the setUpPolling finishes too soon,
-            // and the timer is not created, if we mark the group as is polling
-            // after setUpPolling. So the poller may not work, thus misses messages
-            self?.isPolling = true
-            self?.pollRecursively(nil)
-            
-            if self?.logStartAndStopCalls == true {
-                Log.info(.poller, "Started \(pollerName).")
+            pollerQueue.async(using: dependencies) { [weak self] in
+                guard self?.isPolling != true else { return }
+                
+                // Might be a race condition that the setUpPolling finishes too soon,
+                // and the timer is not created, if we mark the group as is polling
+                // after setUpPolling. So the poller may not work, thus misses messages
+                self?.isPolling = true
+                self?.pollRecursively(nil)
+                
+                if self?.logStartAndStopCalls == true {
+                    Log.info(.poller, "Started \(pollerName).")
+                }
+                
+                self?.pollerDidStart()
             }
-            
-            self?.pollerDidStart()
         }
     }
     
@@ -139,21 +141,21 @@ public extension PollerType {
         }
         
         self.lastPollStart = dependencies.dateNow.timeIntervalSince1970
-        let fallbackPollDelay: TimeInterval = self.nextPollDelay()
         
         cancellable = poll(forceSynchronousProcessing: false)
             .subscribe(on: pollerQueue, using: dependencies)
             .receive(on: pollerQueue, using: dependencies)
             .asResult()
+            .flatMapOptional { [weak self] value in self?.nextPollDelay().map { (value, $0) } }
             .sink(
                 receiveCompletion: { _ in },    // Never called
-                receiveValue: { [weak self, pollerName, pollerQueue, lastPollStart, failureCount, dependencies] result in
+                receiveValue: { [weak self, pollerName, pollerQueue, lastPollStart, failureCount, dependencies] result, nextPollDelay in
                     // If the polling has been cancelled then don't continue
                     guard self?.isPolling == true else { return }
                     
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - lastPollStart)
-                    let nextPollInterval: TimeUnit = .seconds((self?.nextPollDelay()).defaulting(to: fallbackPollDelay))
+                    let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
                     var errorFromPoll: Error?
                     
                     // Log information about the poll

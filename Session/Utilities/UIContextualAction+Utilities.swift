@@ -174,16 +174,17 @@ public extension UIContextualAction {
                         ) { _, _, completionHandler  in
                             switch threadViewModel.threadId {
                                 case SessionThreadViewModel.messageRequestsSectionId:
-                                    dependencies[singleton: .storage].write { db in
-                                        db[.hasHiddenMessageRequests] = true
-                                    }
+                                    dependencies.setAsync(.hasHiddenMessageRequests, true)
                                     completionHandler(true)
                                     
                                 default:
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "noteToSelfHide".localized(),
-                                            body: .text("noteToSelfHideDescription".localized()),
+                                            body: .attributedText(
+                                                "hideNoteToSelfDescription"
+                                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                            ),
                                             confirmTitle: "hide".localized(),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
@@ -306,18 +307,24 @@ public extension UIContextualAction {
                                         .select(.mutedUntilTimestamp)
                                         .asRequest(of: TimeInterval.self)
                                         .fetchOne(db)
+                                    let newValue: TimeInterval? = (currentValue == nil ?
+                                        Date.distantFuture.timeIntervalSince1970 :
+                                        nil
+                                    )
                                     
                                     try SessionThread
                                         .filter(id: threadViewModel.threadId)
                                         .updateAll(
                                             db,
-                                            SessionThread.Columns.mutedUntilTimestamp.set(
-                                                to: (currentValue == nil ?
-                                                    Date.distantFuture.timeIntervalSince1970 :
-                                                    nil
-                                                )
-                                            )
+                                            SessionThread.Columns.mutedUntilTimestamp.set(to: newValue)
                                         )
+                                    
+                                    if currentValue != newValue {
+                                        db.addConversationEvent(
+                                            id: threadViewModel.threadId,
+                                            type: .updated(.mutedUntilTimestamp(newValue))
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -383,6 +390,9 @@ public extension UIContextualAction {
                                 (!threadIsContactMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
                                 (!threadIsContactMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
+                            let contactChangeEvents: [ContactEvent.Change] = (!threadIsContactMessageRequest ? [] :
+                                [.isApproved(false), .didApproveMe(true)]
+                            )
                             let nameToUse: String = {
                                 switch threadViewModel.threadVariant {
                                     case .group:
@@ -447,6 +457,12 @@ public extension UIContextualAction {
                                                                     contactChanges,
                                                                     using: dependencies
                                                                 )
+                                                            contactChangeEvents.forEach { change in
+                                                                db.addContactEvent(
+                                                                    id: threadViewModel.threadId,
+                                                                    change: change
+                                                                )
+                                                            }
                                                             
                                                         case .group:
                                                             try Contact
@@ -463,6 +479,12 @@ public extension UIContextualAction {
                                                                     contactChanges,
                                                                     using: dependencies
                                                                 )
+                                                            contactChangeEvents.forEach { change in
+                                                                db.addContactEvent(
+                                                                    id: profileInfo.id,
+                                                                    change: change
+                                                                )
+                                                            }
                                                             
                                                         default: break
                                                     }
@@ -517,17 +539,17 @@ public extension UIContextualAction {
                                     case (.group, true):
                                         return "groupLeaveDescriptionAdmin"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     case (.legacyGroup, true):
                                         return "groupLeaveDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     default:
                                         return "groupLeaveDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
                             }()
                             
@@ -638,19 +660,19 @@ public extension UIContextualAction {
                                 
                                 switch threadInfo {
                                     case (.contact, _):
-                                        return "conversationsDeleteDescription"
+                                        return "deleteConversationDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                         
                                     case (.group, true):
                                         return "groupDeleteDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     default:
                                         return "groupDeleteDescriptionMember"
                                             .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
                             }()
                             
@@ -698,7 +720,8 @@ public extension UIContextualAction {
                     case .deleteContact:
                         return UIContextualAction(
                             title: "contactDelete".localized(),
-                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
+                            icon: UIImage(named: "ic_user_round_trash")?
+                                .withRenderingMode(.alwaysTemplate),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Delete button"),
@@ -713,7 +736,7 @@ public extension UIContextualAction {
                                     body: .attributedText(
                                         "contactDeleteDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     ),
                                     confirmTitle: "delete".localized(),
                                     confirmStyle: .danger,

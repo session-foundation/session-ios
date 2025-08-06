@@ -134,21 +134,6 @@ public extension VisibleMessage {
     }
 }
 
-// MARK: - Conversion
-
-extension VisibleMessage.VMProfile {
-    init(
-        profile: Profile,
-        blocksCommunityMessageRequests: Bool?
-    ) {
-        self.displayName = profile.name
-        self.profileKey = profile.profileEncryptionKey
-        self.profilePictureUrl = profile.profilePictureUrl
-        self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-        self.sessionProProof = profile.sessionProProof
-    }
-}
-
 // MARK: - MessageWithProfile
 
 public protocol MessageWithProfile {

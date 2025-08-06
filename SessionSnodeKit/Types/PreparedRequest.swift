@@ -447,11 +447,10 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
 
 public extension Network.PreparedRequest {
     func signed(
-        _ db: Database,
-        with requestSigner: (Database, Network.PreparedRequest<R>, Dependencies) throws -> Network.Destination,
+        with requestSigner: (Network.PreparedRequest<R>, Dependencies) throws -> Network.Destination,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
-        let signedDestination: Network.Destination = try requestSigner(db, self, dependencies)
+        let signedDestination: Network.Destination = try requestSigner(self, dependencies)
         
         return Network.PreparedRequest(
             body: body,

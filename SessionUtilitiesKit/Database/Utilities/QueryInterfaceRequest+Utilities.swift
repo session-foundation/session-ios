@@ -14,7 +14,7 @@ public extension QueryInterfaceRequest {
     /// - returns: Whether the request matches a row in the database.
     ///
     /// stringlint:ignore_contents
-    func isNotEmpty(_ db: Database) -> Bool {
+    func isNotEmpty(_ db: ObservingDatabase) -> Bool {
         return ((try? SQLRequest("SELECT \(exists())").fetchOne(db)) ?? false)
     }
 }

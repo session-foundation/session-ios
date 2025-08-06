@@ -10,7 +10,7 @@ enum _021_ReworkRecipientState: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         /// First we need to add the new columns to the `Interaction` table
         try db.alter(table: "interaction") { t in
             t.add(column: "state", .integer)
@@ -128,14 +128,21 @@ enum _021_ReworkRecipientState: Migration {
         
         /// Any interactions which didn't have a `recipientState` or a `MessageSendJob` should be considered `sent` (as
         /// the old UI behaviour was to render any messages without a `recipientState` as `sent`)
-        let interactionIdsWithMessageSendJobs: Set<Int64> = try Int64.fetchSet(db, sql: """
-            SELECT interactionId
-            FROM job
-            WHERE (
-                variant = \(Job.Variant.messageSend.rawValue) AND
-                interactionId IS NOT NULL
-            )
-        """)
+        var interactionIdsWithMessageSendJobs: Set<Int64> = []
+        
+        /// Only fetch from the `jobs` table if it exists or we aren't running tests (when running tests this allows us to skip running the
+        /// SNUtilitiesKit migrations)
+        if !SNUtilitiesKit.isRunningTests || ((try? db.tableExists("job")) == true) {
+            interactionIdsWithMessageSendJobs = try Int64.fetchSet(db, sql: """
+                SELECT interactionId
+                FROM job
+                WHERE (
+                    variant = \(Job.Variant.messageSend.rawValue) AND
+                    interactionId IS NOT NULL
+                )
+            """)
+        }
+        
         let interactionIdsToExclude: Set<Int64> = Set(recipientStateInfo
             .map { info -> Int64 in info["interactionId"] })
             .union(interactionIdsWithMessageSendJobs)
@@ -169,7 +176,7 @@ enum _021_ReworkRecipientState: Migration {
         /// Finally we can drop the old recipient states table
         try db.drop(table: "recipientState")
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }
 

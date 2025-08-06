@@ -35,7 +35,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     
     @discardableResult
     func updateAll(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ assignments: ConfigColumnAssignment...
     ) throws -> Int {
         return try updateAll(db, assignments)
@@ -43,7 +43,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     
     @discardableResult
     func updateAll(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ assignments: [ConfigColumnAssignment]
     ) throws -> Int {
         return try self.updateAll(db, assignments.map { $0.assignment })
@@ -51,7 +51,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     
     @discardableResult
     func updateAllAndConfig(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ assignments: ConfigColumnAssignment...,
         using dependencies: Dependencies
     ) throws -> Int {
@@ -64,7 +64,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     
     @discardableResult
     func updateAllAndConfig(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ assignments: [ConfigColumnAssignment],
         using dependencies: Dependencies
     ) throws -> Int {
@@ -86,7 +86,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ assignments: ConfigColumnAssignment...,
         using dependencies: Dependencies
     ) throws -> [RowDecoder] {
@@ -99,7 +99,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ assignments: [ConfigColumnAssignment],
         using dependencies: Dependencies
     ) throws -> [RowDecoder] {

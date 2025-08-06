@@ -16,16 +16,12 @@ public extension Singleton {
 
 // MARK: - ThumbnailService
 
-public class TypingIndicators {
+public actor TypingIndicators {
     // MARK: - Variables
     
     private let dependencies: Dependencies
-    @ThreadSafeObject private var timerQueue: DispatchQueue = DispatchQueue(
-        label: "org.getsession.typingIndicatorQueue",   // stringlint:ignore
-        qos: .userInteractive
-    )
-    @ThreadSafeObject private var outgoing: [String: Indicator] = [:]
-    @ThreadSafeObject private var incoming: [String: Indicator] = [:]
+    private var outgoing: [String: Indicator] = [:]
+    private var incoming: [String: Indicator] = [:]
     
     // MARK: - Initialization
     
@@ -38,16 +34,14 @@ public class TypingIndicators {
     public func startIfNeeded(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        threadIsBlocked: Bool,
-        threadIsMessageRequest: Bool,
         direction: Direction,
         timestampMs: Int64?
-    ) {
+    ) async {
         let targetIndicators: [String: Indicator] = (direction == .outgoing ? outgoing : incoming)
         
         /// If we already have an existing typing indicator for this thread then just refresh it's timeout (no need to do anything else)
         if let existingIndicator: Indicator = targetIndicators[threadId] {
-            existingIndicator.refreshTimeout(timerQueue: timerQueue, using: dependencies)
+            await existingIndicator.refreshTimeout(sentTimestampMs: timestampMs, using: dependencies)
             return
         }
         
@@ -57,49 +51,47 @@ public class TypingIndicators {
         ///
         /// The `typingIndicatorsEnabled` flag reflects the user-facing setting in the app preferences, if it's disabled we don't
         /// want to emit "typing indicator" messages or show typing indicators for other users
-        ///
-        /// **Note:** We do this check on a background thread because, while it's just checking a setting, we are still accessing the
-        /// database to check `typingIndicatorsEnabled` so want to avoid doing it on the main thread
-        timerQueue.async { [weak self, dependencies] in
-            guard
-                threadVariant == .contact &&
-                !threadIsBlocked &&
-                !threadIsMessageRequest &&
-                dependencies[singleton: .storage, key: .typingIndicatorsEnabled],
-                let timerQueue: DispatchQueue = self?.timerQueue
-            else { return }
-            
-            let newIndicator: Indicator = Indicator(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                direction: direction,
-                timestampMs: (timestampMs ?? dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
-            )
-            
-            switch direction {
-                case .outgoing: self?._outgoing.performUpdate { $0.setting(threadId, newIndicator) }
-                case .incoming: self?._incoming.performUpdate { $0.setting(threadId, newIndicator) }
-            }
-            
-            dependencies[singleton: .storage].writeAsync { db in
-                newIndicator.start(db, timerQueue: timerQueue, using: dependencies)
-            }
+        guard
+            threadVariant == .contact &&
+            dependencies.mutate(cache: .libSession, { libSession in
+                libSession.get(.typingIndicatorsEnabled) &&
+                !libSession.isContactBlocked(contactId: threadId) &&
+                !libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
+            })
+        else { return }
+        
+        let newIndicator: Indicator = Indicator(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            direction: direction,
+            timestampMs: (timestampMs ?? dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+        )
+        
+        switch direction {
+            case .outgoing: self.outgoing[threadId] = newIndicator
+            case .incoming: self.incoming[threadId] = newIndicator
+        }
+        
+        await newIndicator.start(using: dependencies)
+    }
+    
+    public func didStopTyping(threadId: String, direction: Direction) async {
+        switch direction {
+            case .outgoing: await self.outgoing.removeValue(forKey: threadId)?.stop(using: dependencies)
+            case .incoming: await self.incoming.removeValue(forKey: threadId)?.stop(using: dependencies)
         }
     }
     
-    public func didStopTyping(_ db: Database, threadId: String, direction: Direction) {
-        switch direction {
-            case .outgoing:
-                if let indicator: Indicator = outgoing[threadId] {
-                    indicator.stop(db, using: dependencies)
-                    _outgoing.performUpdate { $0.removingValue(forKey: threadId) }
-                }
-                
-            case .incoming:
-                if let indicator: Indicator = incoming[threadId] {
-                    indicator.stop(db, using: dependencies)
-                    _incoming.performUpdate { $0.removingValue(forKey: threadId) }
-                }
+    fileprivate func handleRefresh(threadId: String, threadVariant: SessionThread.Variant) async {
+        try? await dependencies[singleton: .storage].writeAsync { db in
+            try? MessageSender.send(
+                db,
+                message: TypingIndicator(kind: .started),
+                interactionId: nil,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                using: self.dependencies
+            )
         }
     }
 }
@@ -115,12 +107,12 @@ public extension TypingIndicators {
     // MARK: - Indicator
     
     class Indicator {
-        fileprivate let threadId: String
-        fileprivate let threadVariant: SessionThread.Variant
-        fileprivate let direction: Direction
-        fileprivate let timestampMs: Int64
-        fileprivate var refreshTimer: DispatchSourceTimer?
-        fileprivate var stopTimer: DispatchSourceTimer?
+        let threadId: String
+        let threadVariant: SessionThread.Variant
+        let direction: Direction
+        let initialTimestampMs: Int64
+        private var stopTask: Task<Void, Error>?
+        private var refreshTask: Task<Void, Error>?
         
         init(
             threadId: String,
@@ -131,89 +123,96 @@ public extension TypingIndicators {
             self.threadId = threadId
             self.threadVariant = threadVariant
             self.direction = direction
-            self.timestampMs = timestampMs
+            self.initialTimestampMs = timestampMs
         }
         
-        fileprivate func start(_ db: Database, timerQueue: DispatchQueue, using dependencies: Dependencies) {
-            // Start the typing indicator
+        deinit {
+            stopTask?.cancel()
+            refreshTask?.cancel()
+        }
+        
+        fileprivate func start(using dependencies: Dependencies) async {
             switch direction {
-                case .outgoing: scheduleRefreshCallback(timerQueue: timerQueue, using: dependencies)
+                case .outgoing: scheduleRefreshCallback(using: dependencies)
                 case .incoming:
-                    try? ThreadTypingIndicator(
-                        threadId: threadId,
-                        timestampMs: timestampMs
-                    )
-                    .upsert(db)
+                    try? await dependencies[singleton: .storage].writeAsync { [threadId, initialTimestampMs] db in
+                        try ThreadTypingIndicator(threadId: threadId, timestampMs: initialTimestampMs).upsert(db)
+                        db.addTypingIndicatorEvent(threadId: threadId, change: .started)
+                    }
             }
             
-            // Refresh the timeout since we just started
-            refreshTimeout(timerQueue: timerQueue, using: dependencies)
+            await refreshTimeout(sentTimestampMs: initialTimestampMs, using: dependencies)
         }
         
-        fileprivate func stop(_ db: Database, using dependencies: Dependencies) {
-            self.refreshTimer?.cancel()
-            self.refreshTimer = nil
-            self.stopTimer?.cancel()
-            self.stopTimer = nil
-            
-            switch direction {
-                case .outgoing:
-                    try? MessageSender.send(
-                        db,
-                        message: TypingIndicator(kind: .stopped),
-                        interactionId: nil,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        using: dependencies
-                    )
-                    
-                case .incoming:
-                    _ = try? ThreadTypingIndicator
-                        .filter(ThreadTypingIndicator.Columns.threadId == self.threadId)
-                        .deleteAll(db)
-            }
-        }
-        
-        fileprivate func refreshTimeout(timerQueue: DispatchQueue, using dependencies: Dependencies) {
-            let threadId: String = self.threadId
-            let direction: Direction = self.direction
-            
-            // Schedule the 'stopCallback' to cancel the typing indicator
-            stopTimer?.cancel()
-            stopTimer = DispatchSource.makeTimerSource(queue: timerQueue)
-            stopTimer?.schedule(deadline: .now() + .seconds(direction == .outgoing ? 3 : 15))
-            stopTimer?.setEventHandler {
-                dependencies[singleton: .storage].writeAsync { db in
-                    dependencies[singleton: .typingIndicators].didStopTyping(
-                        db,
-                        threadId: threadId,
-                        direction: direction
-                    )
+        func stop(using dependencies: Dependencies) async {
+            /// Need to run a detached task to cleanup the database record because we are about to cancel the `stopTask` and
+            /// `refreshTask` (and if one of those triggered this call then the code would otherwise stop executing because the
+            /// parent task is cancelled
+            Task.detached { [threadId, threadVariant, direction, storage = dependencies[singleton: .storage]] in
+                try? await storage.writeAsync { db in
+                    switch direction {
+                        case .outgoing:
+                            try MessageSender.send(
+                                db,
+                                message: TypingIndicator(kind: .stopped),
+                                interactionId: nil,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                using: dependencies
+                            )
+                            
+                        case .incoming:
+                            _ = try ThreadTypingIndicator
+                                .filter(ThreadTypingIndicator.Columns.threadId == threadId)
+                                .deleteAll(db)
+                            db.addTypingIndicatorEvent(threadId: threadId, change: .stopped)
+                    }
                 }
             }
-            stopTimer?.resume()
+            
+            /// Now that the db cleanup is happening we can properly stop the tasks
+            stopTask?.cancel()
+            refreshTask?.cancel()
         }
         
-        private func scheduleRefreshCallback(
-            timerQueue: DispatchQueue,
-            using dependencies: Dependencies
-        ) {
-            refreshTimer?.cancel()
-            refreshTimer = DispatchSource.makeTimerSource(queue: timerQueue)
-            refreshTimer?.schedule(deadline: .now(), repeating: .seconds(10))
-            refreshTimer?.setEventHandler { [threadId = self.threadId, threadVariant = self.threadVariant] in
-                dependencies[singleton: .storage].writeAsync { db in
-                    try? MessageSender.send(
-                        db,
-                        message: TypingIndicator(kind: .started),
-                        interactionId: nil,
+        func refreshTimeout(sentTimestampMs: Int64?, using dependencies: Dependencies) async {
+            stopTask?.cancel()
+            
+            let baseTimestamp: TimeInterval = (
+                sentTimestampMs.map { TimeInterval(Double($0) / 1000) } ??
+                dependencies.dateNow.timeIntervalSince1970
+            )
+            let delay: TimeInterval = TimeInterval(direction == .outgoing ? 3 : 15)
+
+            stopTask = Task { [threadId, direction] in
+                /// If the delay is in the future then we want to wait until then
+                let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                                                            
+                if baseTimestamp + delay > timestampNow {
+                    try await Task.sleep(for: .seconds(Int((baseTimestamp + delay) - timestampNow)))
+                }
+                
+                try Task.checkCancellation()
+                
+                await dependencies[singleton: .typingIndicators].didStopTyping(
+                    threadId: threadId,
+                    direction: direction
+                )
+            }
+        }
+        
+        private func scheduleRefreshCallback(using dependencies: Dependencies) {
+            refreshTask?.cancel()
+            
+            refreshTask = Task { [threadId, threadVariant] in
+                while !Task.isCancelled {
+                    await dependencies[singleton: .typingIndicators].handleRefresh(
                         threadId: threadId,
-                        threadVariant: threadVariant,
-                        using: dependencies
+                        threadVariant: threadVariant
                     )
+                    try await Task.sleep(for: .seconds(10))
                 }
             }
-            refreshTimer?.resume()
         }
     }
 }

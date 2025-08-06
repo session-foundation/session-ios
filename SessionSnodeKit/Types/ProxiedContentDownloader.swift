@@ -635,7 +635,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     // * Complete/cancel asset requests if possible.
     //
     // stringlint:ignore_contents
-    private func processRequestQueueSync() {
+    @MainActor private func processRequestQueueSync() {
         guard let assetRequest = popNextAssetRequest() else {
             return
         }

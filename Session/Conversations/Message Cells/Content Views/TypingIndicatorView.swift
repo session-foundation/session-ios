@@ -52,6 +52,16 @@ import SessionUtilitiesKit
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
+    
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        
+        // CoreAnimation animations are stopped when a view is taken off screen, so ensure animations
+        // are restored if necessary
+        if window != nil && isAnimating {
+            startAnimation()
+        }
+    }
 
     // MARK: - Notifications
 

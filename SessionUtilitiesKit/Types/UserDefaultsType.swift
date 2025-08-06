@@ -37,7 +37,16 @@ public protocol UserDefaultsType: AnyObject {
     func set(_ value: Bool, forKey defaultName: String)
     func set(_ url: URL?, forKey defaultName: String)
     
+    func removeObject(forKey defaultName: String)
     func removeAll()
+}
+
+public extension UserDefaultsType {
+    func removeObject(forKey key: UserDefaults.BoolKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.DateKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.DoubleKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.IntKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.StringKey) { self.removeObject(forKey: key.rawValue) }
 }
 
 extension UserDefaults: UserDefaultsType {}
@@ -74,12 +83,53 @@ public extension UserDefaults {
     }
 }
 
+// MARK: - UserDefaults Convenience
+
+public extension Dependencies {
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.BoolKey) -> Bool {
+        get { return self[defaults: defaults].bool(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
+        }
+    }
+
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DateKey) -> Date? {
+        get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
+        }
+    }
+    
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DoubleKey) -> Double {
+        get { return self[defaults: defaults].double(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
+        }
+    }
+
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.IntKey) -> Int {
+        get { return self[defaults: defaults].integer(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
+        }
+    }
+    
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.StringKey) -> String? {
+        get { return self[defaults: defaults].string(forKey: key.rawValue) }
+        set {
+            self[defaults: defaults].set(newValue, forKey: key.rawValue)
+            self.notifyAsync(key: .userDefault(key), value: newValue)
+        }
+    }
+}
+
 // MARK: - UserDefault Values
 
 public extension UserDefaults.BoolKey {
-    /// Indicates whether the user has synced an initial config message from this device
-    static let hasSyncedInitialConfiguration: UserDefaults.BoolKey = "hasSyncedConfiguration"
-    
     /// Indicates whether the user has seen the suggestion to enable link previews
     static let hasSeenLinkPreviewSuggestion: UserDefaults.BoolKey = "hasSeenLinkPreviewSuggestion"
     
@@ -146,6 +196,9 @@ public extension UserDefaults.IntKey {
     
     /// The latest softfork value returned when interacting with a service node
     static let softfork: UserDefaults.IntKey = "softfork"
+    
+    /// The id of the message that was just shared to
+    static let lastSharedMessageId: UserDefaults.IntKey = "lastSharedMessageId"
 }
 
 public extension UserDefaults.StringKey {
@@ -154,58 +207,76 @@ public extension UserDefaults.StringKey {
     
     /// The warning to show at the top of the app
     static let topBannerWarningToShow: UserDefaults.StringKey = "topBannerWarningToShow"
+    
+    /// The id of the thread that a message was just shared to
+    static let lastSharedThreadId: UserDefaults.StringKey = "lastSharedThreadId"
 }
 
 // MARK: - Keys
 
 public extension UserDefaults {
-    struct BoolKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
-        public let rawValue: String
-        
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
+    protocol Key: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+        var rawValue: String { get }
+        init(_ rawValue: String)
     }
     
-    struct DateKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct BoolKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct DoubleKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct DateKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct IntKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct DoubleKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct StringKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct IntKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
+    
+    struct StringKey: Key {
+        public let rawValue: String
+        public init(_ rawValue: String) { self.rawValue = rawValue }
+    }
+}
+
+public extension UserDefaults.Key {
+    init?(rawValue: String) { self.init(rawValue) }
+    init(stringLiteral value: String) { self.init(value) }
+    init(unicodeScalarLiteral value: String) { self.init(value) }
+    init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
+}
+
+// MARK: - Observable Keys
+
+public extension ObservableKey {
+    static func userDefault(_ key: UserDefaults.BoolKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.DateKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.DoubleKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.IntKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+    
+    static func userDefault(_ key: UserDefaults.StringKey) -> ObservableKey {
+        ObservableKey(key.rawValue, .userDefault)
+    }
+}
+
+public extension GenericObservableKey {
+    static let userDefault: GenericObservableKey = "userDefault"
 }
