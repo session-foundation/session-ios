@@ -1768,7 +1768,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         return dependencies[singleton: .displayPictureManager]
                             .prepareAndUploadDisplayPicture(imageData: data)
                             .showingBlockingLoading(in: self?.navigatableState)
-                            .map { url, filePath, key -> DisplayPictureManager.Update in
+                            .map { url, filePath, key, _ -> DisplayPictureManager.Update in
                                 .groupUpdateTo(url: url, key: key, filePath: filePath)
                             }
                             .mapError { $0 as Error }
