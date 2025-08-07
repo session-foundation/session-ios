@@ -134,6 +134,7 @@ internal extension LibSessionCacheType {
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
                 displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                profileUpdateTimestamp: (profile.displayPictureLastUpdated ?? 0),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
                 using: dependencies
             )

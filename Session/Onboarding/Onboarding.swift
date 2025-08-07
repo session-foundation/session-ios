@@ -411,6 +411,7 @@ extension Onboarding {
                                 publicKey: userSessionId.hexString,
                                 displayNameUpdate: .currentUserUpdate(displayName),
                                 displayPictureUpdate: .none,
+                                profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
                                 sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                                 using: dependencies
                             )

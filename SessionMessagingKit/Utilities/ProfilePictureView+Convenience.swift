@@ -56,12 +56,15 @@ public extension ProfilePictureView {
                     return profile.shoudAnimateProfilePicture(using: dependencies)
                 }()
                 /// If we are given an explicit `displayPictureUrl` then only use that
-                return (Info(
-                    source: .url(URL(fileURLWithPath: path)),
-                    shouldAnimated: shouldAnimated,
-                    isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
-                    icon: profileIcon,
-                ), nil)
+                return (
+                    Info(
+                        source: .url(URL(fileURLWithPath: path)),
+                        shouldAnimated: shouldAnimated,
+                        isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
+                        icon: profileIcon
+                    ),
+                    nil
+                )
             
             case (_, _, .community):
                 return (
