@@ -738,7 +738,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2332,7 +2332,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2369,7 +2369,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2385,7 +2385,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2422,7 +2422,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2438,7 +2438,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2480,7 +2480,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
