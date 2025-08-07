@@ -9,7 +9,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import Session
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class OnboardingSpec: AsyncSpec {

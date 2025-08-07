@@ -3,7 +3,7 @@
 import Foundation
 import UniformTypeIdentifiers
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 /// This migration renames all attachments to use a hash of the download url for the filename instead of a random UUID (means we can
