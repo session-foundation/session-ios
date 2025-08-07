@@ -1018,7 +1018,6 @@
 		FDE33BBE2D5C3AF100E56F42 /* _023_GroupsExpiredFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE33BBD2D5C3AE800E56F42 /* _023_GroupsExpiredFlag.swift */; };
 		FDE519F72AB7CDC700450C53 /* Result+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */; };
 		FDE5218E2E03A06B00061B8E /* AttachmentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE5218D2E03A06700061B8E /* AttachmentManager.swift */; };
-		FDE521902E04CCEB00061B8E /* AVURLAsset+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE5218F2E04CCE600061B8E /* AVURLAsset+Utilities.swift */; };
 		FDE521942E050B1100061B8E /* DismissCallbackAVPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521932E050B0800061B8E /* DismissCallbackAVPlayerViewController.swift */; };
 		FDE5219A2E08DBB800061B8E /* ImageLoading+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */; };
 		FDE5219C2E08E76C00061B8E /* SessionAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE5219B2E08E76600061B8E /* SessionAsyncImage.swift */; };
@@ -2281,7 +2280,6 @@
 		FDE33BBD2D5C3AE800E56F42 /* _023_GroupsExpiredFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _023_GroupsExpiredFlag.swift; sourceTree = "<group>"; };
 		FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Result+Utilities.swift"; sourceTree = "<group>"; };
 		FDE5218D2E03A06700061B8E /* AttachmentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentManager.swift; sourceTree = "<group>"; };
-		FDE5218F2E04CCE600061B8E /* AVURLAsset+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AVURLAsset+Utilities.swift"; sourceTree = "<group>"; };
 		FDE521932E050B0800061B8E /* DismissCallbackAVPlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissCallbackAVPlayerViewController.swift; sourceTree = "<group>"; };
 		FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageLoading+Convenience.swift"; sourceTree = "<group>"; };
 		FDE5219B2E08E76600061B8E /* SessionAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionAsyncImage.swift; sourceTree = "<group>"; };
@@ -3951,7 +3949,6 @@
 			isa = PBXGroup;
 			children = (
 				FDB3DA892E2482A400148F8D /* AVURLAsset+Utilities.swift */,
-				FDE5218F2E04CCE600061B8E /* AVURLAsset+Utilities.swift */,
 				94C58AC82D2E036E00609195 /* Permissions.swift */,
 				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
 				FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */,
@@ -6342,7 +6339,6 @@
 				FDB7400B28EB99A70094D718 /* TimeInterval+Utilities.swift in Sources */,
 				FD09797D27FBDB2000936362 /* Notification+Utilities.swift in Sources */,
 				FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */,
-				FDE521902E04CCEB00061B8E /* AVURLAsset+Utilities.swift in Sources */,
 				FD6673FF2D77F9C100041530 /* ScreenLock.swift in Sources */,
 				FD78E9F02DD6D61200D55B50 /* Data+Image.swift in Sources */,
 				FDB3DA8B2E24834000148F8D /* AVURLAsset+Utilities.swift in Sources */,
