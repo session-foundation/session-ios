@@ -1,10 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
-import SessionUIKit
-import SessionMessagingKit
-import SessionUtilitiesKit
+import UIKit
 
 public enum MentionUtilities {
     public enum MentionLocation {
@@ -18,28 +15,16 @@ public enum MentionUtilities {
     
     public static func getMentions(
         in string: String,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
-        using dependencies: Dependencies
-    ) -> (String, [(range: NSRange, isCurrentUser: Bool, info: MentionInfo)]) {
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
+    ) -> (String, [(range: NSRange, profileId: String, isCurrentUser: Bool)]) {
         guard
             let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        else {
-            return (string, [])
-        }
+        else { return (string, []) }
         
         var string = string
         var lastMatchEnd: Int = 0
-        var mentions: [(range: NSRange, isCurrentUser: Bool, info: MentionInfo)] = []
-        let currentUserSessionIds: Set<String> = [
-            currentUserSessionId,
-            currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId
-        ]
-        .compactMap { $0 }
-        .asSet()
+        var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
         
         while let match: NSTextCheckingResult = regex.firstMatch(
             in: string,
@@ -50,17 +35,17 @@ public enum MentionUtilities {
             
             let sessionId: String = String(string[range].dropFirst()) // Drop the @
             let isCurrentUser: Bool = currentUserSessionIds.contains(sessionId)
-            
-            // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-            guard let targetProfile: Profile = dependencies[singleton: .storage].read({ db in try? Profile.fetchOne(db, id: sessionId)}) else {
-                lastMatchEnd = (match.range.location + match.range.length)
-                continue
-            }
-            
-            let targetString: String = {
+            let maybeTargetString: String? = {
                 guard !isCurrentUser else { return "you".localized() }
-                return targetProfile.displayName(for: threadVariant)
+                guard let displayName: String = displayNameRetriever(sessionId, true) else {
+                    lastMatchEnd = (match.range.location + match.range.length)
+                    return nil
+                }
+                
+                return displayName
             }()
+            
+            guard let targetString: String = maybeTargetString else { continue }
             
             string = string.replacingCharacters(in: range, with: "@\(targetString)")    // stringlint:ignore
             lastMatchEnd = (match.range.location + targetString.utf16.count)
@@ -68,11 +53,8 @@ public enum MentionUtilities {
             mentions.append((
                 // + 1 to include the @
                 range: NSRange(location: match.range.location, length: targetString.utf16.count + 1),
-                isCurrentUser: isCurrentUser,
-                info: MentionInfo(
-                    profile: targetProfile,
-                    threadVariant: threadVariant
-                )
+                profileId: sessionId,
+                isCurrentUser: isCurrentUser
             ))
         }
         
@@ -81,23 +63,17 @@ public enum MentionUtilities {
     
     public static func highlightMentionsNoAttributes(
         in string: String,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionId: String,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
-        using dependencies: Dependencies
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
     ) -> String {
         /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
         return highlightMentions(
             in: string,
-            threadVariant: threadVariant,
-            currentUserSessionId: currentUserSessionId,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            currentUserSessionIds: currentUserSessionIds,
             location: .styleFree,
             textColor: .black,
             attributes: [:],
-            using: dependencies
+            displayNameRetriever: displayNameRetriever
         )
         .string
         .deformatted()
@@ -105,22 +81,16 @@ public enum MentionUtilities {
 
     public static func highlightMentions(
         in string: String,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         location: MentionLocation,
         textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
-        using dependencies: Dependencies
+        displayNameRetriever: (String, Bool) -> String?
     ) -> ThemedAttributedString {
         let (string, mentions) = getMentions(
             in: string,
-            threadVariant: threadVariant,
-            currentUserSessionId: currentUserSessionId,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
-            using: dependencies
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever
         )
         
         let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
@@ -172,5 +142,18 @@ public enum MentionUtilities {
         }
         
         return result
+    }
+}
+
+public extension String {
+    func replacingMentions(
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: (String, Bool) -> String?
+    ) -> String {
+        return MentionUtilities.highlightMentionsNoAttributes(
+            in: self,
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever
+        )
     }
 }

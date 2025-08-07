@@ -170,6 +170,8 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
             
             /// If the next frame hasn't been decoded yet, pause on the current frame, we'll re-evaluate on the next display tick.
             guard nextFrameIndex < frames.count, frames[nextFrameIndex] != nil else { break }
+
+
             
             /// Prevent an infinite loop for all zero durations
             guard durations[nextFrameIndex] > 0.001 else { break }

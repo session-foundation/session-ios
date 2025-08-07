@@ -247,7 +247,6 @@ fileprivate extension LibSessionUtilSpec {
                 expect(contact2.notifications).to(equal(CONVO_NOTIFY_ALL))
                 expect(contact2.mute_until).to(equal(Int64(nowTs + 1800)))
                 
-                
                 // Since we've made changes, we should need to push new config to the swarm, *and* should need
                 // to dump the updated state:
                 expect(config_needs_push(conf)).to(beTrue())
@@ -2862,64 +2861,5 @@ fileprivate extension LibSessionUtilSpec {
                 expect(groups_keys_size(conf)).to(equal(1))
             }
         }
-    }
-}
-
-// MARK: - Convenience
-
-private extension LibSessionUtilSpec {
-    static func has(_ conf: UnsafeMutablePointer<config_object>?, with numRecords: inout Int, hitLimit expectedLimit: Int) -> Bool {
-        // Have a hard limit (ie. don't want to loop over this limit as it likely means something is busted elsewhere
-        // and we are in an infinite loop)
-        guard numRecords < 2500 else { return true }
-         
-        // When generating push data the actual data generated is based on a diff from the current state to the
-        // next state - this means that adding 100 records at once is a different size from adding 1 at a time,
-        // but since adding them 1 at a time is really inefficient we want to try to be smart about calling
-        // `config_push` when we are far away from the limit, but do so in such a way that we still get accurate
-        // sizes as we approach the limit (this includes the "diff" values which include the last 5 changes)
-        //
-        // **Note:** `config_push` returns null when it hits the config limit
-        let distanceToLimit: Int = (expectedLimit - numRecords)
-        
-        switch distanceToLimit {
-            case Int.min...50:
-                // Within 50 records of the expected limit we want to check every record
-                guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
-                
-                // We successfully generated the config push and didn't hit the limit
-                free(UnsafeMutableRawPointer(mutating: result))
-                
-            case 50...100:
-                // Between 50 and 100 records of the expected limit only check every `10` records
-                if numRecords.isMultiple(of: 10) {
-                    guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
-                    
-                    // We successfully generated the config push and didn't hit the limit
-                    free(UnsafeMutableRawPointer(mutating: result))
-                }
-                
-            case 100...200:
-                // Between 100 and 200 records of the expected limit only check every `25` records
-                if numRecords.isMultiple(of: 25) {
-                    guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
-                    
-                    // We successfully generated the config push and didn't hit the limit
-                    free(UnsafeMutableRawPointer(mutating: result))
-                }
-            
-            default:
-                // Otherwise check every `50` records
-                if numRecords.isMultiple(of: 50) {
-                    guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
-                    
-                    // We successfully generated the config push and didn't hit the limit
-                    free(UnsafeMutableRawPointer(mutating: result))
-                }
-        }
-        
-        // Increment the number of records
-        numRecords += 1
-        return false
     }
 }

@@ -2,291 +2,120 @@
 
 import Foundation
 import Combine
-import GRDB
-import UserNotifications
-import SessionUIKit
-import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class NSENotificationPresenter: NotificationsManagerType {
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     private var notifications: [String: UNNotificationRequest] = [:]
+    @ThreadSafeObject private var settingsStorage: [String: Preferences.NotificationSettings] = [:]
+    @ThreadSafe private var notificationSound: Preferences.Sound = .defaultNotificationSound
+    @ThreadSafe private var notificationPreviewType: Preferences.NotificationPreviewType = .defaultPreviewType
     
     // MARK: - Initialization
     
     required public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        
+        dependencies.mutate(cache: .libSession) {
+            notificationPreviewType = $0.get(.preferencesNotificationPreviewType)
+                .defaulting(to: .defaultPreviewType)
+            notificationSound = $0.get(.defaultNotificationSound)
+                .defaulting(to: .defaultNotificationSound)
+        }
+        _settingsStorage.set(
+            to: dependencies[singleton: .extensionHelper]
+                .loadNotificationSettings(
+                    previewType: notificationPreviewType,
+                    sound: notificationSound
+                )
+                .defaulting(to: [:])
+        )
     }
     
     // MARK: - Registration
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
     
-    public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
         return Just(()).eraseToAnyPublisher()
+    }
+    
+    // MARK: - Unique Logic
+    
+    public func settings(threadId: String? = nil, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
+        return settingsStorage[threadId].defaulting(
+            to: Preferences.NotificationSettings(
+                previewType: notificationPreviewType,
+                sound: notificationSound,
+                mentionsOnly: false,
+                mutedUntil: nil
+            )
+        )
+    }
+    
+    public func updateSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        mentionsOnly: Bool,
+        mutedUntil: TimeInterval?
+    ) {}
+    
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+        return [
+            NotificationUserInfoKey.isFromRemote: true,
+            NotificationUserInfoKey.threadId: threadId,
+            NotificationUserInfoKey.threadVariantRaw: threadVariant.rawValue
+        ]
+    }
+    
+    public func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool {
+        return true
     }
     
     // MARK: - Presentation
     
-    public func notifyUser(
-        _ db: Database,
-        for interaction: Interaction,
-        in thread: SessionThread,
-        applicationState: UIApplication.State
-    ) {
-        let isMessageRequest: Bool = SessionThread.isMessageRequest(
-            db,
-            threadId: thread.id,
-            userSessionId: dependencies[cache: .general].sessionId,
-            includeNonVisible: true
-        )
-        
-        // Ensure we should be showing a notification for the thread
-        guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest, using: dependencies) else {
-            Log.info("Ignoring notification because thread reported that we shouldn't show it.")
-            return
-        }
-        
-        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
-        let groupName: String = SessionThread.displayName(
-            threadId: thread.id,
-            variant: thread.variant,
-            closedGroupName: (try? thread.closedGroup.fetchOne(db))?.name,
-            openGroupName: (try? thread.openGroup.fetchOne(db))?.name
-        )
-        var notificationTitle: String = senderName
-        
-        if thread.variant == .legacyGroup || thread.variant == .group || thread.variant == .community {
-            if thread.onlyNotifyForMentions && !interaction.hasMention {
-                // Ignore PNs if the group is set to only notify for mentions
-                return
-            }
-            
-            notificationTitle = "notificationsIosGroup"
-                .put(key: "name", value: senderName)
-                .put(key: "conversation_name", value: groupName)
-                .localized()
-        }
-        
-        let snippet: String = (Interaction
-            .notificationPreviewText(db, interaction: interaction, using: dependencies)
-            .filteredForDisplay
-            .nullIfEmpty?
-            .replacingMentions(for: thread.id, using: dependencies))
-            .defaulting(to: "messageNewYouveGot"
-                .putNumber(1)
-                .localized()
-            )
-        
-        let userInfo: [String: Any] = [
-            NotificationServiceExtension.isFromRemoteKey: true,
-            NotificationServiceExtension.threadIdKey: thread.id,
-            NotificationServiceExtension.threadVariantRaw: thread.variant.rawValue
-        ]
-        
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.userInfo = userInfo
-        notificationContent.sound = thread.notificationSound
-            .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
-            .notificationSound(isQuiet: false)
-        
-        /// Update the app badge in case the unread count changed
-        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
-            notificationContent.badge = NSNumber(value: unreadCount)
-        }
-        
-        // Title & body
-        let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
-            .defaulting(to: .defaultPreviewType)
-        
-        switch previewType {
-            case .nameAndPreview:
-                notificationContent.title = notificationTitle
-                notificationContent.body = snippet
-        
-            case .nameNoPreview:
-                notificationContent.title = notificationTitle
-                notificationContent.body = "messageNewYouveGot"
-                    .putNumber(1)
-                    .localized()
-                
-            case .noNameNoPreview:
-                notificationContent.title = Constants.app_name
-                notificationContent.body = "messageNewYouveGot"
-                    .putNumber(1)
-                    .localized()
-        }
-        
-        // If it's a message request then overwrite the body to be something generic (only show a notification
-        // when receiving a new message request if there aren't any others or the user had hidden them)
-        if isMessageRequest {
-            notificationContent.title = Constants.app_name
-            notificationContent.body = "messageRequestsNew".localized()
-        }
-        
-        // Add request (try to group notifications for interactions from open groups)
-        let identifier: String = Interaction.notificationIdentifier(
-            for: (interaction.id ?? 0),
-            threadId: thread.id,
-            shouldGroupMessagesForThread: (thread.variant == .community)
-        )
-        var trigger: UNNotificationTrigger?
-        
-        if thread.variant == .community {
-            trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: Notifications.delayForGroupedNotifications,
-                repeats: false
-            )
-            
-            let numberExistingNotifications: Int? = notifications[identifier]?
-                .content
-                .userInfo[NotificationServiceExtension.threadNotificationCounter]
-                .asType(Int.self)
-            var numberOfNotifications: Int = (numberExistingNotifications ?? 1)
-            
-            if numberExistingNotifications != nil {
-                numberOfNotifications += 1  // Add one for the current notification
-                
-                notificationContent.title = (previewType == .noNameNoPreview ?
-                    notificationContent.title :
-                    groupName
-                )
-                notificationContent.body = "messageNewYouveGot"
-                    .putNumber(numberOfNotifications)
-                    .localized()
-            }
-            
-            notificationContent.userInfo[NotificationServiceExtension.threadNotificationCounter] = numberOfNotifications
-        }
-        
-        addNotifcationRequest(
-            identifier: identifier,
-            notificationContent: notificationContent,
-            trigger: trigger
-        )
-    }
-    
-    public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State) {
-        // No call notifications for muted or group threads
-        guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard
-            thread.variant != .legacyGroup &&
-            thread.variant != .group &&
-            thread.variant != .community
-        else { return }
-        guard
-            interaction.variant == .infoCall,
-            let infoMessageData: Data = (interaction.body ?? "").data(using: .utf8),
-            let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
-                CallMessage.MessageInfo.self,
-                from: infoMessageData
-            )
-        else { return }
-        
-        // Only notify missed calls
-        switch messageInfo.state {
-            case .missed, .permissionDenied, .permissionDeniedMicrophone: break
-            default: return
-        }
-        
-        let userInfo: [String: Any] = [
-            NotificationServiceExtension.isFromRemoteKey: true,
-            NotificationServiceExtension.threadIdKey: thread.id,
-            NotificationServiceExtension.threadVariantRaw: thread.variant.rawValue
-        ]
-        
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.userInfo = userInfo
-        notificationContent.sound = thread.notificationSound
-            .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
-            .notificationSound(isQuiet: false)
-        
-        /// Update the app badge in case the unread count changed
-        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
-            notificationContent.badge = NSNumber(value: unreadCount)
-        }
-        
-        notificationContent.title = Constants.app_name
-        notificationContent.body = ""
-        
-        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
-        
-        switch messageInfo.state {
-            case .permissionDenied:
-                notificationContent.body = "callsYouMissedCallPermissions"
-                    .put(key: "name", value: senderName)
-                    .localizedDeformatted()
-            case .permissionDeniedMicrophone:
-                notificationContent.body = "callsMissedCallFrom"
-                    .put(key: "name", value: senderName)
-                    .localizedDeformatted()
-            default:
-                break
-        }
-        
-        addNotifcationRequest(
-            identifier: UUID().uuidString,
-            notificationContent: notificationContent,
-            trigger: nil
-        )
-    }
-    
-    public func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread, applicationState: UIApplication.State) {
-        let isMessageRequest: Bool = SessionThread.isMessageRequest(
-            db,
-            threadId: thread.id,
-            userSessionId: dependencies[cache: .general].sessionId,
-            includeNonVisible: true
-        )
-        
-        // No reaction notifications for muted, group threads or message requests
-        guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard
-            thread.variant != .legacyGroup &&
-            thread.variant != .group &&
-            thread.variant != .community
-        else { return }
-        guard !isMessageRequest else { return }
-        
-        let notificationTitle = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
-        var notificationBody = "emojiReactsNotification"
-            .put(key: "emoji", value: reaction.emoji)
-            .localized()
-        
-        // Title & body
-        let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
-            .defaulting(to: .nameAndPreview)
-        
-        switch previewType {
-            case .nameAndPreview: break
-            default: notificationBody = "messageNewYouveGot"
-                .putNumber(1)
-                .localized()
-        }
-
-        let userInfo: [String: Any] = [
-            NotificationServiceExtension.isFromRemoteKey: true,
-            NotificationServiceExtension.threadIdKey: thread.id,
-            NotificationServiceExtension.threadVariantRaw: thread.variant.rawValue
-        ]
-        
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.userInfo = userInfo
-        notificationContent.sound = thread.notificationSound
-            .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
-            .notificationSound(isQuiet: false)
-        notificationContent.title = notificationTitle
-        notificationContent.body = notificationBody
-        
-        addNotifcationRequest(identifier: UUID().uuidString, notificationContent: notificationContent, trigger: nil)
-    }
-    
-    public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {
+    public func notifyForFailedSend(threadId: String, threadVariant: SessionThread.Variant, applicationState: UIApplication.State) {
         // Not possible in the NotificationServiceExtension
     }
     
     public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {}
+    
+    public func addNotificationRequest(
+        content: NotificationContent,
+        notificationSettings: Preferences.NotificationSettings,
+        extensionBaseUnreadCount: Int?
+    ) {
+        let notificationContent: UNMutableNotificationContent = content.toMutableContent(
+            shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
+        )
+        
+        /// Since we will have already written the message to disk at this stage we can just add the number of unread message files
+        /// directly to the `originalUnreadCount` in order to get the updated unread count
+        if
+            let extensionBaseUnreadCount: Int = extensionBaseUnreadCount,
+            let unreadPendingMessageCount: Int = dependencies[singleton: .extensionHelper].unreadMessageCount()
+        {
+            notificationContent.badge = NSNumber(value: extensionBaseUnreadCount + unreadPendingMessageCount)
+        }
+        
+        let request = UNNotificationRequest(
+            identifier: content.identifier,
+            content: notificationContent,
+            trigger: nil
+        )
+        
+        Log.info("Add remote notification request: \(content.identifier)")
+        let semaphore = DispatchSemaphore(value: 0)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                Log.error("Failed to add notification request '\(content.identifier)' due to error: \(error)")
+            }
+            semaphore.signal()
+        }
+        semaphore.wait()
+        Log.info("Finish adding remote notification request '\(content.identifier)")
+    }
     
     // MARK: - Clearing
     
@@ -300,45 +129,5 @@ public class NSENotificationPresenter: NotificationsManagerType {
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
-    }
-}
-
-// MARK: - Convenience
-private extension NSENotificationPresenter {
-    func addNotifcationRequest(identifier: String, notificationContent: UNNotificationContent, trigger: UNNotificationTrigger?) {
-        let request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: trigger)
-        
-        Log.info("Add remote notification request: \(identifier)")
-        let semaphore = DispatchSemaphore(value: 0)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                Log.error("Failed to add notification request '\(identifier)' due to error: \(error)")
-            }
-            semaphore.signal()
-        }
-        semaphore.wait()
-        Log.info("Finish adding remote notification request '\(identifier)")
-    }
-}
-
-private extension String {
-    
-    func replacingMentions(for threadID: String, using dependencies: Dependencies) -> String {
-        var result = self
-        let regex = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        var mentions: [(range: NSRange, publicKey: String)] = []
-        var m0 = regex.firstMatch(in: result, options: .withoutAnchoringBounds, range: NSRange(location: 0, length: result.utf16.count))
-        while let m1 = m0 {
-            let publicKey = String((result as NSString).substring(with: m1.range).dropFirst()) // Drop the @
-            var matchEnd = m1.range.location + m1.range.length
-            
-            if let displayName: String = Profile.displayNameNoFallback(id: publicKey, using: dependencies) {
-                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)")    // stringlint:ignore
-                mentions.append((range: NSRange(location: m1.range.location, length: displayName.utf16.count + 1), publicKey: publicKey)) // + 1 to include the @
-                matchEnd = m1.range.location + displayName.utf16.count
-            }
-            m0 = regex.firstMatch(in: result, options: .withoutAnchoringBounds, range: NSRange(location: matchEnd, length: result.utf16.count - matchEnd))
-        }
-        return result
     }
 }

@@ -8,7 +8,7 @@ public extension ProfilePictureView {
     func update(
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        displayPictureFilename: String?,
+        displayPictureUrl: String?,
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
@@ -19,7 +19,7 @@ public extension ProfilePictureView {
             size: self.size,
             publicKey: publicKey,
             threadVariant: threadVariant,
-            displayPictureFilename: displayPictureFilename,
+            displayPictureUrl: displayPictureUrl,
             profile: profile,
             profileIcon: profileIcon,
             additionalProfile: additionalProfile,
@@ -36,38 +36,44 @@ public extension ProfilePictureView {
         size: Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        displayPictureFilename: String?,
+        displayPictureUrl: String?,
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none,
         using dependencies: Dependencies
     ) -> (Info?, Info?) {
-        // If we are given an explicit 'displayPictureFilename' then only use that (this could be for
-        // either Community conversations or updated groups)
-        if
-            let displayPictureFilename: String = displayPictureFilename,
-            let path: String = try? dependencies[singleton: .displayPictureManager]
-                .filepath(for: displayPictureFilename)
-        {
-            return (Info(
-                source: .url(URL(fileURLWithPath: path)),
-                shouldAnimated: (threadVariant == .community),
-                isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
-                icon: profileIcon
-            ), nil)
-        }
+        let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
+            for: displayPictureUrl
+        )
         
-        // Otherwise there are conversation-type-specific behaviours
-        switch threadVariant {
-            case .community:
+        switch (explicitPath, publicKey.isEmpty, threadVariant) {
+            case (.some(let path), _, _):
+                let shouldAnimated: Bool = {
+                    guard let profile: Profile = profile else {
+                        return threadVariant == .community
+                    }
+                    return profile.shoudAnimateProfilePicture(using: dependencies)
+                }()
+                /// If we are given an explicit `displayPictureUrl` then only use that
+                return (
+                    Info(
+                        source: .url(URL(fileURLWithPath: path)),
+                        shouldAnimated: shouldAnimated,
+                        isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
+                        icon: profileIcon
+                    ),
+                    nil
+                )
+            
+            case (_, _, .community):
                 return (
                     Info(
                         source: {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
                                 case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
-                                case .hero, .userProfileModal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                                case .hero, .modal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
                         shouldAnimated: true,
@@ -83,46 +89,57 @@ public extension ProfilePictureView {
                     ),
                     nil
                 )
+            
+            case (_, true, _): return (nil, nil)
                 
-            case .legacyGroup, .group:
-                guard !publicKey.isEmpty else { return (nil, nil) }
+            case (_, _, .legacyGroup), (_, _, .group):
+                let source: ImageDataManager.DataSource = {
+                    guard
+                        let path: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: profile?.displayPictureUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        return .placeholderIcon(
+                            seed: (profile?.id ?? publicKey),
+                            text: (profile?.displayName(for: threadVariant))
+                                .defaulting(to: publicKey),
+                            size: (additionalProfile != nil ?
+                                size.multiImageSize :
+                                size.viewSize
+                            )
+                        )
+                    }
+                    
+                    return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                }()
                 
                 return (
                     Info(
-                        source: (
-                            profile?.profilePictureFileName
-                                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
-                                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .placeholderIcon(
-                                seed: (profile?.id ?? publicKey),
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: (additionalProfile != nil ?
-                                    size.multiImageSize :
-                                    size.viewSize
-                                )
-                            )
-                        ),
+                        source: source,
                         shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
                         isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
                         icon: profileIcon
                     ),
                     additionalProfile
                         .map { other in
-                            Info(
-                                source: (
-                                    other.profilePictureFileName
-                                        .map { fileName in
-                                            try? dependencies[singleton: .displayPictureManager]
-                                                .filepath(for: fileName)
-                                        }
-                                        .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                                    .placeholderIcon(
+                            let source: ImageDataManager.DataSource = {
+                                guard
+                                    let path: String = try? dependencies[singleton: .displayPictureManager]
+                                        .path(for: other.displayPictureUrl),
+                                    dependencies[singleton: .fileManager].fileExists(atPath: path)
+                                else {
+                                    return .placeholderIcon(
                                         seed: other.id,
                                         text: other.displayName(for: threadVariant),
                                         size: size.multiImageSize
                                     )
-                                ),
+                                }
+                                
+                                return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                            }()
+                            
+                            return Info(
+                                source: source,
                                 shouldAnimated: other.shoudAnimateProfilePicture(using: dependencies),
                                 isCurrentUser: (other.id == dependencies[cache: .general].sessionId.hexString),
                                 icon: additionalProfileIcon
@@ -146,26 +163,30 @@ public extension ProfilePictureView {
                         )
                 )
                 
-            case .contact:
-                guard !publicKey.isEmpty else { return (nil, nil) }
+            case (_, _, .contact):
+                let source: ImageDataManager.DataSource = {
+                    guard
+                        let path: String = try? dependencies[singleton: .displayPictureManager]
+                            .path(for: profile?.displayPictureUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        return .placeholderIcon(
+                            seed: publicKey,
+                            text: (profile?.displayName(for: threadVariant))
+                                .defaulting(to: publicKey),
+                            size: size.viewSize
+                        )
+                    }
+                    
+                    return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
+                }()
                 
                 return (
                     Info(
-                        source: (
-                            profile?.profilePictureFileName
-                                .map { try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }
-                                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) } ??
-                            .placeholderIcon(
-                                seed: publicKey,
-                                text: (profile?.displayName(for: threadVariant))
-                                    .defaulting(to: publicKey),
-                                size: size.viewSize
-                            )
-                        ),
+                        source: source,
                         shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
                         isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
-                        icon: profileIcon
-                    ),
+                        icon: profileIcon),
                     nil
                 )
         }
@@ -177,7 +198,7 @@ public extension ProfilePictureSwiftUI {
         size: ProfilePictureView.Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        displayPictureFilename: String?,
+        displayPictureUrl: String?,
         profile: Profile?,
         profileIcon: ProfilePictureView.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
@@ -188,7 +209,7 @@ public extension ProfilePictureSwiftUI {
             size: size,
             publicKey: publicKey,
             threadVariant: threadVariant,
-            displayPictureFilename: displayPictureFilename,
+            displayPictureUrl: displayPictureUrl,
             profile: profile,
             profileIcon: profileIcon,
             additionalProfile: additionalProfile,

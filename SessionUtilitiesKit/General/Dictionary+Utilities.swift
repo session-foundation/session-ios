@@ -30,6 +30,12 @@ public extension Dictionary.Values {
 // MARK: - Functional Convenience
 
 public extension Dictionary {
+    var nullIfEmpty: [Key: Value]? {
+        guard !isEmpty else { return nil }
+        
+        return self
+    }
+    
     subscript(_ key: Key?) -> Value? {
         guard let key: Key = key else { return nil }
         
@@ -75,12 +81,6 @@ public extension Dictionary {
         keys.forEach { updatedDictionary.removeValue(forKey: $0) }
         
         return updatedDictionary
-    }
-    
-    func nullIfEmpty() -> [Key: Value]? {
-        guard !isEmpty else { return nil }
-        
-        return self
     }
 
     mutating func append<T>(_ value: T?, toArrayOn key: Key?) where Value == [T] {

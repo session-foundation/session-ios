@@ -328,7 +328,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
-            displayPictureFilename: nil,
+            displayPictureUrl: nil,
             profile: cellViewModel.profile,
             profileIcon: (cellViewModel.isSenderModeratorOrAdmin ? .crown : .none),
             using: dependencies
@@ -570,9 +570,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         authorId: quote.authorId,
                         quotedText: quote.body,
                         threadVariant: cellViewModel.threadVariant,
-                        currentUserSessionId: cellViewModel.currentUserSessionId,
-                        currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                        currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                         direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                         attachment: cellViewModel.quoteAttachment,
                         using: dependencies
@@ -660,9 +658,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     authorId: quote.authorId,
                     quotedText: quote.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionId: cellViewModel.currentUserSessionId,
-                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: cellViewModel.quoteAttachment,
                     using: dependencies
@@ -745,9 +741,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     authorId: quote.authorId,
                     quotedText: quote.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionId: cellViewModel.currentUserSessionId,
-                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: cellViewModel.quoteAttachment,
                     using: dependencies
@@ -827,7 +821,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     return
                 }
                 
-                let isSelfSend: Bool = (reactionInfo.reaction.authorId == cellViewModel.currentUserSessionId)
+                let isSelfSend: Bool = (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId)
                 
                 if let value: ReactionViewModel = result.value(forKey: emoji) {
                     result.replace(
@@ -1240,13 +1234,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         else { return nil }
         
         let isOutgoing: Bool = (cellViewModel.variant == .standardOutgoing)
-        
         let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
             in: body,
             threadVariant: cellViewModel.threadVariant,
-            currentUserSessionId: cellViewModel.currentUserSessionId,
-            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
             location: (isOutgoing ? .outgoingMessage : .incomingMessage),
             textColor: textColor,
             attributes: [

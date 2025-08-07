@@ -37,7 +37,7 @@ public enum GroupLeavingJob: JobExecutor {
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> LeaveType in
+            .writePublisher(updates: { db -> RequestType in
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
                     Log.error(.cat, "Failed due to non-existent group")
                     throw MessageSenderError.invalidClosedGroupUpdate
@@ -55,57 +55,23 @@ public enum GroupLeavingJob: JobExecutor {
                     .distinct()
                     .fetchCount(db))
                     .defaulting(to: 0)
-                let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
+                let finalBehaviour: Details.Behaviour = {
                     guard
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
-                        ) ||
-                        LibSession.groupIsDestroyed(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
-                        )
-                    else { return details.behaviour }
+                        dependencies.mutate(cache: .libSession, { cache in
+                            !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
+                            !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                        })
+                    else { return .delete }
                     
-                    return .delete
+                    return details.behaviour
                 }()
                 
                 switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                     case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
+                        let authMethod: AuthenticationMethod = try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
                         
-                        return .leave(
-                            try SnodeAPI
-                                .preparedBatch(
-                                    requests: [
-                                        /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
-                                        /// message (it's an instruction for admin devices)
-                                        try MessageSender.preparedSend(
-                                            db,
-                                            message: GroupUpdateMemberLeftMessage(),
-                                            to: destination,
-                                            namespace: destination.defaultNamespace,
-                                            interactionId: job.interactionId,
-                                            fileIds: [],
-                                            using: dependencies
-                                        ),
-                                        try MessageSender.preparedSend(
-                                            db,
-                                            message: GroupUpdateMemberLeftNotificationMessage()
-                                                .with(disappearingConfig),
-                                            to: destination,
-                                            namespace: destination.defaultNamespace,
-                                            interactionId: nil,
-                                            fileIds: [],
-                                            using: dependencies
-                                        )
-                                    ],
-                                    requireAllBatchResponses: false,
-                                    swarmPublicKey: threadId,
-                                    using: dependencies
-                                )
-                                .map { _, _ in () }
-                        )
+                        return .sendLeaveMessage(authMethod, disappearingConfig)
                         
                     case (.delete, true, _), (.leave, true, true):
                         let groupSessionId: SessionId = SessionId(.group, hex: threadId)
@@ -117,22 +83,51 @@ public enum GroupLeavingJob: JobExecutor {
                             }
                         }
                         
-                        return .delete
+                        return .configSync
                     
-                    case (.delete, false, _): return .delete
-                        
+                    case (.delete, false, _): return .configSync
                     default: throw MessageSenderError.invalidClosedGroupUpdate
                 }
-            }
-            .flatMap { leaveType -> AnyPublisher<Void, Error> in
-                switch leaveType {
-                    case .leave(let leaveMessage):
-                        return leaveMessage
+            })
+            .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
+                switch requestType {
+                    case .sendLeaveMessage(let authMethod, let disappearingConfig):
+                        return try SnodeAPI
+                            .preparedBatch(
+                                requests: [
+                                    /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
+                                    /// message (it's an instruction for admin devices)
+                                    try MessageSender.preparedSend(
+                                        message: GroupUpdateMemberLeftMessage(),
+                                        to: destination,
+                                        namespace: destination.defaultNamespace,
+                                        interactionId: job.interactionId,
+                                        attachments: nil,
+                                        authMethod: authMethod,
+                                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                        using: dependencies
+                                    ),
+                                    try MessageSender.preparedSend(
+                                        message: GroupUpdateMemberLeftNotificationMessage()
+                                            .with(disappearingConfig),
+                                        to: destination,
+                                        namespace: destination.defaultNamespace,
+                                        interactionId: nil,
+                                        attachments: nil,
+                                        authMethod: authMethod,
+                                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                        using: dependencies
+                                    )
+                                ],
+                                requireAllBatchResponses: false,
+                                swarmPublicKey: threadId,
+                                using: dependencies
+                            )
                             .send(using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
                         
-                    case .delete:
+                    case .configSync:
                         return ConfigurationSyncJob
                             .run(swarmPublicKey: threadId, using: dependencies)
                             .map { _ in () }
@@ -143,9 +138,9 @@ public enum GroupLeavingJob: JobExecutor {
                 /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
                 /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
                 /// group revoked which would leave the user in a state where they can't leave the group)
-                switch (error as? MessageSenderError, error as? SnodeAPIError) {
-                    case (.invalidClosedGroupUpdate, _), (.noKeyPair, _), (.encryptionFailed, _),
-                        (_, .unauthorised), (_, .invalidAuthentication):
+                switch (error as? MessageSenderError, error as? SnodeAPIError, error as? CryptoError) {
+                    case (.invalidClosedGroupUpdate, _, _), (.noKeyPair, _, _), (.encryptionFailed, _, _),
+                        (_, .unauthorised, _), (_, _, .invalidAuthentication):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
                     
                     default: throw error
@@ -224,8 +219,8 @@ extension GroupLeavingJob {
 // MARK: - Convenience
 
 private extension GroupLeavingJob {
-    enum LeaveType {
-        case leave(Network.PreparedRequest<Void>)
-        case delete
+    enum RequestType {
+        case sendLeaveMessage(AuthenticationMethod, DisappearingMessagesConfiguration?)
+        case configSync
     }
 }

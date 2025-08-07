@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     public static func handleUnsendRequest(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: UnsendRequest,

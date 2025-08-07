@@ -13,12 +13,12 @@ enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.2
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
-    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "snodeReceivedMessageInfo") { t in
             t.add(column: "wasDeletedOrInvalid", .boolean)
                 .indexed()                                 // Faster querying
         }
         
-        Storage.update(progress: 1, for: self, in: target, using: dependencies)
+        MigrationExecution.updateProgress(1)
     }
 }

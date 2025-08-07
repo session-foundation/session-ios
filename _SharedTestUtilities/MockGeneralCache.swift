@@ -4,7 +4,22 @@ import UIKit
 import SessionUtilitiesKit
 
 class MockGeneralCache: Mock<GeneralCacheType>, GeneralCacheType {
+    var userExists: Bool {
+        get { return mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    
     var sessionId: SessionId {
+        get { return mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    
+    var ed25519Seed: [UInt8] {
+        get { return mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    
+    var ed25519SecretKey: [UInt8] {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
     }
@@ -19,7 +34,7 @@ class MockGeneralCache: Mock<GeneralCacheType>, GeneralCacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    func setCachedSessionId(sessionId: SessionId) {
-        mockNoReturn(args: [sessionId])
+    func setSecretKey(ed25519SecretKey: [UInt8]) {
+        mockNoReturn(args: [ed25519SecretKey])
     }
 }

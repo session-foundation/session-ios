@@ -185,7 +185,7 @@ public actor ImageDataManager: ImageDataManagerType {
                 ]
 
                 guard
-                    let source: CGImageSource = dataSource.createImageSource(),
+                    let source: CGImageSource = dataSource.createImageSource(options: options),
                     let cgImage: CGImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
                     let decodingContext: CGContext = createDecodingContext(
                         width: cgImage.width,
@@ -202,27 +202,6 @@ public actor ImageDataManager: ImageDataManagerType {
                     thumbnailManager: thumbnailManager
                 )
                 
-                return ProcessedImageData(
-                    type: .staticImage(decodedImage)
-                )
-                
-            case .closureThumbnail(_, _, let imageRetrier):
-                guard let image: UIImage = await imageRetrier() else { return nil }
-                guard
-                    let cgImage: CGImage = image.cgImage,
-                    let decodingContext: CGContext = createDecodingContext(
-                        width: cgImage.width,
-                        height: cgImage.height
-                    ),
-                    let decodedImage: UIImage = predecode(cgImage: cgImage, using: decodingContext)
-                else {
-                    return ProcessedImageData(
-                        type: .staticImage(image)
-                    )
-                }
-                
-                /// Since there is likely custom (external) logic used to retrieve this thumbnail we don't save it to disk as there
-                /// is no way to know if it _should_ change between generations/launches or not
                 return ProcessedImageData(
                     type: .staticImage(decodedImage)
                 )
@@ -248,6 +227,11 @@ public actor ImageDataManager: ImageDataManagerType {
                     type: .staticImage(decodedImage)
                 )
                 
+            case .asyncSource(_, let sourceRetriever):
+                guard let source: DataSource = await sourceRetriever() else { return nil }
+                
+                return await processSource(source)
+                
             default: break
         }
         
@@ -264,7 +248,7 @@ public actor ImageDataManager: ImageDataManagerType {
             sourceHeight < ImageDataManager.DataSource.maxValidSize
         else { return nil }
 
-        /// Get the umber of frames in the image
+        /// Get the number of frames in the image
         let count: Int = CGImageSourceGetCount(source)
         
         switch count {
@@ -304,7 +288,7 @@ public actor ImageDataManager: ImageDataManagerType {
                 
             /// Animated Image
             default:
-                /// Load the first frame (downscaled as needed)
+                /// Load the first frame
                 guard
                     let firstFrameCgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, nil),
                     let decodingContext: CGContext = createDecodingContext(
@@ -571,28 +555,22 @@ public actor ImageDataManager: ImageDataManagerType {
 
 public extension ImageDataManager {
     enum DataSource: Sendable, Equatable, Hashable {
-        case url(URL, targetSize: CGSize? = nil)
-        case data(String, Data, targetSize: CGSize? = nil)
+        case url(URL)
+        case data(String, Data)
         case image(String, UIImage?)
         case videoUrl(URL, String, String?, ThumbnailManager)
         case urlThumbnail(URL, ImageDataManager.ThumbnailSize, ThumbnailManager)
-        case closureThumbnail(String, ImageDataManager.ThumbnailSize, @Sendable () async -> UIImage?)
         case placeholderIcon(seed: String, text: String, size: CGFloat)
-        
-        @available(*, deprecated, message: "This DataSource has been deprecated and will be removed in a future release. Use an altername DataSource instead.")
-        case closure(String, @Sendable () -> Data?)
+        case asyncSource(String, @Sendable () async -> DataSource?)
         
         public var identifier: String {
             switch self {
-                case .url(let url, _): return url.absoluteString
-                case .data(let identifier, _, _): return identifier
+                case .url(let url): return url.absoluteString
+                case .data(let identifier, _): return identifier
                 case .image(let identifier, _): return identifier
                 case .videoUrl(let url, _, _, _): return url.absoluteString
                 case .urlThumbnail(let url, let size, _):
                     return "\(url.absoluteString)-\(size)"
-                
-                case .closureThumbnail(let identifier, let size, _):
-                    return "\(identifier)-\(size)"
                 
                 case .placeholderIcon(let seed, let text, let size):
                     let content: (intSeed: Int, initials: String) = PlaceholderIcon.content(
@@ -601,47 +579,21 @@ public extension ImageDataManager {
                     )
                     
                     return "\(seed)-\(content.initials)-\(Int(floor(size)))"
-                    
-                case .closure(let identifier, _): return identifier
-            }
-        }
-        
-        fileprivate var targetSizeForAnimation: CGSize? {
-            switch self {
-                case .url(_, let size): return size
-                case .data(_, _, let size): return size
-                case .image(_, let image): return image?.size
-                default: return nil
+                
+                /// We will use the identifier from the loaded source for caching purposes
+                case .asyncSource(let identifier, _): return identifier
             }
         }
         
         public var imageData: Data? {
             switch self {
-                case .url(let url, _): return try? Data(contentsOf: url, options: [.dataReadingMapped])
-                case .data(_, let data, _): return data
+                case .url(let url): return try? Data(contentsOf: url, options: [.dataReadingMapped])
+                case .data(_, let data): return data
                 case .image(_, let image): return image?.pngData()
                 case .videoUrl: return nil
                 case .urlThumbnail: return nil
-                case .closureThumbnail: return nil
                 case .placeholderIcon: return nil
-                    
-                case .closure(_, let dataRetriever): return dataRetriever()
-            }
-        }
-        
-        public var dataForGuessingImageFormat: Data? {
-            switch self {
-                case .url(let url, _), .urlThumbnail(let url, _, _):
-                    guard let fileHandle: FileHandle = try? FileHandle(forReadingFrom: url) else {
-                        return nil
-                    }
-                    
-                    defer { fileHandle.closeFile() }
-                    return fileHandle.readData(ofLength: 12)
-                    
-                case .data(_, let data, _): return data
-                case .image, .videoUrl, .closureThumbnail, .placeholderIcon: return nil
-                case .closure: return nil
+                case .asyncSource: return nil
             }
         }
         
@@ -652,35 +604,32 @@ public extension ImageDataManager {
             }
         }
         
-        fileprivate func createImageSource() -> CGImageSource? {
-            let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        fileprivate func createImageSource(options: [CFString: Any]? = nil) -> CGImageSource? {
+            let finalOptions: CFDictionary = (
+                options ??
+                [
+                    kCGImageSourceShouldCache: false,
+                    kCGImageSourceShouldCacheImmediately: false
+                ]
+            ) as CFDictionary
             
             switch self {
-                case .url(let url, _): return CGImageSourceCreateWithURL(url as CFURL, options)
-                case .data(_, let data, _): return CGImageSourceCreateWithData(data as CFData, options)
-                case .closure(_, let dataRetriever):
-                    guard let data = dataRetriever() else { return nil }
+                case .url(let url): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
+                case .data(_, let data): return CGImageSourceCreateWithData(data as CFData, finalOptions)
+                case .urlThumbnail(let url, _, _): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
                     
-                    return CGImageSourceCreateWithData(data as CFData, options)
-                    
-                default: return nil
+                // These cases have special handling which doesn't use `createImageSource`
+                case .image, .videoUrl, .placeholderIcon, .asyncSource: return nil
             }
         }
-
         
         public static func == (lhs: DataSource, rhs: DataSource) -> Bool {
             switch (lhs, rhs) {
-                case (.url(let lhsUrl, let lhsSize), .url(let rhsUrl, let rhsSize)):
-                    return (
-                        lhsUrl == rhsUrl &&
-                        lhsSize == rhsSize
-                    )
-                    
-                case (.data(let lhsIdentifier, let lhsData, let lhsSize), .data(let rhsIdentifier, let rhsData, let rhsSize)):
+                case (.url(let lhsUrl), .url(let rhsUrl)): return (lhsUrl == rhsUrl)
+                case (.data(let lhsIdentifier, let lhsData), .data(let rhsIdentifier, let rhsData)):
                     return (
                         lhsIdentifier == rhsIdentifier &&
-                        lhsData == rhsData &&
-                        lhsSize == rhsSize
+                        lhsData == rhsData
                     )
                     
                 case (.image(let lhsIdentifier, _), .image(let rhsIdentifier, _)):
@@ -700,12 +649,6 @@ public extension ImageDataManager {
                         lhsSize == rhsSize
                     )
                     
-                case (.closureThumbnail(let lhsIdentifier, let lhsSize, _), .closureThumbnail(let rhsIdentifier, let rhsSize, _)):
-                    return (
-                        lhsIdentifier == rhsIdentifier &&
-                        lhsSize == rhsSize
-                    )
-                    
                 case (.placeholderIcon(let lhsSeed, let lhsText, let lhsSize), .placeholderIcon(let rhsSeed, let rhsText, let rhsSize)):
                     return (
                         lhsSeed == rhsSeed &&
@@ -713,7 +656,8 @@ public extension ImageDataManager {
                         lhsSize == rhsSize
                     )
                     
-                case (.closure(let lhsIdentifier, _), .closure(let rhsIdentifier, _)): return (lhsIdentifier == rhsIdentifier)
+                case (.asyncSource(let lhsIdentifier, _), .asyncSource(let rhsIdentifier, _)):
+                    return (lhsIdentifier == rhsIdentifier)
                     
                 default: return false
             }
@@ -721,14 +665,10 @@ public extension ImageDataManager {
         
         public func hash(into hasher: inout Hasher) {
             switch self {
-                case .url(let url, let size):
-                    url.hash(into: &hasher)
-                    size?.hash(into: &hasher)
-                    
-                case .data(let identifier, let data, let size):
+                case .url(let url): url.hash(into: &hasher)
+                case .data(let identifier, let data):
                     identifier.hash(into: &hasher)
                     data.hash(into: &hasher)
-                    size?.hash(into: &hasher)
                     
                 case .image(let identifier, _):
                     /// `UIImage` is not actually hashable so we need to provide a separate identifier to use instead
@@ -743,16 +683,12 @@ public extension ImageDataManager {
                     url.hash(into: &hasher)
                     size.hash(into: &hasher)
                     
-                case .closureThumbnail(let identifier, let size, _):
-                    identifier.hash(into: &hasher)
-                    size.hash(into: &hasher)
-                    
                 case .placeholderIcon(let seed, let text, let size):
                     seed.hash(into: &hasher)
                     text.hash(into: &hasher)
                     size.hash(into: &hasher)
                     
-                case .closure(let identifier, _):
+                case .asyncSource(let identifier, _):
                     identifier.hash(into: &hasher)
             }
         }
@@ -874,15 +810,13 @@ public extension ImageDataManager.DataSource {
                 
                 return image.size
                 
-            case .urlThumbnail(_, let size, _), .closureThumbnail(_, let size, _):
+            case .urlThumbnail(_, let size, _):
                 let dimension: CGFloat = size.pixelDimension()
                 return CGSize(width: dimension, height: dimension)
                 
             case .placeholderIcon(_, _, let size): return CGSize(width: size, height: size)
                 
-            case .url, .data, .videoUrl: break
-                
-            case .closure: break
+            case .url, .data, .videoUrl, .asyncSource: break
         }
         
         /// Since we don't have a direct size, try to extract it from the data

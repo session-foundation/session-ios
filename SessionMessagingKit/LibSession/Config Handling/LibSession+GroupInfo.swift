@@ -49,13 +49,15 @@ private struct InteractionInfo: Codable, FetchableRecord {
 
 internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
-        _ db: Database,
+        _ db: ObservingDatabase,
         in config: LibSession.Config?,
         groupSessionId: SessionId,
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupInfo(let conf) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+        }
         
         // If the group is destroyed then mark the group as kicked in the USER_GROUPS config and remove
         // the group data (want to keep the group itself around because the UX of conversations randomly
@@ -115,13 +117,7 @@ internal extension LibSessionCacheType {
                 ClosedGroup.Columns.displayPictureUrl.set(to: nil)
             ),
             (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
-                ClosedGroup.Columns.displayPictureFilename.set(to: nil)
-            ),
-            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
                 ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil)
-            ),
-            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
-                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: (serverTimestampMs / 1000))
             )
         ].compactMap { $0 }
 
@@ -133,6 +129,18 @@ internal extension LibSessionCacheType {
                     groupChanges,
                     using: dependencies
                 )
+        }
+        
+        // Emit events
+        if existingGroup?.name != groupName {
+            db.addConversationEvent(id: groupSessionId.hexString, type: .updated(.displayName(groupName)))
+        }
+        
+        if existingGroup?.groupDescription == groupDesc {
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                type: .updated(.description(groupDesc))
+            )
         }
 
         // If we have a display picture then start downloading it
@@ -304,7 +312,7 @@ internal extension LibSessionCacheType {
 
 internal extension LibSession {
     static func updatingGroupInfo<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
@@ -314,7 +322,11 @@ internal extension LibSession {
         // admin (non-admins can't update `GroupInfo` anyway)
         let targetGroups: [ClosedGroup] = updatedGroups
             .filter { (try? SessionId(from: $0.id))?.prefix == .group }
-            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.id), using: dependencies) }
+            .filter { group in
+                dependencies.mutate(cache: .libSession, { cache in
+                    cache.isAdmin(groupSessionId: SessionId(.group, hex: group.id))
+                })
+            }
         
         // If we only updated the current user contact then no need to continue
         guard !targetGroups.isEmpty else { return updated }
@@ -329,7 +341,9 @@ internal extension LibSession {
                 guard cache.isAdmin(groupSessionId: groupSessionId) else { return }
                 
                 try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                    guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                    guard case .groupInfo(let conf) = config else {
+                        throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+                    }
                     guard
                         var cGroupName: [CChar] = group.name.cString(using: .utf8),
                         var cGroupDesc: [CChar] = (group.groupDescription ?? "").cString(using: .utf8)
@@ -339,8 +353,23 @@ internal extension LibSession {
                     ///
                     /// **Note:** We indentionally only update the `GROUP_INFO` and not the `USER_GROUPS` as once the
                     /// group is synced between devices we want to rely on the proper group config to get display info
+                    let currentGroupName: String? = groups_info_get_name(conf)
+                        .map { String(cString: $0) }
+                    let currentGroupDesc: String? = groups_info_get_description(conf)
+                        .map { String(cString: $0) }
                     groups_info_set_name(conf, &cGroupName)
                     groups_info_set_description(conf, &cGroupDesc)
+                    
+                    if currentGroupName != group.name {
+                        db.addConversationEvent(id: group.threadId, type: .updated(.displayName(group.name)))
+                    }
+                    
+                    if currentGroupDesc != group.groupDescription {
+                        db.addConversationEvent(
+                            id: group.threadId,
+                            type: .updated(.description(group.groupDescription))
+                        )
+                    }
                     
                     // Either assign the updated display pic, or sent a blank pic (to remove the current one)
                     var displayPic: user_profile_pic = user_profile_pic()
@@ -355,7 +384,7 @@ internal extension LibSession {
     }
     
     static func updatingDisappearingConfigsGroups<T>(
-        _ db: Database,
+        _ db: ObservingDatabase,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
@@ -365,7 +394,11 @@ internal extension LibSession {
         // the current user isn't an admin (non-admins can't update `GroupInfo` anyway)
         let targetUpdatedConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
             .filter { (try? SessionId.Prefix(from: $0.id)) == .group }
-            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.id), using: dependencies) }
+            .filter { group in
+                dependencies.mutate(cache: .libSession, { cache in
+                    cache.isAdmin(groupSessionId: SessionId(.group, hex: group.id))
+                })
+            }
         
         guard !targetUpdatedConfigs.isEmpty else { return updated }
         
@@ -387,7 +420,9 @@ internal extension LibSession {
             .forEach { groupId, updatedConfig in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .groupInfo, sessionId: SessionId(.group, hex: groupId)) { config in
-                        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                        guard case .groupInfo(let conf) = config else {
+                            throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+                        }
                         
                         groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
                     }
@@ -402,14 +437,16 @@ internal extension LibSession {
 
 public extension LibSession {
     static func update(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         disappearingConfig: DisappearingMessagesConfiguration?,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+                }
                 
                 if let config: DisappearingMessagesConfiguration = disappearingConfig {
                     groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
@@ -419,14 +456,16 @@ public extension LibSession {
     }
     
     static func deleteMessagesBefore(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         timestamp: TimeInterval,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+                }
                 
                 // Do nothing if the timestamp isn't newer than the current value
                 guard Int64(timestamp) > groups_info_get_delete_before(conf) else { return }
@@ -437,14 +476,16 @@ public extension LibSession {
     }
     
     static func deleteAttachmentsBefore(
-        _ db: Database,
+        _ db: ObservingDatabase,
         groupSessionId: SessionId,
         timestamp: TimeInterval,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else {
+                    throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+                }
                 
                 // Do nothing if the timestamp isn't newer than the current value
                 guard Int64(timestamp) > groups_info_get_attach_delete_before(conf) else { return }
@@ -456,35 +497,28 @@ public extension LibSession {
 }
 
 public extension LibSessionCacheType {
-    func deleteGroupForEveryone(_ db: Database, groupSessionId: SessionId) throws {
+    func deleteGroupForEveryone(_ db: ObservingDatabase, groupSessionId: SessionId) throws {
         try performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-            guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .groupInfo(let conf) = config else {
+                throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
+            }
             
             groups_info_destroy_group(conf)
         }
     }
 }
 
-// MARK: - Direct Values
+// MARK: - State Access
 
-extension LibSession {
-    static func groupName(in config: Config?) throws -> String {
-        guard
-            case .groupInfo(let conf) = config,
-            let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf)
-        else { throw LibSessionError.invalidConfigObject }
-        
-        return String(cString: groupNamePtr)
-    }
-    
-    static func groupDeleteBefore(in config: Config?) throws -> TimeInterval {
-        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+public extension LibSession.Cache {
+    func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? {
+        guard case .groupInfo(let conf) = config(for: .groupInfo, sessionId: groupSessionId) else { return nil }
         
         return TimeInterval(groups_info_get_delete_before(conf))
     }
     
-    static func groupAttachmentDeleteBefore(in config: Config?) throws -> TimeInterval {
-        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+    func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? {
+        guard case .groupInfo(let conf) = config(for: .groupInfo, sessionId: groupSessionId) else { return nil }
         
         return TimeInterval(groups_info_get_attach_delete_before(conf))
     }

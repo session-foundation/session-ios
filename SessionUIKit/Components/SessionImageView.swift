@@ -6,7 +6,7 @@ import ImageIO
 public class SessionImageView: UIImageView {
     private var dataManager: ImageDataManagerType?
     
-    internal /*private*/ var currentLoadIdentifier: String?
+    private var currentLoadIdentifier: String?
     private var imageLoadTask: Task<Void, Never>?
     private var streamConsumptionTask: Task<Void, Never>?
     
@@ -33,7 +33,7 @@ public class SessionImageView: UIImageView {
         }
     }
     
-    public var shouldAnimateImage: Bool {
+    public var shouldAnimateImage: Bool = true {
         didSet {
             guard oldValue != shouldAnimateImage else { return }
             
@@ -50,28 +50,24 @@ public class SessionImageView: UIImageView {
     /// Use the `init(dataManager:)` initializer where possible to avoid explicitly needing to add the `dataManager` instance
     public init() {
         self.dataManager = nil
-        self.shouldAnimateImage = false
         
         super.init(frame: .zero)
     }
     
-    public init(dataManager: ImageDataManagerType, shouldAnimateImage: Bool = true) {
+    public init(dataManager: ImageDataManagerType) {
         self.dataManager = dataManager
-        self.shouldAnimateImage = shouldAnimateImage
         
         super.init(frame: .zero)
     }
     
-    public init(frame: CGRect, dataManager: ImageDataManagerType, shouldAnimateImage: Bool = true) {
+    public init(frame: CGRect, dataManager: ImageDataManagerType) {
         self.dataManager = dataManager
-        self.shouldAnimateImage = shouldAnimateImage
         
         super.init(frame: frame)
     }
     
-    public init(image: UIImage?, dataManager: ImageDataManagerType, shouldAnimateImage: Bool = true) {
+    public init(image: UIImage?, dataManager: ImageDataManagerType) {
         self.dataManager = dataManager
-        self.shouldAnimateImage = shouldAnimateImage
         
         /// If we are given a `UIImage` directly then it's a static image so just use it directly and don't worry about using `dataManager`
         super.init(image: image)
@@ -124,7 +120,7 @@ public class SessionImageView: UIImageView {
             case .none: pauseAnimationLoop() /// Pause when not visible
             case .some:
                 /// Resume only if it has animation data and was meant to be animating
-                if let frames = animationFrames, !frames.isEmpty, frames[0] != nil {
+                if let frames = animationFrames, frames.count > 1 {
                     resumeAnimationLoop()
                 }
         }
@@ -196,8 +192,8 @@ public class SessionImageView: UIImageView {
             shouldAnimateImage,
             let frames: [UIImage?] = animationFrames,
             let durations: [TimeInterval] = animationFrameDurations,
-            frames.count > 1,
-            frames.count == durations.count
+            !frames.isEmpty,
+            !durations.isEmpty
         else { return stopAnimationLoop() }
         
         /// If it's already running (or paused) then no need to start the animation loop
@@ -211,7 +207,7 @@ public class SessionImageView: UIImageView {
             self.image = frames[0]
         }
         
-        stopAnimationLoop() /// Make sude we don't unintentionally create extra `CADisplayLink` instances
+        stopAnimationLoop() /// Make sure we don't unintentionally create extra `CADisplayLink` instances
         currentFrameIndex = 0
         accumulatedTime = 0
 
@@ -305,6 +301,8 @@ public class SessionImageView: UIImageView {
                 self.currentFrameIndex = 0
                 self.accumulatedTime = 0
                 
+                guard self.shouldAnimateImage else { return }
+                
                 switch frames.count {
                     case 1...: startAnimationLoop()
                     default: stopAnimationLoop()    /// Treat as a static image
@@ -354,6 +352,7 @@ public class SessionImageView: UIImageView {
         /// It's possible for a long `CADisplayLink` tick to take longeer than a single frame so try to handle those cases
         while accumulatedTime >= currentFrameDuration {
             accumulatedTime -= currentFrameDuration
+
             
             let nextFrameIndex: Int = ((currentFrameIndex + 1) % durations.count)
             

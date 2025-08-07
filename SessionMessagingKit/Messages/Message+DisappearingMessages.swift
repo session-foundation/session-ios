@@ -62,7 +62,7 @@ extension Message {
     }
     
     public static func getExpirationForOutgoingDisappearingMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         variant: Interaction.Variant,
@@ -94,7 +94,7 @@ extension Message {
     }
     
     public static func updateExpiryForDisappearAfterReadMessages(
-        _ db: Database,
+        _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
         serverHash: String?,

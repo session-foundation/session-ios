@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum JobRunnerError: Error, CustomStringConvertible {
+public enum JobRunnerError: Error, Equatable, CustomStringConvertible {
     case executorMissing
     case jobIdMissing
     case requiredThreadIdMissing
@@ -13,7 +13,7 @@ public enum JobRunnerError: Error, CustomStringConvertible {
     case missingRequiredDetails
     case missingDependencies
     
-    case possibleDuplicateJob
+    case possibleDuplicateJob(permanentFailure: Bool)
     case possibleDeferralLoop
     
     var wasPossibleDeferralLoop: Bool {

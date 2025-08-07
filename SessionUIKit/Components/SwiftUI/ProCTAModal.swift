@@ -30,11 +30,20 @@ public struct ProCTAModal: View {
         // stringlint:ignore_contents
         public var animatedAvatarImageURL: URL? {
             switch self {
-                case .generic:
-                    return Bundle.main.url(forResource: "GenericCTAAnimation", withExtension: "webp")
-                case .animatedProfileImage:
-                    return Bundle.main.url(forResource: "AnimatedProfileCTAAnimation", withExtension: "webp")
+                case .generic, .animatedProfileImage:
+                    return Bundle.main.url(forResource: "AnimatedProfileCTAAnimationCropped", withExtension: "webp")
                 default: return nil
+            }
+        }
+        /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
+        /// animated webp.
+        public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
+            switch self {
+                case .generic:
+                return (1313.5, 753)
+                case .animatedProfileImage:
+                return (690, 363)
+                default: return (0, 0)
             }
         }
 
@@ -109,6 +118,7 @@ public struct ProCTAModal: View {
     }
     
     @EnvironmentObject var host: HostWrapper
+    @State var proCTAImageHeight: CGFloat = 0
     
     private var delegate: SessionProManagerType?
     private let variant: ProCTAModal.Variant
@@ -144,26 +154,36 @@ public struct ProCTAModal: View {
                 // Background images
                 ZStack {
                     if let animatedAvatarImageURL = variant.animatedAvatarImageURL {
-                        SessionAsyncImage(
-                            source: .url(animatedAvatarImageURL),
-                            dataManager: dataManager,
-                            content: { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio((1522.0/1258.0), contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                            },
-                            placeholder: {
-                                if let data = try? Data(contentsOf: animatedAvatarImageURL) {
-                                    Image(uiImage: UIImage(data: data) ?? UIImage())
+                        GeometryReader { geometry in
+                            let size: CGFloat = geometry.size.width / 1522.0 * 187.0
+                            let scale: CGFloat = geometry.size.width / 1522.0
+                            SessionAsyncImage(
+                                source: .url(animatedAvatarImageURL),
+                                dataManager: dataManager,
+                                content: { image in
+                                    image
                                         .resizable()
-                                        .aspectRatio((1522.0/1258.0), contentMode: .fit)
-                                        .frame(maxWidth: .infinity)
-                                } else {
-                                    EmptyView()
+                                        .aspectRatio(1, contentMode: .fit)
+                                        .frame(width: size, height: size)
+                                },
+                                placeholder: {
+                                    if let data = try? Data(contentsOf: animatedAvatarImageURL) {
+                                        Image(uiImage: UIImage(data: data) ?? UIImage())
+                                            .resizable()
+                                            .aspectRatio(1, contentMode: .fit)
+                                            .frame(width: size, height: size)
+                                    } else {
+                                        EmptyView()
+                                    }
                                 }
+                            )
+                            .padding(.leading, variant.animatedAvatarImagePadding.leading * scale)
+                            .padding(.top, variant.animatedAvatarImagePadding.top * scale)
+                            .onAppear {
+                                proCTAImageHeight = geometry.size.width / 1522.0 * 1258.0
                             }
-                        )
+                        }
+                        .frame(height: proCTAImageHeight)
                     }
                     
                     Image(uiImage: UIImage(named: variant.backgroundImageName) ?? UIImage())

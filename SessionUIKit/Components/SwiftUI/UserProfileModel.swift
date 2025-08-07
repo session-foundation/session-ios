@@ -71,7 +71,7 @@ public struct UserProfileModel: View {
                         ZStack(alignment: .topTrailing) {
                             ZStack {
                                 ProfilePictureSwiftUI(
-                                    size: .userProfileModal,
+                                    size: .modal,
                                     info: info.profileInfo,
                                     dataManager: self.dataManager,
                                     sessionProState: self.sessionProState
@@ -84,8 +84,8 @@ public struct UserProfileModel: View {
                                 }
                             }
                             .frame(
-                                width: ProfilePictureView.Size.userProfileModal.viewSize * scale,
-                                height: ProfilePictureView.Size.userProfileModal.viewSize * scale,
+                                width: ProfilePictureView.Size.modal.viewSize * scale,
+                                height: ProfilePictureView.Size.modal.viewSize * scale,
                                 alignment: .center
                             )
                             

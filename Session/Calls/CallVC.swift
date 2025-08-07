@@ -570,7 +570,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             try Profile.fetchOne(db, id: call.sessionId)
         }
         
-        switch profile?.profilePictureFileName.map({ try? dependencies[singleton: .displayPictureManager].filepath(for: $0) }) {
+        switch profile?.displayPictureUrl.map({ try? dependencies[singleton: .displayPictureManager].path(for: $0) }) {
             case .some(let filePath): profilePictureView.loadImage(from: filePath)
             case .none:
                 profilePictureView.loadPlaceholder(
@@ -641,7 +641,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     // MARK: Call signalling
-    func handleAnswerMessage(_ message: CallMessage) {
+    @MainActor func handleAnswerMessage(_ message: CallMessage) {
         callInfoLabel.text = "callsConnecting".localized()
     }
     

@@ -29,7 +29,8 @@ public extension Log.Category {
 public enum Onboarding {
     public enum State: CustomStringConvertible {
         case noUser
-        case noUserFailedIdentity
+        case noUserInvalidKeyPair
+        case noUserInvalidSeedGeneration
         case missingName
         case completed
         
@@ -37,14 +38,15 @@ public enum Onboarding {
         public var description: String {
             switch self {
                 case .noUser: return "No User"
-                case .noUserFailedIdentity: return "No User Failed Identity"
+                case .noUserInvalidKeyPair: return "No User Invalid Key Pair"
+                case .noUserInvalidSeedGeneration: return "No User Invalid Seed Generation"
                 case .missingName: return "Missing Name"
                 case .completed: return "Completed"
             }
         }
     }
     
-    public enum Flow {
+    public enum Flow: CaseIterable {
         case none
         case register
         case restore
@@ -69,7 +71,7 @@ public enum Onboarding {
 extension Onboarding {
     class Cache: OnboardingCacheType {
         private let dependencies: Dependencies
-        public let id: UUID = UUID()
+        public let id: UUID
         public let initialFlow: Onboarding.Flow
         public var state: State
         private let completionSubject: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
@@ -81,7 +83,8 @@ extension Onboarding {
         public var useAPNS: Bool
         
         public var displayName: String
-        public var _displayNamePublisher: AnyPublisher<String?, Error>?
+        private var _displayNamePublisher: AnyPublisher<String?, Error>?
+        private var hasInitialDisplayName: Bool
         private var userProfileConfigMessage: ProcessedMessage?
         private var disposables: Set<AnyCancellable> = Set()
         
@@ -100,38 +103,59 @@ extension Onboarding {
         
         init(flow: Onboarding.Flow, using dependencies: Dependencies) {
             self.dependencies = dependencies
+            self.id = dependencies.randomUUID()
             self.initialFlow = flow
             
-            /// Determine the current state based on what's in the database
-            typealias StoredData = (
-                state: State,
-                displayName: String,
-                ed25519KeyPair: KeyPair,
-                x25519KeyPair: KeyPair
+            /// Try to load the users `ed25519KeyPair` from the database and generate the `x25519KeyPair` from it
+            var ed25519KeyPair: KeyPair = .empty
+            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            dependencies[singleton: .storage].readAsync(
+                retrieve: { db in Identity.fetchUserEd25519KeyPair(db) },
+                completion: { result in
+                    ed25519KeyPair = ((try? result.successOrThrow()) ?? .empty)
+                    semaphore.signal()
+                }
             )
-            let storedData: StoredData = dependencies[singleton: .storage].read { db -> StoredData in
-                // If we have no ed25519KeyPair then the user doesn't have an account
+            semaphore.wait()
+            let x25519KeyPair: KeyPair = {
                 guard
-                    let x25519KeyPair: KeyPair = Identity.fetchUserKeyPair(db),
-                    let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
-                else { return (.noUser, "", KeyPair.empty, KeyPair.empty) }
+                    ed25519KeyPair != .empty,
+                    let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                        .x25519(ed25519Pubkey: ed25519KeyPair.publicKey)
+                    ),
+                    let x25519SecretKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                        .x25519(ed25519Seckey: ed25519KeyPair.secretKey)
+                    )
+                else { return .empty }
                 
-                // If we have no display name then collect one (this can happen if the
-                // app crashed during onboarding which would leave the user in an invalid
-                // state with no display name)
-                let displayName: String = Profile.fetchOrCreateCurrentUser(db, using: dependencies).name
-                guard !displayName.isEmpty else { return (.missingName, "anonymous".localized(), x25519KeyPair, ed25519KeyPair) }
+                return KeyPair(publicKey: x25519PublicKey, secretKey: x25519SecretKey)
+            }()
+            
+            /// Retrieve the users `displayName` from `libSession` (the source of truth)
+            let displayName: String = dependencies.mutate(cache: .libSession) { $0.profile }.name
+            let hasInitialDisplayName: Bool = !displayName.isEmpty
+            
+            self.ed25519KeyPair = ed25519KeyPair
+            self.displayName = displayName
+            self.hasInitialDisplayName = hasInitialDisplayName
+            self.x25519KeyPair = x25519KeyPair
+            self.userSessionId = (x25519KeyPair != .empty ?
+                SessionId(.standard, publicKey: x25519KeyPair.publicKey) :
+                .invalid
+            )
+            self.state = {
+                guard ed25519KeyPair != .empty else { return .noUser }
+                guard x25519KeyPair != .empty else { return .noUserInvalidKeyPair }
+                guard hasInitialDisplayName else { return .missingName }
                 
-                // Otherwise we have enough for a full user and can start the app
-                return (.completed, displayName, x25519KeyPair, ed25519KeyPair)
-            }.defaulting(to: (.noUser, "", KeyPair.empty, KeyPair.empty))
-
-            /// Store the initial `displayName` value in case we need it
-            self.displayName = storedData.displayName
+                return .completed
+            }()
+            self.seed = Data()      /// Overwritten below
+            self.useAPNS = false    /// Overwritten below
             
             /// Update the cached values depending on the `initialState`
-            switch storedData.state {
-                case .noUser, .noUserFailedIdentity:
+            switch state {
+                case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
                     /// Remove the `LibSession.Cache` just in case (to ensure no previous state remains)
                     dependencies.remove(cache: .libSession)
                     
@@ -145,29 +169,19 @@ extension Onboarding {
                     else {
                         /// Seed or identity generation failed so leave the `Onboarding.Cache` in an invalid state for the UI to
                         /// recover somehow
-                        self.state = .noUserFailedIdentity
-                        self.seed = Data()
-                        self.ed25519KeyPair = KeyPair(publicKey: [], secretKey: [])
-                        self.x25519KeyPair = KeyPair(publicKey: [], secretKey: [])
-                        self.userSessionId = .invalid
-                        self.useAPNS = false
+                        self.state = .noUserInvalidSeedGeneration
                         return
                     }
                     
                     /// The identity data was successfully generated so store it for the onboarding process
-                    self.state = .noUser
+                    self.state = .noUserInvalidKeyPair
                     self.seed = finalSeedData
                     self.ed25519KeyPair = identity.ed25519KeyPair
                     self.x25519KeyPair = identity.x25519KeyPair
-                    self.userSessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
-                    self.useAPNS = false
+                    self.userSessionId = SessionId(.standard, publicKey: identity.x25519KeyPair.publicKey)
+                    self.displayName = ""
                     
                 case .missingName, .completed:
-                    self.state = storedData.state
-                    self.seed = Data()
-                    self.ed25519KeyPair = storedData.ed25519KeyPair
-                    self.x25519KeyPair = storedData.x25519KeyPair
-                    self.userSessionId = dependencies[cache: .general].sessionId
                     self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
                     
                     /// If we are already in a completed state then updated the completion subject accordingly
@@ -185,6 +199,7 @@ extension Onboarding {
             using dependencies: Dependencies
         ) {
             self.dependencies = dependencies
+            self.id = dependencies.randomUUID()
             self.state = .completed
             self.initialFlow = .devSettings
             self.seed = Data()
@@ -193,6 +208,7 @@ extension Onboarding {
             self.userSessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
             self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
             self.displayName = displayName
+            self.hasInitialDisplayName = !displayName.isEmpty
             self._displayNamePublisher = nil
         }
         
@@ -224,27 +240,31 @@ extension Onboarding {
                 logStartAndStopCalls: false,
                 customAuthMethod: Authentication.standard(
                     sessionId: userSessionId,
-                    ed25519KeyPair: identity.ed25519KeyPair
+                    ed25519PublicKey: identity.ed25519KeyPair.publicKey,
+                    ed25519SecretKey: identity.ed25519KeyPair.secretKey
                 ),
                 using: dependencies
             )
             
-            typealias PollResult = (configMessage: ProcessedMessage, displayName: String)
+            typealias PollResult = (configMessage: ProcessedMessage, displayName: String?)
             let publisher: AnyPublisher<String?, Error> = poller
                 .poll(forceSynchronousProcessing: true)
                 .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
                     guard
                         let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
-                        case let .config(_, _, serverHash, serverTimestampMs, data) = targetMessage
+                        case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
                     else { return nil }
                     
                     /// In order to process the config message we need to create and load a `libSession` cache, but we don't want to load this into
                     /// memory at this stage in case the user cancels the onboarding process part way through
-                    let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
+                    let cache: LibSession.Cache = LibSession.Cache(
+                        userSessionId: userSessionId,
+                        using: dependencies
+                    )
                     cache.loadDefaultStateFor(
                         variant: .userProfile,
                         sessionId: userSessionId,
-                        userEd25519KeyPair: identity.ed25519KeyPair,
+                        userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
                     try cache.unsafeDirectMergeConfigMessage(
@@ -259,7 +279,7 @@ extension Onboarding {
                         ]
                     )
                     
-                    return (targetMessage, cache.userProfileDisplayName)
+                    return (targetMessage, cache.displayName)
                 }
                 .handleEvents(
                     receiveOutput: { [weak self] result in
@@ -268,8 +288,12 @@ extension Onboarding {
                         /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
                         /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
                         /// config request running slow)
-                        if self?.displayName.isEmpty == true {
-                            self?.displayName = result.displayName
+                        if
+                            self?.hasInitialDisplayName != true,
+                            let displayName: String = result.displayName,
+                            !displayName.isEmpty
+                        {
+                            self?.displayName = displayName
                         }
                         
                         self?.userProfileConfigMessage = result.configMessage
@@ -293,7 +317,7 @@ extension Onboarding {
                 .store(in: &disposables)
         }
         
-        func setUserAPNS(_ useAPNS: Bool) {
+        func setUseAPNS(_ useAPNS: Bool) {
             self.useAPNS = useAPNS
         }
         
@@ -302,10 +326,10 @@ extension Onboarding {
         }
         
         func completeRegistration(onComplete: @escaping (() -> Void)) {
-            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
+            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, originalState = state, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
                 /// Cache the users session id (so we don't need to fetch it from the database every time)
                 dependencies.mutate(cache: .general) {
-                    $0.setCachedSessionId(sessionId: userSessionId)
+                    $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
                 }
                 
                 /// If we had a proper `initialFlow` then create a new `libSession` cache for the user
@@ -319,108 +343,134 @@ extension Onboarding {
                     )
                 }
                 
-                dependencies[singleton: .storage].write { db in
-                    /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
-                    if initialFlow != .none {
-                        /// Store the user identity information
-                        try Identity.store(db, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
-                        
-                        /// No need to show the seed again if the user is restoring
-                        db[.hasViewedSeed] = (initialFlow == .restore)
-                        
-                        /// Create a contact for the current user and set their approval/trusted statuses so they don't get weird behaviours
-                        try Contact
-                            .fetchOrCreate(db, id: userSessionId.hexString, using: dependencies)
-                            .upsert(db)
-                        try Contact
-                            .filter(id: userSessionId.hexString)
-                            .updateAll( /// Current user `Contact` record not synced so no need to use `updateAllAndConfig`
-                                db,
-                                Contact.Columns.isTrusted.set(to: true),    /// Always trust the current user
-                                Contact.Columns.isApproved.set(to: true),
-                                Contact.Columns.didApproveMe.set(to: true)
-                            )
-                        
-                        /// Create the 'Note to Self' thread (not visible by default)
-                        try SessionThread.upsert(
-                            db,
-                            id: userSessionId.hexString,
-                            variant: .contact,
-                            values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                            using: dependencies
-                        )
-                        
-                        /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
-                        dependencies.mutate(cache: .libSession) {
-                            $0.loadState(db)
+                dependencies[singleton: .storage].writeAsync(
+                    updates: { db in
+                        /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
+                        if initialFlow != .none {
+                            /// Store the user identity information
+                            try Identity.store(db, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
                             
-                            /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
-                            /// we won't even process it (because the hash may be deduped via another process)
-                            if let userProfileConfigMessage: ProcessedMessage = userProfileConfigMessage {
-                                try? $0.handleConfigMessages(
+                            /// Create a contact for the current user and set their approval/trusted statuses so they don't get weird behaviours
+                            try Contact
+                                .fetchOrCreate(db, id: userSessionId.hexString, using: dependencies)
+                                .upsert(db)
+                            try Contact
+                                .filter(id: userSessionId.hexString)
+                                .updateAll( /// Current user `Contact` record not synced so no need to use `updateAllAndConfig`
                                     db,
-                                    swarmPublicKey: userSessionId.hexString,
-                                    messages: ConfigMessageReceiveJob
-                                        .Details(messages: [userProfileConfigMessage])
-                                        .messages
+                                    Contact.Columns.isTrusted.set(to: true),    /// Always trust the current user
+                                    Contact.Columns.isApproved.set(to: true),
+                                    Contact.Columns.didApproveMe.set(to: true)
                                 )
-                            }
-                        }
-                        
-                        /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided during the onboarding
-                        /// step (we do this after handling the config message because we want the value provided during onboarding to
-                        /// superseed any retrieved from the config)
-                        try Profile
-                            .filter(id: userSessionId.hexString)
-                            .updateAll(db, Profile.Columns.lastNameUpdate.set(to: nil))
-                        try Profile.updateIfNeeded(
-                            db,
-                            publicKey: userSessionId.hexString,
-                            displayNameUpdate: .currentUserUpdate(displayName),
-                            displayPictureUpdate: .none,
-                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                            using: dependencies
-                        )
-                    }
-                    
-                    /// Now that the onboarding process is completed we can enable the Share and Notification extensions (prior to
-                    /// this point the account is in an invalid state so there is no point enabling them)
-                    db[.isReadyForAppExtensions] = true
-                    
-                    /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
-                    /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
-                    /// dependant on this `state` being updated)
-                    self?.state = .completed
-                    
-                    /// We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false` for new accounts otherwise it
-                    /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
-                    /// being visible
-                    if initialFlow == .register {
-                        try SessionThread
-                            .filter(id: userSessionId.hexString)
-                            .updateAllAndConfig(
+                            db.addContactEvent(id: userSessionId.hexString, change: .isTrusted(true))
+                            db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
+                            db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
+                            
+                            /// Create the 'Note to Self' thread (not visible by default)
+                            try SessionThread.upsert(
                                 db,
-                                SessionThread.Columns.shouldBeVisible.set(to: false),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
+                                id: userSessionId.hexString,
+                                variant: .contact,
+                                values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
                                 using: dependencies
                             )
+                            
+                            /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.loadState(db)
+                                
+                                /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
+                                /// we won't even process it (because the hash may be deduped via another process)
+                                if let userProfileConfigMessage: ProcessedMessage = userProfileConfigMessage {
+                                    try? cache.handleConfigMessages(
+                                        db,
+                                        swarmPublicKey: userSessionId.hexString,
+                                        messages: ConfigMessageReceiveJob
+                                            .Details(messages: [userProfileConfigMessage])
+                                            .messages
+                                    )
+                                }
+                                
+                                /// Update the `displayName` and trigger a dump/push of the config
+                                try? cache.performAndPushChange(db, for: .userProfile) {
+                                    try? cache.updateProfile(displayName: displayName)
+                                }
+                            }
+                            
+                            /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided
+                            /// during the onboarding step (we do this after handling the config message because we want
+                            /// the value provided during onboarding to superseed any retrieved from the config)
+                            try Profile
+                                .fetchOrCreate(db, id: userSessionId.hexString)
+                                .upsert(db)
+                            try Profile
+                                .filter(id: userSessionId.hexString)
+                                .updateAll(db, Profile.Columns.lastNameUpdate.set(to: nil))
+                            try Profile.updateIfNeeded(
+                                db,
+                                publicKey: userSessionId.hexString,
+                                displayNameUpdate: .currentUserUpdate(displayName),
+                                displayPictureUpdate: .none,
+                                profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                using: dependencies
+                            )
+                            
+                            /// Emit observation events (_shouldn't_ be needed since this is happening during onboarding but
+                            /// doesn't hurt just to be safe)
+                            db.addEvent(useAPNS, forKey: .isUsingFullAPNs)
+                        }
+                    
+                        /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
+                        /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
+                        /// dependant on this `state` being updated)
+                        self?.state = .completed
+                        
+                        /// We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false` for new accounts otherwise it
+                        /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
+                        /// being visible
+                        if initialFlow == .register {
+                            try SessionThread.updateVisibility(
+                                db,
+                                threadId: userSessionId.hexString,
+                                isVisible: false,
+                                using: dependencies
+                            )
+                        }
+                    },
+                    completion: { _ in
+                        /// No need to show the seed again if the user is restoring
+                        dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        
+                        /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
+                        /// extensions (prior to this point the account is in an invalid state so they can't be used)
+                        do {
+                            try dependencies[singleton: .extensionHelper].saveUserMetadata(
+                                sessionId: userSessionId,
+                                ed25519SecretKey: ed25519KeyPair.secretKey,
+                                unreadCount: 0
+                            )
+                        } catch { Log.error(.onboarding, "Falied to save user metadata: \(error)") }
+                        
+                        /// Store whether the user wants to use APNS
+                        dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS
+                        
+                        /// Log the resolution
+                        switch (initialFlow, originalState) {
+                            case (.none, _), (.devSettings, _): break
+                            case (.register, _): Log.info(.onboarding, "Registration completed")
+                            case (.restore, .missingName): Log.info(.onboarding, "Missing name replaced")
+                            case (.restore, _): Log.info(.onboarding, "Restore account completed")
+                        }
+                        
+                        /// Send an event indicating that registration is complete
+                        self?.completionSubject.send(true)
+                     
+                        DispatchQueue.main.async(using: dependencies) {
+                            onComplete()
+                        }
                     }
-                }
-                
-                /// Store whether the user wants to use APNS
-                dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS
-                
-                /// Set `hasSyncedInitialConfiguration` to true so that when we hit the home screen a configuration sync is
-                /// triggered (yes, the logic is a bit weird). This is needed so that if the user registers and immediately links a device,
-                /// there'll be a configuration in their swarm.
-                dependencies[defaults: .standard, key: .hasSyncedInitialConfiguration] = (initialFlow == .register)
-                
-                /// Send an event indicating that registration is complete
-                self?.completionSubject.send(true)
-             
-                DispatchQueue.main.async(using: dependencies) {
-                    onComplete()
-                }
+                )
             }
         }
     }
@@ -461,7 +511,7 @@ public protocol OnboardingCacheType: OnboardingImmutableCacheType, MutableCacheT
     var onboardingCompletePublisher: AnyPublisher<Void, Never> { get }
     
     func setSeedData(_ seedData: Data) throws
-    func setUserAPNS(_ useAPNS: Bool)
+    func setUseAPNS(_ useAPNS: Bool)
     func setDisplayName(_ displayName: String)
     
     /// Complete the registration process storing the created/updated user state in the database and creating

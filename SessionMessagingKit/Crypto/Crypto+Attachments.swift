@@ -16,13 +16,12 @@ public extension Crypto.Generator {
     private static var aesKeySize: Int { 32 }
     
     static func encryptAttachment(
-        plaintext: Data,
-        using dependencies: Dependencies
+        plaintext: Data
     ) -> Crypto.Generator<(ciphertext: Data, encryptionKey: Data, digest: Data)> {
         return Crypto.Generator(
             id: "encryptAttachment",
             args: [plaintext]
-        ) {
+        ) { dependencies in
             // Due to paddedSize, we need to divide by two.
             guard plaintext.count < (UInt.max / 2) else {
                 Log.error("[Crypto] Attachment data too long to encrypt.")

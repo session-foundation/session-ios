@@ -309,13 +309,11 @@ extension _BencodeDecoder.KeyedContainer: KeyedDecodingContainerProtocol {
     func contains(_ key: Key) -> Bool { nestedContainers.keys.contains(key.stringValue) }
 
     func decodeNil(forKey key: Key) throws -> Bool {
-        throw DecodingError.typeMismatch(
-            Any?.self,
-            DecodingError.Context(
-                codingPath: codingPath,
-                debugDescription: "cannot decode nil for key: \(key) (Null values are not supported)"
-            )
-        )
+        /// In Bencode, if a key is present, its value is never `nil`
+        ///
+        /// If `decodeIfPresent` calls this, it means `contains(key)` was true (the key is present and has a non-nil value) so
+        /// we should just return `false`
+        return false
     }
 
     func decode<T>(_ type: T.Type, forKey key: Key) throws -> T where T: Decodable {
@@ -443,13 +441,11 @@ extension _BencodeDecoder.UnkeyedContainer: _BencodeDecodingContainer {}
 
 extension _BencodeDecoder.UnkeyedContainer: UnkeyedDecodingContainer {
     func decodeNil() throws -> Bool {
-        throw DecodingError.typeMismatch(
-            Any?.self,
-            DecodingError.Context(
-                codingPath: codingPath,
-                debugDescription: "cannot decode nil for index: \(currentIndex) (Null values are not supported)"
-            )
-        )
+        /// In Bencode, if a key is present, its value is never `nil`
+        ///
+        /// If `decodeIfPresent` calls this, it means `contains(key)` was true (the key is present and has a non-nil value) so
+        /// we should just return `false`
+        return false
     }
     
     func decode<T>(_ type: T.Type) throws -> T where T: Decodable {
@@ -538,7 +534,7 @@ extension _BencodeDecoder {
 extension _BencodeDecoder.SingleValueContainer: _BencodeDecodingContainer {}
 
 extension _BencodeDecoder.SingleValueContainer: SingleValueDecodingContainer {
-    func decodeNil() -> Bool { return true }   // Nil values are omitted in Bencoded data
+    func decodeNil() -> Bool { return false }   // Nil values are omitted in Bencoded data
     
     func decode(_ type: Bool.Type) throws -> Bool {
         throw DecodingError.typeMismatch(

@@ -5,7 +5,7 @@ import Lucide
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
-    public static let explanationFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
+    nonisolated public static let explanationFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
     private static let closeSize: CGFloat = 24
     
     public private(set) var info: Info
@@ -214,7 +214,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var profileView: ProfilePictureView = ProfilePictureView(
-        size: .hero,
+        size: .modal,
         dataManager: nil,
         sessionProState: nil
     )
@@ -372,8 +372,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
-        profileView.pin(.top, to: .top, of: imageViewContainer)
-        profileView.pin(.bottom, to: .bottom, of: imageViewContainer)
+        profileView.pin(.top, to: .top, of: imageViewContainer, withInset: 20)
+        profileView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -20)
         
         proImageStackViewContainer.addSubview(proImageStackView)
         proImageStackView.center(.horizontal, in: proImageStackViewContainer)
@@ -1063,7 +1063,7 @@ public extension ConfirmationModal.Info {
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
             onProBageTapped: (() -> Void)?,
-            onClick: ((@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
+            onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
         case inputConfirmation(

@@ -23,10 +23,16 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     // MARK: - Functions
     
     func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool) {
-        dependencies[singleton: .storage].write { db in
-            db[.theme] = theme
-            db[.themePrimaryColor] = primaryColor
-            db[.themeMatchSystemDayNightCycle] = matchSystemNightModeSetting
+        let mutation: LibSession.Mutation? = try? dependencies.mutate(cache: .libSession) { cache in
+            try cache.perform(for: .local) {
+                cache.set(.theme, theme)
+                cache.set(.themePrimaryColor, primaryColor)
+                cache.set(.themeMatchSystemDayNightCycle, matchSystemNightModeSetting)
+            }
+        }
+        
+        dependencies[singleton: .storage].writeAsync { db in
+            try mutation?.upsert(db)
         }
     }
     
@@ -37,7 +43,8 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
-                    isMainnet: (dependencies[feature: .serviceNetwork] != .mainnet)
+                    isMainnet: (dependencies[feature: .serviceNetwork] == .mainnet),
+                    isOffline: dependencies[feature: .forceOffline]
                 )
         }
     }

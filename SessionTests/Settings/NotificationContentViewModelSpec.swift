@@ -4,6 +4,7 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUtil
 import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
@@ -28,32 +29,41 @@ class NotificationContentViewModelSpec: AsyncSpec {
             ],
             using: dependencies
         )
-        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
-            using: dependencies
-        )
-        @TestState var dataChangeCancellable: AnyCancellable?
-        @TestState var dismissCancellable: AnyCancellable?
-        
-        @MainActor
-        func setupTestSubscriptions() {
-            dataChangeCancellable = viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
+        @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
+        @TestState var localConfig: LibSession.Config! = {
+            var conf: UnsafeMutablePointer<config_object>!
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            return .local(conf)
+        }()
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: {
+                $0.defaultInitialSetup(
+                    configs: [
+                        .local: localConfig
+                    ]
                 )
+            }
+        )
+        @TestState var viewModel: NotificationContentViewModel! = TestState.create {
+            await NotificationContentViewModel(using: dependencies)
         }
-        
-        
+        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { viewModel.updateTableData($0) }
+            )
+        @TestState var dismissCancellable: AnyCancellable?
         
         // MARK: - a NotificationContentViewModel
         describe("a NotificationContentViewModel") {
             beforeEach {
-                await setupTestSubscriptions()
+                try await require { viewModel.tableData.count }.toEventually(beGreaterThan(0))
             }
+            
             // MARK: -- has the correct title
             it("has the correct title") {
-                await expect(viewModel.title).toEventually(equal("notificationsContent".localized()))
+                expect(viewModel.title).to(equal("notificationsContent".localized()))
             }
 
             // MARK: -- has the correct number of items
@@ -97,11 +107,16 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
-                mockStorage.write { db in
-                    db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
-                }
-                viewModel = NotificationContentViewModel(using: dependencies)
-                await setupTestSubscriptions()
+                mockLibSessionCache
+                    .when { $0.get(.preferencesNotificationPreviewType) }
+                    .thenReturn(Preferences.NotificationPreviewType.nameNoPreview)
+                viewModel = await NotificationContentViewModel(using: dependencies)
+                dataChangeCancellable = viewModel.tableDataPublisher
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+                try await require { viewModel.tableData.count }.toEventually(beGreaterThan(0))
                 
                 expect(viewModel.tableData.first?.elements)
                     .to(
@@ -140,8 +155,9 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 it("updates the saved preference") {
                     await viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    await expect(dependencies[singleton: .storage, key: .preferencesNotificationPreviewType])
-                        .toEventually(equal(Preferences.NotificationPreviewType.noNameNoPreview))
+                    await expect(mockLibSessionCache).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
+                    })
                 }
                 
                 // MARK: ---- dismisses the screen
@@ -149,14 +165,13 @@ class NotificationContentViewModelSpec: AsyncSpec {
                     var didDismissScreen: Bool = false
                     
                     dismissCancellable = viewModel.navigatableState.dismissScreen
-                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
                     await viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    expect(didDismissScreen).to(beTrue())
+                    await expect(didDismissScreen).toEventually(beTrue())
                 }
             }
         }

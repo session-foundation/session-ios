@@ -32,8 +32,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
-                    creationDateTimestamp: 0,
-                    using: dependencies
+                    creationDateTimestamp: 0
                 ).insert(db)
             }
         )
@@ -404,14 +403,14 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                                 )
                         )
                         
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        expect(didDismissScreen).to(beTrue())
+                        await expect(didDismissScreen).toEventually(beTrue())
                     }
                     
                     // MARK: ------ saves the updated config
                     it("saves the updated config") {
-                        footerButtonInfo?.onTap()
+                        await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
                         let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")

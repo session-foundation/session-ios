@@ -343,10 +343,14 @@ public class SessionCell: UITableViewCell {
     public func update<ID: Hashable & Differentiable>(
         with info: Info<ID>,
         tableSize: CGSize,
-        isManualReload: Bool = false,
         onToggleExpansion: (() -> Void)? = nil,
         using dependencies: Dependencies
     ) {
+        /// Need to do this here as `prepareForReuse` doesn't always seem to get called
+        titleExtraView?.removeFromSuperview()
+        subtitleExtraView?.removeFromSuperview()
+        
+        /// Do other configuration
         interactionMode = (info.title?.interaction ?? .none)
         shouldHighlightTitle = (info.title?.interaction != .copy)
         titleExtraView = info.title?.extraViewGenerator?()
@@ -549,7 +553,6 @@ public class SessionCell: UITableViewCell {
             tintColor: info.styling.tintColor,
             isEnabled: info.isEnabled,
             maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
-            isManualReload: isManualReload,
             using: dependencies
         )
         titleStackView.isHidden = (info.title == nil && info.subtitle == nil)
@@ -592,7 +595,6 @@ public class SessionCell: UITableViewCell {
             tintColor: info.styling.tintColor,
             isEnabled: info.isEnabled,
             maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
-            isManualReload: isManualReload,
             using: dependencies
         )
     }

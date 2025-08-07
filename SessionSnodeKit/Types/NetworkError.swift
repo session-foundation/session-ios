@@ -8,7 +8,6 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
     case invalidState
     case invalidURL
     case invalidPreparedRequest
-    case signingFailed
     case forbidden
     case notFound
     case parsingFailed
@@ -30,7 +29,6 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
             case .invalidState: return "The network is in an invalid state (NetworkError.invalidState)."
             case .invalidURL: return "Invalid URL (NetworkError.invalidURL)."
             case .invalidPreparedRequest: return "Invalid PreparedRequest provided (NetworkError.invalidPreparedRequest)."
-            case .signingFailed: return "Couldn't sign request (NetworkError.signingFailed)."
             case .forbidden: return "Forbidden (NetworkError.forbidden)."
             case .notFound: return "Not Found (NetworkError.notFound)."
             case .parsingFailed: return "Invalid response (NetworkError.parsingFailed)."

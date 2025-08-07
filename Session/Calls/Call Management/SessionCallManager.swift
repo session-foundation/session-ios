@@ -209,8 +209,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     contactName: Profile.displayName(
                         db,
                         id: caller,
-                        threadVariant: .contact,
-                        using: dependencies
+                        threadVariant: .contact
                     ),
                     uuid: uuid,
                     mode: mode,
@@ -267,26 +266,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         currentWebRTCSession.handleICECandidates(candidates)
     }
     
-    public func handleAnswerMessage(_ message: CallMessage) {
+    @MainActor public func handleAnswerMessage(_ message: CallMessage) {
         guard dependencies[singleton: .appContext].isValid else { return }
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.handleAnswerMessage(message)
-            }
-            return
-        }
         
         (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleAnswerMessage(message)
     }
     
-    public func dismissAllCallUI() {
+    @MainActor public func dismissAllCallUI() {
         guard dependencies[singleton: .appContext].isValid else { return }
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.dismissAllCallUI()
-            }
-            return
-        }
         
         IncomingCallBanner.current?.dismiss()
         (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleEndCallMessage()
