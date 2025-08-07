@@ -140,7 +140,7 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? 0) / 1000)
+            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
@@ -246,7 +246,7 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? 0) / 1000)
+            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
@@ -608,7 +608,7 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? 0) / 1000)
+            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
