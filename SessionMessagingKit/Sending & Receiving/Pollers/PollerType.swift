@@ -4,7 +4,7 @@
 
 import Foundation
 import Combine
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category

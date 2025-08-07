@@ -2,7 +2,7 @@
 
 import SwiftUI
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 

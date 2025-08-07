@@ -4,7 +4,7 @@ import UIKit
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit

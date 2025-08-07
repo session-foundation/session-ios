@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -68,7 +68,7 @@ public enum AppSetup {
             migrationTargets: additionalMigrationTargets
                 .appending(contentsOf: [
                     SNUtilitiesKit.self,
-                    SNSnodeKit.self,
+                    SNNetworkingKit.self,
                     SNMessagingKit.self
                 ]),
             onProgressUpdate: migrationProgressChanged,

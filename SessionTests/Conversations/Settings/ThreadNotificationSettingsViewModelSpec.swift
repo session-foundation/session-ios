@@ -5,7 +5,7 @@ import GRDB
 import Quick
 import Nimble
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -23,7 +23,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
                 SNUtilitiesKit.self,
-                SNSnodeKit.self,
+                SNNetworkingKit.self,
                 SNMessagingKit.self,
                 DeprecatedUIKitMigrationTarget.self
             ],
