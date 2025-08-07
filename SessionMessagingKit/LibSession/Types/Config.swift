@@ -4,7 +4,7 @@
 
 import Foundation
 import SessionUtil
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension LibSession {

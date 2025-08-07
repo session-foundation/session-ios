@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 struct NewMessageScreen: View {
     @EnvironmentObject var host: HostWrapper

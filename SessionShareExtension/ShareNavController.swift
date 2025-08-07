@@ -7,7 +7,7 @@ import CoreServices
 import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 

@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 import Quick
 import Nimble
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class LibSessionGroupMembersSpec: QuickSpec {

@@ -268,7 +268,7 @@
 		B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D0A25825E367AC00C1835E /* Notification+MessageReceiver.swift */; };
 		B8D0A26925E4A2C200C1835E /* Onboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D0A26825E4A2C200C1835E /* Onboarding.swift */; };
 		B8D64FBB25BA78310029CFC0 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
-		B8D64FBD25BA78310029CFC0 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; };
+		B8D64FBD25BA78310029CFC0 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; };
 		B8D64FBE25BA78310029CFC0 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
 		B8D64FC725BA78520029CFC0 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
 		B8D64FCB25BA78A90029CFC0 /* SignalUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */; };
@@ -286,7 +286,7 @@
 		C300A5F22554B09800555489 /* MessageSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5F12554B09800555489 /* MessageSender.swift */; };
 		C300A60D2554B31900555489 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5CE2553860700C340D1 /* Logging.swift */; };
 		C302093E25DCBF08001F572D /* MentionSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C302093D25DCBF07001F572D /* MentionSelectionView.swift */; };
-		C32824D325C9F9790062D0A7 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; };
+		C32824D325C9F9790062D0A7 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; };
 		C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328250E25CA06020062D0A7 /* VoiceMessageView.swift */; };
 		C328251F25CA3A900062D0A7 /* QuoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328251E25CA3A900062D0A7 /* QuoteView.swift */; };
 		C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328252F25CA55360062D0A7 /* ContextMenuWindow.swift */; };
@@ -314,7 +314,7 @@
 		C331FFFE2558FF3B00070591 /* FullConversationCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8BB82AA238F669C00BA5194 /* FullConversationCell.swift */; };
 		C33FD9B3255A548A00E217F9 /* SignalUtilitiesKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C33FD9C2255A54EF00E217F9 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
-		C33FD9C4255A54EF00E217F9 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; };
+		C33FD9C4255A54EF00E217F9 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; };
 		C33FD9C5255A54EF00E217F9 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
 		C33FDC58255A582000E217F9 /* ReverseDispatchQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */; };
 		C33FDD8D255A582000E217F9 /* OWSSignalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */; };
@@ -329,7 +329,7 @@
 		C374EEF425DB31D40073A857 /* VoiceMessageRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C374EEF325DB31D40073A857 /* VoiceMessageRecordingView.swift */; };
 		C379DCF4256735770002D4EB /* VisibleMessage+Attachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C379DCF3256735770002D4EB /* VisibleMessage+Attachment.swift */; };
 		C37F5414255BAFA7002AEA92 /* SignalUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */; };
-		C37F54DC255BB84A002AEA92 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; };
+		C37F54DC255BB84A002AEA92 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; };
 		C38EF00C255B61CC007E1867 /* SignalUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */; };
 		C38EF24D255B6D67007E1867 /* UIView+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF240255B6D67007E1867 /* UIView+OWS.swift */; };
 		C38EF24E255B6D67007E1867 /* Collection+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF241255B6D67007E1867 /* Collection+OWS.swift */; };
@@ -373,16 +373,15 @@
 		C3ADC66126426688005F1414 /* ShareNavController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3ADC66026426688005F1414 /* ShareNavController.swift */; };
 		C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D52553860A00C340D1 /* Dictionary+Utilities.swift */; };
 		C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BBE0C62554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift */; };
-		C3C2A5A3255385C100C340D1 /* SessionSnodeKit.h in Headers */ = {isa = PBXBuildFile; fileRef = C3C2A5A1255385C100C340D1 /* SessionSnodeKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C3C2A5A7255385C100C340D1 /* SessionSnodeKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C3C2A5A3255385C100C340D1 /* SessionNetworkingKit.h in Headers */ = {isa = PBXBuildFile; fileRef = C3C2A5A1255385C100C340D1 /* SessionNetworkingKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C3C2A5A7255385C100C340D1 /* SessionNetworkingKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C3C2A5C2255385EE00C340D1 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5B9255385ED00C340D1 /* Configuration.swift */; };
-		C3C2A5E02553860B00C340D1 /* Threading+SSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D42553860A00C340D1 /* Threading+SSK.swift */; };
 		C3C2A5E42553860B00C340D1 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D82553860B00C340D1 /* Data+Utilities.swift */; };
 		C3C2A681255388CC00C340D1 /* SessionUtilitiesKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C3C2A6C62553896A00C340D1 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
 		C3C2A6F425539DE700C340D1 /* SessionMessagingKit.h in Headers */ = {isa = PBXBuildFile; fileRef = C3C2A6F225539DE700C340D1 /* SessionMessagingKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C3C2A6F825539DE700C340D1 /* SessionMessagingKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		C3C2A70B25539E1E00C340D1 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; };
+		C3C2A70B25539E1E00C340D1 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; };
 		C3C2A74425539EB700C340D1 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A74325539EB700C340D1 /* Message.swift */; };
 		C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A74C2553A39700C340D1 /* VisibleMessage.swift */; };
 		C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A75E2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift */; };
@@ -423,7 +422,7 @@
 		FD01504B2CA243CB005B08A1 /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150472CA243CB005B08A1 /* Mock.swift */; };
 		FD01504C2CA243CB005B08A1 /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150472CA243CB005B08A1 /* Mock.swift */; };
 		FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01504D2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift */; };
-		FD0150502CA24468005B08A1 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; platformFilter = ios; };
+		FD0150502CA24468005B08A1 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; platformFilter = ios; };
 		FD0150522CA2446D005B08A1 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150512CA2446D005B08A1 /* Quick */; };
 		FD0150542CA24471005B08A1 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150532CA24471005B08A1 /* Nimble */; };
 		FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */; };
@@ -739,7 +738,7 @@
 		FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6673FC2D77F54400041530 /* ScreenLockViewController.swift */; };
 		FD6673FF2D77F9C100041530 /* ScreenLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6673FE2D77F9BE00041530 /* ScreenLock.swift */; };
 		FD6674002D77F9FD00041530 /* ScreenLockWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090828B59411006098F6 /* ScreenLockWindow.swift */; };
-		FD66CB2A2BF3449B00268FAB /* SessionSnodeKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD66CB272BF3449B00268FAB /* SessionSnodeKit.xctestplan */; };
+		FD66CB2A2BF3449B00268FAB /* SessionNetworkingKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD66CB272BF3449B00268FAB /* SessionNetworkingKit.xctestplan */; };
 		FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */; };
 		FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EB2C2A63B500762359 /* KeychainSwift */; };
 		FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EE2C2A641200762359 /* DifferenceKit */; };
@@ -1057,7 +1056,7 @@
 		FDE754DE2C9BAF8A002A2623 /* Crypto+SessionUtilitiesKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754D82C9BAF89002A2623 /* Crypto+SessionUtilitiesKit.swift */; };
 		FDE754DF2C9BAF8A002A2623 /* KeyPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754D92C9BAF89002A2623 /* KeyPair.swift */; };
 		FDE754E02C9BAF8A002A2623 /* Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754DA2C9BAF8A002A2623 /* Hex.swift */; };
-		FDE754E32C9BAFF4002A2623 /* Crypto+SessionSnodeKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754E12C9BAFF4002A2623 /* Crypto+SessionSnodeKit.swift */; };
+		FDE754E32C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754E12C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift */; };
 		FDE754E52C9BB012002A2623 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754E42C9BB012002A2623 /* BezierPathView.swift */; };
 		FDE754E72C9BB051002A2623 /* OWSViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754E62C9BB051002A2623 /* OWSViewController.swift */; };
 		FDE754F02C9BB08B002A2623 /* Crypto+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754EC2C9BB08B002A2623 /* Crypto+Attachments.swift */; };
@@ -1358,7 +1357,7 @@
 			files = (
 				C3C2A681255388CC00C340D1 /* SessionUtilitiesKit.framework in Embed Frameworks */,
 				C33FD9B3255A548A00E217F9 /* SignalUtilitiesKit.framework in Embed Frameworks */,
-				C3C2A5A7255385C100C340D1 /* SessionSnodeKit.framework in Embed Frameworks */,
+				C3C2A5A7255385C100C340D1 /* SessionNetworkingKit.framework in Embed Frameworks */,
 				C331FF232558F9D300070591 /* SessionUIKit.framework in Embed Frameworks */,
 				C3C2A6F825539DE700C340D1 /* SessionMessagingKit.framework in Embed Frameworks */,
 			);
@@ -1742,13 +1741,12 @@
 		C3AAFFF125AE99710089E6DD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C3ADC66026426688005F1414 /* ShareNavController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareNavController.swift; sourceTree = "<group>"; };
 		C3BBE0C62554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FixedWidthInteger+BigEndian.swift"; sourceTree = "<group>"; };
-		C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SessionSnodeKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		C3C2A5A1255385C100C340D1 /* SessionSnodeKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionSnodeKit.h; sourceTree = "<group>"; };
+		C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SessionNetworkingKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C3C2A5A1255385C100C340D1 /* SessionNetworkingKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionNetworkingKit.h; sourceTree = "<group>"; };
 		C3C2A5A2255385C100C340D1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C3C2A5B9255385ED00C340D1 /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		C3C2A5CE2553860700C340D1 /* Logging.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
 		C3C2A5D22553860900C340D1 /* String+Trimming.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Trimming.swift"; sourceTree = "<group>"; };
-		C3C2A5D42553860A00C340D1 /* Threading+SSK.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Threading+SSK.swift"; sourceTree = "<group>"; };
 		C3C2A5D52553860A00C340D1 /* Dictionary+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Dictionary+Utilities.swift"; sourceTree = "<group>"; };
 		C3C2A5D82553860B00C340D1 /* Data+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+Utilities.swift"; sourceTree = "<group>"; };
 		C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SessionUtilitiesKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2044,7 +2042,7 @@
 		FD6531892AA025C500DFEEAA /* TestDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDependencies.swift; sourceTree = "<group>"; };
 		FD6673FC2D77F54400041530 /* ScreenLockViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockViewController.swift; sourceTree = "<group>"; };
 		FD6673FE2D77F9BE00041530 /* ScreenLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLock.swift; sourceTree = "<group>"; };
-		FD66CB272BF3449B00268FAB /* SessionSnodeKit.xctestplan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SessionSnodeKit.xctestplan; sourceTree = "<group>"; };
+		FD66CB272BF3449B00268FAB /* SessionNetworkingKit.xctestplan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SessionNetworkingKit.xctestplan; sourceTree = "<group>"; };
 		FD66CB2B2BF344C600268FAB /* SessionMessageKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionMessageKit.xctestplan; sourceTree = "<group>"; };
 		FD6A38F02C2A66B100762359 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
 		FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
@@ -2207,7 +2205,7 @@
 		FDB5DAE52A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateDeleteMemberContentMessage.swift; sourceTree = "<group>"; };
 		FDB5DAE72A95D96C002C8721 /* MessageReceiver+Groups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+Groups.swift"; sourceTree = "<group>"; };
 		FDB5DAF22A96DD4F002C8721 /* PreparedRequest+Sending.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreparedRequest+Sending.swift"; sourceTree = "<group>"; };
-		FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionSnodeKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDB5DAFA2A981C42002C8721 /* SessionNetworkingKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionNetworkingKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDB5DB052A981C67002C8721 /* PreparedRequestSendingSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequestSendingSpec.swift; sourceTree = "<group>"; };
 		FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utilities.swift"; sourceTree = "<group>"; };
@@ -2324,7 +2322,7 @@
 		FDE754D82C9BAF89002A2623 /* Crypto+SessionUtilitiesKit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Crypto+SessionUtilitiesKit.swift"; sourceTree = "<group>"; };
 		FDE754D92C9BAF89002A2623 /* KeyPair.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeyPair.swift; sourceTree = "<group>"; };
 		FDE754DA2C9BAF8A002A2623 /* Hex.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Hex.swift; sourceTree = "<group>"; };
-		FDE754E12C9BAFF4002A2623 /* Crypto+SessionSnodeKit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Crypto+SessionSnodeKit.swift"; sourceTree = "<group>"; };
+		FDE754E12C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Crypto+SessionNetworkingKit.swift"; sourceTree = "<group>"; };
 		FDE754E42C9BB012002A2623 /* BezierPathView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		FDE754E62C9BB051002A2623 /* OWSViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OWSViewController.swift; sourceTree = "<group>"; };
 		FDE754EC2C9BB08B002A2623 /* Crypto+Attachments.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Crypto+Attachments.swift"; sourceTree = "<group>"; };
@@ -2436,7 +2434,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD860CC92D6ED2ED00BBE29C /* DifferenceKit in Frameworks */,
-				C32824D325C9F9790062D0A7 /* SessionSnodeKit.framework in Frameworks */,
+				C32824D325C9F9790062D0A7 /* SessionNetworkingKit.framework in Frameworks */,
 				B8D64FC725BA78520029CFC0 /* SessionMessagingKit.framework in Frameworks */,
 				C3D90A5C25773A25002C9DF5 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3402FE52559036600EA6424 /* SessionUIKit.framework in Frameworks */,
@@ -2450,7 +2448,7 @@
 			files = (
 				B8D64FBB25BA78310029CFC0 /* SessionMessagingKit.framework in Frameworks */,
 				FD8A5B182DBF47E9004C689B /* SessionUIKit.framework in Frameworks */,
-				B8D64FBD25BA78310029CFC0 /* SessionSnodeKit.framework in Frameworks */,
+				B8D64FBD25BA78310029CFC0 /* SessionNetworkingKit.framework in Frameworks */,
 				B8D64FBE25BA78310029CFC0 /* SessionUtilitiesKit.framework in Frameworks */,
 				C38EF00C255B61CC007E1867 /* SignalUtilitiesKit.framework in Frameworks */,
 			);
@@ -2473,7 +2471,7 @@
 				FD6A39222C2AA91D00762359 /* NVActivityIndicatorView in Frameworks */,
 				FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */,
 				C33FD9C2255A54EF00E217F9 /* SessionMessagingKit.framework in Frameworks */,
-				C33FD9C4255A54EF00E217F9 /* SessionSnodeKit.framework in Frameworks */,
+				C33FD9C4255A54EF00E217F9 /* SessionNetworkingKit.framework in Frameworks */,
 				C33FD9C5255A54EF00E217F9 /* SessionUtilitiesKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2508,7 +2506,7 @@
 				FD6673FA2D7021F800041530 /* SessionUtil in Frameworks */,
 				FD2286732C38D43900BC06F7 /* DifferenceKit in Frameworks */,
 				FDC4386C27B4E90300C60D73 /* SessionUtilitiesKit.framework in Frameworks */,
-				C3C2A70B25539E1E00C340D1 /* SessionSnodeKit.framework in Frameworks */,
+				C3C2A70B25539E1E00C340D1 /* SessionNetworkingKit.framework in Frameworks */,
 				FD6A39132C2A946A00762359 /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2522,7 +2520,7 @@
 				B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */,
 				B8FF8DAF25C0D00F004D1F22 /* SessionUtilitiesKit.framework in Frameworks */,
 				FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */,
-				C37F54DC255BB84A002AEA92 /* SessionSnodeKit.framework in Frameworks */,
+				C37F54DC255BB84A002AEA92 /* SessionNetworkingKit.framework in Frameworks */,
 				C37F5414255BAFA7002AEA92 /* SignalUtilitiesKit.framework in Frameworks */,
 				455A16DD1F1FEA0000F86704 /* Metal.framework in Frameworks */,
 				455A16DE1F1FEA0000F86704 /* MetalKit.framework in Frameworks */,
@@ -2561,7 +2559,7 @@
 			files = (
 				FD0150542CA24471005B08A1 /* Nimble in Frameworks */,
 				FD0150522CA2446D005B08A1 /* Quick in Frameworks */,
-				FD0150502CA24468005B08A1 /* SessionSnodeKit.framework in Frameworks */,
+				FD0150502CA24468005B08A1 /* SessionNetworkingKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3668,27 +3666,27 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
-		C3C2A5A0255385C100C340D1 /* SessionSnodeKit */ = {
+		C3C2A5A0255385C100C340D1 /* SessionNetworkingKit */ = {
 			isa = PBXGroup;
 			children = (
-				947D7FD32D509FC900E8E413 /* SessionNetworkAPI */,
 				C3C2A5B0255385C700C340D1 /* Meta */,
 				FDE754E22C9BAFF4002A2623 /* Crypto */,
 				FD17D79D27F40CAA00122BE0 /* Database */,
-				FDF8489929405C5A007DCAE5 /* Models */,
-				FDF8488F29405C13007DCAE5 /* Types */,
-				FD2272842C33E28D004D8A6C /* SnodeAPI */,
 				FD7F74682BAB8A5D006DDFD8 /* LibSession */,
+				FDF8489929405C5A007DCAE5 /* Models */,
+				947D7FD32D509FC900E8E413 /* SessionNetworkAPI */,
+				FD2272842C33E28D004D8A6C /* SnodeAPI */,
+				FDF8488F29405C13007DCAE5 /* Types */,
 				C3C2A5CD255385F300C340D1 /* Utilities */,
 				C3C2A5B9255385ED00C340D1 /* Configuration.swift */,
 			);
-			path = SessionSnodeKit;
+			path = SessionNetworkingKit;
 			sourceTree = "<group>";
 		};
 		C3C2A5B0255385C700C340D1 /* Meta */ = {
 			isa = PBXGroup;
 			children = (
-				C3C2A5A1255385C100C340D1 /* SessionSnodeKit.h */,
+				C3C2A5A1255385C100C340D1 /* SessionNetworkingKit.h */,
 				C3C2A5A2255385C100C340D1 /* Info.plist */,
 			);
 			path = Meta;
@@ -3701,7 +3699,6 @@
 				FD2272BD2C34B710004D8A6C /* Publisher+Utilities.swift */,
 				FD83DCDC2A739D350065FFAE /* RetryWithDependencies.swift */,
 				C3C2A5D22553860900C340D1 /* String+Trimming.swift */,
-				C3C2A5D42553860A00C340D1 /* Threading+SSK.swift */,
 				FD2272A82C33E337004D8A6C /* URLResponse+Utilities.swift */,
 			);
 			path = Utilities;
@@ -3858,13 +3855,13 @@
 				7BC01A3C241F40AB00BC7C55 /* SessionNotificationServiceExtension */,
 				C331FF1C2558F9D300070591 /* SessionUIKit */,
 				C3C2A6F125539DE700C340D1 /* SessionMessagingKit */,
-				C3C2A5A0255385C100C340D1 /* SessionSnodeKit */,
+				C3C2A5A0255385C100C340D1 /* SessionNetworkingKit */,
 				C3C2A67A255388CC00C340D1 /* SessionUtilitiesKit */,
 				C33FD9AC255A548A00E217F9 /* SignalUtilitiesKit */,
 				FD83B9BC27CF2215005E1583 /* _SharedTestUtilities */,
 				FD71160A28D00BAE00B47552 /* SessionTests */,
 				FDC4388F27B9FFC700C60D73 /* SessionMessagingKitTests */,
-				FDB5DAFB2A981C43002C8721 /* SessionSnodeKitTests */,
+				FDB5DAFB2A981C43002C8721 /* SessionNetworkingKitTests */,
 				FD83B9B027CF200A005E1583 /* SessionUtilitiesKitTests */,
 				FDE7214E287E50D50093DF33 /* Scripts */,
 				D221A08C169C9E5E00537ABF /* Frameworks */,
@@ -3879,7 +3876,7 @@
 				D221A089169C9E5E00537ABF /* Session.app */,
 				453518681FC635DD00210559 /* SessionShareExtension.appex */,
 				7BC01A3B241F40AB00BC7C55 /* SessionNotificationServiceExtension.appex */,
-				C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */,
+				C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */,
 				C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */,
 				C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */,
 				C331FF1B2558F9D300070591 /* SessionUIKit.framework */,
@@ -3887,7 +3884,7 @@
 				FDC4388E27B9FFC700C60D73 /* SessionMessagingKitTests.xctest */,
 				FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */,
 				FD71160928D00BAE00B47552 /* SessionTests.xctest */,
-				FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */,
+				FDB5DAFA2A981C42002C8721 /* SessionNetworkingKitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4749,15 +4746,15 @@
 			path = "Group Update Messages";
 			sourceTree = "<group>";
 		};
-		FDB5DAFB2A981C43002C8721 /* SessionSnodeKitTests */ = {
+		FDB5DAFB2A981C43002C8721 /* SessionNetworkingKitTests */ = {
 			isa = PBXGroup;
 			children = (
-				FD66CB272BF3449B00268FAB /* SessionSnodeKit.xctestplan */,
+				FD66CB272BF3449B00268FAB /* SessionNetworkingKit.xctestplan */,
 				FD3765DD2AD8F02300DC1489 /* _TestUtilities */,
 				FDAA16792AC28E2200DDBF77 /* Models */,
 				FD2272C52C34E9D1004D8A6C /* Types */,
 			);
-			path = SessionSnodeKitTests;
+			path = SessionNetworkingKitTests;
 			sourceTree = "<group>";
 		};
 		FDC13D4E2A16EE41007267C7 /* Types */ = {
@@ -4963,7 +4960,7 @@
 		FDE754E22C9BAFF4002A2623 /* Crypto */ = {
 			isa = PBXGroup;
 			children = (
-				FDE754E12C9BAFF4002A2623 /* Crypto+SessionSnodeKit.swift */,
+				FDE754E12C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift */,
 			);
 			path = Crypto;
 			sourceTree = "<group>";
@@ -5146,7 +5143,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C3C2A5A3255385C100C340D1 /* SessionSnodeKit.h in Headers */,
+				C3C2A5A3255385C100C340D1 /* SessionNetworkingKit.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5267,9 +5264,9 @@
 			productReference = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		C3C2A59E255385C100C340D1 /* SessionSnodeKit */ = {
+		C3C2A59E255385C100C340D1 /* SessionNetworkingKit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionSnodeKit" */;
+			buildConfigurationList = C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionNetworkingKit" */;
 			buildPhases = (
 				C3C2A59A255385C100C340D1 /* Headers */,
 				C3C2A59B255385C100C340D1 /* Sources */,
@@ -5282,12 +5279,12 @@
 				FDB348822BE86A4400B716C2 /* PBXTargetDependency */,
 				FD7F74622BAAA4C7006DDFD8 /* PBXTargetDependency */,
 			);
-			name = SessionSnodeKit;
+			name = SessionNetworkingKit;
 			packageProductDependencies = (
 				FD6673F72D7021F200041530 /* SessionUtil */,
 			);
 			productName = SessionSnodeKit;
-			productReference = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */;
+			productReference = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 		C3C2A678255388CC00C340D1 /* SessionUtilitiesKit */ = {
@@ -5425,9 +5422,9 @@
 			productReference = FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		FDB5DAF92A981C42002C8721 /* SessionSnodeKitTests */ = {
+		FDB5DAF92A981C42002C8721 /* SessionNetworkingKitTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = FD2272522C32910F004D8A6C /* Build configuration list for PBXNativeTarget "SessionSnodeKitTests" */;
+			buildConfigurationList = FD2272522C32910F004D8A6C /* Build configuration list for PBXNativeTarget "SessionNetworkingKitTests" */;
 			buildPhases = (
 				FDB5DAF62A981C42002C8721 /* Sources */,
 				FD01504F2CA2445E005B08A1 /* Frameworks */,
@@ -5438,9 +5435,9 @@
 			dependencies = (
 				FDB5DB002A981C43002C8721 /* PBXTargetDependency */,
 			);
-			name = SessionSnodeKitTests;
+			name = SessionNetworkingKitTests;
 			productName = SessionSnodeKitTests;
-			productReference = FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */;
+			productReference = FDB5DAFA2A981C42002C8721 /* SessionNetworkingKitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		FDC4388D27B9FFC700C60D73 /* SessionMessagingKitTests */ = {
@@ -5611,11 +5608,11 @@
 				C33FD9AA255A548A00E217F9 /* SignalUtilitiesKit */,
 				C331FF1A2558F9D300070591 /* SessionUIKit */,
 				C3C2A6EF25539DE700C340D1 /* SessionMessagingKit */,
-				C3C2A59E255385C100C340D1 /* SessionSnodeKit */,
+				C3C2A59E255385C100C340D1 /* SessionNetworkingKit */,
 				C3C2A678255388CC00C340D1 /* SessionUtilitiesKit */,
 				FD71160828D00BAE00B47552 /* SessionTests */,
 				FDC4388D27B9FFC700C60D73 /* SessionMessagingKitTests */,
-				FDB5DAF92A981C42002C8721 /* SessionSnodeKitTests */,
+				FDB5DAF92A981C42002C8721 /* SessionNetworkingKitTests */,
 				FD83B9AE27CF200A005E1583 /* SessionUtilitiesKitTests */,
 			);
 		};
@@ -5760,7 +5757,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FD66CB2A2BF3449B00268FAB /* SessionSnodeKit.xctestplan in Resources */,
+				FD66CB2A2BF3449B00268FAB /* SessionNetworkingKit.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6202,7 +6199,6 @@
 				FD2272AB2C33E337004D8A6C /* ValidatableResponse.swift in Sources */,
 				FD2272B72C33E337004D8A6C /* Request.swift in Sources */,
 				FD2272B92C33E337004D8A6C /* ResponseInfo.swift in Sources */,
-				C3C2A5E02553860B00C340D1 /* Threading+SSK.swift in Sources */,
 				FDF848D729405C5B007DCAE5 /* SnodeBatchRequest.swift in Sources */,
 				FDF848CE29405C5B007DCAE5 /* UpdateExpiryAllRequest.swift in Sources */,
 				FDF848C229405C5A007DCAE5 /* OxenDaemonRPCRequest.swift in Sources */,
@@ -6224,7 +6220,7 @@
 				FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */,
 				FDF848D629405C5B007DCAE5 /* SnodeMessage.swift in Sources */,
 				FD02CC162C3681EF009AB976 /* RevokeSubaccountResponse.swift in Sources */,
-				FDE754E32C9BAFF4002A2623 /* Crypto+SessionSnodeKit.swift in Sources */,
+				FDE754E32C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift in Sources */,
 				FD2272AD2C33E337004D8A6C /* Network.swift in Sources */,
 				FD2272B32C33E337004D8A6C /* BatchRequest.swift in Sources */,
 				FDF848D129405C5B007DCAE5 /* SnodeSwarmItem.swift in Sources */,
@@ -7121,7 +7117,7 @@
 		};
 		B8D64FB825BA78270029CFC0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C3C2A59E255385C100C340D1 /* SessionSnodeKit */;
+			target = C3C2A59E255385C100C340D1 /* SessionNetworkingKit */;
 			targetProxy = B8D64FB725BA78270029CFC0 /* PBXContainerItemProxy */;
 		};
 		B8D64FBA25BA78270029CFC0 /* PBXTargetDependency */ = {
@@ -7136,7 +7132,7 @@
 		};
 		B8D64FC425BA784A0029CFC0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C3C2A59E255385C100C340D1 /* SessionSnodeKit */;
+			target = C3C2A59E255385C100C340D1 /* SessionNetworkingKit */;
 			targetProxy = B8D64FC325BA784A0029CFC0 /* PBXContainerItemProxy */;
 		};
 		B8D64FC625BA784A0029CFC0 /* PBXTargetDependency */ = {
@@ -7156,7 +7152,7 @@
 		};
 		C3C2A5A5255385C100C340D1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C3C2A59E255385C100C340D1 /* SessionSnodeKit */;
+			target = C3C2A59E255385C100C340D1 /* SessionNetworkingKit */;
 			targetProxy = C3C2A5A4255385C100C340D1 /* PBXContainerItemProxy */;
 		};
 		C3C2A67F255388CC00C340D1 /* PBXTargetDependency */ = {
@@ -7218,7 +7214,7 @@
 		FDB5DB002A981C43002C8721 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			platformFilter = ios;
-			target = C3C2A59E255385C100C340D1 /* SessionSnodeKit */;
+			target = C3C2A59E255385C100C340D1 /* SessionNetworkingKit */;
 			targetProxy = FDB5DAFF2A981C43002C8721 /* PBXContainerItemProxy */;
 		};
 		FDC4389427B9FFC700C60D73 /* PBXTargetDependency */ = {
@@ -7773,7 +7769,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				INFOPLIST_FILE = SessionSnodeKit/Meta/Info.plist;
+				INFOPLIST_FILE = SessionNetworkingKit/Meta/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7784,7 +7780,7 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionSnodeKit";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
@@ -7846,7 +7842,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = SessionSnodeKit/Meta/Info.plist;
+				INFOPLIST_FILE = SessionNetworkingKit/Meta/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7857,7 +7853,7 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionSnodeKit";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -8382,8 +8378,8 @@
 				ENABLE_MODULE_VERIFIER = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
-				PRODUCT_NAME = SessionSnodeKitTests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionNetworkingKitTests;
+				PRODUCT_NAME = SessionNetworkingKitTests;
 			};
 			name = Debug;
 		};
@@ -8392,8 +8388,8 @@
 			buildSettings = {
 				ENABLE_MODULE_VERIFIER = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
-				PRODUCT_NAME = SessionSnodeKitTests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionNetworkingKitTests;
+				PRODUCT_NAME = SessionNetworkingKitTests;
 			};
 			name = App_Store_Release;
 		};
@@ -8581,8 +8577,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
-				PRODUCT_NAME = SessionSnodeKitTests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionNetworkingKitTests;
+				PRODUCT_NAME = SessionNetworkingKitTests;
 			};
 			name = Debug_Compile_LibSession;
 		};
@@ -8590,8 +8586,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
-				PRODUCT_NAME = SessionSnodeKitTests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionNetworkingKitTests;
+				PRODUCT_NAME = SessionNetworkingKitTests;
 			};
 			name = App_Store_Release_Compile_LibSession;
 		};
@@ -9103,7 +9099,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				INFOPLIST_FILE = SessionSnodeKit/Meta/Info.plist;
+				INFOPLIST_FILE = SessionNetworkingKit/Meta/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -9114,7 +9110,7 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionSnodeKit";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
@@ -9822,7 +9818,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = SessionSnodeKit/Meta/Info.plist;
+				INFOPLIST_FILE = SessionNetworkingKit/Meta/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -9833,7 +9829,7 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionSnodeKit";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -10139,7 +10135,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = App_Store_Release;
 		};
-		C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionSnodeKit" */ = {
+		C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionNetworkingKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C3C2A5A8255385C100C340D1 /* Debug */,
@@ -10194,7 +10190,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = App_Store_Release;
 		};
-		FD2272522C32910F004D8A6C /* Build configuration list for PBXNativeTarget "SessionSnodeKitTests" */ = {
+		FD2272522C32910F004D8A6C /* Build configuration list for PBXNativeTarget "SessionNetworkingKitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD2272502C32910F004D8A6C /* Debug */,
