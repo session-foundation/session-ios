@@ -130,7 +130,7 @@ public struct UserProfileModel: View {
                                 .padding(.vertical, 5)
                                 .padding(.horizontal, 10)
                                 .onTapGesture {
-                                    // TODO:
+                                    isShowingLightBoxForQRCode.toggle()
                                 }
                                 
                                 Image("ic_user_round_fill")
@@ -326,6 +326,31 @@ public struct UserProfileModel: View {
             withAnimation(.spring()) {
                 self.isShowingTooltip = false
             }
+        }
+        .fullScreenCover(isPresented: $isShowingLightBoxForQRCode) {
+            LightBox(isPresented: $isShowingTooltip) {
+                VStack {
+                    Spacer()
+                    
+                    if let sessionId = info.sessionId {
+                        QRCodeView(
+                            string: sessionId,
+                            hasBackground: false,
+                            logo: "SessionWhite40", // stringlint:ignore
+                            themeStyle: ThemeManager.currentTheme.interfaceStyle
+                        )
+                        .aspectRatio(1, contentMode: .fit)
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity
+                        )
+                    }
+                    
+                    Spacer()
+                }
+                .backgroundColor(themeColor: .backgroundSecondary)
+            }
+            
         }
     }
     
