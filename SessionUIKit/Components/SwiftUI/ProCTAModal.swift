@@ -35,7 +35,8 @@ public struct ProCTAModal: View {
                 default: return nil
             }
         }
-        
+        /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
+        /// animated webp.
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
                 case .generic:

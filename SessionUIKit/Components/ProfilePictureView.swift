@@ -44,12 +44,14 @@ public final class ProfilePictureView: UIView {
         case message
         case list
         case hero
+        case modal
         
         public var viewSize: CGFloat {
             switch self {
                 case .navigation, .message: return 26
                 case .list: return 46
                 case .hero: return 110
+                case .modal: return 90
             }
         }
         
@@ -57,7 +59,8 @@ public final class ProfilePictureView: UIView {
             switch self {
                 case .navigation, .message: return 26
                 case .list: return 46
-                case .hero: return 90
+                case .hero: return 80
+                case .modal: return 90
             }
         }
         
@@ -65,7 +68,8 @@ public final class ProfilePictureView: UIView {
             switch self {
                 case .navigation, .message: return 18  // Shouldn't be used
                 case .list: return 32
-                case .hero: return 90
+                case .hero: return 80
+                case .modal: return 90
             }
         }
         
@@ -74,6 +78,7 @@ public final class ProfilePictureView: UIView {
                 case .navigation, .message: return 10   // Intentionally not a multiple of 4
                 case .list: return 16
                 case .hero: return 24
+                case .modal: return 24 // Shouldn't be used
             }
         }
     }

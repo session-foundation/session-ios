@@ -214,7 +214,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var profileView: ProfilePictureView = ProfilePictureView(
-        size: .hero,
+        size: .modal,
         dataManager: nil,
         sessionProState: nil
     )
@@ -372,8 +372,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
-        profileView.pin(.top, to: .top, of: imageViewContainer)
-        profileView.pin(.bottom, to: .bottom, of: imageViewContainer)
+        profileView.pin(.top, to: .top, of: imageViewContainer, withInset: 20)
+        profileView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -20)
         
         proImageStackViewContainer.addSubview(proImageStackView)
         proImageStackView.center(.horizontal, in: proImageStackViewContainer)
