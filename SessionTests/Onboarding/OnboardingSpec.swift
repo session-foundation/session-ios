@@ -26,7 +26,7 @@ class OnboardingSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
                 SNUtilitiesKit.self,
-                SNSnodeKit.self,
+                SNNetworkingKit.self,
                 SNMessagingKit.self,
                 DeprecatedUIKitMigrationTarget.self
             ],
