@@ -3,9 +3,7 @@
 import SwiftUI
 
 public struct QRCodeView: View {
-    let string: String
-    let hasBackground: Bool
-    let logo: String?
+    let qrCodeImage: UIImage?
     let themeStyle: UIUserInterfaceStyle
     var backgroundThemeColor: ThemeValue {
         switch themeStyle {
@@ -28,14 +26,20 @@ public struct QRCodeView: View {
     static private var logoSize: CGFloat = 66
     
     public init(
+        qrCodeImage: UIImage?,
+        themeStyle: UIUserInterfaceStyle
+    ) {
+        self.qrCodeImage = qrCodeImage
+        self.themeStyle = themeStyle
+    }
+    
+    public init(
         string: String,
         hasBackground: Bool,
         logo: String?,
         themeStyle: UIUserInterfaceStyle
     ) {
-        self.string = string
-        self.hasBackground = hasBackground
-        self.logo = logo
+        self.qrCodeImage = QRCode.generate(for: string, hasBackground: hasBackground, iconName: logo)
         self.themeStyle = themeStyle
     }
     
@@ -45,16 +49,18 @@ public struct QRCodeView: View {
                 RoundedRectangle(cornerRadius: Self.cornerRadius)
                     .fill(themeColor: backgroundThemeColor)
                 
-                Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground, iconName: logo))
-                    .resizable()
-                    .renderingMode(.template)
-                    .foregroundColor(themeColor: qrCodeThemeColor)
-                    .scaledToFit()
-                    .frame(
-                        maxWidth: .infinity,
-                        maxHeight: .infinity
-                    )
-                    .padding(.vertical, Values.smallSpacing)
+                if let qrCodeImage: UIImage = self.qrCodeImage {
+                    Image(uiImage: qrCodeImage)
+                        .resizable()
+                        .renderingMode(.template)
+                        .foregroundColor(themeColor: qrCodeThemeColor)
+                        .scaledToFit()
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity
+                        )
+                        .padding(.vertical, Values.smallSpacing)
+                }
             }
             .frame(
                 maxWidth: 400,

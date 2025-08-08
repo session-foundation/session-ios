@@ -3,10 +3,10 @@
 import SwiftUI
 
 public struct LightBox<Content: View>: View {
-    @Binding var isPresented: Bool
-    
+    @EnvironmentObject var host: HostWrapper
+
     public var title: String?
-    public var itemsToShare: [Any] = []
+    public var itemsToShare: [UIImage] = []
     public var content: () -> Content
     
     public var body: some View {
@@ -17,30 +17,46 @@ public struct LightBox<Content: View>: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
-                            isPresented.toggle()
+                            self.host.controller?.dismiss(animated: true)
                         } label: {
                             Image(systemName: "chevron.left")
                                 .foregroundColor(themeColor: .textPrimary)
                         }
                     }
-                    
-                    ToolbarItem(placement: .bottomBar) {
-                        HStack {
-                            Button {
-                                share()
-                            } label: {
-                                Image(systemName: "square.and.arrow.up")
-                                    .foregroundColor(themeColor: .textPrimary)
-                            }
-                            
-                            Spacer()
+                }
+                .safeAreaInset(edge: .bottom) {
+                    HStack {
+                        Button {
+                            share()
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 20))
+                                .foregroundColor(themeColor: .textPrimary)
                         }
+
+                        Spacer()
                     }
+                    .padding()
+                    .backgroundColor(themeColor: .backgroundSecondary)
                 }
         }
     }
     
     private func share() {
+        let shareVC: UIActivityViewController = UIActivityViewController(
+            activityItems: itemsToShare,
+            applicationActivities: nil
+        )
         
+        if UIDevice.current.isIPad {
+            shareVC.popoverPresentationController?.permittedArrowDirections = []
+            shareVC.popoverPresentationController?.sourceView = self.host.controller?.view
+            shareVC.popoverPresentationController?.sourceRect = (self.host.controller?.view.bounds ?? UIScreen.main.bounds)
+        }
+        
+        self.host.controller?.present(
+            shareVC,
+            animated: true
+        )
     }
 }

@@ -2,14 +2,14 @@
 
 import UIKit
 
-enum QRCode {
+public enum QRCode {
     /// Generates a QRCode with a logo in the middle for the give string
     ///
     /// **Note:** If the `hasBackground` value is true then the QRCode will be black and white and
     /// the `withRenderingMode(.alwaysTemplate)` won't work correctly on some iOS versions (eg. iOS 16)
     ///
     /// stringlint:ignore_contents
-    static func generate(for string: String, hasBackground: Bool, iconName: String?) -> UIImage {
+    public static func generate(for string: String, hasBackground: Bool, iconName: String?) -> UIImage {
         // 1. Create QR code data
         guard let data = string.data(using: .utf8),
               let qrFilter = CIFilter(name: "CIQRCodeGenerator") else {
@@ -75,5 +75,47 @@ enum QRCode {
         UIGraphicsEndImageContext()
 
         return finalImage ?? qrUIImage
+    }
+    
+    static func qrCodeImageWithTintAndBackground(
+        image: UIImage,
+        themeStyle: UIUserInterfaceStyle,
+        size: CGSize? = nil,
+        insets: UIEdgeInsets = .zero
+    ) -> UIImage {
+        var backgroundColor: UIColor {
+            switch themeStyle {
+                case .light: return #colorLiteral(red: 0.1058823529, green: 0.1058823529, blue: 0.1058823529, alpha: 1)
+                default: return .white
+            }
+        }
+        var tintColor: UIColor {
+            switch themeStyle {
+                case .light: return .white
+                default: return #colorLiteral(red: 0.1058823529, green: 0.1058823529, blue: 0.1058823529, alpha: 1)
+            }
+        }
+        
+        let outputSize = size ?? image.size
+        let renderer = UIGraphicsImageRenderer(size: outputSize)
+
+        return renderer.image { context in
+            // Fill background
+            backgroundColor.setFill()
+            context.fill(CGRect(origin: .zero, size: outputSize))
+
+            // Apply tint using template rendering
+            tintColor.setFill()
+            let templateImage = image.withRenderingMode(.alwaysTemplate)
+
+            let imageRect = CGRect(
+                x: insets.left,
+                y: insets.top,
+                width: outputSize.width - insets.left - insets.right,
+                height: outputSize.height - insets.top - insets.bottom
+            )
+
+            templateImage.draw(in: imageRect)
+        }
     }
 }

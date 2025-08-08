@@ -11,7 +11,6 @@ public struct UserProfileModel: View {
     @State private var isSessionIdCopied: Bool = false
     @State private var isShowingTooltip: Bool = false
     @State private var tooltipContentFrame: CGRect = CGRect.zero
-    @State private var isShowingLightBoxForQRCode: Bool = false
     
     private let tooltipViewId: String = "UserProfileModelToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "UserProfileModel" // stringlint:ignore
@@ -112,11 +111,9 @@ public struct UserProfileModel: View {
                         .padding(.horizontal, 10)
                     } else {
                         ZStack(alignment: .topTrailing) {
-                            if let sessionId = info.sessionId {
+                            if let qrCodeImage = info.qrCodeImage {
                                 QRCodeView(
-                                    string: sessionId,
-                                    hasBackground: false,
-                                    logo: "SessionWhite40", // stringlint:ignore
+                                    qrCodeImage: qrCodeImage,
                                     themeStyle: ThemeManager.currentTheme.interfaceStyle
                                 )
                                 .accessibility(
@@ -130,7 +127,7 @@ public struct UserProfileModel: View {
                                 .padding(.vertical, 5)
                                 .padding(.horizontal, 10)
                                 .onTapGesture {
-                                    isShowingLightBoxForQRCode.toggle()
+                                    showQRCodeLightBox()
                                 }
                                 
                                 Image("ic_user_round_fill")
@@ -327,31 +324,6 @@ public struct UserProfileModel: View {
                 self.isShowingTooltip = false
             }
         }
-        .fullScreenCover(isPresented: $isShowingLightBoxForQRCode) {
-            LightBox(isPresented: $isShowingTooltip) {
-                VStack {
-                    Spacer()
-                    
-                    if let sessionId = info.sessionId {
-                        QRCodeView(
-                            string: sessionId,
-                            hasBackground: false,
-                            logo: "SessionWhite40", // stringlint:ignore
-                            themeStyle: ThemeManager.currentTheme.interfaceStyle
-                        )
-                        .aspectRatio(1, contentMode: .fit)
-                        .frame(
-                            maxWidth: .infinity,
-                            maxHeight: .infinity
-                        )
-                    }
-                    
-                    Spacer()
-                }
-                .backgroundColor(themeColor: .backgroundSecondary)
-            }
-            
-        }
     }
     
     private func copySessionId(_ sessionId: String) {
@@ -369,12 +341,51 @@ public struct UserProfileModel: View {
             }
         }
     }
+    
+    private func showQRCodeLightBox() {
+        guard let qrCodeImage: UIImage = info.qrCodeImage else { return }
+        
+        let viewController = SessionHostingViewController(
+            rootView: LightBox(
+                itemsToShare: [
+                    QRCode.qrCodeImageWithTintAndBackground(
+                        image: qrCodeImage,
+                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
+                        size: CGSize(width: 400, height: 400),
+                        insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+                    )
+                ]
+            ) {
+                VStack {
+                    Spacer()
+                    
+                    QRCodeView(
+                        qrCodeImage: qrCodeImage,
+                        themeStyle: ThemeManager.currentTheme.interfaceStyle
+                    )
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity
+                    )
+                    
+                    Spacer()
+                }
+                .backgroundColor(themeColor: .newConversation_background)
+            }
+        )
+        viewController.modalPresentationStyle = .fullScreen
+        self.host.controller?.present(viewController, animated: true)
+    }
+    
+    
 }
 
 public extension UserProfileModel {
     struct Info {
         let sessionId: String?
         let blindedId: String?
+        let qrCodeImage: UIImage?
         let profileInfo: ProfilePictureView.Info
         let displayName: String
         let nickname: String?
@@ -386,6 +397,7 @@ public extension UserProfileModel {
         public init(
             sessionId: String?,
             blindedId: String?,
+            qrCodeImage: UIImage?,
             profileInfo: ProfilePictureView.Info,
             displayName: String,
             nickname: String?,
@@ -396,6 +408,7 @@ public extension UserProfileModel {
         ) {
             self.sessionId = sessionId
             self.blindedId = blindedId
+            self.qrCodeImage = qrCodeImage
             self.profileInfo = profileInfo
             self.displayName = displayName
             self.nickname = nickname

@@ -1563,6 +1563,11 @@ extension ConversationVC:
             return (lookup?.sessionId, cellViewModel.authorId)
         }()
         
+        let qrCodeImage: UIImage? = {
+            guard let sessionId: String = sessionId else { return nil }
+            return QRCode.generate(for: sessionId, hasBackground: false, iconName: "SessionWhite40") // stringlint:ignore
+        }()
+        
         let isMessasgeRequestsEnabled: Bool = {
             guard cellViewModel.threadVariant == .community else { return true }
             return cellViewModel.profile?.blocksCommunityMessageRequests != true
@@ -1573,6 +1578,7 @@ extension ConversationVC:
                 info: .init(
                     sessionId: sessionId,
                     blindedId: blindedId,
+                    qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
                     displayName: cellViewModel.authorName,
                     nickname: cellViewModel.profile?.displayName(
