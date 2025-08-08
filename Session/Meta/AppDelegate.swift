@@ -70,7 +70,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.loadingViewController = LoadingViewController()
         
         AppSetup.setupEnvironment(
-            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
                 Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
                 Log.info(.cat, "Setting up environment.")
@@ -221,7 +220,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Dispatch async so things can continue to be progressed if a migration does need to run
             DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
                 AppSetup.runPostSetupMigrations(
-                    additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
                     migrationProgressChanged: { progress, minEstimatedTotalTime in
                         self?.loadingViewController?.updateProgress(
                             progress: progress,
@@ -599,7 +597,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         
                         // The re-run the migration (should succeed since there is no data)
                         AppSetup.runPostSetupMigrations(
-                            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
                             migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
                                 self?.loadingViewController?.updateProgress(
                                     progress: progress,

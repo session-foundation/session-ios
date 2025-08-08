@@ -209,7 +209,7 @@ public extension MessageDeduplication {
         _ processedMessage: ProcessedMessage,
         using dependencies: Dependencies
     ) throws {
-        typealias Variant = _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant
+        typealias Variant = _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant
         try ensureMessageIsNotADuplicate(
             threadId: processedMessage.threadId,
             uniqueIdentifier: processedMessage.uniqueIdentifier,
@@ -402,12 +402,12 @@ private extension MessageDeduplication {
         _ db: ObservingDatabase,
         threadId: String,
         legacyIdentifier: String?,
-        legacyVariant: _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant?,
+        legacyVariant: _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant?,
         timestampMs: Int64?,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
-        typealias Variant = _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant
+        typealias Variant = _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant
         guard
             let legacyIdentifier: String = legacyIdentifier,
             let legacyVariant: Variant = legacyVariant,
@@ -463,7 +463,7 @@ private extension MessageDeduplication {
     }
     
     @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
-    static func getLegacyVariant(for variant: Message.Variant?) -> _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant? {
+    static func getLegacyVariant(for variant: Message.Variant?) -> _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant? {
         guard let variant: Message.Variant = variant else { return nil }
         
         switch variant {
@@ -494,7 +494,7 @@ private extension MessageDeduplication {
             case .standard(_, _, _, let messageInfo, _):
                 guard
                     let timestampMs: UInt64 = messageInfo.message.sentTimestampMs,
-                    let variant: _026_MessageDeduplicationTable.ControlMessageProcessRecordVariant = getLegacyVariant(for: Message.Variant(from: messageInfo.message))
+                    let variant: _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant = getLegacyVariant(for: Message.Variant(from: messageInfo.message))
                 else { return nil }
                 
                 return "LegacyRecord-\(variant.rawValue)-\(timestampMs)" // stringlint:ignore
