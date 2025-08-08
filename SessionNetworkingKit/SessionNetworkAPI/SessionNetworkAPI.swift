@@ -27,10 +27,10 @@ public enum SessionNetworkAPI {
                     server: Network.NetworkAPI.networkAPIServer,
                     queryParameters: [:],
                     x25519PublicKey: Network.NetworkAPI.networkAPIServerPublicKey
-                )
+                ),
+                overallTimeout: Network.defaultTimeout
             ),
             responseType: Info.self,
-            requestAndPathBuildTimeout: Network.defaultTimeout,
             using: dependencies
         )
         .signed(with: SessionNetworkAPI.signRequest, using: dependencies)

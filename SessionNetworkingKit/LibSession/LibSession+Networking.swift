@@ -48,7 +48,7 @@ class LibSessionNetwork: NetworkType {
         typealias Output = Result<Set<LibSession.Snode>, Error>
         
         return dependencies
-            .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
+            .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork_v2() }
             .tryMapCallbackContext(type: Output.self) { ctx, network in
                 let sessionId: SessionId = try SessionId(from: swarmPublicKey)
                 
@@ -56,7 +56,7 @@ class LibSessionNetwork: NetworkType {
                     throw LibSessionError.invalidCConversion
                 }
                 
-                network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
+                session_network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
                     guard
                         swarmSize > 0,
                         let cSwarm: UnsafeMutablePointer<network_service_node> = swarmPtr
@@ -110,28 +110,28 @@ class LibSessionNetwork: NetworkType {
     }
     
     func send(
-        _ body: Data?,
-        to destination: Network.Destination,
+        endpoint: (any EndpointType),
+        destination: Network.Destination,
+        body: Data?,
+        category: Network.RequestCategory,
         requestTimeout: TimeInterval,
-        requestAndPathBuildTimeout: TimeInterval?
+        overallTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+//    func send(
+//        _ body: Data?,
+//        to destination: Network.Destination,
+//        requestTimeout: TimeInterval,
+//        requestAndPathBuildTimeout: TimeInterval?
+//    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         switch destination {
-            case .server, .serverUpload, .serverDownload, .cached:
+            case .snode, .server, .serverUpload, .serverDownload, .cached:
                 return sendRequest(
-                    to: destination,
+                    endpoint: endpoint,
+                    destination: destination,
                     body: body,
+                    category: category,
                     requestTimeout: requestTimeout,
-                    requestAndPathBuildTimeout: requestAndPathBuildTimeout
-                )
-            
-            case .snode:
-                guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
-                
-                return sendRequest(
-                    to: destination,
-                    body: body,
-                    requestTimeout: requestTimeout,
-                    requestAndPathBuildTimeout: requestAndPathBuildTimeout
+                    overallTimeout: overallTimeout
                 )
                 
             case .randomSnode(let swarmPublicKey, let retryCount):
@@ -143,10 +143,12 @@ class LibSessionNetwork: NetworkType {
                 return getSwarm(for: swarmPublicKey)
                     .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [weak self] snode in
                         try self.validOrThrow().sendRequest(
-                            to: .snode(snode, swarmPublicKey: swarmPublicKey),
+                            endpoint: endpoint,
+                            destination: .snode(snode, swarmPublicKey: swarmPublicKey),
                             body: body,
+                            category: category,
                             requestTimeout: requestTimeout,
-                            requestAndPathBuildTimeout: requestAndPathBuildTimeout
+                            overallTimeout: overallTimeout
                         )
                     }
                 
@@ -168,10 +170,12 @@ class LibSessionNetwork: NetworkType {
                                 else { throw NetworkError.invalidPreparedRequest }
                                 
                                 return try self.validOrThrow().sendRequest(
-                                        to: .snode(snode, swarmPublicKey: swarmPublicKey),
+                                        endpoint: endpoint,
+                                        destination: .snode(snode, swarmPublicKey: swarmPublicKey),
                                         body: updatedBody,
+                                        category: category,
                                         requestTimeout: requestTimeout,
-                                        requestAndPathBuildTimeout: requestAndPathBuildTimeout
+                                        overallTimeout: overallTimeout
                                     )
                                     .map { info, response -> (ResponseInfoType, Data?) in
                                         (
@@ -229,124 +233,113 @@ class LibSessionNetwork: NetworkType {
     // MARK: - Internal Functions
     
     private func sendRequest<T: Encodable>(
-        to destination: Network.Destination,
+        endpoint: (any EndpointType),
+        destination: Network.Destination,
         body: T?,
+        category: Network.RequestCategory,
         requestTimeout: TimeInterval,
-        requestAndPathBuildTimeout: TimeInterval?
+        overallTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         typealias Output = (success: Bool, timeout: Bool, statusCode: Int, headers: [String: String], data: Data?)
         
         return dependencies
-            .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
+            .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork_v2() }
             .tryMapCallbackContext(type: Output.self) { ctx, network in
-                // Prepare the parameters
-                let cPayloadBytes: [UInt8]
-                
-                switch body {
-                    case .none: cPayloadBytes = []
-                    case let data as Data: cPayloadBytes = Array(data)
-                    case let bytes as [UInt8]: cPayloadBytes = bytes
-                    default:
-                        guard let encodedBody: Data = try? JSONEncoder().encode(body) else {
-                            throw SnodeAPIError.invalidPayload
-                        }
-                        
-                        cPayloadBytes = Array(encodedBody)
+                /// If it's a cached request then just return the cached result immediately
+                if case .cached(let success, let timeout, let statusCode, let headers, let data) = destination {
+                    return CallbackWrapper<Output>.run(ctx, (success, timeout, statusCode, headers, data))
                 }
                 
-                // Trigger the request
+                /// Define the callback to avoid dupolication
+                typealias ResponseCallback = session_network_response_t
+                let cCallback: ResponseCallback = { success, timeout, statusCode, cHeaders, cHeadersLen, dataPtr, dataLen, ctx in
+                    let headers: [String: String] = CallbackWrapper<Output>.headers(cHeaders, cHeadersLen)
+                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
+                }
+                let request: Request<T> = Request(
+                    endpoint: endpoint,
+                    body: body,
+                    category: category,
+                    requestTimeout: requestTimeout,
+                    overallTimeout: overallTimeout
+                )
+                
                 switch destination {
-                    // These types should be processed and converted to a 'snode' destination before
-                    // they get here
-                    case .randomSnode, .randomSnodeLatestNetworkTimeTarget:
-                        throw NetworkError.invalidPreparedRequest
-                    
-                    case .snode(let snode, let swarmPublicKey):
-                        let cSwarmPublicKey: [CChar]? = try swarmPublicKey.map {
-                            _ = try SessionId(from: $0)
-                            
-                            // Quick way to drop '05' prefix if present
-                            return $0.suffix(64).cString(using: .utf8)
-                        }.flatMap { $0 }
+                    case .snode(let snode, _):
+                        try LibSessionNetwork.withSnodeRequestParams(request, snode) { paramsPtr in
+//                            var mutableParams = params
+                            session_network_send_request(network, paramsPtr, cCallback, ctx)
+                        }
                         
-                        network_send_onion_request_to_snode_destination(
-                            network,
-                            snode.cSnode,
-                            cPayloadBytes,
-                            cPayloadBytes.count,
-                            cSwarmPublicKey,
-                            Int64(floor(requestTimeout * 1000)),
-                            Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                let headers: [String: String] = CallbackWrapper<Output>
-                                    .headers(cHeaders, cHeaderVals, headerLen)
-                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                            },
-                            ctx
-                        )
-                    
-                    case .server:
-                        try destination.withUnsafePointer { cServerDestination in
-                            network_send_onion_request_to_server_destination(
-                                network,
-                                cServerDestination,
-                                cPayloadBytes,
-                                cPayloadBytes.count,
-                                Int64(floor(requestTimeout * 1000)),
-                                Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                                { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                    let headers: [String: String] = CallbackWrapper<Output>
-                                        .headers(cHeaders, cHeaderVals, headerLen)
-                                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                                },
-                                ctx
-                            )
+                    case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                        try LibSessionNetwork.withServerRequestParams(request, info) { paramsPtr in
+                            session_network_send_request(network, paramsPtr, cCallback, ctx)
                         }
-                    
-                    case .serverUpload(_, let fileName):
-                        guard !cPayloadBytes.isEmpty else { throw NetworkError.invalidPreparedRequest }
                         
-                        try destination.withUnsafePointer { cServerDestination in
-                            network_upload_to_server(
-                                network,
-                                cServerDestination,
-                                cPayloadBytes,
-                                cPayloadBytes.count,
-                                fileName?.cString(using: .utf8),
-                                Int64(floor(requestTimeout * 1000)),
-                                Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                                { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                    let headers: [String: String] = CallbackWrapper<Output>
-                                        .headers(cHeaders, cHeaderVals, headerLen)
-                                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                                },
-                                ctx
-                            )
-                        }
-                    
-                    case .serverDownload:
-                        try destination.withUnsafePointer { cServerDestination in
-                            network_download_from_server(
-                                network,
-                                cServerDestination,
-                                Int64(floor(requestTimeout * 1000)),
-                                Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                                { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                    let headers: [String: String] = CallbackWrapper<Output>
-                                        .headers(cHeaders, cHeaderVals, headerLen)
-                                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                                },
-                                ctx
-                            )
-                        }
-                    
-                    case .cached(let success, let timeout, let statusCode, let headers, let data):
-                        CallbackWrapper<Output>.run(ctx, (success, timeout, statusCode, headers, data))
+                    /// Some destinations are for convenience and redirect to "proper" destination types so if one of them gets here
+                    /// then it is invalid
+                    default: throw NetworkError.invalidPreparedRequest
                 }
+                
+//                /// Prepare the values
+//                var cSnode: network_service_node? = {
+//                    switch destination {
+//                        case .snode(let snode, _): return snode.cSnode
+//                        default: return nil
+//                    }
+//                }()
+//                var serverInfo: Network.Destination.ServerInfo? = {
+//                    switch destination {
+//                        case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+//                            return info
+//                            
+//                        default: return nil
+//                    }
+//                }()
+//                let cBodyBytes: [UInt8] = try {
+//                    switch body {
+//                        case .none: return []
+//                        case let data as Data: return Array(data)
+//                        case let bytes as [UInt8]: return bytes
+//                        default:
+//                            guard let encodedBody: Data = try? JSONEncoder().encode(body) else {
+//                                throw SnodeAPIError.invalidPayload
+//                            }
+//                            
+//                        return Array(encodedBody)
+//                    }
+//                }()
+//                
+//                /// Construct and send the params
+//                return try endpoint.path.withCString { cEndpoint in
+//                    try serverInfo.withUnsafePointer { cServerDest in
+//                        // TODO: `fileName?.cString(using: .utf8),` for server upload
+//                        var params = session_request_params()
+////                        var params = session_request_params(
+////                            snode_dest: &cSnode,
+////                            server_dest: cServerDest,
+////                            endpoint: cEndpoint,
+////                            body: &cBodyBytes,
+////                            body_size: cBodyBytes.count,
+////                            category: category.libSessionValue,
+////                            request_timeout_ms: Int64(floor(requestTimeout * 1000)),
+////                            overall_timeout_ms: Int64(floor((overallTimeout ?? 0) * 1000)),
+////                            request_id: nil
+////                        )
+//                        
+//                        session_network_send_request(
+//                            network,
+//                            &params,
+//                            { success, timeout, statusCode, cHeaders, dataPtr, dataLen, ctx in
+//                                let headers: [String: String] = CallbackWrapper<Output>.headers(cHeaders)
+//                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+//                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
+//                            },
+//                            ctx
+//                        )
+//                    }
+//                }
             }
             .tryMap { [dependencies] success, timeout, statusCode, headers, data -> (any ResponseInfoType, Data?) in
                 try LibSessionNetwork.throwErrorIfNeeded(success, timeout, statusCode, headers, data, using: dependencies)
@@ -503,45 +496,71 @@ private extension NetworkStatus {
 
 extension LibSession {
     public struct Snode: Codable, Hashable, CustomStringConvertible {
-        public let ip: String
-        public let quicPort: UInt16
         public let ed25519PubkeyHex: String
+        public let ip: String
+        public let httpsPort: UInt16
+        public let omqPort: UInt16
+        public let version: String
+        public let swarmId: UInt64
         
-        public var address: String { "\(ip):\(quicPort)" }
-        public var description: String { address }
+        public var httpsAddress: String { "\(ip):\(httpsPort)" }
+        public var omqAddress: String { "\(ip):\(omqPort)" }
+        public var description: String { omqAddress }
         
         public var cSnode: network_service_node {
             var result: network_service_node = network_service_node()
-            result.ipString = ip
-            result.set(\.quic_port, to: quicPort)
             result.set(\.ed25519_pubkey_hex, to: ed25519PubkeyHex)
+            result.ipString = ip
+            result.set(\.https_port, to: httpsPort)
+            result.set(\.omq_port, to: omqPort)
+            result.versionString = version
+            result.set(\.swarm_id, to: swarmId)
             
             return result
         }
         
         init(_ cSnode: network_service_node) {
-            ip = cSnode.ipString
-            quicPort = cSnode.get(\.quic_port)
             ed25519PubkeyHex = cSnode.get(\.ed25519_pubkey_hex)
+            ip = cSnode.ipString
+            httpsPort = cSnode.get(\.https_port)
+            omqPort = cSnode.get(\.omq_port)
+            version = cSnode.versionString
+            swarmId = cSnode.get(\.swarm_id)
         }
         
-        internal init(ip: String, quicPort: UInt16, ed25519PubkeyHex: String) {
-            self.ip = ip
-            self.quicPort = quicPort
+        internal init(
+            ed25519PubkeyHex: String,
+            ip: String,
+            httpsPort: UInt16,
+            quicPort: UInt16,
+            version: String,
+            swarmId: UInt64
+        ) {
             self.ed25519PubkeyHex = ed25519PubkeyHex
+            self.ip = ip
+            self.httpsPort = httpsPort
+            self.omqPort = quicPort
+            self.version = version
+            self.swarmId = swarmId
         }
         
         public func hash(into hasher: inout Hasher) {
-            ip.hash(into: &hasher)
-            quicPort.hash(into: &hasher)
             ed25519PubkeyHex.hash(into: &hasher)
+            ip.hash(into: &hasher)
+            httpsPort.hash(into: &hasher)
+            omqPort.hash(into: &hasher)
+            version.hash(into: &hasher)
+            swarmId.hash(into: &hasher)
         }
         
         public static func == (lhs: Snode, rhs: Snode) -> Bool {
             return (
+                lhs.ed25519PubkeyHex == rhs.ed25519PubkeyHex &&
                 lhs.ip == rhs.ip &&
-                lhs.quicPort == rhs.quicPort &&
-                lhs.ed25519PubkeyHex == rhs.ed25519PubkeyHex
+                lhs.httpsPort == rhs.httpsPort &&
+                lhs.omqPort == rhs.omqPort &&
+                lhs.version == rhs.version &&
+                lhs.swarmId == rhs.swarmId
             )
         }
     }
@@ -562,26 +581,124 @@ extension network_service_node: @retroactive CAccessible, @retroactive CMutable 
             self.ip = (ipParts[0], ipParts[1], ipParts[2], ipParts[3])
         }
     }
+    
+    var versionString: String {
+        get { "\(version.0).\(version.1).\(version.2)" }
+        set {
+            let versionParts: [UInt16] = newValue
+                .components(separatedBy: ".")
+                .compactMap { UInt16($0) }
+            
+            guard versionParts.count == 3 else { return }
+            
+            self.version = (versionParts[0], versionParts[1], versionParts[2])
+        }
+    }
 }
 
 // MARK: - Convenience
 
-private extension Network.Destination {
-    func withUnsafePointer<Result>(_ body: (network_server_destination) throws -> Result) throws -> Result {
-        let method: HTTPMethod
-        let url: URL
-        let headers: [HTTPHeader: String]?
-        let x25519PublicKey: String
+private extension LibSessionNetwork {
+    struct Request<T: Encodable> {
+        let endpoint: (any EndpointType)
+        let body: T?
+        let category: Network.RequestCategory
+        let requestTimeout: TimeInterval
+        let overallTimeout: TimeInterval?
+    }
+    
+    static func withSnodeRequestParams<T: Encodable, Result>(
+        _ request: Request<T>,
+        _ node: LibSession.Snode,
+        _ callback: (UnsafePointer<session_request_params>) -> Result
+    ) throws -> Result {
+        var cSnode = node.cSnode
         
-        switch self {
-            case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget, .cached: throw NetworkError.invalidPreparedRequest
-            case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                method = info.method
-                url = try info.url
-                headers = info.headers
-                x25519PublicKey = String(info.x25519PublicKey
-                    .suffix(64)) // Quick way to drop '05' prefix if present
+        return try withBodyPointer(request.body) { cBodyPtr, bodySize in
+            withUnsafePointer(to: &cSnode) { cSnodePtr in
+                request.endpoint.path.withCString { cEndpoint in
+                    let params: session_request_params = session_request_params(
+                        snode_dest: cSnodePtr,
+                        server_dest: nil,
+                        endpoint: cEndpoint,
+                        body: cBodyPtr,
+                        body_size: bodySize,
+                        category: request.category.libSessionValue,
+                        request_timeout_ms: UInt64(Int64(floor(request.requestTimeout * 1000))),
+                        overall_timeout_ms: UInt64(floor((request.overallTimeout ?? 0) * 1000)),
+                        request_id: nil
+                    )
+                    
+                    return withUnsafePointer(to: params) { paramsPtr in
+                        callback(paramsPtr)
+                    }
+                }
+            }
         }
+    }
+    
+    static func withServerRequestParams<T: Encodable, Result>(
+        _ request: Request<T>,
+        _ info: Network.Destination.ServerInfo,
+        _ callback: (UnsafePointer<session_request_params>) -> Result
+    ) throws -> Result {
+        
+        return try withBodyPointer(request.body) { cBodyPtr, bodySize in
+            try info.withServerInfoPointer { cServerDestinationPtr in
+                request.endpoint.path.withCString { cEndpoint in
+                    let params: session_request_params = session_request_params(
+                        snode_dest: nil,
+                        server_dest: cServerDestinationPtr,
+                        endpoint: cEndpoint,
+                        body: cBodyPtr,
+                        body_size: bodySize,
+                        category: request.category.libSessionValue,
+                        request_timeout_ms: UInt64(floor(request.requestTimeout * 1000)),
+                        overall_timeout_ms: UInt64(floor((request.overallTimeout ?? 0) * 1000)),
+                        request_id: nil
+                    )
+                    
+                    return withUnsafePointer(to: params) { paramsPtr in
+                        callback(paramsPtr)
+                    }
+                }
+            }
+        }
+    }
+
+    private static func withBodyPointer<T: Encodable, Result>(
+        _ body: T?,
+        _ closure: (UnsafePointer<UInt8>?, Int) throws -> Result
+    ) throws -> Result {
+        let maybeBodyData: Data?
+        
+        switch body {
+            case .none: maybeBodyData = nil
+            case let data as Data: maybeBodyData = data
+            case let bytes as [UInt8]: maybeBodyData = Data(bytes)
+            default:
+                guard let encodedBody: Data = try? JSONEncoder().encode(body) else {
+                    throw SnodeAPIError.invalidPayload
+                }
+                
+                maybeBodyData = encodedBody
+        }
+        
+        guard let bodyData: Data = maybeBodyData, !bodyData.isEmpty else {
+            return try closure(nil, 0)
+        }
+        
+        return try bodyData.withUnsafeBytes { (rawPtr: UnsafeRawBufferPointer) in
+            let ptr: UnsafePointer<UInt8>? = rawPtr.baseAddress?.assumingMemoryBound(to: UInt8.self)
+            return try closure(ptr, bodyData.count)
+        }
+    }
+}
+
+private extension Network.Destination.ServerInfo {
+    func withServerInfoPointer<Result>(_ body: (UnsafePointer<network_v2_server_destination>) -> Result) throws -> Result {
+        let url: URL = try self.url
+        let x25519PublicKey: String = String(x25519PublicKey.suffix(64)) // Quick way to drop '05' prefix if present
         
         guard let host: String = url.host else { throw NetworkError.invalidURL }
         guard x25519PublicKey.count == 64 || x25519PublicKey.count == 66 else {
@@ -592,9 +709,7 @@ private extension Network.Destination {
         let endpoint: String = url.path
             .appending(url.query.map { value in "?\(value)" } ?? "")
         let port: UInt16 = UInt16(url.port ?? (targetScheme == "https" ? 443 : 80))
-        let headerKeys: [String] = (headers?.map { $0.key } ?? [])
-        let headerValues: [String] = (headers?.map { $0.value } ?? [])
-        let headersSize = headerKeys.count
+        let headersArray: [String] = headers.flatMap { [$0.key, $0.value] }
         
         // Use scoped closure to avoid manual memory management (crazy nesting but it ends up safer)
         return try method.rawValue.withCString { cMethodPtr in
@@ -602,21 +717,20 @@ private extension Network.Destination {
                 try host.withCString { cHostPtr in
                     try endpoint.withCString { cEndpointPtr in
                         try x25519PublicKey.withCString { cX25519PubkeyPtr in
-                            try headerKeys.withUnsafeCStrArray { headerKeysPtr in
-                                try headerValues.withUnsafeCStrArray { headerValuesPtr in
-                                    let cServerDest = network_server_destination(
-                                        method: cMethodPtr,
-                                        protocol: cTargetSchemePtr,
-                                        host: cHostPtr,
-                                        endpoint: cEndpointPtr,
-                                        port: port,
-                                        x25519_pubkey: cX25519PubkeyPtr,
-                                        headers: headerKeysPtr.baseAddress,
-                                        header_values: headerValuesPtr.baseAddress,
-                                        headers_size: headersSize
-                                    )
-                                    
-                                    return try body(cServerDest)
+                            try headersArray.withUnsafeCStrArray { headersArrayPtr in
+                                let cServerDest = network_v2_server_destination(
+                                    method: cMethodPtr,
+                                    protocol: cTargetSchemePtr,
+                                    host: cHostPtr,
+                                    endpoint: cEndpointPtr, // TODO: Ditch this
+                                    port: port,
+                                    x25519_pubkey_hex: cX25519PubkeyPtr,
+                                    headers_kv_pairs: headersArrayPtr.baseAddress,
+                                    headers_kv_pairs_len: headersArray.count
+                                )
+                                
+                                return withUnsafePointer(to: cServerDest) { ptr in
+                                    body(ptr)
                                 }
                             }
                         }
@@ -639,6 +753,17 @@ private extension LibSessionNetwork.CallbackWrapper {
         return zip(headers, headerVals)
             .reduce(into: [:]) { result, next in result[next.0] = next.1 }
     }
+    
+    static func headers(_ cHeaders: UnsafePointer<UnsafePointer<CChar>?>?, _ count: Int) -> [String: String] {
+        let headersArray: [String] = ([String](cStringArray: cHeaders, count: count) ?? [])
+        
+        return stride(from: 0, to: headersArray.count, by: 2)
+            .reduce(into: [:]) { result, index in
+                if (index + index) < headersArray.count {
+                    result[headersArray[index]] = headersArray[index + 1]
+                }
+            }
+    }
 }
 
 // MARK: - LibSession.NetworkCache
@@ -650,6 +775,7 @@ public extension LibSession {
         private let dependencies: Dependencies
         private let dependenciesPtr: UnsafeMutableRawPointer
         private var network: UnsafeMutablePointer<network_object>? = nil
+        private var network_v2: UnsafeMutablePointer<network_object_v2>? = nil
         private let _paths: CurrentValueSubject<[[Snode]], Never> = CurrentValueSubject([])
         private let _networkStatus: CurrentValueSubject<NetworkStatus, Never> = CurrentValueSubject(.unknown)
         private let _snodeNumber: CurrentValueSubject<[String: Int], Never> = .init([:])
@@ -671,6 +797,7 @@ public extension LibSession {
             
             // Create the network object
             getOrCreateNetwork().sinkUntilComplete()
+            getOrCreateNetwork_v2().sinkUntilComplete()
             
             // If the app has been set to 'forceOffline' then we need to explicitly set the network status
             // to disconnected (because it'll never be set otherwise)
@@ -724,6 +851,9 @@ public extension LibSession {
         }
         
         public func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {
+            return Deferred {
+                Future<UnsafeMutablePointer<network_object>?, Error> { promise in }
+            }.eraseToAnyPublisher()
             guard !isSuspended else {
                 Log.warn(.network, "Attempted to access suspended network.")
                 return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
@@ -808,9 +938,9 @@ public extension LibSession {
                                 }
                                 
                                 // Need to free the nodes within the path as we are the owner
-                                cPaths.forEach { cPath in
-                                    free(UnsafeMutableRawPointer(mutating: cPath.nodes))
-                                }
+//                                cPaths.forEach { cPath in
+//                                    free(UnsafeMutableRawPointer(mutating: cPath.nodes))
+//                                }
                             }
                             
                             // Need to free the pathsPtr as we are the owner
@@ -825,6 +955,133 @@ public extension LibSession {
                             }
                         }, dependenciesPtr)
                     }
+                    
+                    return Just(network)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+            }
+        }
+        
+        public func getOrCreateNetwork_v2() -> AnyPublisher<UnsafeMutablePointer<network_object_v2>?, Error> {
+            guard !isSuspended else {
+                Log.warn(.network, "Attempted to access suspended network.")
+                return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
+            }
+            
+            switch (network_v2, dependencies[feature: .forceOffline]) {
+                case (_, true):
+                    return Fail(error: NetworkError.serviceUnavailable)
+                        .delay(for: .seconds(1), scheduler: DispatchQueue.global(qos: .userInitiated))
+                        .eraseToAnyPublisher()
+                    
+                case (.some(let existingNetwork), _):
+                    return Just(existingNetwork)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                
+                case (.none, _):
+                    guard let cCachePath: [CChar] = NetworkCache.snodeCachePath.cString(using: .utf8) else {
+                        Log.error(.network, "Unable to create network object: \(LibSessionError.invalidCConversion)")
+                        return Fail(error: NetworkError.invalidState).eraseToAnyPublisher()
+                    }
+                    
+                    let useTestnet: Bool = (dependencies[feature: .serviceNetwork] == .testnet)
+                    let isMainApp: Bool = dependencies[singleton: .appContext].isMainApp
+                    var error: [CChar] = [CChar](repeating: 0, count: 256)
+                    var network: UnsafeMutablePointer<network_object_v2>?
+                    var config: session_network_config = session_network_config_default()
+                    
+                    if dependencies[feature: .serviceNetwork] == .testnet {
+                        config.netid = SESSION_NETWORK_TESTNET
+                        config.enforce_subnet_diversity = false // On testnet we can't do this as nodes share IPs
+                    }
+                    
+                    
+                    let result: Result<Void, Error> = cCachePath.withUnsafeBufferPointer { cachePtr in
+                        config.cache_dir = cachePtr.baseAddress
+                        
+                        guard session_network_init(&network, &config, &error) else {
+                            Log.error(.network, "Unable to create network object: \(String(cString: error))")
+                            return .failure(NetworkError.invalidState)
+                        }
+                        
+                        return .success(())
+                    }
+                    
+                    switch result {
+                        case .success: break
+                        case .failure(let error): return Fail(error: error).eraseToAnyPublisher()
+                    }
+                    
+                    // Store the newly created network
+                    self.network_v2 = network
+                    
+//                    /// Register the callbacks in the next run loop (this needs to happen in a subsequent run loop because it mutates the
+//                    /// `libSessionNetwork` cache and this function gets called during init so could end up with weird order-of-execution issues)
+//                    ///
+//                    /// **Note:** We do it this way because `DispatchQueue.async` can be optimised out if the code is already running in a
+//                    /// queue with the same `qos`, this approach ensures the code will run in a subsequent run loop regardless
+//                    let concurrentQueue = DispatchQueue(label: "Network.callback.registration", attributes: .concurrent)
+//                    concurrentQueue.async(flags: .barrier) { [weak self] in
+//                        guard
+//                            let network: UnsafeMutablePointer<network_object> = self?.network,
+//                            let dependenciesPtr: UnsafeMutableRawPointer = self?.dependenciesPtr
+//                        else { return }
+//
+//                        // Register for network status changes
+//                        network_set_status_changed_callback(network, { cStatus, ctx in
+//                            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+//
+//                            let status: NetworkStatus = NetworkStatus(status: cStatus)
+//                            let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
+//
+//                            // Dispatch async so we don't hold up the libSession thread that triggered the update
+//                            // or have a reentrancy issue with the mutable cache
+//                            DispatchQueue.global(qos: .default).async {
+//                                dependencies.mutate(cache: .libSessionNetwork) { $0.setNetworkStatus(status: status) }
+//                            }
+//                        }, dependenciesPtr)
+//
+//                        // Register for path changes
+//                        network_set_paths_changed_callback(network, { pathsPtr, pathsLen, ctx in
+//                            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+//
+//                            var paths: [[Snode]] = []
+//
+//                            if let cPathsPtr: UnsafeMutablePointer<onion_request_path> = pathsPtr {
+//                                var cPaths: [onion_request_path] = []
+//
+//                                (0..<pathsLen).forEach { index in
+//                                    cPaths.append(cPathsPtr[index])
+//                                }
+//
+//                                // Copy the nodes over as the memory will be freed after the callback is run
+//                                paths = cPaths.map { cPath in
+//                                    var nodes: [Snode] = []
+//                                    (0..<cPath.nodes_count).forEach { index in
+//                                        nodes.append(Snode(cPath.nodes[index]))
+//                                    }
+//                                    return nodes
+//                                }
+//
+//                                // Need to free the nodes within the path as we are the owner
+//                                cPaths.forEach { cPath in
+//                                    free(UnsafeMutableRawPointer(mutating: cPath.nodes))
+//                                }
+//                            }
+//
+//                            // Need to free the cPathsPtr as we are the owner
+//                            free(UnsafeMutableRawPointer(mutating: pathsPtr))
+//
+//                            // Dispatch async so we don't hold up the libSession thread that triggered the update
+//                            // or have a reentrancy issue with the mutable cache
+//                            let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
+//
+//                            DispatchQueue.global(qos: .default).async {
+//                                dependencies.mutate(cache: .libSessionNetwork) { $0.setPaths(paths: paths) }
+//                            }
+//                        }, dependenciesPtr)
+//                    }
                     
                     return Just(network)
                         .setFailureType(to: Error.self)
@@ -909,6 +1166,7 @@ public extension LibSession {
         func suspendNetworkAccess()
         func resumeNetworkAccess()
         func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error>
+        func getOrCreateNetwork_v2() -> AnyPublisher<UnsafeMutablePointer<network_object_v2>?, Error>
         func setNetworkStatus(status: NetworkStatus)
         func setPaths(paths: [[Snode]])
         func setSnodeNumber(publicKey: String, value: Int)
@@ -935,6 +1193,10 @@ public extension LibSession {
             return Fail(error: NetworkError.invalidState)
                 .eraseToAnyPublisher()
         }
+        public func getOrCreateNetwork_v2() -> AnyPublisher<UnsafeMutablePointer<network_object_v2>?, Error> {
+            return Fail(error: NetworkError.invalidState)
+                .eraseToAnyPublisher()
+        }
         
         public func setNetworkStatus(status: NetworkStatus) {}
         public func setPaths(paths: [[LibSession.Snode]]) {}
@@ -944,3 +1206,5 @@ public extension LibSession {
         public func snodeCacheSize() -> Int { 0 }
     }
 }
+
+extension session_network_config: @retroactive CAccessible, @retroactive CMutable {}

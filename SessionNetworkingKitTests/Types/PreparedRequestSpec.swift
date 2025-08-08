@@ -36,12 +36,15 @@ class PreparedRequestSpec: QuickSpec {
                         ],
                         x25519PublicKey: ""
                     ),
-                    body: nil
+                    body: nil,
+                    category: .upload,
+                    requestTimeout: 123,
+                    overallTimeout: 1234,
+                    retryCount: 3
                 )
                 preparedRequest = try! Network.PreparedRequest(
                     request: request,
                     responseType: TestType.self,
-                    requestTimeout: 10,
                     using: dependencies
                 )
                 
@@ -51,6 +54,10 @@ class PreparedRequestSpec: QuickSpec {
                     "TestCustomHeader": "TestCustom",
                     HTTPHeader.testHeader: "Test"
                 ]))
+                expect(preparedRequest.category).to(equal(.upload))
+                expect(preparedRequest.requestTimeout).to(equal(123))
+                expect(preparedRequest.overallTimeout).to(equal(1234))
+                expect(preparedRequest.retryCount).to(equal(3))
             }
             
             // MARK: -- does not strip excluded subrequest headers
@@ -72,7 +79,6 @@ class PreparedRequestSpec: QuickSpec {
                 preparedRequest = try! Network.PreparedRequest(
                     request: request,
                     responseType: TestType.self,
-                    requestTimeout: 10,
                     using: dependencies
                 )
                 

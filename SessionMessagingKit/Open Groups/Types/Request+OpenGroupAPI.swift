@@ -14,7 +14,9 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
-        authMethod: AuthenticationMethod
+        authMethod: AuthenticationMethod,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        overallTimeout: TimeInterval? = nil
     ) throws {
         guard case .community(let server, let publicKey, _, _, _) = authMethod.info else {
             throw CryptoError.signatureGenerationFailed
@@ -29,7 +31,9 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
                 headers: headers,
                 x25519PublicKey: publicKey
             ),
-            body: body
+            body: body,
+            requestTimeout: requestTimeout,
+            overallTimeout: overallTimeout
         )
     }
 }

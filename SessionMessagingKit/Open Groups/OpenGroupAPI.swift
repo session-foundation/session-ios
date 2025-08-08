@@ -806,11 +806,11 @@ public enum OpenGroupAPI {
                     x25519PublicKey: publicKey,
                     fileName: fileName
                 ),
-                body: data
+                body: data,
+                requestTimeout: Network.fileUploadTimeout
             ),
             responseType: FileUploadResponse.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
         .signed(with: OpenGroupAPI.signRequest, using: dependencies)
@@ -844,11 +844,11 @@ public enum OpenGroupAPI {
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
-                authMethod: authMethod
+                authMethod: authMethod,
+                requestTimeout: Network.fileDownloadTimeout
             ),
             responseType: Data.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: Network.fileDownloadTimeout,
             using: dependencies
         )
         .signed(with: OpenGroupAPI.signRequest, using: dependencies)
@@ -898,7 +898,7 @@ public enum OpenGroupAPI {
     /// Remove all message requests from inbox, this methrod will return the number of messages deleted
     public static func preparedClearInbox(
         requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
@@ -906,12 +906,12 @@ public enum OpenGroupAPI {
             request: Request<NoBody, Endpoint>(
                 method: .delete,
                 endpoint: .inbox,
-                authMethod: authMethod
+                authMethod: authMethod,
+                requestTimeout: requestTimeout,
+                overallTimeout: overallTimeout
             ),
             responseType: DeleteInboxResponse.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: requestTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .signed(with: OpenGroupAPI.signRequest, using: dependencies)

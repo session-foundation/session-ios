@@ -22,6 +22,30 @@ function finish {
 }
 trap finish EXIT ERR SIGINT SIGTERM
 
+# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
+remove_locked_dir() {
+  local dir_to_remove="$1"
+  if [ -d "${dir_to_remove}" ]; then
+    echo "- Unlocking and removing ${dir_to_remove}"
+    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+    rm -rf "${dir_to_remove}"
+  fi
+}
+
+sync_headers() {
+    local source_dir="$1"
+    echo "- Syncing headers from ${source_dir}"
+    remove_locked_dir "${TARGET_BUILD_DIR}/include"
+    remove_locked_dir "${INDEX_DIR}/include"
+    
+    # Ensure destination parent directories exist
+    mkdir -p "${TARGET_BUILD_DIR}/include"
+    mkdir -p "${INDEX_DIR}/include"
+
+    rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "${TARGET_BUILD_DIR}/include/"
+    rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "${INDEX_DIR}/include/"
+}
+
 # Determine whether we want to build from source
 TARGET_ARCH_DIR=""
 
@@ -35,11 +59,10 @@ else
 fi
 
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
-  echo "Restoring original headers to Xcode Indexer cache from backup..."
-  rm -rf "${INDEX_DIR}/include"
-  rsync -rt --exclude='.DS_Store' "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/" "${INDEX_DIR}/include"
-
   echo "Using pre-packaged SessionUtil"
+  sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
+  echo "- Revert to SPM complete."
+  
   exit 0
 fi
 
@@ -83,20 +106,22 @@ fi
 echo "- Checking if libSession changed..."
 REQUIRES_BUILD=0
 
-# Generate a hash to determine whether any source files have changed
-SOURCE_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/src" -type f -not -name '.DS_Store' -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
-HEADER_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/include" -type f -not -name '.DS_Store' -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
-EXTERNAL_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/external" -type f -not -name '.DS_Store' -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
-MAKE_LISTS_HASH=$(md5 -q "${LIB_SESSION_SOURCE_DIR}/CMakeLists.txt")
-STATIC_BUNDLE_HASH=$(md5 -q "${LIB_SESSION_SOURCE_DIR}/utils/static-bundle.sh")
-
-CURRENT_SOURCE_TREE_HASH=$( (
-  echo "${SOURCE_HASH}"
-  echo "${HEADER_HASH}"
-  echo "${EXTERNAL_HASH}"
-  echo "${MAKE_LISTS_HASH}"
-  echo "${STATIC_BUNDLE_HASH}"
-) | sort | md5 -q)
+# Generate a hash to determine whether any source files have changed (by using git we automatically
+# respect .gitignore)
+CURRENT_SOURCE_TREE_HASH=$( \
+  ( \
+    cd "${LIB_SESSION_SOURCE_DIR}" && git ls-files --recurse-submodules \
+  ) \
+  | grep -vE '/(tests?|docs?|examples?)/|\.md$|/(\.DS_Store|\.gitignore)$' \
+  | sort \
+  | tr '\n' '\0' \
+  | ( \
+      cd "${LIB_SESSION_SOURCE_DIR}" && xargs -0 md5 -r \
+    ) \
+  | awk '{print $1}' \
+  | sort \
+  | md5 -q \
+)
 
 PREVIOUS_BUILT_FRAMEWORK_SLICE_DIR=""
 if [ -f "$LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE" ]; then
@@ -217,6 +242,8 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
       -DBUILD_TESTS=OFF \
       -DBUILD_STATIC_DEPS=ON \
       -DENABLE_VISIBILITY=ON \
+      -DLOKINET_FULL=OFF \
+      -DLOKINET_DAEMON=OFF \
       -DSUBMODULE_CHECK=$submodule_check \
       -DCMAKE_BUILD_TYPE=$build_type \
       -DLOCAL_MIRROR=https://oxen.rocks/deps
@@ -318,15 +345,11 @@ fi
 
 echo "- Replacing build dir files"
 
-# Remove the current files (might be "newer")
-rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
-rm -rf "${TARGET_BUILD_DIR}/include"
-rm -rf "${INDEX_DIR}/include"
-
 # Rsync the compiled ones (maintaining timestamps)
+rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
 rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
-rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${TARGET_BUILD_DIR}/include"
-rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${INDEX_DIR}/include"
+sync_headers "${COMPILE_DIR}/Headers/"
+echo "- Sync complete."
 
 # Output to XCode just so the output is good
 echo "LibSession is Ready"

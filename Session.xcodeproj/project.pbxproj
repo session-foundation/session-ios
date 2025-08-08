@@ -1008,6 +1008,7 @@
 		FDD23AEE2E459E470057E853 /* _001_SUK_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C927F546D900122BE0 /* _001_SUK_InitialSetupMigration.swift */; };
 		FDD23AEF2E459EC90057E853 /* _012_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _012_AddJobPriority.swift */; };
 		FDD23AF02E459EDD0057E853 /* _020_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */; };
+		FDD23ADE2E44501E0057E853 /* RequestCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD23ADD2E44501B0057E853 /* RequestCategory.swift */; };
 		FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */; };
@@ -2268,6 +2269,7 @@
 		FDD20C152A09E64A003898FB /* GetExpiriesRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetExpiriesRequest.swift; sourceTree = "<group>"; };
 		FDD20C172A09E7D3003898FB /* GetExpiriesResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetExpiriesResponse.swift; sourceTree = "<group>"; };
 		FDD20C192A0A03AC003898FB /* DeleteInboxResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteInboxResponse.swift; sourceTree = "<group>"; };
+		FDD23ADD2E44501B0057E853 /* RequestCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestCategory.swift; sourceTree = "<group>"; };
 		FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DifferenceKit+Utilities.swift"; sourceTree = "<group>"; };
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
 		FDD383702AFDD0E1001367F2 /* BencodeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeResponse.swift; sourceTree = "<group>"; };
@@ -5026,6 +5028,7 @@
 				FDB5DAF22A96DD4F002C8721 /* PreparedRequest+Sending.swift */,
 				FD22729D2C33E336004D8A6C /* ProxiedContentDownloader.swift */,
 				FD2272A32C33E337004D8A6C /* Request.swift */,
+				FDD23ADD2E44501B0057E853 /* RequestCategory.swift */,
 				FD2272A52C33E337004D8A6C /* ResponseInfo.swift */,
 				FD2272A02C33E336004D8A6C /* SwarmDrainBehaviour.swift */,
 				FD2272962C33E335004D8A6C /* UpdatableTimestamp.swift */,
@@ -6173,6 +6176,7 @@
 			files = (
 				FD2272B12C33E337004D8A6C /* ProxiedContentDownloader.swift in Sources */,
 				FDF848C329405C5A007DCAE5 /* DeleteMessagesRequest.swift in Sources */,
+				FDD23ADE2E44501E0057E853 /* RequestCategory.swift in Sources */,
 				FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */,
 				FD2272AB2C33E337004D8A6C /* ValidatableResponse.swift in Sources */,
 				FD2272B72C33E337004D8A6C /* Request.swift in Sources */,

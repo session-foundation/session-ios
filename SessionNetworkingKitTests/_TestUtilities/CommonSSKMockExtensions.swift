@@ -39,3 +39,7 @@ extension Network.Destination: Mocked {
         x25519PublicKey: ""
     ).withGeneratedUrl(for: MockEndpoint.mock)
 }
+
+extension Network.RequestCategory: Mocked {
+    static var mock: Network.RequestCategory = .standard
+}
