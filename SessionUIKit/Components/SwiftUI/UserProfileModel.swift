@@ -156,6 +156,7 @@ public struct UserProfileModel: View {
                         Text(info.displayName)
                             .font(.Headings.H6)
                             .foregroundColor(themeColor: .textPrimary)
+                            .multilineTextAlignment(.center)
                         
                         if info.isProUser {
                             SessionProBadge_SwiftUI(size: .large)
@@ -372,7 +373,8 @@ public struct UserProfileModel: View {
                     Spacer()
                 }
                 .backgroundColor(themeColor: .newConversation_background)
-            }
+            },
+            customizedNavigationBackground: .backgroundSecondary
         )
         viewController.modalPresentationStyle = .fullScreen
         self.host.controller?.present(viewController, animated: true)

@@ -1573,6 +1573,7 @@ extension ConversationVC:
             return cellViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
+        self.hideInputAccessoryView()
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModel(
                 info: .init(
@@ -1599,7 +1600,10 @@ extension ConversationVC:
                     }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
-                sessionProState: dependencies[singleton: .sessionProState]
+                sessionProState: dependencies[singleton: .sessionProState],
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
             )
         )
         present(userProfileModal, animated: true, completion: nil)
