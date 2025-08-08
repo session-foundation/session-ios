@@ -990,6 +990,7 @@
 		FDD20C162A09E64A003898FB /* GetExpiriesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD20C152A09E64A003898FB /* GetExpiriesRequest.swift */; };
 		FDD20C182A09E7D3003898FB /* GetExpiriesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD20C172A09E7D3003898FB /* GetExpiriesResponse.swift */; };
 		FDD20C1A2A0A03AC003898FB /* DeleteInboxResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD20C192A0A03AC003898FB /* DeleteInboxResponse.swift */; };
+		FDD23ADE2E44501E0057E853 /* RequestCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD23ADD2E44501B0057E853 /* RequestCategory.swift */; };
 		FDD23ADF2E457CAA0057E853 /* _016_ThemePreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9F828A5F14A003AE748 /* _016_ThemePreferences.swift */; };
 		FDD23AE02E457CD40057E853 /* _004_SNK_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79F27F40CC800122BE0 /* _004_SNK_InitialSetupMigration.swift */; };
 		FDD23AE12E457CDE0057E853 /* _005_SNK_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _005_SNK_SetupStandardJobs.swift */; };
@@ -1008,7 +1009,6 @@
 		FDD23AEE2E459E470057E853 /* _001_SUK_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C927F546D900122BE0 /* _001_SUK_InitialSetupMigration.swift */; };
 		FDD23AEF2E459EC90057E853 /* _012_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _012_AddJobPriority.swift */; };
 		FDD23AF02E459EDD0057E853 /* _020_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */; };
-		FDD23ADE2E44501E0057E853 /* RequestCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD23ADD2E44501B0057E853 /* RequestCategory.swift */; };
 		FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */; };
@@ -4235,16 +4235,8 @@
 			isa = PBXGroup;
 			children = (
 				FD78EA082DDFE45000D55B50 /* Convenience */,
-				FD37E9F728A5F143003AE748 /* Migrations */,
 			);
 			path = Database;
-			sourceTree = "<group>";
-		};
-		FD37E9F728A5F143003AE748 /* Migrations */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Migrations;
 			sourceTree = "<group>";
 		};
 		FD37EA1228AB3F60003AE748 /* Database */ = {

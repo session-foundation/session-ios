@@ -1319,7 +1319,7 @@ public protocol IdentifiableTransactionObserver: TransactionObserver {
 
 private extension Storage {
     actor PublisherBridge<T> {
-        private weak var subject: PassthroughSubject<T, Error>?
+        private var subject: PassthroughSubject<T, Error>?
         private var isFinished: Bool = false
         
         init(subject: PassthroughSubject<T, Error>) {
@@ -1329,7 +1329,8 @@ private extension Storage {
         func send(result: Result<T, Error>, info: CallInfo) {
             guard !isFinished, let subject = self.subject else { return }
             
-            isFinished = true
+            self.isFinished = true
+            self.subject = nil
             
             switch result {
                 case .success(let value):
@@ -1346,7 +1347,8 @@ private extension Storage {
         func cancel() {
             guard !isFinished else { return }
             
-            isFinished = true
+            self.isFinished = true
+            self.subject = nil
         }
     }
 }

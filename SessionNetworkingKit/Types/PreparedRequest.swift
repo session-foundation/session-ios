@@ -417,13 +417,13 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
     }
     
     public func encodeForBatchRequest(to encoder: Encoder) throws {
+        var container: KeyedEncodingContainer<Network.BatchRequest.Child.CodingKeys> = encoder.container(keyedBy: Network.BatchRequest.Child.CodingKeys.self)
+        
         switch batchRequestVariant {
             case .unsupported:
                 Log.critical("Attempted to encode unsupported request type \(endpointName) as a batch subrequest")
                 
             case .sogs:
-                var container: KeyedEncodingContainer<Network.BatchRequest.Child.CodingKeys> = encoder.container(keyedBy: Network.BatchRequest.Child.CodingKeys.self)
-                
                 // Exclude request signature headers (not used for sub-requests)
                 let excludedSubRequestHeaders: [HTTPHeader] = excludedSubRequestHeaders
                 let batchRequestHeaders: [HTTPHeader: String] = headers
@@ -440,9 +440,9 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
                 try container.encodeIfPresent(bytes, forKey: .bytes)
                 
             case .storageServer:
-                var container: SingleValueEncodingContainer = encoder.singleValueContainer()
+                try container.encode(endpoint.path, forKey: .method)
+                try jsonKeyedBodyEncoder?(&container, .params)
                 
-                try jsonBodyEncoder?(&container)
         }
     }
 }
