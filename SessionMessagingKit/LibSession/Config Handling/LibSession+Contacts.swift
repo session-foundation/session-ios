@@ -875,11 +875,11 @@ internal extension LibSession {
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: contact.get(\.name),
-                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
+                lastNameUpdate: TimeInterval(contact.profile_updated),
                 nickname: contact.get(\.nickname, nullIfEmpty: true),
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-                displayPictureLastUpdated: (TimeInterval(serverTimestampMs) / 1000)
+                displayPictureLastUpdated: TimeInterval(contact.profile_updated)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,

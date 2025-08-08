@@ -70,9 +70,11 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
                     key: displayPic.get(\.key),
-                    filePath: filePath
+                    filePath: filePath,
+                    sessionProProof: getProProof() // TODO: double check if this is needed after Pro Proof is implemented
                 )
             }(),
+            profileUpdateTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
             using: dependencies
         )

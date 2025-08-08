@@ -2,10 +2,13 @@
 
 import UIKit
 import Combine
+import Lucide
 
 public final class ProfilePictureView: UIView {
     public struct Info {
         let source: ImageDataManager.DataSource?
+        let shouldAnimated: Bool
+        let isCurrentUser: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -15,6 +18,8 @@ public final class ProfilePictureView: UIView {
         
         public init(
             source: ImageDataManager.DataSource?,
+            shouldAnimated: Bool,
+            isCurrentUser: Bool,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -23,6 +28,8 @@ public final class ProfilePictureView: UIView {
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
+            self.shouldAnimated = shouldAnimated
+            self.isCurrentUser = isCurrentUser
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -37,12 +44,14 @@ public final class ProfilePictureView: UIView {
         case message
         case list
         case hero
+        case modal
         
         public var viewSize: CGFloat {
             switch self {
                 case .navigation, .message: return 26
                 case .list: return 46
                 case .hero: return 110
+                case .modal: return 90
             }
         }
         
@@ -51,6 +60,7 @@ public final class ProfilePictureView: UIView {
                 case .navigation, .message: return 26
                 case .list: return 46
                 case .hero: return 80
+                case .modal: return 90
             }
         }
         
@@ -59,6 +69,7 @@ public final class ProfilePictureView: UIView {
                 case .navigation, .message: return 18  // Shouldn't be used
                 case .list: return 32
                 case .hero: return 80
+                case .modal: return 90
             }
         }
         
@@ -67,6 +78,7 @@ public final class ProfilePictureView: UIView {
                 case .navigation, .message: return 10   // Intentionally not a multiple of 4
                 case .list: return 16
                 case .hero: return 24
+                case .modal: return 24 // Shouldn't be used
             }
         }
     }
@@ -76,6 +88,7 @@ public final class ProfilePictureView: UIView {
         case crown
         case rightPlus
         case letter(Character, Bool)
+        case pencil
         
         func iconVerticalInset(for size: Size) -> CGFloat {
             switch (self, size) {
@@ -91,12 +104,14 @@ public final class ProfilePictureView: UIView {
         var isLeadingAligned: Bool {
             switch self {
                 case .none, .crown, .letter: return true
-                case .rightPlus: return false
+                case .rightPlus, .pencil: return false
             }
         }
     }
     
     private var dataManager: ImageDataManagerType?
+    private var sessionProState: SessionProManagerType?
+    public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
@@ -135,6 +150,14 @@ public final class ProfilePictureView: UIView {
             heightConstraint.constant = (isHidden ? 0 : size.viewSize)
         }
     }
+    
+    public enum CurrentUserProfileImage: Equatable {
+        case none
+        case main
+        case additional
+    }
+    
+    public var shouldAnimateForCurrentUserProUpgrade: CurrentUserProfileImage = .none
     
     // MARK: - Constraints
     
@@ -273,7 +296,8 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?) {
+    public init(size: Size, dataManager: ImageDataManagerType?, sessionProState: SessionProManagerType?) {
+        self.sessionProState = sessionProState
         self.dataManager = dataManager
         self.size = size
         
@@ -281,6 +305,20 @@ public final class ProfilePictureView: UIView {
         
         clipsToBounds = true
         setUpViewHierarchy()
+        
+        sessionProState?.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self] isPro in
+                    if isPro {
+                        self?.startAnimatingIfNeeded()
+                    } else {
+                        self?.stopAnimatingIfNeeded()
+                    }
+                }
+            )
+            .store(in: &disposables)
     }
     
     public required init?(coder: NSCoder) {
@@ -376,6 +414,24 @@ public final class ProfilePictureView: UIView {
         self.additionalImageView.setDataManager(dataManager)
     }
     
+    public func setSessionProState(_ sessionProState: SessionProManagerType) {
+        self.sessionProState = sessionProState
+        sessionProState.isSessionProPublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak self] isPro in
+                    if isPro {
+                        self?.startAnimatingIfNeeded()
+                    } else {
+                        self?.stopAnimatingIfNeeded()
+                    }
+                    
+                }
+            )
+            .store(in: &disposables)
+    }
+    
     // MARK: - Content
     
     private func updateIconView(
@@ -402,6 +458,7 @@ public final class ProfilePictureView: UIView {
             
             case .crown:
                 imageView.image = UIImage(systemName: "crown.fill")
+                imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .dynamicForPrimary(
                     .green,
                     use: .profileIcon_greenPrimaryColor,
@@ -413,6 +470,7 @@ public final class ProfilePictureView: UIView {
                 
             case .rightPlus:
                 imageView.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
+                imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .black
                 backgroundView.themeBackgroundColor = .primary
                 imageView.isHidden = false
@@ -423,6 +481,15 @@ public final class ProfilePictureView: UIView {
                 backgroundView.themeBackgroundColor = (dangerMode ? .danger : .textPrimary)
                 label.isHidden = false
                 label.text = "\(character)"
+            
+            case .pencil:
+                imageView.image = Lucide.image(icon: .pencil, size: 14)?.withRenderingMode(.alwaysTemplate)
+                imageView.contentMode = .center
+                imageView.themeTintColor = .black
+                backgroundView.themeBackgroundColor = .primary
+                imageView.isHidden = false
+                label.isHidden = true
+            
         }
     }
     
@@ -430,11 +497,13 @@ public final class ProfilePictureView: UIView {
     
     private func prepareForReuse() {
         imageView.image = nil
+        imageView.shouldAnimateImage = true
         imageView.contentMode = .scaleAspectFill
         imageContainerView.clipsToBounds = clipsToBounds
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
+        additionalImageView.shouldAnimateImage = true
         additionalImageContainerView.clipsToBounds = clipsToBounds
         
         imageViewTopConstraint.isActive = false
@@ -478,9 +547,15 @@ public final class ProfilePictureView: UIView {
             case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _): imageView.loadImage(source)
+            case (.some(let source), _):
+                imageView.shouldAnimateImage = info.shouldAnimated
+                imageView.loadImage(source)
                 
             default: imageView.image = nil
+        }
+        
+        if info.isCurrentUser {
+            self.shouldAnimateForCurrentUserProUpgrade = .main
         }
         
         imageView.themeTintColor = info.themeTintColor
@@ -524,12 +599,17 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
+                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimated
                 additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
             default:
                 additionalImageView.image = nil
                 additionalImageContainerView.isHidden = true
+        }
+        
+        if additionalInfo.isCurrentUser {
+            self.shouldAnimateForCurrentUserProUpgrade = .additional
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
@@ -566,6 +646,28 @@ public final class ProfilePictureView: UIView {
         )
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
+    
+    public func startAnimatingIfNeeded() {
+        switch shouldAnimateForCurrentUserProUpgrade {
+            case .none:
+                break
+            case .main:
+                imageView.shouldAnimateImage = true
+            case .additional:
+                additionalImageView.shouldAnimateImage = true
+        }
+    }
+    
+    public func stopAnimatingIfNeeded() {
+        switch shouldAnimateForCurrentUserProUpgrade {
+            case .none:
+                break
+            case .main:
+                imageView.shouldAnimateImage = false
+            case .additional:
+                additionalImageView.shouldAnimateImage = false
+        }
+    }
 }
 
 import SwiftUI
@@ -577,21 +679,28 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
     let dataManager: ImageDataManagerType
+    let sessionProState: SessionProManagerType
     
     public init(
         size: ProfilePictureView.Size,
         info: ProfilePictureView.Info,
         additionalInfo: ProfilePictureView.Info? = nil,
-        dataManager: ImageDataManagerType
+        dataManager: ImageDataManagerType,
+        sessionProState: SessionProManagerType
     ) {
         self.size = size
         self.info = info
         self.additionalInfo = additionalInfo
         self.dataManager = dataManager
+        self.sessionProState = sessionProState
     }
     
     public func makeUIView(context: Context) -> ProfilePictureView {
-        ProfilePictureView(size: size, dataManager: dataManager)
+        ProfilePictureView(
+            size: size,
+            dataManager: dataManager,
+            sessionProState: sessionProState
+        )
     }
     
     public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {

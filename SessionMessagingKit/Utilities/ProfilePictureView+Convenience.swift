@@ -49,11 +49,22 @@ public extension ProfilePictureView {
         
         switch (explicitPath, publicKey.isEmpty, threadVariant) {
             case (.some(let path), _, _):
+                let shouldAnimated: Bool = {
+                    guard let profile: Profile = profile else {
+                        return threadVariant == .community
+                    }
+                    return profile.shoudAnimateProfilePicture(using: dependencies)
+                }()
                 /// If we are given an explicit `displayPictureUrl` then only use that
-                return (Info(
-                    source: .url(URL(fileURLWithPath: path)),
-                    icon: profileIcon
-                ), nil)
+                return (
+                    Info(
+                        source: .url(URL(fileURLWithPath: path)),
+                        shouldAnimated: shouldAnimated,
+                        isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
+                        icon: profileIcon
+                    ),
+                    nil
+                )
             
             case (_, _, .community):
                 return (
@@ -62,9 +73,11 @@ public extension ProfilePictureView {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
                                 case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
-                                case .hero: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                                case .hero, .modal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
+                        shouldAnimated: true,
+                        isCurrentUser: false,
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -101,7 +114,12 @@ public extension ProfilePictureView {
                 }()
                 
                 return (
-                    Info(source: source, icon: profileIcon),
+                    Info(
+                        source: source,
+                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
+                        isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
+                        icon: profileIcon
+                    ),
                     additionalProfile
                         .map { other in
                             let source: ImageDataManager.DataSource = {
@@ -120,11 +138,18 @@ public extension ProfilePictureView {
                                 return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                             }()
                             
-                            return Info(source: source, icon: additionalProfileIcon)
+                            return Info(
+                                source: source,
+                                shouldAnimated: other.shoudAnimateProfilePicture(using: dependencies),
+                                isCurrentUser: (other.id == dependencies[cache: .general].sessionId.hexString),
+                                icon: additionalProfileIcon
+                            )
                         }
                         .defaulting(
                             to: Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
+                                shouldAnimated: false,
+                                isCurrentUser: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -156,7 +181,14 @@ public extension ProfilePictureView {
                     return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                 }()
                 
-                return (Info(source: source, icon: profileIcon), nil)
+                return (
+                    Info(
+                        source: source,
+                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
+                        isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
+                        icon: profileIcon),
+                    nil
+                )
         }
     }
 }
@@ -192,7 +224,8 @@ public extension ProfilePictureSwiftUI {
                     size: size,
                     info: info,
                     additionalInfo: additionalInfo,
-                    dataManager: dependencies[singleton: .imageDataManager]
+                    dataManager: dependencies[singleton: .imageDataManager],
+                    sessionProState: dependencies[singleton: .sessionProState]
                 )
         }
     }

@@ -25,3 +25,19 @@ extension String {
         return boundingBox.width
     }
 }
+
+public extension String {
+    func splitIntoLines(charactersForLines: [Int]) -> String {
+        var result: [String] = []
+        var start = self.startIndex
+
+        for count in charactersForLines {
+            let end = self.index(start, offsetBy: count, limitedBy: self.endIndex) ?? self.endIndex
+            var line = String(self[start..<end])
+            result.append(line)
+            start = end
+            if start == self.endIndex { break }
+        }
+        return result.joined(separator: "\n")
+    }
+}
