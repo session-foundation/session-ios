@@ -134,6 +134,7 @@ internal extension LibSessionCacheType {
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
                 displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                profileUpdateTimestamp: (profile.displayPictureLastUpdated ?? 0),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
                 using: dependencies
             )
@@ -528,7 +529,7 @@ internal extension LibSession {
                     displayPictureEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
                         member.get(\.profile_pic.key)
                     ),
-                    displayPictureLastUpdated: TimeInterval(Double(serverTimestampMs) / 1000),
+                    displayPictureLastUpdated: TimeInterval(member.profile_updated),
                     lastBlocksCommunityMessageRequests: nil
                 )
             )

@@ -30,6 +30,8 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         
         case blocksCommunityMessageRequests
         case lastBlocksCommunityMessageRequests
+        
+        case sessionProProof
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -61,6 +63,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// The timestamp (in seconds since epoch) that the `blocksCommunityMessageRequests` setting was last updated
     public let lastBlocksCommunityMessageRequests: TimeInterval?
     
+    /// The Pro Proof for when this profile is updated
+    public let sessionProProof: String?
+    
     // MARK: - Initialization
     
     public init(
@@ -72,7 +77,8 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         displayPictureLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        lastBlocksCommunityMessageRequests: TimeInterval? = nil
+        lastBlocksCommunityMessageRequests: TimeInterval? = nil,
+        sessionProProof: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -83,6 +89,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.displayPictureLastUpdated = displayPictureLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
+        self.sessionProProof = sessionProProof
     }
 }
 
@@ -111,6 +118,7 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             displayPictureLastUpdated: \(displayPictureLastUpdated.map { "\($0)" } ?? "null"),
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
+            sessionProProof: \(sessionProProof.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -143,7 +151,8 @@ public extension Profile {
             displayPictureEncryptionKey: displayPictureKey,
             displayPictureLastUpdated: try? container.decode(TimeInterval?.self, forKey: .displayPictureLastUpdated),
             blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
-            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests)
+            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests),
+            sessionProProof: try? container.decode(String?.self, forKey: .sessionProProof)
         )
     }
     
@@ -159,6 +168,7 @@ public extension Profile {
         try container.encodeIfPresent(displayPictureLastUpdated, forKey: .displayPictureLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
+        try container.encodeIfPresent(sessionProProof, forKey: .sessionProProof)
     }
 }
 
@@ -172,9 +182,11 @@ public extension Profile {
         
         if
             let displayPictureEncryptionKey: Data = displayPictureEncryptionKey,
-            let displayPictureUrl: String = displayPictureUrl {
+            let displayPictureUrl: String = displayPictureUrl
+        {
             dataMessageProto.setProfileKey(displayPictureEncryptionKey)
             profileProto.setProfilePicture(displayPictureUrl)
+            // TODO: Add ProProof if needed
         }
         
         do {
@@ -308,6 +320,16 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
+    func shoudAnimateProfilePicture(using dependencies: Dependencies) -> Bool {
+        guard dependencies[feature: .sessionProEnabled] else { return true }
+        
+        guard self.id == dependencies[cache: .general].sessionId.hexString else {
+            return dependencies.mutate(cache: .libSession, { $0.validateProProof(for: self) })
+        }
+        
+        return dependencies[cache: .libSession].isSessionPro
+    }
+    
     func displayNameForMention(
         for threadVariant: SessionThread.Variant = .contact,
         ignoringNickname: Bool = false,
