@@ -32,7 +32,13 @@ public enum UpdateProfilePictureJob: JobExecutor {
             return deferred(job) // Don't need to do anything if it's not the main app
         }
         
-        let runJob: () -> () = {
+        let expirationDate: Date? = dependencies[defaults: .standard, key: .profilePictureExpiresDate]
+        let lastUploadDate: Date? = dependencies[defaults: .standard, key: .lastProfilePictureUpload]
+        
+        if
+            expirationDate.map({ dependencies.dateNow.timeIntervalSince($0) > 0 }) == true,
+            lastUploadDate.map({ dependencies.dateNow.timeIntervalSince($0) > (14 * 24 * 60 * 60) }) == true
+        {
             /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
             let (profile, sessionProProof) = dependencies.mutate(cache: .libSession) { ($0.profile, $0.getProProof()) }
             let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
@@ -59,19 +65,6 @@ public enum UpdateProfilePictureJob: JobExecutor {
                     }
                 )
         }
-        
-        if
-            let profilePicutreExpiresData: Date = dependencies[defaults: .standard, key: .profilePictureExpiresDate],
-            dependencies.dateNow.timeIntervalSince(profilePicutreExpiresData) > 0
-        {
-            runJob()
-        }
-        else if
-            let lastProfilePictureUpload: Date = dependencies[defaults: .standard, key: .lastProfilePictureUpload],
-            dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
-        {
-            runJob()
-        }
         else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
@@ -82,8 +75,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
+            
+            Log.info(
+                .cat,
+                expirationDate != nil ?
+                    "Deferred as current picture hasn't expired" :
+                    "Deferred as not enough time has passed since the last update"
+            )
 
-            Log.info(.cat, "Deferred as not enough time has passed since the last update")
             return deferred(job)
         }
     }
