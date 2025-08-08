@@ -9,7 +9,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     private let dependencies: Dependencies

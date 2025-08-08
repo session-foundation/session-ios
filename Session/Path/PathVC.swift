@@ -5,7 +5,7 @@ import Combine
 import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 final class PathVC: BaseVC {

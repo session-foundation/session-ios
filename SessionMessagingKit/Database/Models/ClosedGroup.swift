@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {

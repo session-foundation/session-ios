@@ -2,58 +2,53 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public enum SNMessagingKit: MigratableTarget { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
-        return TargetMigrations(
-            identifier: .messagingKit,
-            migrations: [
-                [
-                    _001_InitialSetupMigration.self,
-                    _002_SetupStandardJobs.self
-                ],  // Initial DB Creation
-                [
-                    _003_YDBToGRDBMigration.self
-                ],  // YDB to GRDB Migration
-                [
-                    _004_RemoveLegacyYDB.self
-                ],  // Legacy DB removal
-                [
-                    _005_FixDeletedMessageReadState.self,
-                    _006_FixHiddenModAdminSupport.self,
-                    _007_HomeQueryOptimisationIndexes.self
-                ],  // Add job priorities
-                [
-                    _008_EmojiReacts.self,
-                    _009_OpenGroupPermission.self,
-                    _010_AddThreadIdToFTS.self
-                ],  // Fix thread FTS
-                [
-                    _011_AddPendingReadReceipts.self,
-                    _012_AddFTSIfNeeded.self,
-                    _013_SessionUtilChanges.self,
-                    _014_GenerateInitialUserConfigDumps.self,
-                    _015_BlockCommunityMessageRequests.self,
-                    _016_MakeBrokenProfileTimestampsNullable.self,
-                    _017_RebuildFTSIfNeeded_2_4_5.self,
-                    _018_DisappearingMessagesConfiguration.self,
-                    _019_ScheduleAppUpdateCheckJob.self,
-                    _020_AddMissingWhisperFlag.self,
-                    _021_ReworkRecipientState.self,
-                    _022_GroupsRebuildChanges.self,
-                    _023_GroupsExpiredFlag.self,
-                    _024_FixBustedInteractionVariant.self,
-                    _025_DropLegacyClosedGroupKeyPairTable.self,
-                    _026_MessageDeduplicationTable.self
-                ],
-                [],  // Renamed `Setting` to `KeyValueStore`
-                [
-                    _027_MoveSettingsToLibSession.self,
-                    _028_RenameAttachments.self,
-                    _029_AddProMessageFlag.self
-                ]
-            ]
-        )
-    }
+public enum SNMessagingKit { // Just to make the external API nice
+    public static let migrations: [Migration.Type] = [
+        _001_SUK_InitialSetupMigration.self,
+        _002_SUK_SetupStandardJobs.self,
+        _003_SUK_YDBToGRDBMigration.self,
+        _004_SNK_InitialSetupMigration.self,
+        _005_SNK_SetupStandardJobs.self,
+        _006_SMK_InitialSetupMigration.self,
+        _007_SMK_SetupStandardJobs.self,
+        _008_SNK_YDBToGRDBMigration.self,
+        _009_SMK_YDBToGRDBMigration.self,
+        _010_FlagMessageHashAsDeletedOrInvalid.self,
+        _011_RemoveLegacyYDB.self,
+        _012_AddJobPriority.self,
+        _013_FixDeletedMessageReadState.self,
+        _014_FixHiddenModAdminSupport.self,
+        _015_HomeQueryOptimisationIndexes.self,
+        _016_ThemePreferences.self,
+        _017_EmojiReacts.self,
+        _018_OpenGroupPermission.self,
+        _019_AddThreadIdToFTS.self,
+        _020_AddJobUniqueHash.self,
+        _021_AddSnodeReveivedMessageInfoPrimaryKey.self,
+        _022_DropSnodeCache.self,
+        _023_SplitSnodeReceivedMessageInfo.self,
+        _024_ResetUserConfigLastHashes.self,
+        _025_AddPendingReadReceipts.self,
+        _026_AddFTSIfNeeded.self,
+        _027_SessionUtilChanges.self,
+        _028_GenerateInitialUserConfigDumps.self,
+        _029_BlockCommunityMessageRequests.self,
+        _030_MakeBrokenProfileTimestampsNullable.self,
+        _031_RebuildFTSIfNeeded_2_4_5.self,
+        _032_DisappearingMessagesConfiguration.self,
+        _033_ScheduleAppUpdateCheckJob.self,
+        _034_AddMissingWhisperFlag.self,
+        _035_ReworkRecipientState.self,
+        _036_GroupsRebuildChanges.self,
+        _037_GroupsExpiredFlag.self,
+        _038_FixBustedInteractionVariant.self,
+        _039_DropLegacyClosedGroupKeyPairTable.self,
+        _040_MessageDeduplicationTable.self,
+        _041_RenameTableSettingToKeyValueStore.self,
+        _042_MoveSettingsToLibSession.self,
+        _043_RenameAttachments.self,
+        _044_AddProMessageFlag.self
+    ]
     
     public static func configure(using dependencies: Dependencies) {
         // Configure the job executors

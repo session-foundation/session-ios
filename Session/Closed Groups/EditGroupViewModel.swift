@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit

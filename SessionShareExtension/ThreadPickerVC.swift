@@ -8,7 +8,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate, ThemedNavigation {

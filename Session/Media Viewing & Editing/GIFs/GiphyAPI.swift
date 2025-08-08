@@ -5,7 +5,7 @@ import Combine
 import CoreServices
 import UniformTypeIdentifiers
 import SignalUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton

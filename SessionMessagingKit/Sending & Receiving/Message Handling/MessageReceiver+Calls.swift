@@ -5,7 +5,7 @@ import AVFAudio
 import GRDB
 import WebRTC
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 

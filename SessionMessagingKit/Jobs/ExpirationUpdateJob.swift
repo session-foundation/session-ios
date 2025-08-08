@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public enum ExpirationUpdateJob: JobExecutor {
     public static var maxFailureCount: Int = -1

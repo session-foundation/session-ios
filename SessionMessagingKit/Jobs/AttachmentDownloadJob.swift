@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public enum AttachmentDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 3
