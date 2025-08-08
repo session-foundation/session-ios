@@ -47,14 +47,12 @@ class JobRunnerSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self
+            migrations: [
+                _001_SUK_InitialSetupMigration.self,
+                _012_AddJobPriority.self,
+                _020_AddJobUniqueHash.self
             ],
-            using: dependencies,
-            initialData: { db in
-                // Migrations add jobs which we don't want so delete them
-                try Job.deleteAll(db)
-            }
+            using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var jobRunner: JobRunnerType! = JobRunner(
             isTestingJobRunner: true,

@@ -3,7 +3,7 @@
 import UIKit
 import AVFoundation
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - SessionSNUIKitConfig

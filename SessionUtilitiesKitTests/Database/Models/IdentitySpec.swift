@@ -15,9 +15,7 @@ class IdentitySpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self
-            ],
+            migrations: [_001_SUK_InitialSetupMigration.self],
             using: dependencies
         )
         

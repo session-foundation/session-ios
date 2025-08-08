@@ -6,7 +6,7 @@ import Foundation
 import Combine
 import AVFoundation
 import CoreServices
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 

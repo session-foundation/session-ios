@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Singleton
 
