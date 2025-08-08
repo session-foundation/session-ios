@@ -5,7 +5,7 @@
 import Foundation
 import UIKit.UIImage
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 enum _022_GroupsRebuildChanges: Migration {

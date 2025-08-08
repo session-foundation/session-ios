@@ -3,7 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 extension ContextMenuVC {
     final class ActionView: UIView {

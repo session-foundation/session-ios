@@ -6,7 +6,7 @@ import Quick
 import Nimble
 import SessionUtil
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 @testable import Session
 @testable import SessionMessagingKit
@@ -41,7 +41,7 @@ class DatabaseSpec: QuickSpec {
         let allMigrations: [Storage.KeyedMigration] = SynchronousStorage.sortedMigrationInfo(
             migrationTargets: [
                 SNUtilitiesKit.self,
-                SNSnodeKit.self,
+                SNNetworkingKit.self,
                 SNMessagingKit.self,
                 DeprecatedUIKitMigrationTarget.self
             ]
@@ -77,7 +77,7 @@ class DatabaseSpec: QuickSpec {
                 mockStorage.perform(
                     migrationTargets: [
                         SNUtilitiesKit.self,
-                        SNSnodeKit.self,
+                        SNNetworkingKit.self,
                         SNMessagingKit.self,
                         DeprecatedUIKitMigrationTarget.self
                     ],

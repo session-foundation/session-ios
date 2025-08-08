@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 /// This migration used to remove the legacy YapDatabase files (the old logic has been removed and is no longer supported so it now does nothing)
 enum _004_RemoveLegacyYDB: Migration {

@@ -9,7 +9,7 @@ import SessionUtil
 import SessionUtilitiesKit
 import SessionUIKit
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class MessageReceiverGroupsSpec: QuickSpec {
@@ -31,7 +31,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
                 SNUtilitiesKit.self,
-                SNSnodeKit.self,
+                SNNetworkingKit.self,
                 SNMessagingKit.self
             ],
             using: dependencies,

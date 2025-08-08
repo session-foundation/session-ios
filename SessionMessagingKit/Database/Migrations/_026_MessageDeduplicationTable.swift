@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 /// The different platforms use different approaches for message deduplication but in the future we want to shift the database logic into
 /// `libSession` so it makes sense to try to define a longer-term deduplication approach we we can use in `libSession`, additonally

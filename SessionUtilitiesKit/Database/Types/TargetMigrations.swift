@@ -23,7 +23,7 @@ public struct TargetMigrations: Comparable {
         // changing them will result in the migrations running again
         case session
         case utilitiesKit
-        case snodeKit
+        case networkingKit = "snodeKit"
         case messagingKit
         case _deprecatedUIKit = "uiKit"
         case test

@@ -4,12 +4,12 @@ import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 import Quick
 import Nimble
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class LibSessionGroupInfoSpec: QuickSpec {
@@ -31,7 +31,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
             migrationTargets: [
                 SNUtilitiesKit.self,
                 SNMessagingKit.self,
-                SNSnodeKit.self
+                SNNetworkingKit.self
             ],
             using: dependencies,
             initialData: { db in

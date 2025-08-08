@@ -10,7 +10,7 @@ import Quick
 import Nimble
 
 @testable import SessionMessagingKit
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 
 class MessageSenderGroupsSpec: QuickSpec {
     override class func spec() {

@@ -3,7 +3,7 @@
 import UIKit
 import Combine
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
