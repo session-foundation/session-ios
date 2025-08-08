@@ -132,7 +132,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     requireAllBatchResponses: (additionalTransientData?.requireAllBatchResponses == true),
                     swarmPublicKey: swarmPublicKey,
                     snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
-                    requestAndPathBuildTimeout: Network.defaultTimeout,
+                    overallTimeout: Network.defaultTimeout,
                     using: dependencies
                 ).send(using: dependencies)
             }

@@ -31,8 +31,6 @@ class PreparedRequestSendingSpec: QuickSpec {
             return try! Network.PreparedRequest(
                 request: request,
                 responseType: Int.self,
-                retryCount: 0,
-                requestTimeout: 10,
                 using: dependencies
             )
         }()
@@ -45,7 +43,16 @@ class PreparedRequestSendingSpec: QuickSpec {
             context("when sending") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
                         .thenReturn(MockNetwork.response(with: 1))
                 }
                 
@@ -322,15 +329,11 @@ class PreparedRequestSendingSpec: QuickSpec {
                                         try! Network.PreparedRequest(
                                             request: subRequest1,
                                             responseType: TestType.self,
-                                            retryCount: 0,
-                                            requestTimeout: 10,
                                             using: dependencies
                                         ),
                                         try! Network.PreparedRequest(
                                             request: subRequest2,
                                             responseType: TestType.self,
-                                            retryCount: 0,
-                                            requestTimeout: 10,
                                             using: dependencies
                                         )
                                     ]
@@ -340,8 +343,6 @@ class PreparedRequestSendingSpec: QuickSpec {
                             return try! Network.PreparedRequest(
                                 request: request,
                                 responseType: Network.BatchResponseMap<TestEndpoint>.self,
-                                retryCount: 0,
-                                requestTimeout: 10,
                                 using: dependencies
                             )
                         }()
@@ -352,7 +353,16 @@ class PreparedRequestSendingSpec: QuickSpec {
                         
                         beforeEach {
                             mockNetwork
-                                .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                                .when {
+                                    $0.send(
+                                        endpoint: MockEndpoint.any,
+                                        destination: .any,
+                                        body: .any,
+                                        category: .any,
+                                        requestTimeout: .any,
+                                        overallTimeout: .any
+                                    )
+                                }
                                 .thenReturn(
                                     MockNetwork.batchResponseData(with: [
                                         (endpoint: TestEndpoint.endpoint1, data: TestType.mockBatchSubResponse()),
@@ -403,16 +413,12 @@ class PreparedRequestSendingSpec: QuickSpec {
                                             try! Network.PreparedRequest(
                                                 request: subRequest1,
                                                 responseType: TestType.self,
-                                                retryCount: 0,
-                                                requestTimeout: 10,
                                                 using: dependencies
                                             )
                                             .map { _, _ in "Test" },
                                             try! Network.PreparedRequest(
                                                 request: subRequest2,
                                                 responseType: TestType.self,
-                                                retryCount: 0,
-                                                requestTimeout: 10,
                                                 using: dependencies
                                             )
                                         ]
@@ -422,8 +428,6 @@ class PreparedRequestSendingSpec: QuickSpec {
                                 return try! Network.PreparedRequest(
                                     request: request,
                                     responseType: Network.BatchResponseMap<TestEndpoint>.self,
-                                    retryCount: 0,
-                                    requestTimeout: 10,
                                     using: dependencies
                                 )
                             }()
@@ -472,8 +476,6 @@ class PreparedRequestSendingSpec: QuickSpec {
                                             try! Network.PreparedRequest(
                                                 request: subRequest1,
                                                 responseType: TestType.self,
-                                                retryCount: 0,
-                                                requestTimeout: 10,
                                                 using: dependencies
                                             )
                                             .handleEvents(
@@ -482,8 +484,6 @@ class PreparedRequestSendingSpec: QuickSpec {
                                             try! Network.PreparedRequest(
                                                 request: subRequest2,
                                                 responseType: TestType.self,
-                                                retryCount: 0,
-                                                requestTimeout: 10,
                                                 using: dependencies
                                             )
                                         ]
@@ -493,8 +493,6 @@ class PreparedRequestSendingSpec: QuickSpec {
                                 return try! Network.PreparedRequest(
                                     request: request,
                                     responseType: Network.BatchResponseMap<TestEndpoint>.self,
-                                    retryCount: 0,
-                                    requestTimeout: 10,
                                     using: dependencies
                                 )
                             }()

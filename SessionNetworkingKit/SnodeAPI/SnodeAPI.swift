@@ -90,7 +90,7 @@ public final class SnodeAPI {
         snode: LibSession.Snode? = nil,
         swarmPublicKey: String,
         requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponse> {
         return try SnodeAPI
@@ -101,7 +101,9 @@ public final class SnodeAPI {
                             return try Request(
                                 endpoint: .batch,
                                 swarmPublicKey: swarmPublicKey,
-                                body: Network.BatchRequest(requestsKey: .requests, requests: requests)
+                                body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                                requestTimeout: requestTimeout,
+                                overallTimeout: overallTimeout
                             )
                         
                         case .some(let snode):
@@ -109,14 +111,14 @@ public final class SnodeAPI {
                                 endpoint: .batch,
                                 snode: snode,
                                 swarmPublicKey: swarmPublicKey,
-                                body: Network.BatchRequest(requestsKey: .requests, requests: requests)
+                                body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                                requestTimeout: requestTimeout,
+                                overallTimeout: overallTimeout
                             )
                     }
                 }(),
                 responseType: Network.BatchResponse.self,
                 requireAllBatchResponses: requireAllBatchResponses,
-                requestTimeout: requestTimeout,
-                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
     }
@@ -127,7 +129,7 @@ public final class SnodeAPI {
         swarmPublicKey: String,
         snodeRetrievalRetryCount: Int,
         requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponse> {
         return try SnodeAPI
@@ -136,12 +138,12 @@ public final class SnodeAPI {
                     endpoint: .sequence,
                     swarmPublicKey: swarmPublicKey,
                     body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                    requestTimeout: requestTimeout,
+                    overallTimeout: overallTimeout,
                     snodeRetrievalRetryCount: snodeRetrievalRetryCount
                 ),
                 responseType: Network.BatchResponse.self,
                 requireAllBatchResponses: requireAllBatchResponses,
-                requestTimeout: requestTimeout,
-                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
     }
@@ -325,10 +327,10 @@ public final class SnodeAPI {
                             message: message,
                             namespace: namespace
                         ),
+                        overallTimeout: Network.defaultTimeout,
                         snodeRetrievalRetryCount: 0   // The SendMessageJob already has a retry mechanism
                     ),
                     responseType: SendMessagesResponse.self,
-                    requestAndPathBuildTimeout: Network.defaultTimeout,
                     using: dependencies
                 )
             }
@@ -343,10 +345,10 @@ public final class SnodeAPI {
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     ),
+                    overallTimeout: Network.defaultTimeout,
                     snodeRetrievalRetryCount: 0   // The SendMessageJob already has a retry mechanism
                 ),
                 responseType: SendMessagesResponse.self,
-                requestAndPathBuildTimeout: Network.defaultTimeout,
                 using: dependencies
             )
         }()
@@ -556,7 +558,7 @@ public final class SnodeAPI {
     public static func preparedDeleteAllMessages(
         namespace: SnodeAPI.Namespace,
         requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[String: Bool]> {
@@ -571,11 +573,11 @@ public final class SnodeAPI {
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     ),
+                    requestTimeout: requestTimeout,
+                    overallTimeout: overallTimeout,
                     snodeRetrievalRetryCount: 0
                 ),
                 responseType: DeleteAllMessagesResponse.self,
-                requestTimeout: requestTimeout,
-                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
             .tryMap { info, response -> [String: Bool] in
@@ -609,10 +611,10 @@ public final class SnodeAPI {
                         namespace: namespace,
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )
+                    ),
+                    retryCount: maxRetryCount,
                 ),
                 responseType: DeleteAllMessagesResponse.self,
-                retryCount: maxRetryCount,
                 using: dependencies
             )
             .tryMap { _, response -> [String: Bool] in
@@ -632,11 +634,16 @@ public final class SnodeAPI {
     ) throws -> Network.PreparedRequest<UInt64> {
         return try SnodeAPI
             .prepareRequest(
-                request: Request<SnodeRequest<[String: String]>, Endpoint>(
+                request: Request<[String: String], Endpoint>(
                     endpoint: .getInfo,
                     snode: snode,
                     body: [:]
                 ),
+//                request: Request<SnodeRequest<[String: String]>, Endpoint>(
+//                    endpoint: .getInfo,
+//                    snode: snode,
+//                    body: [:]
+//                ),
                 responseType: GetNetworkTimestampResponse.self,
                 using: dependencies
             )
@@ -656,18 +663,18 @@ public final class SnodeAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         requireAllBatchResponses: Bool = true,
-        retryCount: Int = 0,
-        requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+//        retryCount: Int = 0,
+//        requestTimeout: TimeInterval = Network.defaultTimeout,
+//        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return try Network.PreparedRequest<R>(
             request: request,
             responseType: responseType,
             requireAllBatchResponses: requireAllBatchResponses,
-            retryCount: retryCount,
-            requestTimeout: requestTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
+//            retryCount: retryCount,
+//            requestTimeout: requestTimeout,
+//            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .handleEvents(

@@ -22,10 +22,12 @@ public protocol NetworkType {
     func getRandomNodes(count: Int) -> AnyPublisher<Set<LibSession.Snode>, Error>
     
     func send(
-        _ body: Data?,
-        to destination: Network.Destination,
+        endpoint: (any EndpointType),
+        destination: Network.Destination,
+        body: Data?,
+        category: Network.RequestCategory,
         requestTimeout: TimeInterval,
-        requestAndPathBuildTimeout: TimeInterval?
+        overallTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error>
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error>
@@ -128,7 +130,7 @@ public extension Network {
     
     static func preparedUpload(
         data: Data,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> PreparedRequest<FileUploadResponse> {
         return try PreparedRequest(
@@ -139,11 +141,11 @@ public extension Network {
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),
-                body: data
+                body: data,
+                requestTimeout: Network.fileUploadTimeout,
+                overallTimeout: overallTimeout
             ),
             responseType: FileUploadResponse.self,
-            requestTimeout: Network.fileUploadTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
     }
@@ -159,10 +161,10 @@ public extension Network {
                     url: url,
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
-                )
+                ),
+                requestTimeout: Network.fileUploadTimeout
             ),
             responseType: Data.self,
-            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
     }

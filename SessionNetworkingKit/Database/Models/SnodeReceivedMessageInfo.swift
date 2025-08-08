@@ -60,7 +60,7 @@ public extension SnodeReceivedMessageInfo {
         expirationDateMs: Int64?
     ) {
         self.swarmPublicKey = swarmPublicKey
-        self.snodeAddress = snode.address
+        self.snodeAddress = snode.omqAddress
         self.namespace = namespace.rawValue
         self.hash = hash
         self.expirationDateMs = (expirationDateMs ?? 0)
@@ -85,7 +85,7 @@ public extension SnodeReceivedMessageInfo {
             .filter(SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false)
             .filter(
                 SnodeReceivedMessageInfo.Columns.swarmPublicKey == swarmPublicKey &&
-                SnodeReceivedMessageInfo.Columns.snodeAddress == snode.address &&
+                SnodeReceivedMessageInfo.Columns.snodeAddress == snode.omqAddress &&
                 SnodeReceivedMessageInfo.Columns.namespace == namespace.rawValue
             )
             .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > currentOffsetTimestampMs)

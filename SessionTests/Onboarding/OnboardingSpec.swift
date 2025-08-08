@@ -86,9 +86,12 @@ class OnboardingSpec: AsyncSpec {
             initialSetup: { network in
                 network.when { $0.getSwarm(for: .any) }.thenReturn([
                     LibSession.Snode(
+                        ed25519PubkeyHex: "1234",
                         ip: "1.2.3.4",
+                        httpsPort: 1233,
                         quicPort: 1234,
-                        ed25519PubkeyHex: "1234"
+                        version: "2.11.0",
+                        swarmId: 1
                     )
                 ])
                 
@@ -108,7 +111,16 @@ class OnboardingSpec: AsyncSpec {
                 )
                 
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.mock,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
@@ -453,17 +465,22 @@ class OnboardingSpec: AsyncSpec {
                 await expect(mockNetwork)
                     .toEventually(call(.exactly(times: 1), matchingParameters: .atLeast(3)) {
                         $0.send(
-                            Data(base64Encoded: base64EncodedDataString),
-                            to: Network.Destination.snode(
+                            endpoint: MockEndpoint.mock,
+                            destination: Network.Destination.snode(
                                 LibSession.Snode(
+                                    ed25519PubkeyHex: "",
                                     ip: "1.2.3.4",
+                                    httpsPort: 1233,
                                     quicPort: 1234,
-                                    ed25519PubkeyHex: ""
+                                    version: "2.11.0",
+                                    swarmId: 1
                                 ),
                                 swarmPublicKey: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"
                             ),
+                            body: Data(base64Encoded: base64EncodedDataString),
+                            category: .standard,
                             requestTimeout: 10,
-                            requestAndPathBuildTimeout: nil
+                            overallTimeout: nil
                         )
                     })
             }
