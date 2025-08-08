@@ -199,7 +199,6 @@
 		94AAB1582E24BD3700A6FA18 /* PinnedConversationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */; };
 		94AAB15E2E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
 		94AAB1602E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
-		94AAB1622E28742300A6FA18 /* _030_AddProfileProProof.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAB1612E28742200A6FA18 /* _030_AddProfileProProof.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94B6BAF62E30A88800E718BB /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAF52E30A88800E718BB /* SessionProState.swift */; };
 		94B6BB062E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */; };
@@ -1573,7 +1572,6 @@
 		94AAB1522E1F8AD900A6FA18 /* ShineButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShineButton.swift; sourceTree = "<group>"; };
 		94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = PinnedConversationsCTA.webp; sourceTree = "<group>"; };
 		94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTA.webp; sourceTree = "<group>"; };
-		94AAB1612E28742200A6FA18 /* _030_AddProfileProProof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _030_AddProfileProProof.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94B6BAF52E30A88800E718BB /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
 		94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTAAnimationCropped.webp; sourceTree = "<group>"; };
@@ -4053,7 +4051,6 @@
 				FD78E9F72DDD742100D55B50 /* _027_MoveSettingsToLibSession.swift */,
 				FD05594D2E012D1A00DC48CE /* _028_RenameAttachments.swift */,
 				94CD95C02E0CBF1C0097754D /* _029_AddProMessageFlag.swift */,
-				94AAB1612E28742200A6FA18 /* _030_AddProfileProProof.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -6608,7 +6605,6 @@
 				FD860CBC2D6E7A9F00BBE29C /* _024_FixBustedInteractionVariant.swift in Sources */,
 				FD22727B2C32911C004D8A6C /* MessageSendJob.swift in Sources */,
 				FD78E9EE2DD6D32500D55B50 /* ImageDataManager+Singleton.swift in Sources */,
-				94AAB1622E28742300A6FA18 /* _030_AddProfileProProof.swift in Sources */,
 				FDC4382027B36ADC00C60D73 /* SOGSEndpoint.swift in Sources */,
 				FDC438C927BB706500C60D73 /* SendDirectMessageRequest.swift in Sources */,
 				C3A71D1F25589AC30043A11F /* WebSocketResources.pb.swift in Sources */,

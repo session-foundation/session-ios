@@ -321,7 +321,7 @@ public extension Profile {
 
 public extension Profile {
     func shoudAnimateProfilePicture(using dependencies: Dependencies) -> Bool {
-        guard dependencies.hasSet(feature: .sessionProEnabled) && dependencies[feature: .sessionProEnabled] else { return true }
+        guard dependencies[feature: .sessionProEnabled] else { return true }
         
         guard self.id == dependencies[cache: .general].sessionId.hexString else {
             return dependencies.mutate(cache: .libSession, { $0.validateProProof(for: self) })

@@ -713,19 +713,23 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 guard let imageData: Data = source.imageData else { return }
                             
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(imageData)
-                                guard isAnimatedImage && !dependencies[cache: .libSession].isSessionPro else {
-                                    self?.updateProfile(
-                                        displayPictureUpdate: .currentUserUploadImageData(
-                                            data: imageData,
-                                            sessionProProof: !isAnimatedImage ? nil :
-                                                dependencies.mutate(cache: .libSession, { $0.getProProof() })
-                                        ),
-                                        onComplete: { [weak modal] in modal?.close() }
-                                    )
+                                guard (
+                                    !isAnimatedImage ||
+                                    dependencies[cache: .libSession].isSessionPro ||
+                                    !dependencies[feature: .sessionProEnabled]
+                                ) else {
+                                    self?.showSessionProCTAIfNeeded()
                                     return
                                 }
                             
-                                self?.showSessionProCTAIfNeeded()
+                                self?.updateProfile(
+                                    displayPictureUpdate: .currentUserUploadImageData(
+                                        data: imageData,
+                                        sessionProProof: !isAnimatedImage ? nil :
+                                            dependencies.mutate(cache: .libSession, { $0.getProProof() })
+                                    ),
+                                    onComplete: { [weak modal] in modal?.close() }
+                                )
                             
                             default: modal.close()
                         }

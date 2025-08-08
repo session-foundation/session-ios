@@ -34,8 +34,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
         
         let runJob: () -> () = {
             /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
-            let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-            let sessionProProof = dependencies.mutate(cache: .libSession) { $0.getProProof() }
+            let (profile, sessionProProof) = dependencies.mutate(cache: .libSession) { ($0.profile, $0.getProProof()) }
             let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
                 .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                 .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
