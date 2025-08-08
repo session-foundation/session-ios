@@ -78,12 +78,13 @@ public extension Profile {
                             }
                         }
                         
+                        let profileUpdateTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
                             displayNameUpdate: displayNameUpdate,
                             displayPictureUpdate: displayPictureUpdate,
-                            profileUpdateTimestamp:  dependencies.dateNow.timeIntervalSince1970,
+                            profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
                             sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                             using: dependencies
                         )
@@ -142,7 +143,7 @@ public extension Profile {
         
         /// There were some bugs (somewhere) where some of these timestamps valid could be in seconds or milliseconds so we need to try to
         /// detect this and convert it to proper seconds (if we don't then we will never update the profile)
-        func convertToSections(_ maybeValue: Double?) -> TimeInterval {
+        func convertToSeconds(_ maybeValue: Double?) -> TimeInterval {
             guard let value: Double = maybeValue else { return 0 }
             
             if value > 9_000_000_000_000 {  // Microseconds
@@ -155,7 +156,7 @@ public extension Profile {
         }
         
         // Name
-        switch (displayNameUpdate, isCurrentUser, (profileUpdateTimestamp > convertToSections(profile.lastNameUpdate))) {
+        switch (displayNameUpdate, isCurrentUser, (profileUpdateTimestamp > convertToSeconds(profile.lastNameUpdate))) {
             case (.none, _, _): break
             case (.currentUserUpdate(let name), true, true), (.contactUpdate(let name), false, true):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
@@ -172,13 +173,13 @@ public extension Profile {
         }
         
         // Blocks community message requests flag
-        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > convertToSections(profile.lastBlocksCommunityMessageRequests) {
+        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > convertToSeconds(profile.lastBlocksCommunityMessageRequests) {
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
             profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))
         }
         
         // Profile picture & profile key
-        switch (displayPictureUpdate, isCurrentUser, (profileUpdateTimestamp > convertToSections(profile.displayPictureLastUpdated))) {
+        switch (displayPictureUpdate, isCurrentUser, (profileUpdateTimestamp > convertToSeconds(profile.displayPictureLastUpdated))) {
             case (.none, _, _): break
             case (.currentUserUploadImageData, _, _), (.groupRemove, _, _), (.groupUpdateTo, _, _):
                 preconditionFailure("Invalid options for this function")

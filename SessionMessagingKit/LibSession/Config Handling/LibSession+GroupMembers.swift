@@ -523,7 +523,7 @@ internal extension LibSession {
                 Profile(
                     id: member.get(\.session_id),
                     name: member.get(\.name),
-                    lastNameUpdate: TimeInterval(member.profile_updated),
+                    lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                     nickname: nil,
                     displayPictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
                     displayPictureEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
