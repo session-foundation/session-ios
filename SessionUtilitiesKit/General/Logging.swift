@@ -730,8 +730,7 @@ public actor Logger: LoggerType {
         }()
         
         /// Clean up the message if needed (replace double periods with single, trim whitespace, truncate pubkeys)
-        let cleanedMessage: String = logPrefix
-            .appending(message)
+        let cleanedMessage: String = message
             .replacingOccurrences(of: "...", with: "|||")
             .replacingOccurrences(of: "..", with: ".")
             .replacingOccurrences(of: "|||", with: "...")

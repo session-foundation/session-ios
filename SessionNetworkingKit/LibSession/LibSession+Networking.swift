@@ -268,7 +268,6 @@ class LibSessionNetwork: NetworkType {
                 switch destination {
                     case .snode(let snode, _):
                         try LibSessionNetwork.withSnodeRequestParams(request, snode) { paramsPtr in
-//                            var mutableParams = params
                             session_network_send_request(network, paramsPtr, cCallback, ctx)
                         }
                         
@@ -990,12 +989,12 @@ public extension LibSession {
                     var error: [CChar] = [CChar](repeating: 0, count: 256)
                     var network: UnsafeMutablePointer<network_object_v2>?
                     var config: session_network_config = session_network_config_default()
+                    config.cache_refresh_using_legacy_endpoint = true
                     
                     if dependencies[feature: .serviceNetwork] == .testnet {
                         config.netid = SESSION_NETWORK_TESTNET
                         config.enforce_subnet_diversity = false // On testnet we can't do this as nodes share IPs
                     }
-                    
                     
                     let result: Result<Void, Error> = cCachePath.withUnsafeBufferPointer { cachePtr in
                         config.cache_dir = cachePtr.baseAddress

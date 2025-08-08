@@ -338,7 +338,6 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   
   echo "- Touching timestamp file to signal update to Xcode"
   touch "${BUILT_LIB_FINAL_TIMESTAMP_FILE}"
-  cp "${BUILT_LIB_FINAL_TIMESTAMP_FILE}" "${SPM_TIMESTAMP_FILE}"
 
   echo "- Build complete"
 fi
