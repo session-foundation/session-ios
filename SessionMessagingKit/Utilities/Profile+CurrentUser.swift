@@ -141,22 +141,8 @@ public extension Profile {
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
-        /// There were some bugs (somewhere) where some of these timestamps valid could be in seconds or milliseconds so we need to try to
-        /// detect this and convert it to proper seconds (if we don't then we will never update the profile)
-        func convertToSeconds(_ maybeValue: Double?) -> TimeInterval {
-            guard let value: Double = maybeValue else { return 0 }
-            
-            if value > 9_000_000_000_000 {  // Microseconds
-                return (value / 1_000_000)
-            } else if value > 9_000_000_000 {  // Milliseconds
-                return (value / 1000)
-            }
-            
-            return TimeInterval(value)  // Seconds
-        }
-        
         // Name
-        switch (displayNameUpdate, isCurrentUser, (profileUpdateTimestamp > convertToSeconds(profile.lastNameUpdate))) {
+        switch (displayNameUpdate, isCurrentUser, (profileUpdateTimestamp > profile.lastNameUpdate.defaulting(to: 0))) {
             case (.none, _, _): break
             case (.currentUserUpdate(let name), true, true), (.contactUpdate(let name), false, true):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
@@ -173,13 +159,13 @@ public extension Profile {
         }
         
         // Blocks community message requests flag
-        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > convertToSeconds(profile.lastBlocksCommunityMessageRequests) {
+        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > profile.lastBlocksCommunityMessageRequests.defaulting(to: 0) {
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
             profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))
         }
         
         // Profile picture & profile key
-        switch (displayPictureUpdate, isCurrentUser, (profileUpdateTimestamp > convertToSeconds(profile.displayPictureLastUpdated))) {
+        switch (displayPictureUpdate, isCurrentUser, (profileUpdateTimestamp > profile.displayPictureLastUpdated.defaulting(to: 0))) {
             case (.none, _, _): break
             case (.currentUserUploadImageData, _, _), (.groupRemove, _, _), (.groupUpdateTo, _, _):
                 preconditionFailure("Invalid options for this function")

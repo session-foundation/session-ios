@@ -48,18 +48,23 @@ public extension ProfilePictureView {
         )
         
         switch (explicitPath, publicKey.isEmpty, threadVariant) {
+            // TODO: Deal with this case later when implement group related Pro features
+            case (.some(let path), _, .legacyGroup), (.some(let path), _, .group): fallthrough
+            case (.some(let path), _, .community):
+                /// If we are given an explicit `displayPictureUrl` then only use that
+                return (Info(
+                    source: .url(URL(fileURLWithPath: path)),
+                    shouldAnimated: true,
+                    isCurrentUser: false,
+                    icon: profileIcon
+                ), nil)
+            
             case (.some(let path), _, _):
-                let shouldAnimated: Bool = {
-                    guard let profile: Profile = profile else {
-                        return threadVariant == .community
-                    }
-                    return profile.shoudAnimateProfilePicture(using: dependencies)
-                }()
                 /// If we are given an explicit `displayPictureUrl` then only use that
                 return (
                     Info(
                         source: .url(URL(fileURLWithPath: path)),
-                        shouldAnimated: shouldAnimated,
+                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) == true),
                         isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
                         icon: profileIcon
                     ),
