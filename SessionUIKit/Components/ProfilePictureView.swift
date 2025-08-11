@@ -7,10 +7,16 @@ import Lucide
 public final class ProfilePictureView: UIView {
     public struct Info {
         public enum AnimationBehaviour {
-            case alwaysEnableAnimation
-            case contactDisableAnimation
-            case contactEnableAnimation
-            case currentUser(SessionProManagerType?)
+            case generic(Bool) // For communities and when Pro is not enabled
+            case contact(Bool)
+            case currentUser(Bool)
+            
+            public var enableAnimation: Bool {
+                switch self {
+                    case .generic(let enableAnimation), .contact(let enableAnimation), .currentUser(let enableAnimation):
+                        return enableAnimation
+                }
+            }
         }
         
         let source: ImageDataManager.DataSource?
@@ -300,8 +306,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?, sessionProState: SessionProManagerType?) {
-        self.sessionProState = sessionProState
+    public init(size: Size, dataManager: ImageDataManagerType?, currentUserSessionProState: SessionProManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -310,19 +315,9 @@ public final class ProfilePictureView: UIView {
         clipsToBounds = true
         setUpViewHierarchy()
         
-        sessionProState?.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak self] isPro in
-                    if isPro {
-                        self?.startAnimatingIfNeeded()
-                    } else {
-                        self?.stopAnimatingIfNeeded()
-                    }
-                }
-            )
-            .store(in: &disposables)
+        if let currentUserSessionProState: SessionProManagerType = currentUserSessionProState {
+            setCurrentUserSessionProState(currentUserSessionProState)
+        }
     }
     
     public required init?(coder: NSCoder) {
@@ -418,9 +413,11 @@ public final class ProfilePictureView: UIView {
         self.additionalImageView.setDataManager(dataManager)
     }
     
-    public func setSessionProState(_ sessionProState: SessionProManagerType) {
-        self.sessionProState = sessionProState
-        sessionProState.isSessionProPublisher
+    public func setCurrentUserSessionProState(_ currentUserSessionProState: SessionProManagerType) {
+        self.currentUserSessionProState = currentUserSessionProState
+        
+        // TODO: Refactor this to use async/await instead of Combine
+        currentUserSessionProState.isSessionProPublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
@@ -552,13 +549,13 @@ public final class ProfilePictureView: UIView {
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                imageView.shouldAnimateImage = info.shouldAnimate
+                imageView.shouldAnimateImage = info.animationBehaviour.enableAnimation
                 imageView.loadImage(source)
                 
             default: imageView.image = nil
         }
         
-        if info.isCurrentUser {
+        if case .currentUser(_) = info.animationBehaviour {
             self.shouldAnimateForCurrentUserProUpgrade = .main
         }
         
@@ -603,7 +600,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimate
+                additionalImageView.shouldAnimateImage = additionalInfo.animationBehaviour.enableAnimation
                 additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
@@ -612,7 +609,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = true
         }
         
-        if additionalInfo.isCurrentUser {
+        if case .currentUser(_) = additionalInfo.animationBehaviour {
             self.shouldAnimateForCurrentUserProUpgrade = .additional
         }
         
@@ -703,7 +700,7 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
         ProfilePictureView(
             size: size,
             dataManager: dataManager,
-            sessionProState: sessionProState
+            currentUserSessionProState: sessionProState
         )
     }
     

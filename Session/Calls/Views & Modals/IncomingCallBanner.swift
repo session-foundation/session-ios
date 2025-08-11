@@ -26,7 +26,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
         size: .list,
         dataManager: dependencies[singleton: .imageDataManager],
-        sessionProState: dependencies[singleton: .sessionProState]
+        currentUserSessionProState: dependencies[singleton: .sessionProState]
     )
     
     private lazy var displayNameLabel: UILabel = {

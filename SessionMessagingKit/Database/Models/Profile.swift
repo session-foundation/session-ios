@@ -320,16 +320,6 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
-    func animationBehaviour(using dependencies: Dependencies) -> ProfilePictureView.Info.AnimationBehaviour {
-        guard dependencies[feature: .sessionProEnabled] else { return true }
-        
-        guard self.id == dependencies[cache: .general].sessionId.hexString else {
-            return dependencies.mutate(cache: .libSession, { $0.validateProProof(for: self) })
-        }
-        
-        return dependencies[cache: .libSession].isSessionPro
-    }
-    
     func displayNameForMention(
         for threadVariant: SessionThread.Variant = .contact,
         ignoringNickname: Bool = false,
