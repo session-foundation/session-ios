@@ -76,8 +76,17 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         setNavBarTitle("communityJoin".localized())
         view.themeBackgroundColor = .backgroundSecondary
-        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
-        
+    
+        // Only compute navbar height when it's a full screen presentation
+        var navBarHeight: CGFloat {
+            switch modalPresentationStyle {
+            case .fullScreen:
+                return navigationController?.navigationBar.frame.size.height ?? 0
+            default:
+                return 0
+            }
+        }
+       
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
         navigationItem.rightBarButtonItem = closeButton
