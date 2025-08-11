@@ -36,7 +36,8 @@ public struct ProCTAModal: View {
             }
         }
         /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
-        /// animated webp.
+        /// animated webp. These coordinates are based on the full size image and get scaled during rendering based on the actual size
+        /// of the modal.
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
                 case .generic:

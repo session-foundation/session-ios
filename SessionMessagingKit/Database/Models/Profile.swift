@@ -320,7 +320,7 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
-    func shoudAnimateProfilePicture(using dependencies: Dependencies) -> Bool {
+    func animationBehaviour(using dependencies: Dependencies) -> ProfilePictureView.Info.AnimationBehaviour {
         guard dependencies[feature: .sessionProEnabled] else { return true }
         
         guard self.id == dependencies[cache: .general].sessionId.hexString else {

@@ -6,9 +6,15 @@ import Lucide
 
 public final class ProfilePictureView: UIView {
     public struct Info {
+        public enum AnimationBehaviour {
+            case alwaysEnableAnimation
+            case contactDisableAnimation
+            case contactEnableAnimation
+            case currentUser(SessionProManagerType?)
+        }
+        
         let source: ImageDataManager.DataSource?
-        let shouldAnimated: Bool
-        let isCurrentUser: Bool
+        let animationBehaviour: AnimationBehaviour
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -18,8 +24,7 @@ public final class ProfilePictureView: UIView {
         
         public init(
             source: ImageDataManager.DataSource?,
-            shouldAnimated: Bool,
-            isCurrentUser: Bool,
+            animationBehaviour: AnimationBehaviour,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -28,8 +33,7 @@ public final class ProfilePictureView: UIView {
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
-            self.shouldAnimated = shouldAnimated
-            self.isCurrentUser = isCurrentUser
+            self.animationBehaviour = animationBehaviour
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -110,7 +114,7 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    private var sessionProState: SessionProManagerType?
+    private var currentUserSessionProState: SessionProManagerType?
     public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
@@ -548,7 +552,7 @@ public final class ProfilePictureView: UIView {
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                imageView.shouldAnimateImage = info.shouldAnimated
+                imageView.shouldAnimateImage = info.shouldAnimate
                 imageView.loadImage(source)
                 
             default: imageView.image = nil
@@ -599,7 +603,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimated
+                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimate
                 additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 

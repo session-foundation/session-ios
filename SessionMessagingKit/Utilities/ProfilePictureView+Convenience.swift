@@ -54,8 +54,7 @@ public extension ProfilePictureView {
                 /// If we are given an explicit `displayPictureUrl` then only use that
                 return (Info(
                     source: .url(URL(fileURLWithPath: path)),
-                    shouldAnimated: true,
-                    isCurrentUser: false,
+                    animationBehaviour: .contactEnableAnimation,
                     icon: profileIcon
                 ), nil)
             
@@ -64,8 +63,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         source: .url(URL(fileURLWithPath: path)),
-                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) == true),
-                        isCurrentUser: (publicKey == dependencies[cache: .general].sessionId.hexString),
+                        animationBehaviour: profile?.animationBehaviour(using: dependencies),
                         icon: profileIcon
                     ),
                     nil
@@ -81,8 +79,7 @@ public extension ProfilePictureView {
                                 case .hero, .modal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
-                        shouldAnimated: true,
-                        isCurrentUser: false,
+                        animationBehaviour: .contactEnableAnimation,
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -121,7 +118,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         source: source,
-                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
+                        shouldAnimate: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
                         isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
                         icon: profileIcon
                     ),
@@ -145,7 +142,7 @@ public extension ProfilePictureView {
                             
                             return Info(
                                 source: source,
-                                shouldAnimated: other.shoudAnimateProfilePicture(using: dependencies),
+                                shouldAnimate: other.shoudAnimateProfilePicture(using: dependencies),
                                 isCurrentUser: (other.id == dependencies[cache: .general].sessionId.hexString),
                                 icon: additionalProfileIcon
                             )
@@ -153,7 +150,7 @@ public extension ProfilePictureView {
                         .defaulting(
                             to: Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
-                                shouldAnimated: false,
+                                shouldAnimate: false,
                                 isCurrentUser: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
@@ -189,7 +186,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         source: source,
-                        shouldAnimated: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
+                        shouldAnimate: (profile?.shoudAnimateProfilePicture(using: dependencies) ?? false),
                         isCurrentUser: (profile?.id == dependencies[cache: .general].sessionId.hexString),
                         icon: profileIcon),
                     nil
