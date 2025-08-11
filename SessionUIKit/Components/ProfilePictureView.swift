@@ -167,7 +167,7 @@ public final class ProfilePictureView: UIView {
         case additional
     }
     
-    public var shouldAnimateForCurrentUserProUpgrade: CurrentUserProfileImage = .none
+    public var currentUserProfileImage: CurrentUserProfileImage = .none
     
     // MARK: - Constraints
     
@@ -423,9 +423,9 @@ public final class ProfilePictureView: UIView {
             .sink(
                 receiveValue: { [weak self] isPro in
                     if isPro {
-                        self?.startAnimatingIfNeeded()
+                        self?.startAnimatingForCurrentUserIfNeeded()
                     } else {
-                        self?.stopAnimatingIfNeeded()
+                        self?.stopAnimatingForCurrentUserIfNeeded()
                     }
                     
                 }
@@ -556,7 +556,7 @@ public final class ProfilePictureView: UIView {
         }
         
         if case .currentUser(_) = info.animationBehaviour {
-            self.shouldAnimateForCurrentUserProUpgrade = .main
+            self.currentUserProfileImage = .main
         }
         
         imageView.themeTintColor = info.themeTintColor
@@ -610,7 +610,7 @@ public final class ProfilePictureView: UIView {
         }
         
         if case .currentUser(_) = additionalInfo.animationBehaviour {
-            self.shouldAnimateForCurrentUserProUpgrade = .additional
+            self.currentUserProfileImage = .additional
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
@@ -648,8 +648,8 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
-    public func startAnimatingIfNeeded() {
-        switch shouldAnimateForCurrentUserProUpgrade {
+    public func startAnimatingForCurrentUserIfNeeded() {
+        switch currentUserProfileImage {
             case .none:
                 break
             case .main:
@@ -659,8 +659,8 @@ public final class ProfilePictureView: UIView {
         }
     }
     
-    public func stopAnimatingIfNeeded() {
-        switch shouldAnimateForCurrentUserProUpgrade {
+    public func stopAnimatingForCurrentUserIfNeeded() {
+        switch currentUserProfileImage {
             case .none:
                 break
             case .main:
