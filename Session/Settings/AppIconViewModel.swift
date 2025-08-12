@@ -157,7 +157,6 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                     case .none: self?.updateAppIcon(.weather)
                                 }
                             }
-                            
                         )
                     ]
                 ),
@@ -173,8 +172,7 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                 )
                             ),
                             accessibility: Accessibility(
-                                identifier: AppIcon(name: current).accessibilityLabel,
-                                label: AppIcon(name: current).accessibilityLabel
+                                identifier: AppIcon(name: current).accessibilityLabel
                             )
                         )
                     ]
