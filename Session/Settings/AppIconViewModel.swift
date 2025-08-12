@@ -25,7 +25,7 @@ enum AppIcon: String, CaseIterable {
     var previewImageName: String { "\(rawValue)-Preview" }
     
     // stringlint:ignore_contents
-    var accessibilityLabel: String {
+    var accessibilityIdentifier: String {
         switch self {
         case .session:
             "Session option"
@@ -172,7 +172,7 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                 )
                             ),
                             accessibility: Accessibility(
-                                identifier: AppIcon(name: current).accessibilityLabel
+                                identifier: AppIcon(name: current).accessibilityIdentifier
                             )
                         )
                     ]
