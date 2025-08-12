@@ -62,6 +62,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         do {
             let mainAppUnreadCount: Int = try performSetup(notificationInfo)
+            notificationInfo = notificationInfo.with(mainAppUnreadCount: mainAppUnreadCount)
             notificationInfo = try extractNotificationInfo(notificationInfo, mainAppUnreadCount)
             try setupGroupIfNeeded(notificationInfo)
             
@@ -1287,7 +1288,8 @@ private extension NotificationServiceExtension {
             requestId: String? = nil,
             content: UNMutableNotificationContent? = nil,
             contentHandler: ((UNNotificationContent) -> Void)? = nil,
-            metadata: PushNotificationAPI.NotificationMetadata? = nil
+            metadata: PushNotificationAPI.NotificationMetadata? = nil,
+            mainAppUnreadCount: Int? = nil
         ) -> NotificationInfo {
             return NotificationInfo(
                 content: (content ?? self.content),
@@ -1295,7 +1297,7 @@ private extension NotificationServiceExtension {
                 contentHandler: (contentHandler ?? self.contentHandler),
                 metadata: (metadata ?? self.metadata),
                 data: data,
-                mainAppUnreadCount: mainAppUnreadCount
+                mainAppUnreadCount: (mainAppUnreadCount ?? self.mainAppUnreadCount)
             )
         }
     }
