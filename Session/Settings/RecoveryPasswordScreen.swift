@@ -222,9 +222,11 @@ struct RecoveryPasswordScreen: View {
                                     .frame(
                                         height: Values.mediumSmallButtonHeight
                                     )
-                                    .frame(minWidth: 50)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 5)
+                                    .frame(
+                                        minWidth: Values.alertButtonHeight,
+                                        alignment: .center
+                                    )
+                                    .padding(.horizontal, Values.smallSpacing)
                                     .overlay(
                                         Capsule()
                                             .stroke(themeColor: .danger)
