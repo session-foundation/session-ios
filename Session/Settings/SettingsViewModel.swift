@@ -723,11 +723,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 }
                             
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(
-                                        data: imageData,
-                                        sessionProProof: !isAnimatedImage ? nil :
-                                            dependencies.mutate(cache: .libSession, { $0.getProProof() })
-                                    ),
+                                    displayPictureUpdate: .currentUserUploadImageData(data: imageData),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                             

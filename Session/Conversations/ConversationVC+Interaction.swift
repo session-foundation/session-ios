@@ -800,8 +800,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
-                        profileUpdateTimestamp: (currentUserProfile.lastNameUpdate ?? sentTimestamp),
-                        sentTimestamp: sentTimestamp,
+                        profileUpdateTimestamp: (currentUserProfile.profileLastUpdated ?? sentTimestamp),
                         using: dependencies
                     )
                 }

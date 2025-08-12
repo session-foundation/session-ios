@@ -782,11 +782,10 @@ public extension LibSession.Cache {
             return Profile(
                 id: contactId,
                 name: String(cString: profileNamePtr),
-                lastNameUpdate: nil,
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : displayPic.get(\.key)),
-                displayPictureLastUpdated: nil
+                profileLastUpdated: nil
             )
         }
         
@@ -812,11 +811,10 @@ public extension LibSession.Cache {
             return Profile(
                 id: contactId,
                 name: (displayNameInMessage ?? member.get(\.name)),
-                lastNameUpdate: nil,
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-                displayPictureLastUpdated: nil
+                profileLastUpdated: nil
             )
         }
         
@@ -838,11 +836,10 @@ public extension LibSession.Cache {
         return Profile(
             id: contactId,
             name: (displayNameInMessage ?? contact.get(\.name)),
-            lastNameUpdate: nil,
             nickname: contact.get(\.nickname, nullIfEmpty: true),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            displayPictureLastUpdated: nil
+            profileLastUpdated: nil
         )
     }
     

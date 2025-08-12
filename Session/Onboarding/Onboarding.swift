@@ -405,14 +405,13 @@ extension Onboarding {
                                 .upsert(db)
                             try Profile
                                 .filter(id: userSessionId.hexString)
-                                .updateAll(db, Profile.Columns.lastNameUpdate.set(to: nil))
+                                .updateAll(db, Profile.Columns.profileLastUpdated.set(to: nil))
                             try Profile.updateIfNeeded(
                                 db,
                                 publicKey: userSessionId.hexString,
                                 displayNameUpdate: .currentUserUpdate(displayName),
                                 displayPictureUpdate: .none,
                                 profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                                sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                                 using: dependencies
                             )
                             

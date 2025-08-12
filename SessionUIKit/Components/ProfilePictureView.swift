@@ -497,6 +497,8 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func prepareForReuse() {
+        currentUserProfileImage = .none
+        
         imageView.image = nil
         imageView.shouldAnimateImage = true
         imageView.contentMode = .scaleAspectFill

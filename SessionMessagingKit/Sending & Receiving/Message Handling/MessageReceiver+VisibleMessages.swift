@@ -46,7 +46,6 @@ extension MessageReceiver {
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 profileUpdateTimestamp: profileUpdateTimestamp,
-                sentTimestamp: messageSentTimestamp,
                 using: dependencies
             )
         }

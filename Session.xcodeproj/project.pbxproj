@@ -173,6 +173,7 @@
 		942256A12C23F90700C0FDBF /* CustomTopTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942256A02C23F90700C0FDBF /* CustomTopTabBar.swift */; };
 		9422EE2B2B8C3A97004C740D /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422EE2A2B8C3A97004C740D /* String+Utilities.swift */; };
 		942ADDD42D9F9613006E0BB0 /* NewTagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942ADDD32D9F960C006E0BB0 /* NewTagView.swift */; };
+		942BA9BF2E4ABBA1007C4595 /* _030_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _030_LastProfileUpdateTimestamp.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1543,6 +1544,7 @@
 		942256A02C23F90700C0FDBF /* CustomTopTabBar.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CustomTopTabBar.swift; sourceTree = "<group>"; };
 		9422EE2A2B8C3A97004C740D /* String+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Utilities.swift"; sourceTree = "<group>"; };
 		942ADDD32D9F960C006E0BB0 /* NewTagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagView.swift; sourceTree = "<group>"; };
+		942BA9BE2E4ABB9F007C4595 /* _030_LastProfileUpdateTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _030_LastProfileUpdateTimestamp.swift; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
@@ -4051,6 +4053,7 @@
 				FD78E9F72DDD742100D55B50 /* _027_MoveSettingsToLibSession.swift */,
 				FD05594D2E012D1A00DC48CE /* _028_RenameAttachments.swift */,
 				94CD95C02E0CBF1C0097754D /* _029_AddProMessageFlag.swift */,
+				942BA9BE2E4ABB9F007C4595 /* _030_LastProfileUpdateTimestamp.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -6653,6 +6656,7 @@
 				FD09797027FA6FF300936362 /* Profile.swift in Sources */,
 				FD245C56285065EA00B966DD /* SNProto.swift in Sources */,
 				FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */,
+				942BA9BF2E4ABBA1007C4595 /* _030_LastProfileUpdateTimestamp.swift in Sources */,
 				FDE754F12C9BB08B002A2623 /* Crypto+LibSession.swift in Sources */,
 				FD09798B27FD1CFE00936362 /* Capability.swift in Sources */,
 				C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */,

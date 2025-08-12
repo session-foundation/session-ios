@@ -75,7 +75,6 @@ internal extension LibSessionCacheType {
                 )
             }(),
             profileUpdateTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
-            sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
             using: dependencies
         )
         

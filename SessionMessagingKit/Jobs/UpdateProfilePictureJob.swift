@@ -40,11 +40,11 @@ public enum UpdateProfilePictureJob: JobExecutor {
             lastUploadDate.map({ dependencies.dateNow.timeIntervalSince($0) > (14 * 24 * 60 * 60) }) == true
         {
             /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
-            let (profile, sessionProProof) = dependencies.mutate(cache: .libSession) { ($0.profile, $0.getProProof()) }
+            let profile = dependencies.mutate(cache: .libSession) { $0.profile }
             let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
                 .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                 .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
-                .map { .currentUserUploadImageData(data: $0, sessionProProof: sessionProProof)}
+                .map { .currentUserUploadImageData(data: $0)}
                 .defaulting(to: .none)
             
             Profile
