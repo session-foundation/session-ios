@@ -2212,8 +2212,7 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        // Dismiss search textfield
-        if isShowingSearchUI { hideSearchUI() }
+        if isShowingSearchUI { willManuallyCancelSearchUI() }
         
         _ = snInputView.becomeFirstResponder()
         completion?()
