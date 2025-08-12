@@ -2211,6 +2211,10 @@ extension ConversationVC:
             model: quoteDraft,
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
+        
+        // Dismiss search textfield
+        if isShowingSearchUI { hideSearchUI() }
+        
         _ = snInputView.becomeFirstResponder()
         completion?()
     }
