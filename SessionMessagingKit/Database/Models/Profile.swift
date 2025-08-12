@@ -29,8 +29,6 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         case profileLastUpdated
         
         case blocksCommunityMessageRequests
-        
-        case sessionProProof
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -105,8 +103,7 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
             displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
             profileLastUpdated: \(profileLastUpdated.map { "\($0)" } ?? "null"),
-            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
-            sessionProProof: \(sessionProProof.map { "\($0)" } ?? "null")
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -137,8 +134,7 @@ public extension Profile {
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: displayPictureKey,
             profileLastUpdated: try? container.decode(TimeInterval?.self, forKey: .profileLastUpdated),
-            blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
-            sessionProProof: try? container.decode(String?.self, forKey: .sessionProProof)
+            blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests)
         )
     }
     
@@ -152,7 +148,6 @@ public extension Profile {
         try container.encodeIfPresent(displayPictureEncryptionKey, forKey: .displayPictureEncryptionKey)
         try container.encodeIfPresent(profileLastUpdated, forKey: .profileLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
-        try container.encodeIfPresent(sessionProProof, forKey: .sessionProProof)
     }
 }
 

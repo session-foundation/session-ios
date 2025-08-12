@@ -203,8 +203,6 @@ public extension Profile {
                     if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
                         profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                     }
-                    
-                    profileChanges.append(Profile.Columns.sessionProProof.set(to: proProof))
                 }
             
             /// Don't want profiles in messages to modify the current users profile info so ignore those cases
