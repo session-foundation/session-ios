@@ -63,7 +63,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         do {
             let mainAppUnreadCount: Int = try performSetup(notificationInfo)
             notificationInfo = notificationInfo.with(mainAppUnreadCount: mainAppUnreadCount)
-            notificationInfo = try extractNotificationInfo(notificationInfo, mainAppUnreadCount)
+            notificationInfo = try extractNotificationInfo(notificationInfo)
             try setupGroupIfNeeded(notificationInfo)
             
             processedNotification = try processNotification(notificationInfo)
@@ -152,7 +152,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Notification Handling
     
-    private func extractNotificationInfo(_ info: NotificationInfo, _ mainAppUnreadCount: Int) throws -> NotificationInfo {
+    private func extractNotificationInfo(_ info: NotificationInfo) throws -> NotificationInfo {
         let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
             notificationContent: info.content,
             using: dependencies
@@ -170,7 +170,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     contentHandler: info.contentHandler,
                     metadata: metadata,
                     data: data,
-                    mainAppUnreadCount: mainAppUnreadCount
+                    mainAppUnreadCount: info.mainAppUnreadCount
                 )
                 
             default: throw NotificationError.processingError(result, metadata)
