@@ -40,8 +40,10 @@ public class Dependencies {
     
     // MARK: - Initialization
     
-    public static func createEmpty() -> Dependencies { return Dependencies() }
-    private init() {
+    public static func createEmpty() -> Dependencies { return Dependencies(forTesting: false) }
+    
+    /// This constructor should not be used directly (except for `TestDependencies`), use `Dependencies.createEmpty()` instead
+    internal init(forTesting: Bool) {
         let (stream, continuation) = AsyncStream.makeStream(of: DependencyChange.self)
         dependecyChangeStream = stream
         dependecyChangeContinuation = continuation
