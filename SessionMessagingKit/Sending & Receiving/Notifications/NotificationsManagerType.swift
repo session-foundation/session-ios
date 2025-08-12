@@ -413,7 +413,7 @@ public extension NotificationsManagerType {
 
 // MARK: - NoopNotificationsManager
 
-public struct NoopNotificationsManager: NotificationsManagerType {
+public struct NoopNotificationsManager: NotificationsManagerType, NoopDependency {
     public let dependencies: Dependencies
     
     public init(using dependencies: Dependencies) {
