@@ -27,7 +27,6 @@ extension MessageReceiver {
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
             let messageSentTimestampMs: UInt64 = message.sentTimestampMs ?? 0
-            let messageSentTimestamp: TimeInterval = TimeInterval(Double(messageSentTimestampMs) / 1000)
             let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? messageSentTimestampMs) / 1000)
             
             try Profile.updateIfNeeded(
@@ -36,7 +35,6 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
                 profileUpdateTimestamp: profileUpdateTimestamp,
-                sentTimestamp: messageSentTimestamp,
                 using: dependencies
             )
         }

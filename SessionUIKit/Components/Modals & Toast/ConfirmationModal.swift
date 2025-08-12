@@ -216,7 +216,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     private lazy var profileView: ProfilePictureView = ProfilePictureView(
         size: .modal,
         dataManager: nil,
-        sessionProState: nil
+        currentUserSessionProState: nil
     )
     
     private lazy var textToConfirmContainer: UIView = {
@@ -550,8 +550,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 profileView.update(
                     ProfilePictureView.Info(
                         source: (source ?? placeholder),
-                        shouldAnimated: true,
-                        isCurrentUser: true,
+                        animationBehaviour: .currentUser(true),
                         icon: icon
                     )
                 )

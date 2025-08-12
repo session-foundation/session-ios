@@ -132,7 +132,7 @@ public extension Network {
         using dependencies: Dependencies
     ) throws -> PreparedRequest<FileUploadResponse> {
         var headers: [HTTPHeader: String] = [:]
-        if dependencies.hasSet(feature: .shortenFileTTL) {
+        if dependencies[feature: .shortenFileTTL] {
             headers = [.fileCustomTTL : "60"]
         }
         return try PreparedRequest(

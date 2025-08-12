@@ -192,7 +192,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         db,
                         Profile.Columns.displayPictureUrl.set(to: url),
                         Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                        Profile.Columns.displayPictureLastUpdated.set(to: details.timestamp),
+                        Profile.Columns.profileLastUpdated.set(to: details.timestamp),
                         using: dependencies
                     )
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
@@ -302,7 +302,7 @@ extension DisplayPictureDownloadJob {
                         let key: Data = profile.displayPictureEncryptionKey,
                         let details: Details = Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
-                            timestamp: (profile.displayPictureLastUpdated ?? 0)
+                            timestamp: (profile.profileLastUpdated ?? 0)
                         )
                     else { return nil }
                     
@@ -347,7 +347,7 @@ extension DisplayPictureDownloadJob {
                     guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else { return false }
                     
                     return (
-                        timestamp >= (latestProfile.displayPictureLastUpdated ?? 0) || (
+                        timestamp >= (latestProfile.profileLastUpdated ?? 0) || (
                             encryptionKey == latestProfile.displayPictureEncryptionKey &&
                             url == latestProfile.displayPictureUrl
                         )

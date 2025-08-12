@@ -24,7 +24,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
         size: .list,
         dataManager: nil,
-        sessionProState: nil
+        currentUserSessionProState: nil
     )
 
     private lazy var displayNameLabel: UILabel = {
@@ -281,7 +281,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     // MARK: --Search Results
     public func updateForDefaultContacts(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
-        profilePictureView.setSessionProState(dependencies[singleton: .sessionProState])
+        profilePictureView.setCurrentUserSessionProState(dependencies[singleton: .sessionProState])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
@@ -358,7 +358,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         using dependencies: Dependencies
     ) {
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
-        profilePictureView.setSessionProState(dependencies[singleton: .sessionProState])
+        profilePictureView.setCurrentUserSessionProState(dependencies[singleton: .sessionProState])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
@@ -434,7 +434,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             )
         )
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
-        profilePictureView.setSessionProState(dependencies[singleton: .sessionProState])
+        profilePictureView.setCurrentUserSessionProState(dependencies[singleton: .sessionProState])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,

@@ -40,7 +40,11 @@ final class SimplifiedConversationCell: UITableViewCell {
     }()
     
     private lazy var profilePictureView: ProfilePictureView = {
-        let view: ProfilePictureView = ProfilePictureView(size: .list, dataManager: nil, sessionProState: nil)
+        let view: ProfilePictureView = ProfilePictureView(
+            size: .list,
+            dataManager: nil,
+            currentUserSessionProState: nil
+        )
         view.translatesAutoresizingMaskIntoConstraints = false
         
         return view
@@ -88,7 +92,7 @@ final class SimplifiedConversationCell: UITableViewCell {
     public func update(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
         accentLineView.alpha = (cellViewModel.threadIsBlocked == true ? 1 : 0)
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
-        profilePictureView.setSessionProState(dependencies[singleton: .sessionProState])
+        profilePictureView.setCurrentUserSessionProState(dependencies[singleton: .sessionProState])
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,

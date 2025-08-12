@@ -6,9 +6,21 @@ import Lucide
 
 public final class ProfilePictureView: UIView {
     public struct Info {
+        public enum AnimationBehaviour {
+            case generic(Bool) // For communities and when Pro is not enabled
+            case contact(Bool)
+            case currentUser(Bool)
+            
+            public var enableAnimation: Bool {
+                switch self {
+                    case .generic(let enableAnimation), .contact(let enableAnimation), .currentUser(let enableAnimation):
+                        return enableAnimation
+                }
+            }
+        }
+        
         let source: ImageDataManager.DataSource?
-        let shouldAnimated: Bool
-        let isCurrentUser: Bool
+        let animationBehaviour: AnimationBehaviour
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -18,8 +30,7 @@ public final class ProfilePictureView: UIView {
         
         public init(
             source: ImageDataManager.DataSource?,
-            shouldAnimated: Bool,
-            isCurrentUser: Bool,
+            animationBehaviour: AnimationBehaviour,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -28,8 +39,7 @@ public final class ProfilePictureView: UIView {
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
-            self.shouldAnimated = shouldAnimated
-            self.isCurrentUser = isCurrentUser
+            self.animationBehaviour = animationBehaviour
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -110,7 +120,7 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    private var sessionProState: SessionProManagerType?
+    private var currentUserSessionProState: SessionProManagerType?
     public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
@@ -157,7 +167,7 @@ public final class ProfilePictureView: UIView {
         case additional
     }
     
-    public var shouldAnimateForCurrentUserProUpgrade: CurrentUserProfileImage = .none
+    public var currentUserProfileImage: CurrentUserProfileImage = .none
     
     // MARK: - Constraints
     
@@ -296,8 +306,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?, sessionProState: SessionProManagerType?) {
-        self.sessionProState = sessionProState
+    public init(size: Size, dataManager: ImageDataManagerType?, currentUserSessionProState: SessionProManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -306,19 +315,9 @@ public final class ProfilePictureView: UIView {
         clipsToBounds = true
         setUpViewHierarchy()
         
-        sessionProState?.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak self] isPro in
-                    if isPro {
-                        self?.startAnimatingIfNeeded()
-                    } else {
-                        self?.stopAnimatingIfNeeded()
-                    }
-                }
-            )
-            .store(in: &disposables)
+        if let currentUserSessionProState: SessionProManagerType = currentUserSessionProState {
+            setCurrentUserSessionProState(currentUserSessionProState)
+        }
     }
     
     public required init?(coder: NSCoder) {
@@ -414,17 +413,19 @@ public final class ProfilePictureView: UIView {
         self.additionalImageView.setDataManager(dataManager)
     }
     
-    public func setSessionProState(_ sessionProState: SessionProManagerType) {
-        self.sessionProState = sessionProState
-        sessionProState.isSessionProPublisher
+    public func setCurrentUserSessionProState(_ currentUserSessionProState: SessionProManagerType) {
+        self.currentUserSessionProState = currentUserSessionProState
+        
+        // TODO: Refactor this to use async/await instead of Combine
+        currentUserSessionProState.isSessionProPublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveValue: { [weak self] isPro in
                     if isPro {
-                        self?.startAnimatingIfNeeded()
+                        self?.startAnimatingForCurrentUserIfNeeded()
                     } else {
-                        self?.stopAnimatingIfNeeded()
+                        self?.stopAnimatingForCurrentUserIfNeeded()
                     }
                     
                 }
@@ -496,6 +497,8 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func prepareForReuse() {
+        currentUserProfileImage = .none
+        
         imageView.image = nil
         imageView.shouldAnimateImage = true
         imageView.contentMode = .scaleAspectFill
@@ -548,14 +551,14 @@ public final class ProfilePictureView: UIView {
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                imageView.shouldAnimateImage = info.shouldAnimated
+                imageView.shouldAnimateImage = info.animationBehaviour.enableAnimation
                 imageView.loadImage(source)
                 
             default: imageView.image = nil
         }
         
-        if info.isCurrentUser {
-            self.shouldAnimateForCurrentUserProUpgrade = .main
+        if case .currentUser(_) = info.animationBehaviour {
+            self.currentUserProfileImage = .main
         }
         
         imageView.themeTintColor = info.themeTintColor
@@ -599,7 +602,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.shouldAnimateImage = additionalInfo.shouldAnimated
+                additionalImageView.shouldAnimateImage = additionalInfo.animationBehaviour.enableAnimation
                 additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
@@ -608,8 +611,8 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = true
         }
         
-        if additionalInfo.isCurrentUser {
-            self.shouldAnimateForCurrentUserProUpgrade = .additional
+        if case .currentUser(_) = additionalInfo.animationBehaviour {
+            self.currentUserProfileImage = .additional
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
@@ -647,8 +650,8 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
-    public func startAnimatingIfNeeded() {
-        switch shouldAnimateForCurrentUserProUpgrade {
+    public func startAnimatingForCurrentUserIfNeeded() {
+        switch currentUserProfileImage {
             case .none:
                 break
             case .main:
@@ -658,8 +661,8 @@ public final class ProfilePictureView: UIView {
         }
     }
     
-    public func stopAnimatingIfNeeded() {
-        switch shouldAnimateForCurrentUserProUpgrade {
+    public func stopAnimatingForCurrentUserIfNeeded() {
+        switch currentUserProfileImage {
             case .none:
                 break
             case .main:
@@ -699,7 +702,7 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
         ProfilePictureView(
             size: size,
             dataManager: dataManager,
-            sessionProState: sessionProState
+            currentUserSessionProState: sessionProState
         )
     }
     

@@ -583,13 +583,11 @@ class OnboardingSpec: AsyncSpec {
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
-                        lastNameUpdate: 1234567890,
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil,
-                        blocksCommunityMessageRequests: nil,
-                        lastBlocksCommunityMessageRequests: nil
+                        profileLastUpdated: 1234567890,
+                        blocksCommunityMessageRequests: nil
                     )
                 ]))
             }
@@ -623,13 +621,11 @@ class OnboardingSpec: AsyncSpec {
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
-                        lastNameUpdate: nil,
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil,
-                        blocksCommunityMessageRequests: nil,
-                        lastBlocksCommunityMessageRequests: nil
+                        profileLastUpdated: nil,
+                        blocksCommunityMessageRequests: nil
                     )
                 ))
             }

@@ -32,14 +32,19 @@ public enum UpdateProfilePictureJob: JobExecutor {
             return deferred(job) // Don't need to do anything if it's not the main app
         }
         
-        let runJob: () -> () = {
+        let expirationDate: Date? = dependencies[defaults: .standard, key: .profilePictureExpiresDate]
+        let lastUploadDate: Date? = dependencies[defaults: .standard, key: .lastProfilePictureUpload]
+        
+        if
+            expirationDate.map({ dependencies.dateNow.timeIntervalSince($0) > 0 }) == true,
+            lastUploadDate.map({ dependencies.dateNow.timeIntervalSince($0) > (14 * 24 * 60 * 60) }) == true
+        {
             /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
-            let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-            let sessionProProof = dependencies.mutate(cache: .libSession) { $0.getProProof() }
+            let profile = dependencies.mutate(cache: .libSession) { $0.profile }
             let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
                 .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                 .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
-                .map { .currentUserUploadImageData(data: $0, sessionProProof: sessionProProof)}
+                .map { .currentUserUploadImageData(data: $0)}
                 .defaulting(to: .none)
             
             Profile
@@ -60,19 +65,6 @@ public enum UpdateProfilePictureJob: JobExecutor {
                     }
                 )
         }
-        
-        if
-            let profilePicutreExpiresData: Date = dependencies[defaults: .standard, key: .profilePictureExpiresDate],
-            dependencies.dateNow.timeIntervalSince(profilePicutreExpiresData) > 0
-        {
-            runJob()
-        }
-        else if
-            let lastProfilePictureUpload: Date = dependencies[defaults: .standard, key: .lastProfilePictureUpload],
-            dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
-        {
-            runJob()
-        }
         else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
@@ -83,8 +75,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
+            
+            Log.info(
+                .cat,
+                expirationDate != nil ?
+                    "Deferred as current picture hasn't expired" :
+                    "Deferred as not enough time has passed since the last update"
+            )
 
-            Log.info(.cat, "Deferred as not enough time has passed since the last update")
             return deferred(job)
         }
     }

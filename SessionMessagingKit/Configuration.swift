@@ -49,7 +49,7 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _027_MoveSettingsToLibSession.self,
                     _028_RenameAttachments.self,
                     _029_AddProMessageFlag.self,
-                    _030_AddProfileProProof.self
+                    _030_LastProfileUpdateTimestamp.self
                 ]
             ]
         )

@@ -461,7 +461,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let profilePictureView = ProfilePictureView(
             size: .navigation,
             dataManager: viewModel.dependencies[singleton: .imageDataManager],
-            sessionProState: viewModel.dependencies[singleton: .sessionProState]
+            currentUserSessionProState: viewModel.dependencies[singleton: .sessionProState]
         )
         profilePictureView.accessibilityIdentifier = "User settings"
         profilePictureView.accessibilityLabel = "User settings"

@@ -37,7 +37,10 @@ public extension LibSessionCacheType {
     
     func validateProProof(for profile: Profile?) -> Bool {
         guard let profile = profile else { return false }
-        return profile.sessionProProof != nil
+        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
+            return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+        }
+        return false
     }
     
     func getProProof() -> String? {
