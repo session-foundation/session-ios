@@ -194,13 +194,16 @@ public extension ProfilePictureView {
 public extension ProfilePictureView {
     static func animationBehaviour(from profile: Profile?, using dependencies: Dependencies) -> Info.AnimationBehaviour {
         guard dependencies[feature: .sessionProEnabled] else { return .generic(true) }
-        guard let profile: Profile = profile else { return .generic(false) }
-        
-        guard profile.id == dependencies[cache: .general].sessionId.hexString else {
-            return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
+
+        switch profile {
+            case .none: return .generic(false)
+            
+            case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
+                return .currentUser(dependencies[singleton: .sessionProState])
+                
+            case .some(let profile):
+                return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
         }
-        
-        return .currentUser(dependencies[cache: .libSession].isSessionPro)
     }
 }
 
@@ -235,8 +238,7 @@ public extension ProfilePictureSwiftUI {
                     size: size,
                     info: info,
                     additionalInfo: additionalInfo,
-                    dataManager: dependencies[singleton: .imageDataManager],
-                    sessionProState: dependencies[singleton: .sessionProState]
+                    dataManager: dependencies[singleton: .imageDataManager]
                 )
         }
     }

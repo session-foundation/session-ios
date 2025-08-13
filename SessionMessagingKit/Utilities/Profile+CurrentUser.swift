@@ -97,6 +97,7 @@ public extension Profile {
                     .prepareAndUploadDisplayPicture(imageData: data)
                     .mapError { $0 as Error }
                     .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
+                        let profileUpdateTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
@@ -107,7 +108,7 @@ public extension Profile {
                                 filePath: result.filePath,
                                 sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() }
                             ),
-                            profileUpdateTimestamp:  dependencies.dateNow.timeIntervalSince1970,
+                            profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
                             using: dependencies
                         )
                         
@@ -204,6 +205,8 @@ public extension Profile {
                         profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                     }
                 }
+            
+            // TODO: Handle Pro Proof update
             
             /// Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break

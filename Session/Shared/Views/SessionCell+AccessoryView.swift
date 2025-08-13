@@ -636,7 +636,7 @@ extension SessionCell {
         // MARK: -- DisplayPicture
         
         private func createDisplayPictureView() -> ProfilePictureView {
-            return ProfilePictureView(size: .list, dataManager: nil, currentUserSessionProState: nil)
+            return ProfilePictureView(size: .list, dataManager: nil)
         }
         
         private func layoutDisplayPictureView(_ view: UIView?, size: ProfilePictureView.Size) {
@@ -661,7 +661,6 @@ extension SessionCell {
             profilePictureView.isAccessibilityElement = (accessory.accessibility != nil)
             profilePictureView.size = accessory.size
             profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
-            profilePictureView.setCurrentUserSessionProState(dependencies[singleton: .sessionProState])
             profilePictureView.update(
                 publicKey: accessory.id,
                 threadVariant: accessory.threadVariant,

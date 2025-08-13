@@ -303,8 +303,7 @@ struct MessageInfoScreen: View {
                                             size: size,
                                             info: info,
                                             additionalInfo: additionalInfo,
-                                            dataManager: dependencies[singleton: .imageDataManager],
-                                            sessionProState: dependencies[singleton: .sessionProState]
+                                            dataManager: dependencies[singleton: .imageDataManager]
                                         )
                                         .frame(
                                             width: size.viewSize,

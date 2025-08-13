@@ -9,14 +9,7 @@ public final class ProfilePictureView: UIView {
         public enum AnimationBehaviour {
             case generic(Bool) // For communities and when Pro is not enabled
             case contact(Bool)
-            case currentUser(Bool)
-            
-            public var enableAnimation: Bool {
-                switch self {
-                    case .generic(let enableAnimation), .contact(let enableAnimation), .currentUser(let enableAnimation):
-                        return enableAnimation
-                }
-            }
+            case currentUser(SessionProManagerType)
         }
         
         let source: ImageDataManager.DataSource?
@@ -120,8 +113,7 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    private var currentUserSessionProState: SessionProManagerType?
-    public var disposables: Set<AnyCancellable> = Set()
+    private var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
@@ -160,14 +152,6 @@ public final class ProfilePictureView: UIView {
             heightConstraint.constant = (isHidden ? 0 : size.viewSize)
         }
     }
-    
-    public enum CurrentUserProfileImage: Equatable {
-        case none
-        case main
-        case additional
-    }
-    
-    public var currentUserProfileImage: CurrentUserProfileImage = .none
     
     // MARK: - Constraints
     
@@ -306,7 +290,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?, currentUserSessionProState: SessionProManagerType?) {
+    public init(size: Size, dataManager: ImageDataManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -314,10 +298,6 @@ public final class ProfilePictureView: UIView {
         
         clipsToBounds = true
         setUpViewHierarchy()
-        
-        if let currentUserSessionProState: SessionProManagerType = currentUserSessionProState {
-            setCurrentUserSessionProState(currentUserSessionProState)
-        }
     }
     
     public required init?(coder: NSCoder) {
@@ -413,26 +393,6 @@ public final class ProfilePictureView: UIView {
         self.additionalImageView.setDataManager(dataManager)
     }
     
-    public func setCurrentUserSessionProState(_ currentUserSessionProState: SessionProManagerType) {
-        self.currentUserSessionProState = currentUserSessionProState
-        
-        // TODO: Refactor this to use async/await instead of Combine
-        currentUserSessionProState.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak self] isPro in
-                    if isPro {
-                        self?.startAnimatingForCurrentUserIfNeeded()
-                    } else {
-                        self?.stopAnimatingForCurrentUserIfNeeded()
-                    }
-                    
-                }
-            )
-            .store(in: &disposables)
-    }
-    
     // MARK: - Content
     
     private func updateIconView(
@@ -497,16 +457,17 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func prepareForReuse() {
-        currentUserProfileImage = .none
+        /// Reset the disposables in case this was called with different data/
+        disposables = Set()
         
         imageView.image = nil
-        imageView.shouldAnimateImage = true
+        imageView.shouldAnimateImage = false
         imageView.contentMode = .scaleAspectFill
         imageContainerView.clipsToBounds = clipsToBounds
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
-        additionalImageView.shouldAnimateImage = true
+        additionalImageView.shouldAnimateImage = false
         additionalImageContainerView.clipsToBounds = clipsToBounds
         
         imageViewTopConstraint.isActive = false
@@ -551,14 +512,9 @@ public final class ProfilePictureView: UIView {
                 imageView.image = source.directImage?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                imageView.shouldAnimateImage = info.animationBehaviour.enableAnimation
                 imageView.loadImage(source)
                 
             default: imageView.image = nil
-        }
-        
-        if case .currentUser(_) = info.animationBehaviour {
-            self.currentUserProfileImage = .main
         }
         
         imageView.themeTintColor = info.themeTintColor
@@ -574,6 +530,8 @@ public final class ProfilePictureView: UIView {
                 default: break
             }
         }
+        
+        startAnimationIfNeeded(for: info, with: imageView)
         
         // Check if there is a second image (if not then set the size and finish)
         guard let additionalInfo: Info = additionalInfo else {
@@ -602,17 +560,12 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.shouldAnimateImage = additionalInfo.animationBehaviour.enableAnimation
                 additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
             default:
                 additionalImageView.image = nil
                 additionalImageContainerView.isHidden = true
-        }
-        
-        if case .currentUser(_) = additionalInfo.animationBehaviour {
-            self.currentUserProfileImage = .additional
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
@@ -633,6 +586,8 @@ public final class ProfilePictureView: UIView {
             }
         }
         
+        startAnimationIfNeeded(for: additionalInfo, with: additionalImageView)
+        
         imageViewTopConstraint.isActive = true
         imageViewLeadingConstraint.isActive = true
         imageViewCenterXConstraint.isActive = false
@@ -650,25 +605,22 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
-    public func startAnimatingForCurrentUserIfNeeded() {
-        switch currentUserProfileImage {
-            case .none:
-                break
-            case .main:
-                imageView.shouldAnimateImage = true
-            case .additional:
-                additionalImageView.shouldAnimateImage = true
-        }
-    }
-    
-    public func stopAnimatingForCurrentUserIfNeeded() {
-        switch currentUserProfileImage {
-            case .none:
-                break
-            case .main:
-                imageView.shouldAnimateImage = false
-            case .additional:
-                additionalImageView.shouldAnimateImage = false
+    private func startAnimationIfNeeded(for info: Info, with targetImageView: SessionImageView) {
+        switch info.animationBehaviour {
+            case .generic(let enableAnimation), .contact(let enableAnimation):
+                targetImageView.shouldAnimateImage = enableAnimation
+
+            case .currentUser(let currentUserSessionProState):
+                targetImageView.shouldAnimateImage = currentUserSessionProState.isSessionProSubject.value
+                currentUserSessionProState.isSessionProPublisher
+                    .subscribe(on: DispatchQueue.main)
+                    .receive(on: DispatchQueue.main)
+                    .sink(
+                        receiveValue: { [weak targetImageView] isPro in
+                            targetImageView?.shouldAnimateImage = isPro
+                        }
+                    )
+                    .store(in: &disposables)
         }
     }
 }
@@ -682,27 +634,23 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
     let dataManager: ImageDataManagerType
-    let sessionProState: SessionProManagerType
     
     public init(
         size: ProfilePictureView.Size,
         info: ProfilePictureView.Info,
         additionalInfo: ProfilePictureView.Info? = nil,
-        dataManager: ImageDataManagerType,
-        sessionProState: SessionProManagerType
+        dataManager: ImageDataManagerType
     ) {
         self.size = size
         self.info = info
         self.additionalInfo = additionalInfo
         self.dataManager = dataManager
-        self.sessionProState = sessionProState
     }
     
     public func makeUIView(context: Context) -> ProfilePictureView {
         ProfilePictureView(
             size: size,
-            dataManager: dataManager,
-            currentUserSessionProState: sessionProState
+            dataManager: dataManager
         )
     }
     

@@ -63,11 +63,9 @@ internal extension LibSessionCacheType {
                 // observation system can't differ between update calls which do and don't change anything)
                 let contact: Contact = Contact.fetchOrCreate(db, id: sessionId, using: dependencies)
                 let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
+                let profileUpdated: Bool = ((profile.profileLastUpdated ?? 0) < (data.profile.profileLastUpdated ?? 0))
                 
-                if
-                    (profile.profileLastUpdated ?? 0) < (data.profile.profileLastUpdated ?? 0) ||
-                    profile.nickname != data.profile.nickname
-                {
+                if (profileUpdated || (profile.nickname != data.profile.nickname)) {
                     let profileNameShouldBeUpdated: Bool = (
                         !data.profile.name.isEmpty &&
                         profile.name != data.profile.name
@@ -95,7 +93,7 @@ internal extension LibSessionCacheType {
                                 (profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey ? nil :
                                     Profile.Columns.displayPictureEncryptionKey.set(to: data.profile.displayPictureEncryptionKey)
                                 ),
-                                (!profilePictureShouldBeUpdated ? nil :
+                                (!profileUpdated ? nil :
                                     Profile.Columns.profileLastUpdated.set(to: data.profile.profileLastUpdated)
                                 )
                             ].compactMap { $0 },
@@ -337,7 +335,9 @@ public extension LibSession {
                     contact.set(\.nickname, to: info.nickname)
                     contact.set(\.profile_pic.url, to: info.displayPictureUrl)
                     contact.set(\.profile_pic.key, to: info.displayPictureEncryptionKey)
-                    contact.set(\.profile_updated, to: (info.profileLastUpdated ?? Int64(dependencies.dateNow.timeIntervalSince1970)))
+                    if let profileLastUpdated = info.profileLastUpdated {
+                        contact.set(\.profile_updated, to: profileLastUpdated)
+                    }
                     
                     // Attempts retrieval of the profile picture (will schedule a download if
                     // needed via a throttled subscription on another thread to prevent blocking)
