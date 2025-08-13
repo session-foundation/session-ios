@@ -685,7 +685,7 @@ public final class SnodeAPI {
                             
                             if snodeResponse.hardForkVersion[1] > $0.softfork {
                                 $0.softfork = snodeResponse.hardForkVersion[1]
-                                dependencies[defaults: .standard, key: .hardfork] = $0.softfork
+                                dependencies[defaults: .standard, key: .softfork] = $0.softfork
                             }
                             
                             if snodeResponse.hardForkVersion[0] > $0.hardfork {
