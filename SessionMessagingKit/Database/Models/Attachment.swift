@@ -484,7 +484,13 @@ extension Attachment {
     }
     
     public func buildProto() -> SNProtoAttachmentPointer? {
-        let builder = SNProtoAttachmentPointer.builder(id: 0)   /// `id` is deprecated, rely on `url` instead
+        /// The `id` value on the protobuf is deprecated, rely on `url` instead
+        ///
+        /// **Note:** We need to continue to send this because it seems that the Desktop client _does_ in fact still use this
+        /// id for downloading attachments. Desktop will be updated to remove it's use but in order to fix attachments for old
+        /// versions we set this value again
+        let legacyId: UInt64 = (Attachment.fileId(for: self.downloadUrl).map { UInt64($0) } ?? 0)
+        let builder = SNProtoAttachmentPointer.builder(id: legacyId)
         builder.setContentType(contentType)
         
         if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
