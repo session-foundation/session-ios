@@ -814,7 +814,7 @@ public extension LibSession.Cache {
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-                profileLastUpdated: nil
+                profileLastUpdated: TimeInterval(member.get(\.profile_updated))
             )
         }
         
@@ -839,7 +839,7 @@ public extension LibSession.Cache {
             nickname: contact.get(\.nickname, nullIfEmpty: true),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            profileLastUpdated: nil
+            profileLastUpdated: TimeInterval(contact.get( \.profile_updated))
         )
     }
     

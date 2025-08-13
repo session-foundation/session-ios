@@ -1419,8 +1419,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             let profilePictureView = ProfilePictureView(
                 size: .navigation,
-                dataManager: viewModel.dependencies[singleton: .imageDataManager],
-                currentUserSessionProState: viewModel.dependencies[singleton: .sessionProState]
+                dataManager: viewModel.dependencies[singleton: .imageDataManager]
             )
             profilePictureView.update(
                 publicKey: threadData.threadId,  // Contact thread uses the contactId

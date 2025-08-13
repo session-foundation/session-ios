@@ -364,6 +364,7 @@ public struct ProCTAModal: View {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: AnyObject {
+    var isSessionProSubject: CurrentValueSubject<Bool, Never> { get }
     var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
 }
