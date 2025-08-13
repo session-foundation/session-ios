@@ -105,7 +105,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case enableSessionPro
         case proStatus
-        case proIncomingMessages
+        case allUsersSessionPro
         
         case createMockContacts
         case forceSlowDatabaseQueries
@@ -153,7 +153,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .enableSessionPro: return "enableSessionPro"
                 case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
+                case .allUsersSessionPro: return "allUsersSessionPro"
 
                 case .createMockContacts: return "createMockContacts"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
@@ -205,7 +205,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
+                case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
                 
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
@@ -251,7 +251,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let sessionProEnabled: Bool
         let mockCurrentUserSessionPro: Bool
-        let treatAllIncomingMessagesAsProMessages: Bool
+        let allUsersSessionPro: Bool
         
         let forceSlowDatabaseQueries: Bool
     }
@@ -306,7 +306,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries]
             )
@@ -893,19 +893,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         }
                     ),
                     SessionCell.Info(
-                        id: .proIncomingMessages,
-                        title: "All Pro Incoming Messages",
+                        id: .allUsersSessionPro,
+                        title: "Everyone is a Pro",
                         subtitle: """
                         Treat all incoming messages as Pro messages.
+                        Treat all contacts, groups as Session Pro.
                         """,
                         trailingAccessory: .toggle(
-                            current.treatAllIncomingMessagesAsProMessages,
-                            oldValue: previous?.treatAllIncomingMessagesAsProMessages
+                            current.allUsersSessionPro,
+                            oldValue: previous?.allUsersSessionPro
                         ),
                         onTap: { [weak self] in
                             self?.updateFlag(
-                                for: .treatAllIncomingMessagesAsProMessages,
-                                to: !current.treatAllIncomingMessagesAsProMessages
+                                for: .allUsersSessionPro,
+                                to: !current.allUsersSessionPro
                             )
                         }
                     )
@@ -1303,8 +1304,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
             updateFlag(for: .mockCurrentUserSessionPro, to: nil)
         }
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
+        if dependencies.hasSet(feature: .allUsersSessionPro) {
+            updateFlag(for: .allUsersSessionPro, to: nil)
         }
     }
     

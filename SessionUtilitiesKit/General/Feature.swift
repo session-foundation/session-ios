@@ -85,8 +85,8 @@ public extension FeatureStorage {
         identifier: "mockCurrentUserSessionPro"
     )
     
-    static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "treatAllIncomingMessagesAsProMessages"
+    static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "allUsersSessionPro"
     )
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
