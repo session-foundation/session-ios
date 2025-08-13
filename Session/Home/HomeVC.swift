@@ -93,6 +93,20 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         return result
     }()
     
+    private lazy var appReviewPrompt: AppReviewPromptDialog = {
+        let prompt = AppReviewPromptDialog()
+        prompt.delegate = self
+        prompt.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Layers
+        prompt.themeBorderColor = .borderSeparator
+        prompt.layer.borderWidth = 1
+        prompt.layer.cornerRadius = 12
+        prompt.themeBackgroundColor = .backgroundSecondary
+
+        return prompt
+    }()
+    
     private lazy var newConversationButton: UIView = {
         let result: UIView = UIView()
         result.set(.width, to: HomeVC.newConversationButtonSize)
@@ -333,6 +347,15 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         view.addSubview(newConversationButton)
         newConversationButton.center(.horizontal, in: view)
         newConversationButton.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide, withInset: -Values.smallSpacing)
+        
+        appReviewPrompt.updatePrompt(.none)
+        
+        // Preview prompt
+        view.addSubview(appReviewPrompt)
+        
+        appReviewPrompt.pin(.left, to: .left, of: view, withInset: 12)
+        appReviewPrompt.pin(.right, to: .right, of: view, withInset: -12)
+        appReviewPrompt.pin(.bottom, to: .top, of: newConversationButton, withInset: -10)
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if
@@ -788,5 +811,38 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         }
         navigationController.modalPresentationCapturesStatusBarAppearance = true
         present(navigationController, animated: true, completion: nil)
+    }
+}
+
+extension HomeVC: AppReviewPromptDialogDelegate {
+    func willHandlePromptState(_ state: AppReviewPromptState, isPrimary: Bool) {
+        if !isPrimary {
+            appReviewPrompt.updatePrompt(.none)
+            return
+        }
+        
+        switch state {
+        case .feedback:
+            print("LAUNCH SUMMARY")
+        case .rateSession:
+            print("SHOW APP RATING")
+        default:
+            break
+        }
+    }
+    
+    func didChangePromptState(_ state: AppReviewPromptState) {
+        let originalBottomInsets = (
+            Values.largeSpacing +
+            HomeVC.newConversationButtonSize +
+            Values.smallSpacing +
+            (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
+        )
+        
+        if state == .none {
+            tableView.contentInset.bottom = originalBottomInsets
+        } else {
+            tableView.contentInset.bottom = originalBottomInsets + (appReviewPrompt.frame.size.height + 24)
+        }
     }
 }

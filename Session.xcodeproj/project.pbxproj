@@ -1157,6 +1157,8 @@
 		FDFE75B42ABD46B600655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */; };
+		FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */; };
+		FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2428,6 +2430,8 @@
 		FDFDE129282D056B0098B17F /* MediaZoomAnimationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaZoomAnimationController.swift; sourceTree = "<group>"; };
 		FDFE75B02ABD2D2400655640 /* _016_MakeBrokenProfileTimestampsNullable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _016_MakeBrokenProfileTimestampsNullable.swift; sourceTree = "<group>"; };
 		FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONEncoder+Utilities.swift"; sourceTree = "<group>"; };
+		FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewPromptDialog.swift; sourceTree = "<group>"; };
+		FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewPromptModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3429,6 +3433,7 @@
 		C360968E25AD16E8008B62B2 /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				FED288EF2E4C239800C31171 /* App Review */,
 				7B8C44C328B49DA900FBE25F /* New Conversation */,
 				7B93D06827CF173D00811CB6 /* Message Requests */,
 				7BAF54CA27ACCEEC003D12F8 /* GlobalSearch */,
@@ -5124,6 +5129,23 @@
 			path = Transitions;
 			sourceTree = "<group>";
 		};
+		FED288EF2E4C239800C31171 /* App Review */ = {
+			isa = PBXGroup;
+			children = (
+				FED288F42E4C3B5A00C31171 /* View */,
+				FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */,
+			);
+			path = "App Review";
+			sourceTree = "<group>";
+		};
+		FED288F42E4C3B5A00C31171 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -6718,6 +6740,7 @@
 				FDB3DA842E1CA22400148F8D /* UIActivityViewController+Utilities.swift in Sources */,
 				FDCDB8E02811007F00352A0C /* HomeViewModel.swift in Sources */,
 				FDE754F82C9BB0B0002A2623 /* UserNotificationConfig.swift in Sources */,
+				FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */,
 				7B0EFDF62755CC5400FFAAE7 /* CallMissedTipsModal.swift in Sources */,
 				C374EEF425DB31D40073A857 /* VoiceMessageRecordingView.swift in Sources */,
 				7B1581E6271FD2A100848B49 /* VideoPreviewVC.swift in Sources */,
@@ -6913,6 +6936,7 @@
 				B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */,
 				C328254025CA55880062D0A7 /* ContextMenuVC.swift in Sources */,
 				9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */,
+				FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */,
 				FDE754B12C9B96B4002A2623 /* TurnServerInfo.swift in Sources */,
 				7BD687D12A5D0D1200D8E455 /* MessageInfoScreen.swift in Sources */,
 				B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */,
