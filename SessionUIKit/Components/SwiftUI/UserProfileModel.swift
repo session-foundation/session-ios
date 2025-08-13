@@ -17,7 +17,6 @@ public struct UserProfileModel: View {
     
     private var info: Info
     private var dataManager: ImageDataManagerType
-    private var sessionProState: SessionProManagerType
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
     
@@ -35,13 +34,11 @@ public struct UserProfileModel: View {
     public init(
         info: Info,
         dataManager: ImageDataManagerType,
-        sessionProState: SessionProManagerType,
         dismissType: Modal.DismissType = .recursive,
         afterClosed: (() -> Void)? = nil
     ) {
         self.info = info
         self.dataManager = dataManager
-        self.sessionProState = sessionProState
         self.dismissType = dismissType
         self.afterClosed = afterClosed
     }
@@ -72,8 +69,7 @@ public struct UserProfileModel: View {
                                 ProfilePictureSwiftUI(
                                     size: .modal,
                                     info: info.profileInfo,
-                                    dataManager: self.dataManager,
-                                    sessionProState: self.sessionProState
+                                    dataManager: self.dataManager
                                 )
                                 .scaleEffect(scale, anchor: .topLeading)
                                 .onTapGesture {

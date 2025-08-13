@@ -1599,7 +1599,6 @@ extension ConversationVC:
                     }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
-                sessionProState: dependencies[singleton: .sessionProState],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
                 }
