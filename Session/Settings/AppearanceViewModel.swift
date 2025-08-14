@@ -149,6 +149,12 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
         )
     }
     
+    @MainActor private func didUpdateTheme(theme: Theme?) {
+        ThemeManager.updateThemeState(theme: theme)
+        
+        dependencies[singleton: .appReviewManager].triggerReview(for: .themeChange)
+    }
+    
     private static func sections(
         state: State,
         previousState: State,
@@ -167,8 +173,8 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                             trailingAccessory: .radio(
                                 isSelected: (state.theme == theme)
                             ),
-                            onTap: {
-                                ThemeManager.updateThemeState(theme: theme)
+                            onTap: { [weak viewModel] in
+                                viewModel?.didUpdateTheme(theme: theme)
                             }
                         )
                     }

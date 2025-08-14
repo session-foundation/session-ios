@@ -72,6 +72,8 @@ final class PathVC: BaseVC {
         
         setUpNavBar()
         setUpViewHierarchy()
+        
+        dependencies[singleton: .appReviewManager].triggerReview(for: .pathScreenVisit)
     }
 
     private func setUpNavBar() {
