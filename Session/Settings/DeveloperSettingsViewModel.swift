@@ -1084,12 +1084,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .mockCurrentUserSessionPro, to: nil)
                     
-                case .proIncomingMessages:
-                    guard dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) else {
+                case .allUsersSessionPro:
+                    guard dependencies.hasSet(feature: .allUsersSessionPro) else {
                         return
                     }
                     
-                    updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
+                    updateFlag(for: .allUsersSessionPro, to: nil)
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }

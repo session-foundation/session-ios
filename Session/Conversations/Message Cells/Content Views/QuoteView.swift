@@ -159,13 +159,13 @@ final class QuoteView: UIView {
         bodyLabel.lineBreakMode = .byTruncatingTail
         bodyLabel.numberOfLines = 2
         
-        let targetThemeColor: ThemeValue = {
+        let (targetThemeColor, proBadgeThemeColor): (ThemeValue, ThemeValue) = {
             switch mode {
                 case .regular: return (direction == .outgoing ?
-                    .messageBubble_outgoingText :
-                    .messageBubble_incomingText
+                    (.messageBubble_outgoingText, .white) :
+                    (.messageBubble_incomingText, .primary)
                 )
-                case .draft: return .textPrimary
+                case .draft: return (.textPrimary, .primary)
             }
         }()
         bodyLabel.font = .systemFont(ofSize: Values.smallFontSize)
@@ -218,10 +218,18 @@ final class QuoteView: UIView {
         }()
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
-        authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
         
-        let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
+        let sessionProBadge: SessionProBadge = SessionProBadge(size: .mini, themeBackgroundColor: proBadgeThemeColor)
+        sessionProBadge.isHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: authorId) }
+        
+        let authorStackView: UIStackView = UIStackView(arrangedSubviews: [ authorLabel, sessionProBadge, UIView.hStretchingSpacer() ])
+        authorStackView.axis = .horizontal
+        authorStackView.spacing = 3
+        authorStackView.alignment = .center
+        authorStackView.isHidden = (authorLabel.text == nil)
+        
+        let labelStackView = UIStackView(arrangedSubviews: [ authorStackView, bodyLabel ])
         labelStackView.axis = .vertical
         labelStackView.spacing = labelStackViewSpacing
         labelStackView.distribution = .equalCentering

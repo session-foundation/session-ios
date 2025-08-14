@@ -72,7 +72,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
     public let dependencies: Dependencies
     
-    public var isSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
+    public var isCurrentUserSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
     
     public let legacyGroupsBannerFont: UIFont = .systemFont(ofSize: Values.miniFontSize)
     public lazy var legacyGroupsBannerMessage: ThemedAttributedString = {

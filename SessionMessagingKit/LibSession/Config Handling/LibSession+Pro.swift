@@ -36,7 +36,12 @@ public extension LibSessionCacheType {
         return dependencies[feature: .allUsersSessionPro]
     }
     
-    func getProProof() -> String? {
+    func validateSessionProState(for sessionId: String?) -> Bool {
+        guard let sessionId = sessionId, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .allUsersSessionPro]
+    }
+    
+    func getCurrentUserProProof() -> String? {
         guard isSessionPro else {
             return nil
         }

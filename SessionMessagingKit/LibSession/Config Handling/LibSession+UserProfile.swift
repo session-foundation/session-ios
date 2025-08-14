@@ -71,7 +71,7 @@ internal extension LibSessionCacheType {
                     url: displayPictureUrl,
                     key: displayPic.get(\.key),
                     filePath: filePath,
-                    sessionProProof: getProProof() // TODO: double check if this is needed after Pro Proof is implemented
+                    sessionProProof: getCurrentUserProProof() // TODO: double check if this is needed after Pro Proof is implemented
                 )
             }(),
             profileUpdateTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),

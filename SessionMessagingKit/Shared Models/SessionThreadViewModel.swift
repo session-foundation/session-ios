@@ -334,6 +334,10 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         )
     }
     
+    public func isSessionPro(using dependencies: Dependencies) -> Bool {
+        return dependencies.mutate(cache: .libSession) { [profile] in $0.validateProProof(for: profile)}
+    }
+    
     // MARK: - Marking as Read
     
     public enum ReadTarget {

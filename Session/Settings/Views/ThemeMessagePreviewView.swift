@@ -35,7 +35,7 @@ final class ThemeMessagePreviewView: UIView {
         )
         
         // Remove built-in padding
-        result.authorLabelTopConstraint.constant = 0
+        result.authorStackViewTopConstraint.constant = 0
         result.contentViewLeadingConstraint1.constant = 0
         
         return result
@@ -59,7 +59,7 @@ final class ThemeMessagePreviewView: UIView {
         )
         
         // Remove built-in padding
-        result.authorLabelTopConstraint.constant = 0
+        result.authorStackViewTopConstraint.constant = 0
         result.contentViewTrailingConstraint1.constant = 0
         
         return result

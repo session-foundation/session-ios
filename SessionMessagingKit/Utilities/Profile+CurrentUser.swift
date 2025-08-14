@@ -106,7 +106,7 @@ public extension Profile {
                                 url: result.downloadUrl,
                                 key: result.encryptionKey,
                                 filePath: result.filePath,
-                                sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() }
+                                sessionProProof: dependencies.mutate(cache: .libSession) { $0.getCurrentUserProProof() }
                             ),
                             profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
                             using: dependencies

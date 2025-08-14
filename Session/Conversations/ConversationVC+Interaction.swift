@@ -236,7 +236,7 @@ extension ConversationVC:
     
     @discardableResult func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) -> Bool {
         let dependencies: Dependencies = viewModel.dependencies
-        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
+        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isCurrentUserSessionPro) else {
             return false
         }
         self.hideInputAccessoryView()
@@ -526,9 +526,9 @@ extension ConversationVC:
         self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isSessionPro
+            isSessionPro: viewModel.isCurrentUserSessionPro
         )
-        let limit: Int = (viewModel.isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        let limit: Int = (viewModel.isCurrentUserSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -599,9 +599,9 @@ extension ConversationVC:
     func handleSendButtonTapped() {
         guard LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isSessionPro
+            isSessionPro: viewModel.isCurrentUserSessionPro
         ) >= 0 else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isSessionPro)
+            showModalForMessagesExceedingCharacterLimit(viewModel.isCurrentUserSessionPro)
             return
         }
         
@@ -612,7 +612,7 @@ extension ConversationVC:
         )
     }
     
-    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+    func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
         
         self.hideInputAccessoryView()
