@@ -240,7 +240,7 @@ public struct ProCTAModal: View {
                                     .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                 
-                                SessionProBadge_SwiftUI(size: .small)
+                                SessionProBadge_SwiftUI(size: .medium)
                             }
                         }
                         

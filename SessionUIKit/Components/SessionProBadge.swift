@@ -4,40 +4,45 @@ import UIKit
 
 public class SessionProBadge: UIView {
     public enum Size {
-        case mini, small, large
+        case mini, small, medium, large
         
         var width: CGFloat {
             switch self {
                 case .mini: return 24
-                case .small: return 40
+                case .small: return 32
+                case .medium: return 40
                 case .large: return 52
             }
         }
         var height: CGFloat {
             switch self {
                 case .mini: return 11
-                case .small: return 18
+                case .small: return 14.5
+                case .medium: return 18
                 case .large: return 26
             }
         }
         var cornerRadius: CGFloat {
             switch self {
-                case .mini: return 3
-                case .small: return 4
+                case .mini: return 2.5
+                case .small: return 3.5
+                case .medium: return 4
                 case .large: return 6
             }
         }
         var proFontHeight: CGFloat {
             switch self {
                 case .mini: return 5
-                case .small: return 7
+                case .small: return 6
+                case .medium: return 7
                 case .large: return 11
             }
         }
         var proFontWidth: CGFloat {
             switch self {
-                case .mini: return 18
-                case .small: return 28
+                case .mini: return 17
+                case .small: return 24
+                case .medium: return 28
                 case .large: return 40
             }
         }

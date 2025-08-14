@@ -34,6 +34,13 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         return result
     }()
+    
+    private lazy var sessionProBadge: SessionProBadge = {
+        let result: SessionProBadge = SessionProBadge(size: .small)
+        result.isHidden = true
+        
+        return result
+    }()
 
     private lazy var unreadCountView: UIView = {
         let result: UIView = UIView()
@@ -225,7 +232,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         // Label stack view
         let topLabelSpacer = UIView.hStretchingSpacer()
-        [ displayNameLabel, isPinnedIcon, unreadCountView, unreadImageView, hasMentionView, topLabelSpacer, timestampLabel ].forEach{ view in
+        [ displayNameLabel, sessionProBadge, isPinnedIcon, unreadCountView, unreadImageView, hasMentionView, topLabelSpacer, timestampLabel ].forEach{ view in
             topLabelStackView.addArrangedSubview(view)
         }
         
@@ -300,6 +307,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: cellViewModel.displayName,
             attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
         )
+        sessionProBadge.isHidden = !cellViewModel.isSessionPro(using: dependencies)
     }
     
     public func updateForMessageSearchResult(
@@ -328,6 +336,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: cellViewModel.displayName,
             attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
         )
+        sessionProBadge.isHidden = !cellViewModel.isSessionPro(using: dependencies)
         snippetLabel.themeAttributedText = getHighlightedSnippet(
             content: Interaction.previewText(
                 variant: (cellViewModel.interactionVariant ?? .standardIncoming),
@@ -378,6 +387,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             textColor: .textPrimary,
             using: dependencies
         )
+        sessionProBadge.isHidden = !cellViewModel.isSessionPro(using: dependencies)
         
         switch cellViewModel.threadVariant {
             case .contact, .community: bottomLabelStackView.isHidden = true
@@ -440,6 +450,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             using: dependencies
         )
         displayNameLabel.text = cellViewModel.displayName
+        sessionProBadge.isHidden = !cellViewModel.isSessionPro(using: dependencies)
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
         
         if cellViewModel.threadContactIsTyping == true {

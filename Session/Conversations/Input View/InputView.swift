@@ -179,7 +179,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
     
     private lazy var sessionProBadge: SessionProBadge = {
-        let result: SessionProBadge = SessionProBadge(size: .small)
+        let result: SessionProBadge = SessionProBadge(size: .medium)
         result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
         
         return result

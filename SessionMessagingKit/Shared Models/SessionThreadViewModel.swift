@@ -335,7 +335,10 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     }
     
     public func isSessionPro(using dependencies: Dependencies) -> Bool {
-        return dependencies.mutate(cache: .libSession) { [profile] in $0.validateProProof(for: profile)}
+        guard threadIsNoteToSelf == false && threadVariant != .community else {
+            return false
+        }
+        return dependencies.mutate(cache: .libSession) { [threadId] in $0.validateSessionProState(for: threadId)}
     }
     
     // MARK: - Marking as Read

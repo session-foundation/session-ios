@@ -186,7 +186,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var proImageStackView: UIStackView = {
-        let proBadge: SessionProBadge = SessionProBadge(size: .small)
+        let proBadge: SessionProBadge = SessionProBadge(size: .medium)
         let label: UILabel = UILabel()
         label.font = .systemFont(ofSize: Values.smallFontSize)
         label.themeTextColor = .textSecondary

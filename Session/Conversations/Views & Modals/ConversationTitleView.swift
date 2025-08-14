@@ -40,7 +40,7 @@ final class ConversationTitleView: UIView {
     }()
     
     private lazy var sessionProBadge: SessionProBadge = {
-        let result: SessionProBadge = SessionProBadge(size: .small)
+        let result: SessionProBadge = SessionProBadge(size: .medium)
         result.isHidden = true
         
         return result
