@@ -6,12 +6,8 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 
-public enum PhotoGridItemType {
-    case photo, animated, video
-}
-
 public protocol PhotoGridItem: AnyObject {
-    var type: PhotoGridItemType { get }
+    var isVideo: Bool { get }
     var source: ImageDataManager.DataSource { get }
 }
 
@@ -26,8 +22,6 @@ public class PhotoGridViewCell: UICollectionViewCell {
 
     var item: PhotoGridItem?
 
-    private static let videoBadgeImage = #imageLiteral(resourceName: "ic_gallery_badge_video")
-    private static let animatedBadgeImage = #imageLiteral(resourceName: "ic_gallery_badge_gif")
     private static let selectedBadgeImage = UIImage(systemName: "checkmark.circle.fill")
 
     override public var isSelected: Bool {
@@ -52,7 +46,7 @@ public class PhotoGridViewCell: UICollectionViewCell {
 
         let kSelectedBadgeSize = CGSize(width: 32, height: 32)
         self.selectedBadgeView = UIImageView()
-        selectedBadgeView.image = PhotoGridViewCell.selectedBadgeImage?.withRenderingMode(.alwaysTemplate)
+        selectedBadgeView.image = UIImage(named: "ic_gallery_badge_video")?.withRenderingMode(.alwaysTemplate)
         selectedBadgeView.themeTintColor = .primary
         selectedBadgeView.themeBorderColor = .textPrimary
         selectedBadgeView.themeBackgroundColor = .textPrimary
@@ -105,23 +99,11 @@ public class PhotoGridViewCell: UICollectionViewCell {
         self.item = item
         imageView.setDataManager(dependencies[singleton: .imageDataManager])
         imageView.themeBackgroundColor = .textSecondary
-        imageView.loadImage(item.source) { [weak imageView] success in
-            imageView?.themeBackgroundColor = (success ? .clear : .textSecondary)
+        imageView.loadImage(item.source) { [weak imageView] processedData in
+            imageView?.themeBackgroundColor = (processedData != nil ? .clear : .textSecondary)
         }
-
-        switch item.type {
-            case .video:
-                contentTypeBadgeView.image = PhotoGridViewCell.videoBadgeImage
-                contentTypeBadgeView.isHidden = false
-                
-            case .animated:
-                contentTypeBadgeView.image = PhotoGridViewCell.animatedBadgeImage
-                contentTypeBadgeView.isHidden = false
-                
-            case .photo:
-                contentTypeBadgeView.image = nil
-                contentTypeBadgeView.isHidden = true
-        }
+        
+        contentTypeBadgeView.isHidden = !item.isVideo
     }
 
     override public func prepareForReuse() {

@@ -178,7 +178,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
             case .success = Result(try dataSource.write(to: uploadInfo.path))
         else { return nil }
         
-        let imageSize: CGSize? = Data.mediaSize(
+        let imageSize: CGSize? = MediaUtils.unrotatedSize(
             for: uploadInfo.path,
             type: UTType(sessionMimeType: contentType),
             mimeType: contentType,
@@ -406,7 +406,7 @@ extension Attachment {
                     .path(for: finalDownloadUrl)
             else { return nil }
             
-            return Data.mediaSize(
+            return MediaUtils.unrotatedSize(
                 for: path,
                 type: UTType(sessionMimeType: contentType),
                 mimeType: contentType,
