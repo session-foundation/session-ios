@@ -210,6 +210,8 @@ struct RecoveryPasswordScreen: View {
                                 alignment: .leading
                             )
                             
+                            Spacer()
+                            
                             Button {
                                 hideRecoveryPassword()
                             } label: {
@@ -218,9 +220,13 @@ struct RecoveryPasswordScreen: View {
                                     .font(.system(size: Values.verySmallFontSize))
                                     .foregroundColor(themeColor: .danger)
                                     .frame(
-                                        width: 55,
                                         height: Values.mediumSmallButtonHeight
                                     )
+                                    .frame(
+                                        minWidth: Values.alertButtonHeight,
+                                        alignment: .center
+                                    )
+                                    .padding(.horizontal, Values.smallSpacing)
                                     .overlay(
                                         Capsule()
                                             .stroke(themeColor: .danger)
