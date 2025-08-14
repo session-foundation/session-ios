@@ -87,8 +87,6 @@ final class QuoteView: UIView {
         let mainStackView = UIStackView(arrangedSubviews: [])
         mainStackView.axis = .horizontal
         mainStackView.spacing = smallSpacing
-        mainStackView.isLayoutMarginsRelativeArrangement = true
-        mainStackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: smallSpacing)
         mainStackView.alignment = .center
         
         // Content view
