@@ -6,6 +6,7 @@ import SessionUIKit
 protocol AppReviewPromptDialogDelegate: AnyObject {
     func willHandlePromptState(_ state: AppReviewPromptState, isPrimary: Bool)
     func didChangePromptState(_ state: AppReviewPromptState)
+    func didCloseBeforeReview()
 }
 
 class AppReviewPromptDialog: UIView {
@@ -130,7 +131,14 @@ class AppReviewPromptDialog: UIView {
     
     @objc
     func close() {
+        let prevState = prompt
+        
         updatePrompt(.none)
+        
+        switch prevState {
+        case .rateSession: delegate?.didCloseBeforeReview()
+        default : break
+        }
     }
     
     @objc

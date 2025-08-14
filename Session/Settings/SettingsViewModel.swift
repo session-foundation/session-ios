@@ -849,6 +849,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
         
         self.transitionToScreen(modal, transitionType: .present)
+        
+        // Mark app review flag that donate button was tapped
+        dependencies[singleton: .appReviewManager].triggerReview(for: .donateButtonPress)
     }
     
     private func openTokenUrl() {

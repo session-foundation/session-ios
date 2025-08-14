@@ -165,6 +165,18 @@ public extension UserDefaults.BoolKey {
     
     /// Indicates whether the local notification for token bonus is scheduled
     static let isSessionNetworkPageNotificationScheduled: UserDefaults.BoolKey = "isSessionNetworkPageNotificationScheduled"
+    
+    /// Indicates whether the user visited the Path screen
+    static let hasVisitedPathScreen: UserDefaults.BoolKey = "hasVisitedPathScreen"
+    
+    /// Indicates whether the user changed the app theme
+    static let hasChangedTheme: UserDefaults.BoolKey = "hasChangedTheme"
+    
+    /// Indicates whether the user pressed the donate button
+    static let hasDonated: UserDefaults.BoolKey = "hasDonated"
+    
+    /// Indicates wheter app has already presented the user the app review prompt dialog
+    static let didShowAppReviewPrompt: UserDefaults.BoolKey = "didShowAppReviewPrompt"
 }
 
 public extension UserDefaults.DateKey {
