@@ -2,8 +2,9 @@
 
 import Foundation
 import CallKit
+import SessionUtilitiesKit
 
-internal struct NoopSessionCallManager: CallManagerProtocol {
+internal struct NoopSessionCallManager: CallManagerProtocol, NoopDependency {
     var currentCall: CurrentCallProtocol?
 
     func setCurrentCall(_ call: CurrentCallProtocol?) {}

@@ -54,7 +54,7 @@ public extension AppContext {
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {}
 }
 
-private final class NoopAppContext: AppContext {
+private final class NoopAppContext: AppContext, NoopDependency {
     let mainWindow: UIWindow? = nil
     let frontMostViewController: UIViewController? = nil
     
