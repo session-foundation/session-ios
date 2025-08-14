@@ -168,7 +168,6 @@ public final class VoiceMessageView: UIView {
     }
 
     // MARK: - Updating
-    
     public func update(
         with attachment: Attachment,
         isPlaying: Bool,
@@ -176,42 +175,49 @@ public final class VoiceMessageView: UIView {
         playbackRate: Double,
         oldPlaybackRate: Double
     ) {
-        switch attachment.state {
-            case .downloaded, .uploaded:
-                loader.isHidden = true
-                loader.stopAnimating()
-                
-                toggleImageView.image = (isPlaying ? UIImage(named: "Pause") : UIImage(named: "Play"))?
-                    .withRenderingMode(.alwaysTemplate)
-                countdownLabel.text = max(0, (floor(attachment.duration.defaulting(to: 0) - progress)))
-                    .formatted(format: .hoursMinutesSeconds)
-                
-                guard let duration: TimeInterval = attachment.duration, duration > 0, progress > 0 else {
-                    return progressViewRightConstraint.constant = -VoiceMessageView.width
-                }
-                
-                let fraction: Double = (progress / duration)
-                progressViewRightConstraint.constant = -(VoiceMessageView.width * (1 - fraction))
-                
-                // If the playback rate changed then show the 'speedUpLabel' briefly
-                guard playbackRate > oldPlaybackRate else { return }
-                
-                UIView.animate(withDuration: 0.25) { [weak self] in
-                    self?.countdownLabel.alpha = 0
-                    self?.speedUpLabel.alpha = 1
-                }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(1250)) {
-                    UIView.animate(withDuration: 0.25) { [weak self] in
-                        self?.countdownLabel.alpha = 1
-                        self?.speedUpLabel.alpha = 0
-                    }
-                }
-                
-            default:
-                if !loader.isAnimating {
-                    loader.startAnimating()
-                }
+        
+        // Updates countdown label to attachments duration
+        // Should be set regardless of attachment state
+        let remainingTime = max(0, floor(attachment.duration.defaulting(to: 0) - progress))
+        
+        countdownLabel.text = remainingTime.formatted(format: .hoursMinutesSeconds)
+        
+        guard attachment.state == .downloaded || attachment.state == .uploaded else {
+            if !loader.isAnimating {
+                loader.startAnimating()
+            }
+            return
+        }
+            
+        loader.isHidden = true
+        loader.stopAnimating()
+    
+        toggleImageView.image = (isPlaying ? UIImage(named: "Pause") : UIImage(named: "Play"))?
+            .withRenderingMode(.alwaysTemplate)
+
+        guard
+            let duration: TimeInterval = attachment.duration,
+            duration > 0, progress > 0
+        else {
+            return progressViewRightConstraint.constant = -VoiceMessageView.width
+        }
+        
+        let fraction: Double = (progress / duration)
+        progressViewRightConstraint.constant = -(VoiceMessageView.width * (1 - fraction))
+        
+        // If the playback rate changed then show the 'speedUpLabel' briefly
+        guard playbackRate > oldPlaybackRate else { return }
+        
+        UIView.animate(withDuration: 0.25) { [weak self] in
+            self?.countdownLabel.alpha = 0
+            self?.speedUpLabel.alpha = 1
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(1250)) {
+            UIView.animate(withDuration: 0.25) { [weak self] in
+                self?.countdownLabel.alpha = 1
+                self?.speedUpLabel.alpha = 0
+            }
         }
     }
 }
