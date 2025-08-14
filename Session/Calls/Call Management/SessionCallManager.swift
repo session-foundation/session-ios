@@ -114,10 +114,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
+        // Show contact name + session id (truncated...) opening outgoing call in apple watch
+        let callDisplay = generateDisplayForCall(call)
+        
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
-        update.remoteHandle = CXHandle(type: .generic, value: call.sessionId)
+        update.remoteHandle = CXHandle(type: .generic, value: callDisplay)
         update.hasVideo = false
 
         disableUnsupportedFeatures(callUpdate: update)
@@ -295,5 +298,21 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             }
             Log.flush()
         }
+    }
+    
+    func generateDisplayForCall(_ call: CurrentCallProtocol) -> String {
+        guard
+            let sessionCall = call as? SessionCall,
+            sessionCall.contactName.isEmpty == false
+        else {
+            /// When contact name is empty display
+            /// ex. 1234...7890
+            return call.sessionId.truncated(prefix: 4, suffix: 4)
+        }
+
+        /// Display contact name + truncated session id prefix 4
+        /// ex. John 1234...
+        let truncatedSessionId = sessionCall.sessionId.truncated(prefix: 4, suffix: 0)
+        return "\(sessionCall.contactName) \(truncatedSessionId)"
     }
 }

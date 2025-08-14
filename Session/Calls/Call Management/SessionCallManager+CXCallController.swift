@@ -16,7 +16,10 @@ extension SessionCallManager {
         reportOutgoingCall(call)
         
         if callController != nil {
-            let handle = CXHandle(type: .generic, value: call.sessionId)
+            // Show contact name + session id (truncated...) opening outgoing call in apple watch
+            let callDisplay = generateDisplayForCall(call)
+            
+            let handle = CXHandle(type: .generic, value: callDisplay)
             let startCallAction = CXStartCallAction(call: call.callId, handle: handle)
             
             startCallAction.isVideo = false
