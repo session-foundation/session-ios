@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUIKit
 
 struct AppReviewPromptModel {
     let title: String
@@ -22,24 +23,39 @@ extension AppReviewPromptState {
         switch self {
         case .enjoyingSession:
             return .init(
-                title: NSLocalizedString("Enjoying Session?", comment: "Title for the app review prompt dialog"),
-                message: "You've been using Session for a little while, how’s it going? We’d really appreciate hearing your thoughts.",
-                primaryButtonTitle: "It's Great ❤️",
-                secondaryButtonTitle: "Needs Work 😕"
+                title: "enjoyingSession"
+                    .put(key: "app_name", value:  Constants.app_name)
+                    .localized(),
+                message: "enjoyingSessionDescription"
+                    .put(key: "app_name", value:  Constants.app_name)
+                    .localized(),
+                primaryButtonTitle: "enjoyingSessionButtonPositive"
+                    .put(key: "emoji", value: "❤️")
+                    .localized(),
+                secondaryButtonTitle: "enjoyingSessionButtonNegative"
+                    .put(key: "emoji", value: "😕")
+                    .localized()
             )
         case .rateSession:
             return .init(
-                title: "Rate Session?",
-                message: "We're glad you're enjoying Session, if you have a moment, rating us in the App Store helps others discover private, secure messaging!",
-                primaryButtonTitle: "Rate App",
-                secondaryButtonTitle: "Not now"
+                title: "rateSession"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localized(),
+                message: "rateSessionModalDescription"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .put(key: "storevariant", value: Constants.store_variant)
+                    .localized(),
+                primaryButtonTitle: "rateSessionApp".localized(),
+                secondaryButtonTitle: "notNow".localized()
             )
         case .feedback:
             return .init(
-                title: "Give Feedback?",
-                message: "Sorry to hear your Session experience hasn’t been ideal. We'd be grateful if you could take a moment to share your thoughts in a brief survey",
-                primaryButtonTitle: "Open Survey",
-                secondaryButtonTitle: "Not now"
+                title: "giveFeedback".localized(),
+                message: "giveFeedbackDescription"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localized(),
+                primaryButtonTitle: "openSurvey".localized(),
+                secondaryButtonTitle: "notNow".localized()
             )
         case .none:
             return .init(title: "", message: "", primaryButtonTitle: "", secondaryButtonTitle: "")
