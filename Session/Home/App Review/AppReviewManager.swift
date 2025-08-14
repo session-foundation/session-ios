@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUtilitiesKit
+import StoreKit
 
 public extension Singleton {
     static let appReviewManager: SingletonConfig<AppReviewManager> = Dependencies.create(
@@ -22,6 +23,7 @@ public class AppReviewManager: NSObject, ObservableObject {
     
     @Published var currentPrompToShow: AppReviewPromptState = .none
     
+    private var pendingPrompt: AppReviewPromptState? = nil
     private var shouldTriggerReview: Bool = false
     
     // MARK: - Initialization
@@ -29,6 +31,18 @@ public class AppReviewManager: NSObject, ObservableObject {
         self.dependencies = dependencies
         
         super.init()
+    }
+    
+    func checkIfCanRetryAppReview() {
+        let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
+        
+        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], Date() >= retryDate {
+            pendingPrompt = .rateSession
+            shouldTriggerReview = true
+            
+            dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+            dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
+        }
     }
     
     func triggerReview(for trigger: AppReviewTrigger) {
@@ -74,15 +88,29 @@ public class AppReviewManager: NSObject, ObservableObject {
         guard shouldTriggerReview else { return }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self, dependencies] in
-            self?.currentPrompToShow = .enjoyingSession
+            self?.currentPrompToShow = self?.pendingPrompt ?? .enjoyingSession
             self?.shouldTriggerReview = false
             
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
+            self?.pendingPrompt = nil
+        }
+    }
+
+    func willSubmitAppReview() {
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
+        
+        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: scene)
         }
     }
     
-    func didExitAppReviewWithoutRating() {
-
+    func scheduleAppReviewRetry() {
+        guard let retryDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) else {
+            return
+        }
+        
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = retryDate
     }
     
     // For testing purposes
@@ -91,5 +119,7 @@ public class AppReviewManager: NSObject, ObservableObject {
         dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
         dependencies[defaults: .standard, key: .hasDonated] = false
         dependencies[defaults: .standard, key: .hasChangedTheme] = false
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
     }
 }

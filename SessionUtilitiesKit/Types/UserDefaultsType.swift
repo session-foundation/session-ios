@@ -192,6 +192,9 @@ public extension UserDefaults.DateKey {
     
     /// The date/time when we received a call pre-offer (used to suppress call notifications which are too old)
     static let lastCallPreOffer: UserDefaults.DateKey = "lastCallPreOffer"
+    
+    /// The date/time when app review prompt will appear again
+    static let rateAppRetryDate: UserDefaults.DateKey = "rateAppRetryDate"
 }
 
 public extension UserDefaults.DoubleKey {
@@ -208,6 +211,9 @@ public extension UserDefaults.IntKey {
     
     /// The id of the message that was just shared to
     static let lastSharedMessageId: UserDefaults.IntKey = "lastSharedMessageId"
+    
+    /// The number of attempts made to retry showing of app rating prompt
+    static let rateAppRetryAttemptCount: UserDefaults.IntKey = "rateAppRetryAttemptCount"
 }
 
 public extension UserDefaults.StringKey {

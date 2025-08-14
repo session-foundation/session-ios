@@ -369,6 +369,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Onion request path countries cache
         viewModel.dependencies.warmCache(cache: .ip2Country)
         
+        // Check app review for rating retry
+        viewModel.dependencies[singleton: .appReviewManager].checkIfCanRetryAppReview()
+        
         // Bind the UI to the view model
         bindViewModel()
     }
@@ -827,25 +830,21 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
 
 extension HomeVC: AppReviewPromptDialogDelegate {
     func willHandlePromptState(_ state: AppReviewPromptState, isPrimary: Bool) {
-        if !isPrimary {
-            appReviewPrompt.updatePrompt(.none)
+        guard state != .enjoyingSession else {
+            if isPrimary { viewModel.dependencies[singleton: .appReviewManager].scheduleAppReviewRetry() }
+
             return
         }
         
-        switch state {
-        case .feedback:
-            appReviewPrompt.updatePrompt(.none)
-            
-            showSurveyAlert()
-        case .rateSession:
-           // TODO: Add review kit
-        default:
-            break
+        appReviewPrompt.updatePrompt(.none)
+        
+        if isPrimary {
+            switch state {
+            case .feedback: showSurveyAlert()
+            case .rateSession: viewModel.dependencies[singleton: .appReviewManager].willSubmitAppReview()
+            default:  break
+            }
         }
-    }
-    
-    func didCloseBeforeReview() {
-        // TODO: - Add 2 weeks timer
     }
     
     func didChangePromptState(_ state: AppReviewPromptState) {
