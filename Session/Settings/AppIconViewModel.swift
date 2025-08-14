@@ -171,9 +171,6 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                     onChange: { icon in self?.updateAppIcon(icon) }
                                 )
                             ),
-                            accessibility: Accessibility(
-                                identifier: AppIcon(name: current).accessibilityIdentifier
-                            )
                         )
                     ]
                 )
