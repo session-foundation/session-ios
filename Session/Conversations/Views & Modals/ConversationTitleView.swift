@@ -27,30 +27,18 @@ final class ConversationTitleView: UIView {
     private lazy var stackViewLeadingConstraint: NSLayoutConstraint = stackView.pin(.leading, to: .leading, of: self)
     private lazy var stackViewTrailingConstraint: NSLayoutConstraint = stackView.pin(.trailing, to: .trailing, of: self)
     
-    private lazy var titleLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var titleLabel: SessionLabelWithProBadge = {
+        let result: SessionLabelWithProBadge = SessionLabelWithProBadge(
+            proBadgeSize: .medium,
+            withStretchingSpacer: false
+        )
         result.accessibilityIdentifier = "Conversation header name"
         result.accessibilityLabel = "Conversation header name"
         result.isAccessibilityElement = true
         result.font = Fonts.Headings.H5
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
-        
-        return result
-    }()
-    
-    private lazy var sessionProBadge: SessionProBadge = {
-        let result: SessionProBadge = SessionProBadge(size: .medium)
-        result.isHidden = true
-        
-        return result
-    }()
-    
-    private lazy var titleStackView: UIStackView = {
-        let result: UIStackView = UIStackView(arrangedSubviews: [ titleLabel, sessionProBadge ])
-        result.axis = .horizontal
-        result.alignment = .center
-        result.spacing = 4
+        result.isProBadgeHidden = true
         
         return result
     }()
@@ -61,7 +49,7 @@ final class ConversationTitleView: UIView {
     }()
     
     private lazy var stackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleStackView, labelCarouselView ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
         result.spacing = 2
@@ -151,7 +139,7 @@ final class ConversationTitleView: UIView {
         self.titleLabel.text = name
         self.titleLabel.accessibilityLabel = name
         self.titleLabel.font = (shouldHaveSubtitle ? Fonts.Headings.H6 : Fonts.Headings.H5)
-        self.sessionProBadge.isHidden = !isSessionPro
+        self.titleLabel.isProBadgeHidden = !isSessionPro
         self.labelCarouselView.isHidden = !shouldHaveSubtitle
         
         // Contact threads also have the call button to compensate for

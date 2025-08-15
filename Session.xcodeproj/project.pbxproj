@@ -175,6 +175,7 @@
 		942ADDD42D9F9613006E0BB0 /* NewTagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942ADDD32D9F960C006E0BB0 /* NewTagView.swift */; };
 		942BA9412E4487F7007C4595 /* LightBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9402E4487EE007C4595 /* LightBox.swift */; };
 		942BA9BF2E4ABBA1007C4595 /* _030_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _030_LastProfileUpdateTimestamp.swift */; };
+		942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1550,6 +1551,7 @@
 		942ADDD32D9F960C006E0BB0 /* NewTagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagView.swift; sourceTree = "<group>"; };
 		942BA9402E4487EE007C4595 /* LightBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightBox.swift; sourceTree = "<group>"; };
 		942BA9BE2E4ABB9F007C4595 /* _030_LastProfileUpdateTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _030_LastProfileUpdateTimestamp.swift; sourceTree = "<group>"; };
+		942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLabelWithProBadge.swift; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
@@ -3357,6 +3359,7 @@
 				942256932C23F8DD00C0FDBF /* SwiftUI */,
 				B8B5BCEB2394D869003823C9 /* SessionButton.swift */,
 				94CD95BA2E08D9D40097754D /* SessionProBadge.swift */,
+				942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */,
 				FD52090228B4680F006098F6 /* RadioButton.swift */,
 				B8BB82B02390C37000BA5194 /* SearchBar.swift */,
 				B8BB82B82394911B00BA5194 /* Separator.swift */,
@@ -6126,6 +6129,7 @@
 				94AAB1512E1F753500A6FA18 /* CyclicGradientView.swift in Sources */,
 				FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */,
 				942BA9412E4487F7007C4595 /* LightBox.swift in Sources */,
+				942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */,
 				FD2272E62C351378004D8A6C /* SUIKImageFormat.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
 				FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */,

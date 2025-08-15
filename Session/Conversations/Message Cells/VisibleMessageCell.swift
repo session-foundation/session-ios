@@ -26,12 +26,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     override var contextSnapshotView: UIView? { return snContentView }
     
     // Constraints
-    internal lazy var authorStackViewTopConstraint = authorStackView.pin(.top, to: .top, of: self)
-    private lazy var authorStackViewHeightConstraint = authorStackView.set(.height, to: 0)
+    internal lazy var authorLabelTopConstraint = authorLabel.pin(.top, to: .top, of: self)
+    private lazy var authorLabelHeightConstraint = authorLabel.set(.height, to: 0)
     private lazy var profilePictureViewLeadingConstraint = profilePictureView.pin(.leading, to: .leading, of: self, withInset: VisibleMessageCell.groupThreadHSpacing)
     internal lazy var contentViewLeadingConstraint1 = snContentView.pin(.leading, to: .trailing, of: profilePictureView, withInset: VisibleMessageCell.groupThreadHSpacing)
     private lazy var contentViewLeadingConstraint2 = snContentView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: VisibleMessageCell.gutterSize)
-    private lazy var contentViewTopConstraint = snContentView.pin(.top, to: .bottom, of: authorStackView, withInset: VisibleMessageCell.authorStackViewBottomSpacing)
+    private lazy var contentViewTopConstraint = snContentView.pin(.top, to: .bottom, of: authorLabel, withInset: VisibleMessageCell.authorLabelBottomSpacing)
     internal lazy var contentViewTrailingConstraint1 = snContentView.pin(.trailing, to: .trailing, of: self, withInset: -VisibleMessageCell.contactThreadHSpacing)
     private lazy var contentViewTrailingConstraint2 = snContentView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -VisibleMessageCell.gutterSize)
     private lazy var contentBottomConstraint = snContentView.bottomAnchor
@@ -84,23 +84,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
     
-    private lazy var authorLabel: UILabel = {
-        let result = UILabel()
+    private lazy var authorLabel: SessionLabelWithProBadge = {
+        let result = SessionLabelWithProBadge(proBadgeSize: .mini)
         result.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        return result
-    }()
-    
-    private lazy var sessionProBadge: SessionProBadge = {
-        let result = SessionProBadge(size: .mini)
-        result.isHidden = true
-        return result
-    }()
-    
-    private lazy var authorStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ authorLabel, sessionProBadge, UIView.hStretchingSpacer() ])
-        result.axis = .horizontal
-        result.spacing = 3
-        result.alignment = .center
+        result.isProBadgeHidden = true
         return result
     }()
 
@@ -193,9 +180,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     // MARK: - Settings
     
     private static let messageStatusImageViewSize: CGFloat = 12
-    private static let authorStackViewBottomSpacing: CGFloat = 4
+    private static let authorLabelBottomSpacing: CGFloat = 4
     private static let groupThreadHSpacing: CGFloat = 12
-    private static let authorStackViewInset: CGFloat = 12
+    private static let authorLabelInset: CGFloat = 12
     private static let replyButtonSize: CGFloat = 24
     private static let maxBubbleTranslationX: CGFloat = 40
     private static let swipeToReplyThreshold: CGFloat = 110
@@ -225,9 +212,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         super.setUpViewHierarchy()
         
         // Author label
-        addSubview(authorStackView)
-        authorStackViewTopConstraint.isActive = true
-        authorStackViewHeightConstraint.isActive = true
+        addSubview(authorLabel)
+        authorLabelTopConstraint.isActive = true
+        authorLabelHeightConstraint.isActive = true
         
         // Profile picture view
         addSubview(profilePictureView)
@@ -252,8 +239,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         replyButton.center(.vertical, in: snContentView)
         
         // Remaining constraints
-        authorStackView.pin(.leading, to: .leading, of: snContentView, withInset: VisibleMessageCell.authorStackViewInset)
-        authorStackView.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
+        authorLabel.pin(.leading, to: .leading, of: snContentView, withInset: VisibleMessageCell.authorLabelInset)
+        authorLabel.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
         
         // Under bubble content
         addSubview(underBubbleStackView)
@@ -350,7 +337,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         contentViewLeadingConstraint1.isActive = cellViewModel.variant.isIncoming
         contentViewLeadingConstraint1.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : VisibleMessageCell.contactThreadHSpacing)
         contentViewLeadingConstraint2.isActive = cellViewModel.variant.isOutgoing
-        contentViewTopConstraint.constant = (cellViewModel.senderName == nil ? 0 : VisibleMessageCell.authorStackViewBottomSpacing)
+        contentViewTopConstraint.constant = (cellViewModel.senderName == nil ? 0 : VisibleMessageCell.authorLabelBottomSpacing)
         contentViewTrailingConstraint1.isActive = cellViewModel.variant.isOutgoing
         contentViewTrailingConstraint2.isActive = cellViewModel.variant.isIncoming
         
@@ -373,17 +360,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bubbleView.isAccessibilityElement = true
         
         // Author label
-        authorStackViewTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
-        authorStackView.isHidden = (cellViewModel.senderName == nil)
+        authorLabelTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
+        authorLabel.isHidden = (cellViewModel.senderName == nil)
         authorLabel.text = cellViewModel.senderName
         authorLabel.themeTextColor = .textPrimary
+        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId)}
         
-        sessionProBadge.isHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId)}
-        
-        let authorLabelAvailableWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * VisibleMessageCell.authorStackViewInset)
+        let authorLabelAvailableWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * VisibleMessageCell.authorLabelInset)
         let authorLabelAvailableSpace = CGSize(width: authorLabelAvailableWidth, height: .greatestFiniteMagnitude)
         let authorLabelSize = authorLabel.sizeThatFits(authorLabelAvailableSpace)
-        authorStackViewHeightConstraint.constant = (cellViewModel.senderName != nil ? authorLabelSize.height : 0)
+        authorLabelHeightConstraint.constant = (cellViewModel.senderName != nil ? authorLabelSize.height : 0)
         
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity
@@ -1015,7 +1001,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         let location = gestureRecognizer.location(in: self)
         
-        if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) || authorStackView.bounds.contains(authorStackView.convert(location, from: self))
+        if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) || authorLabel.bounds.contains(authorLabel.convert(location, from: self))
         {
             delegate?.showUserProfileModal(for: cellViewModel)
         }

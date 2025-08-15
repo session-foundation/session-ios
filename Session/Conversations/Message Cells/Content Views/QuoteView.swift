@@ -195,7 +195,10 @@ final class QuoteView: UIView {
             .defaulting(to: ThemedAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .themeForegroundColor: targetThemeColor ]))
         
         // Label stack view
-        let authorLabel = UILabel()
+        let authorLabel = SessionLabelWithProBadge(
+            proBadgeSize: .mini,
+            proBadgeThemeBackgroundColor: proBadgeThemeColor
+        )
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = {
             guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
@@ -217,17 +220,10 @@ final class QuoteView: UIView {
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.numberOfLines = 1
+        authorLabel.isHidden = (authorLabel.text == nil)
+        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: authorId) }
         
-        let sessionProBadge: SessionProBadge = SessionProBadge(size: .mini, themeBackgroundColor: proBadgeThemeColor)
-        sessionProBadge.isHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: authorId) }
-        
-        let authorStackView: UIStackView = UIStackView(arrangedSubviews: [ authorLabel, sessionProBadge, UIView.hStretchingSpacer() ])
-        authorStackView.axis = .horizontal
-        authorStackView.spacing = 3
-        authorStackView.alignment = .center
-        authorStackView.isHidden = (authorLabel.text == nil)
-        
-        let labelStackView = UIStackView(arrangedSubviews: [ authorStackView, bodyLabel ])
+        let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
         labelStackView.axis = .vertical
         labelStackView.spacing = labelStackViewSpacing
         labelStackView.distribution = .equalCentering
