@@ -170,7 +170,7 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                     selectedIcon: AppIcon(name: current),
                                     onChange: { icon in self?.updateAppIcon(icon) }
                                 )
-                            ),
+                            )
                         )
                     ]
                 )
