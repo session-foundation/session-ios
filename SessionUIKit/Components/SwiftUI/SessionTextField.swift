@@ -74,6 +74,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     Text(placeholder)
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .textSecondary)
+                        .allowsHitTesting(false)
                 }
                 
                 if #available(iOS 16.0, *) {
