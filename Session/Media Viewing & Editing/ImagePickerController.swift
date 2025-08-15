@@ -558,6 +558,20 @@ extension ImagePickerGridController: UIGestureRecognizerDelegate {
 
         return true
     }
+    
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let pan = gestureRecognizer as? UIPanGestureRecognizer {
+            let velocity = pan.velocity(in: collectionView)
+            
+            // Check the horizontal movement is greater than vertical then
+            // treat it as a "selection" pan rather than a "scroll".
+            // Vertical velocity == scrolling the list.
+            // Horizontal velocity == less common for scrolling (do panning multi select)
+            return abs(velocity.x) > abs(velocity.y)
+        }
+        
+        return true
+    }
 }
 
 protocol TitleViewDelegate: AnyObject {
