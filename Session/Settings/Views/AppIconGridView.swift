@@ -24,7 +24,11 @@ final class AppIconGridView: UIView {
     private let contentView: UIView = UIView()
     
     private lazy var iconViews: [IconView] = icons.map { icon in
-        IconView(icon: icon) { [weak self] in self?.onChange?(icon) }
+        let view = IconView(icon: icon) { [weak self] in self?.onChange?(icon) }
+        view.accessibilityIdentifier = icon.accessibilityIdentifier
+        view.isAccessibilityElement = true
+        
+        return view
     }
     
     // MARK: - Initializtion
