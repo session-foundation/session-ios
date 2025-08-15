@@ -1,11 +1,14 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import CoreGraphics
+import ImageIO
 import UniformTypeIdentifiers
 
 // MARK: - DataSource
 
 public protocol DataSource: Equatable {
+    var dependencies: Dependencies { get }
     var data: Data { get }
     var dataUrl: URL? { get }
 
@@ -20,15 +23,53 @@ public protocol DataSource: Equatable {
     
     var dataLength: Int { get }
     var sourceFilename: String? { get set }
+    var fileExtension: String { get }
     var mimeType: String? { get }
     var shouldDeleteOnDeinit: Bool { get }
-    
-    var isValidImage: Bool { get }
-    var isValidVideo: Bool { get }
     
     // MARK: - Functions
     
     func write(to path: String) throws
+}
+
+public extension DataSource {
+    var imageSize: CGSize? {
+        let type: UTType? = UTType(sessionFileExtension: fileExtension)
+        let options: CFDictionary = [
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: false
+        ] as CFDictionary
+        let maybeSource: CGImageSource? = {
+            switch self.dataPathIfOnDisk {
+                case .some(let path): return CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, options)
+                case .none: return CGImageSourceCreateWithData(data as CFData, options)
+            }
+        }()
+        
+        guard let source: CGImageSource = maybeSource else { return nil }
+        
+        return MediaUtils.MediaMetadata(source: source)?.pixelSize
+    }
+    
+    var isValidImage: Bool {
+        let type: UTType? = UTType(sessionFileExtension: fileExtension)
+        
+        switch self.dataPathIfOnDisk {
+            case .some(let path): return MediaUtils.isValidImage(at: path, type: type, using: dependencies)
+            case .none: return MediaUtils.isValidImage(data: data, type: type)
+        }
+    }
+    
+    var isValidVideo: Bool {
+        guard let dataUrl: URL = self.dataUrl else { return false }
+        
+        return MediaUtils.isValidVideo(
+            path: dataUrl.path,
+            mimeType: mimeType,
+            sourceFilename: sourceFilename,
+            using: dependencies
+        )
+    }
 }
 
 // MARK: - DataSourceValue
@@ -38,10 +79,10 @@ public class DataSourceValue: DataSource {
         return DataSourceValue(data: Data(), fileExtension: UTType.fileExtensionText, using: dependencies)
     }
     
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     public var data: Data
     public var sourceFilename: String?
-    var fileExtension: String
+    public var fileExtension: String
     var cachedFilePath: String?
     public var shouldDeleteOnDeinit: Bool
     
@@ -66,28 +107,6 @@ public class DataSourceValue: DataSource {
             
             return cachedFilePath
         }
-    }
-    
-    public var isValidImage: Bool {
-        guard let dataPath: String = self.dataPathIfOnDisk else {
-            return self.data.isValidImage
-        }
-        
-        // if ows_isValidImage is given a file path, it will
-        // avoid loading most of the data into memory, which
-        // is considerably more performant, so try to do that.
-        return Data.isValidImage(at: dataPath, type: UTType(sessionFileExtension: fileExtension), using: dependencies)
-    }
-    
-    public var isValidVideo: Bool {
-        guard let dataUrl: URL = self.dataUrl else { return false }
-        
-        return MediaUtils.isValidVideo(
-            path: dataUrl.path,
-            mimeType: UTType.sessionMimeType(for: fileExtension),
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
     }
     
     // MARK: - Initialization
@@ -157,9 +176,10 @@ public class DataSourceValue: DataSource {
 // MARK: - DataSourcePath
 
 public class DataSourcePath: DataSource {
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     public var filePath: String
     public var sourceFilename: String?
+    public var fileExtension: String { URL(fileURLWithPath: filePath).pathExtension }
     var cachedData: Data?
     var cachedDataLength: Int?
     public var shouldDeleteOnDeinit: Bool
@@ -197,32 +217,6 @@ public class DataSourcePath: DataSource {
     }
     
     public var mimeType: String? { UTType.sessionMimeType(for: URL(fileURLWithPath: filePath).pathExtension) }
-    
-    public var isValidImage: Bool {
-        guard let dataPath: String = self.dataPathIfOnDisk else {
-            return self.data.isValidImage
-        }
-        
-        // if ows_isValidImage is given a file path, it will
-        // avoid loading most of the data into memory, which
-        // is considerably more performant, so try to do that.
-        return Data.isValidImage(
-            at: dataPath,
-            type: UTType(sessionFileExtension: URL(fileURLWithPath: filePath).pathExtension),
-            using: dependencies
-        )
-    }
-    
-    public var isValidVideo: Bool {
-        guard let dataUrl: URL = self.dataUrl else { return false }
-        
-        return MediaUtils.isValidVideo(
-            path: dataUrl.path,
-            mimeType: mimeType,
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
-    }
 
     // MARK: - Initialization
     

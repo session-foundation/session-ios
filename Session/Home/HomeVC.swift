@@ -549,7 +549,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         switch section.model {
             case .loadMore:
                 let loadingIndicator: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
-                loadingIndicator.themeTintColor = .textPrimary
+                loadingIndicator.themeColor = .textPrimary
                 loadingIndicator.alpha = 0.5
                 loadingIndicator.startAnimating()
                 

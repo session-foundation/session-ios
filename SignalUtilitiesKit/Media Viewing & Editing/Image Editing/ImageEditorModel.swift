@@ -70,7 +70,7 @@ public class ImageEditorModel {
             throw ImageEditorError.invalidInput
         }
         
-        let srcImageSizePixels = Data.mediaSize(
+        let srcImageSizePixels = MediaUtils.unrotatedSize(
             for: srcImagePath,
             type: type,
             mimeType: nil,
@@ -278,10 +278,11 @@ public class ImageEditorModel {
     // MARK: - Utilities
 
     // Returns nil on error.
-    private class func crop(imagePath: String, unitCropRect: CGRect) -> UIImage? {
-        // TODO: Do we want to render off the main thread?
-        Log.assertOnMainThread()
-
+    @MainActor private class func crop(
+        imagePath: String,
+        unitCropRect: CGRect,
+        using dependencies: Dependencies
+    ) -> UIImage? {
         guard let srcImage = UIImage(contentsOfFile: imagePath) else {
             Log.error("[ImageEditorModel] Could not load image")
             return nil
@@ -307,8 +308,13 @@ public class ImageEditorModel {
             Log.warn("[ImageEditorModel] Empty crop rectangle.")
             return nil
         }
-
-        let hasAlpha = Data.hasAlpha(forValidImageFilePath: imagePath)
+        let hasAlpha: Bool = (MediaUtils.MediaMetadata(
+            from: imagePath,
+            type: nil,
+            mimeType: nil,
+            sourceFilename: nil,
+            using: dependencies
+        )?.hasAlpha == true)
 
         UIGraphicsBeginImageContextWithOptions(cropRect.size, !hasAlpha, srcImage.scale)
         defer { UIGraphicsEndImageContext() }

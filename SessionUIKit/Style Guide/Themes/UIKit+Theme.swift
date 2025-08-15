@@ -35,7 +35,14 @@ public extension UIView {
     }
     
     var themeTintColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.tintColor, to: newValue) }
+        set {
+            /// The `UIActivityIndicatorView` uses a `color` value instead of `tintColor` so redirect it in case this
+            /// is mistakenly used
+            switch self {
+                case let indicator as UIActivityIndicatorView: indicator.themeColor = newValue
+                default: ThemeManager.set(self, keyPath: \.tintColor, to: newValue)
+            }
+        }
         get { return nil }
     }
     
@@ -333,6 +340,13 @@ public extension UIPageControl {
     
     var themePageIndicatorTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.pageIndicatorTintColor, to: newValue) }
+        get { return nil }
+    }
+}
+
+public extension UIActivityIndicatorView {
+    var themeColor: ThemeValue? {
+        set { ThemeManager.set(self, keyPath: \.color, to: newValue) }
         get { return nil }
     }
 }

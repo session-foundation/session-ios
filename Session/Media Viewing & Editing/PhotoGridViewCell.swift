@@ -6,28 +6,60 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 
-public enum PhotoGridItemType {
-    case photo, animated, video
-}
-
 public protocol PhotoGridItem: AnyObject {
-    var type: PhotoGridItemType { get }
+    var isVideo: Bool { get }
     var source: ImageDataManager.DataSource { get }
 }
 
 public class PhotoGridViewCell: UICollectionViewCell {
-    public let imageView: SessionImageView
+    private static let badgeSize: CGSize = CGSize(width: 32, height: 32)
+    public let imageView: SessionImageView = {
+        let result: SessionImageView = SessionImageView()
+        result.contentMode = .scaleAspectFill
+        
+        return result
+    }()
 
-    private let contentTypeBadgeView: UIImageView
-    private let selectedBadgeView: UIImageView
+    private let contentTypeBadgeView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.image = UIImage(named: "ic_gallery_badge_video")
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private let selectedBadgeView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.image = UIImage(systemName: "checkmark.circle.fill")?.withRenderingMode(.alwaysTemplate)
+        result.themeTintColor = .primary
+        result.themeBorderColor = .textPrimary
+        result.themeBackgroundColor = .textPrimary
+        result.isHidden = true
+        result.layer.cornerRadius = (PhotoGridViewCell.badgeSize.width / 2)
+        
+        return result
+    }()
 
-    private let highlightedView: UIView
-    private let selectedView: UIView
+    private let highlightedView: UIView = {
+        let result: UIView = UIView()
+        result.alpha = 0.2
+        result.themeBackgroundColor = .black
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private let selectedView: UIView = {
+        let result: UIView = UIView()
+        result.alpha = 0.3
+        result.themeBackgroundColor = .black
+        result.isHidden = true
+        
+        return result
+    }()
 
     var item: PhotoGridItem?
 
-    private static let videoBadgeImage = #imageLiteral(resourceName: "ic_gallery_badge_video")
-    private static let animatedBadgeImage = #imageLiteral(resourceName: "ic_gallery_badge_gif")
     private static let selectedBadgeImage = UIImage(systemName: "checkmark.circle.fill")
 
     override public var isSelected: Bool {
@@ -44,31 +76,6 @@ public class PhotoGridViewCell: UICollectionViewCell {
     }
 
     override init(frame: CGRect) {
-        self.imageView = SessionImageView()
-        imageView.contentMode = .scaleAspectFill
-
-        self.contentTypeBadgeView = UIImageView()
-        contentTypeBadgeView.isHidden = true
-
-        let kSelectedBadgeSize = CGSize(width: 32, height: 32)
-        self.selectedBadgeView = UIImageView()
-        selectedBadgeView.image = PhotoGridViewCell.selectedBadgeImage?.withRenderingMode(.alwaysTemplate)
-        selectedBadgeView.themeTintColor = .primary
-        selectedBadgeView.themeBorderColor = .textPrimary
-        selectedBadgeView.themeBackgroundColor = .textPrimary
-        selectedBadgeView.isHidden = true
-        selectedBadgeView.layer.cornerRadius = (kSelectedBadgeSize.width / 2)
-
-        self.highlightedView = UIView()
-        highlightedView.alpha = 0.2
-        highlightedView.themeBackgroundColor = .black
-        highlightedView.isHidden = true
-
-        self.selectedView = UIView()
-        selectedView.alpha = 0.3
-        selectedView.themeBackgroundColor = .black
-        selectedView.isHidden = true
-
         super.init(frame: frame)
 
         self.clipsToBounds = true
@@ -92,8 +99,8 @@ public class PhotoGridViewCell: UICollectionViewCell {
 
         selectedBadgeView.pin(.trailing, to: .trailing, of: contentView, withInset: -Values.verySmallSpacing)
         selectedBadgeView.pin(.bottom, to: .bottom, of: contentView, withInset: -Values.verySmallSpacing)
-        selectedBadgeView.set(.width, to: kSelectedBadgeSize.width)
-        selectedBadgeView.set(.height, to: kSelectedBadgeSize.height)
+        selectedBadgeView.set(.width, to: PhotoGridViewCell.badgeSize.width)
+        selectedBadgeView.set(.height, to: PhotoGridViewCell.badgeSize.height)
     }
 
     @available(*, unavailable, message: "Unimplemented")
@@ -105,30 +112,17 @@ public class PhotoGridViewCell: UICollectionViewCell {
         self.item = item
         imageView.setDataManager(dependencies[singleton: .imageDataManager])
         imageView.themeBackgroundColor = .textSecondary
-        imageView.loadImage(item.source) { [weak imageView] success in
-            imageView?.themeBackgroundColor = (success ? .clear : .textSecondary)
+        imageView.loadImage(item.source) { [weak imageView] processedData in
+            imageView?.themeBackgroundColor = (processedData != nil ? .clear : .textSecondary)
         }
-
-        switch item.type {
-            case .video:
-                contentTypeBadgeView.image = PhotoGridViewCell.videoBadgeImage
-                contentTypeBadgeView.isHidden = false
-                
-            case .animated:
-                contentTypeBadgeView.image = PhotoGridViewCell.animatedBadgeImage
-                contentTypeBadgeView.isHidden = false
-                
-            case .photo:
-                contentTypeBadgeView.image = nil
-                contentTypeBadgeView.isHidden = true
-        }
+        
+        contentTypeBadgeView.isHidden = !item.isVideo
     }
 
     override public func prepareForReuse() {
         super.prepareForReuse()
 
         self.item = nil
-        self.imageView.image = nil
         self.contentTypeBadgeView.isHidden = true
         self.highlightedView.isHidden = true
         self.selectedView.isHidden = true

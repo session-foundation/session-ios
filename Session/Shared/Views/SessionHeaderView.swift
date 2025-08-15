@@ -34,7 +34,7 @@ class SessionHeaderView: UITableViewHeaderFooterView {
     
     private let loadingIndicator: UIActivityIndicatorView = {
         let result: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
-        result.themeTintColor = .textPrimary
+        result.themeColor = .textPrimary
         result.alpha = 0.5
         result.startAnimating()
         result.hidesWhenStopped = true

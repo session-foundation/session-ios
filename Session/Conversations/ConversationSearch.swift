@@ -170,7 +170,7 @@ public final class SearchResultsBar: UIView {
     
     private lazy var loadingIndicator: UIActivityIndicatorView = {
         let result = UIActivityIndicatorView(style: .medium)
-        result.themeTintColor = .textPrimary
+        result.themeColor = .textPrimary
         result.alpha = 0.5
         result.hidesWhenStopped = true
         

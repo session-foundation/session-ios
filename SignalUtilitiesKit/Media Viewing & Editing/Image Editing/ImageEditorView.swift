@@ -20,15 +20,16 @@ public class ImageEditorView: UIView {
 
     weak var delegate: ImageEditorViewDelegate?
 
+    private let dependencies: Dependencies
     private let model: ImageEditorModel
-
     private let canvasView: ImageEditorCanvasView
 
     // TODO: We could hang this on the model or make this static
     //       if we wanted more color continuity.
     private var currentColor = ImageEditorColor.defaultColor()
 
-    public required init(model: ImageEditorModel, delegate: ImageEditorViewDelegate) {
+    public required init(model: ImageEditorModel, delegate: ImageEditorViewDelegate, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.model = model
         self.delegate = delegate
         self.canvasView = ImageEditorCanvasView(model: model)
@@ -463,7 +464,7 @@ public class ImageEditorView: UIView {
         // into the background image without applying the transform (e.g. rotating, etc.), so we
         // use a default transform.
         let previewTransform = ImageEditorTransform.defaultTransform(srcImageSizePixels: model.srcImageSizePixels)
-        guard let previewImage = ImageEditorCanvasView.renderForOutput(model: model, transform: previewTransform) else {
+        guard let previewImage = ImageEditorCanvasView.renderForOutput(model: model, transform: previewTransform, using: dependencies) else {
             Log.error("[ImageEditorView] Couldn't generate preview image.")
             return
         }

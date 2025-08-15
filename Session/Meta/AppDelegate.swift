@@ -86,6 +86,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
+                    maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)

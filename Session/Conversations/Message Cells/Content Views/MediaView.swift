@@ -194,8 +194,8 @@ public class MediaView: UIView {
             case (_, false, _), (_, _, false): return configure(forError: .invalid)
             
             case (_, true, true):
-                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] success in
-                    guard !success else { return }
+                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] processedData in
+                    guard processedData == nil else { return }
                     
                     Log.error("[MediaView] Could not load thumbnail")
                     Task { @MainActor [weak self] in self?.configure(forError: .invalid) }

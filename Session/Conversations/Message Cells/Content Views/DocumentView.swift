@@ -74,7 +74,7 @@ final class DocumentView: UIView {
         rightContainerView.set(.height, to: 24)
         
         let activityIndicator = UIActivityIndicatorView(style: .medium)
-        activityIndicator.themeTintColor = .textPrimary
+        activityIndicator.themeColor = textColor
         activityIndicator.startAnimating()
         activityIndicator.hidesWhenStopped = true
         activityIndicator.isHidden = (attachment.state != .uploading && attachment.state != .downloading)

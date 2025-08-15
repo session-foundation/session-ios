@@ -595,16 +595,22 @@ public class ImageEditorCanvasView: UIView {
     // We render using the transform parameter, not the transform from the model.
     // This allows this same method to be used for rendering "previews" for the
     // crop tool and the final output.
-    public class func renderForOutput(model: ImageEditorModel, transform: ImageEditorTransform) -> UIImage? {
-        // TODO: Do we want to render off the main thread?
-        Log.assertOnMainThread()
-
+    @MainActor public class func renderForOutput(
+        model: ImageEditorModel,
+        transform: ImageEditorTransform,
+        using dependencies: Dependencies
+    ) -> UIImage? {
         // Render output at same size as source image.
         let dstSizePixels = transform.outputSizePixels
         let dstScale: CGFloat = 1.0 // The size is specified in pixels, not in points.
         let viewSize = dstSizePixels
-
-        let hasAlpha = Data.hasAlpha(forValidImageFilePath: model.srcImagePath)
+        let hasAlpha: Bool = (MediaUtils.MediaMetadata(
+            from: model.srcImagePath,
+            type: nil,
+            mimeType: nil,
+            sourceFilename: nil,
+            using: dependencies
+        )?.hasAlpha == true)
 
         // We use an UIImageView + UIView.renderAsImage() instead of a CGGraphicsContext
         // Because CALayer.renderInContext() doesn't honor CALayer properties like frame,

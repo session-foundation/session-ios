@@ -138,7 +138,7 @@ public class SessionImageView: UIImageView {
     }
     
     @MainActor
-    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: ((Bool) -> Void)? = nil) {
+    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
         /// If we are trying to load the image that is already displayed then no need to do anything
         if currentLoadIdentifier == source.identifier && (self.image == nil || isAnimating()) {
             /// If it was an animation that got paused then resume it
@@ -154,9 +154,12 @@ public class SessionImageView: UIImageView {
         /// No need to kick of an async task if we were given an image directly
         switch source {
             case .image(_, .some(let image)):
+                let processedData: ImageDataManager.ProcessedImageData = ImageDataManager.ProcessedImageData(
+                    type: .staticImage(image)
+                )
                 imageSizeMetadata = image.size
-                handleLoadedImageData(ImageDataManager.ProcessedImageData(type: .staticImage(image)))
-                onComplete?(true)
+                handleLoadedImageData(processedData)
+                onComplete?(processedData)
                 return
             
             default: break
@@ -181,7 +184,7 @@ public class SessionImageView: UIImageView {
                 guard !Task.isCancelled && self?.currentLoadIdentifier == source.identifier else { return }
                 
                 self?.handleLoadedImageData(processedData)
-                onComplete?(processedData != nil)
+                onComplete?(processedData)
             }
         }
     }
