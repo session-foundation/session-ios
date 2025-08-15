@@ -11,6 +11,8 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
     @State var textThemeColor: ThemeValue = .textPrimary
     @State fileprivate var textChanged: ((String) -> Void)?
     
+    @FocusState private var isFirstResponder: Bool
+    
     public enum SessionTextFieldType {
         case thin
         case normal
@@ -83,6 +85,8 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     .font(font)
                     .foregroundColor(themeColor: textThemeColor)
                     .accessibility(self.accessibility)
+                    .focused($isFirstResponder)
+                    
                 } else {
                     ZStack {
                         TextEditor(text: $text)
@@ -92,6 +96,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                         .accessibility(self.accessibility)
                         .frame(maxHeight: self.height)
                         .padding(.all, -4)
+                        .focused($isFirstResponder)
                         
                         // FIXME: This is a workaround for dynamic height of the TextEditor.
                         Text(text.isEmpty ? placeholder : text)
@@ -117,6 +122,8 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                 RoundedRectangle(cornerRadius: self.cornerRadius)
                     .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
             )
+            .contentShape(RoundedRectangle(cornerRadius: self.cornerRadius))
+            .onTapGesture { isFirstResponder = !isFirstResponder } // Added hit test to launch keyboard, currently textfield's hit area is too small
             .onChange(of: text) { newText in
                 error = inputChecker?(newText)
                 textThemeColor = ((newText == lastErroredText || error?.isEmpty == false) ? .danger : .textPrimary)
@@ -127,7 +134,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     textThemeColor = .danger
                 }
             }
-            
+
             // Error message
             switch self.type {
                 case .thin:
