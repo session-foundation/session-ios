@@ -59,7 +59,7 @@ public class SessionLabelWithProBadge: UIView {
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: proBadgeSize, themeBackgroundColor: proBadgeThemeBackgroundColor)
-        result.isHidden = isProBadgeHidden
+        result.isHidden = true
         
         return result
     }()
