@@ -1979,6 +1979,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         becomeFirstResponder()
         reloadInputViews()
     }
+    
+    // Manually cancel the search and clear the text to remove hightlights
+    func willManuallyCancelSearchUI() {
+        searchController.uiSearchController.isActive = false
+        searchController.uiSearchController.searchBar.text = ""
+    }
 
     func didDismissSearchController(_ searchController: UISearchController) {
         hideSearchUI()

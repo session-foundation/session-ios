@@ -660,6 +660,7 @@
 		FD39352C28F382920084DADA /* VersionFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39352B28F382920084DADA /* VersionFooterView.swift */; };
 		FD39353628F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */; };
 		FD39370C2E4D7BCA00571F17 /* DocumentPickerHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */; };
+		FD3937082E4AD3FE00571F17 /* NoopDependency.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3937072E4AD3F800571F17 /* NoopDependency.swift */; };
 		FD3AABE928306BBD00E5099A /* ThreadPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3AABE828306BBD00E5099A /* ThreadPickerViewModel.swift */; };
 		FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */; };
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
@@ -1984,6 +1985,7 @@
 		FD39352B28F382920084DADA /* VersionFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionFooterView.swift; sourceTree = "<group>"; };
 		FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_FlagMessageHashAsDeletedOrInvalid.swift; sourceTree = "<group>"; };
 		FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerHandler.swift; sourceTree = "<group>"; };
+		FD3937072E4AD3F800571F17 /* NoopDependency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopDependency.swift; sourceTree = "<group>"; };
 		FD3AABE828306BBD00E5099A /* ThreadPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPickerViewModel.swift; sourceTree = "<group>"; };
 		FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindedIdLookupSpec.swift; sourceTree = "<group>"; };
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
@@ -5012,6 +5014,7 @@
 		FDF01FAE2A9ED0C800CAF969 /* Dependency Injection */ = {
 			isa = PBXGroup;
 			children = (
+				FD3937072E4AD3F800571F17 /* NoopDependency.swift */,
 				FDE7551F2C9BC1A6002A2623 /* CacheConfig.swift */,
 				FDC6D75F2862B3F600B04575 /* Dependencies.swift */,
 				FD2272ED2C3521D6004D8A6C /* FeatureConfig.swift */,
@@ -6405,6 +6408,7 @@
 				FDAA16762AC28A3B00DDBF77 /* UserDefaultsType.swift in Sources */,
 				FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */,
 				FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */,
+				FD3937082E4AD3FE00571F17 /* NoopDependency.swift in Sources */,
 				FD74434A2D07CA9F00862443 /* Codable+Utilities.swift in Sources */,
 				FD0559562E026E1B00DC48CE /* ObservingDatabase.swift in Sources */,
 				FD74434B2D07CA9F00862443 /* CGFloat+Utilities.swift in Sources */,
