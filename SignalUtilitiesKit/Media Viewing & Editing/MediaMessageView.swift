@@ -322,6 +322,7 @@ public class MediaMessageView: UIView {
         titleStackView.addArrangedSubview(subtitleLabel)
         
         imageView.alpha = 1
+        imageView.set(.width, to: .width, of: stackView)
         imageView.addSubview(fileTypeImageView)
         
         // Type-specific configurations
