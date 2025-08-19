@@ -60,10 +60,6 @@ class SignalAttachmentItem: Equatable {
         return attachment.captionText
     }
 
-    func getThumbnailImage(using dependencies: Dependencies) -> UIImage? {
-        return attachment.staticThumbnail(using: dependencies)
-    }
-
     // MARK: Equatable
 
     static func == (lhs: SignalAttachmentItem, rhs: SignalAttachmentItem) -> Bool {

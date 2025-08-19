@@ -105,6 +105,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Configure the different targets
         SNUtilitiesKit.configure(
             networkMaxFileSize: Network.maxFileSize,
+            maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
             using: dependencies
         )
         SNMessagingKit.configure(using: dependencies)
