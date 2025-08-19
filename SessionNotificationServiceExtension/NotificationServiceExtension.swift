@@ -109,9 +109,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         )
         SNMessagingKit.configure(using: dependencies)
         
-        /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
-        dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
-        
         /// Cache the users secret key
         dependencies.mutate(cache: .general) {
             $0.setSecretKey(ed25519SecretKey: userMetadata.ed25519SecretKey)
@@ -128,6 +125,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             userEd25519SecretKey: userMetadata.ed25519SecretKey
         )
         dependencies.set(cache: .libSession, to: cache)
+        
+        /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
+        ///
+        /// **Note:** This **MUST** happen after we have loaded the `libSession` cache as the notification settings are
+        /// stored in there
+        dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
         
         return userMetadata.unreadCount
     }
