@@ -102,7 +102,7 @@ public extension ImageDataManagerType {
 
 public extension SessionImageView {
     @MainActor
-    func loadImage(from path: String, onComplete: ((Bool) -> Void)? = nil) {
+    func loadImage(from path: String, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
         loadImage(.url(URL(fileURLWithPath: path)), onComplete: onComplete)
     }
     
@@ -110,13 +110,13 @@ public extension SessionImageView {
     func loadImage(
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: ((Bool) -> Void)? = nil
+        onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
             attachment: attachment,
             using: dependencies
         ) else {
-            onComplete?(false)
+            onComplete?(nil)
             return
         }
         
@@ -128,14 +128,14 @@ public extension SessionImageView {
         size: ImageDataManager.ThumbnailSize,
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: ((Bool) -> Void)? = nil
+        onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.thumbnailFrom(
             attachment: attachment,
             size: size,
             using: dependencies
         ) else {
-            onComplete?(false)
+            onComplete?(nil)
             return
         }
         
@@ -143,7 +143,7 @@ public extension SessionImageView {
     }
     
     @MainActor
-    func loadPlaceholder(seed: String, text: String, size: CGFloat, onComplete: ((Bool) -> Void)? = nil) {
+    func loadPlaceholder(seed: String, text: String, size: CGFloat, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
         loadImage(.placeholderIcon(seed: seed, text: text, size: size), onComplete: onComplete)
     }
 }

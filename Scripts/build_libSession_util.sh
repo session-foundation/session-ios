@@ -37,7 +37,7 @@ fi
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   echo "Restoring original headers to Xcode Indexer cache from backup..."
   rm -rf "${INDEX_DIR}/include"
-  rsync -rt --exclude='.DS_Store' "${PRE_BUILT_FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/" "${INDEX_DIR}/include"
+  rsync -rt --exclude='.DS_Store' "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/" "${INDEX_DIR}/include"
 
   echo "Using pre-packaged SessionUtil"
   exit 0

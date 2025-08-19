@@ -191,7 +191,7 @@ public class DisplayPictureManager {
                 let newEncryptionKey: Data
                 let finalImageData: Data
                 let fileExtension: String
-                let guessedFormat: ImageFormat = imageData.guessedImageFormat
+                let guessedFormat: ImageFormat = MediaUtils.guessedImageFormat(data: imageData)
                 
                 finalImageData = try {
                     switch guessedFormat {
