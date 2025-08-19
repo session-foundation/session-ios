@@ -12,7 +12,7 @@ public final class ProfilePictureView: UIView {
             case currentUser(SessionProManagerType)
         }
         
-        let source: ImageDataManager.DataSource?
+        public let source: ImageDataManager.DataSource?
         let animationBehaviour: AnimationBehaviour
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?

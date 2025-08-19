@@ -49,13 +49,21 @@ public class SessionLabelWithProBadge: UIView {
         set { sessionProBadge.isHidden = newValue }
     }
     
+    public override var isUserInteractionEnabled: Bool {
+        get { super.isUserInteractionEnabled }
+        set {
+            super.isUserInteractionEnabled = newValue
+            label.isUserInteractionEnabled = newValue
+        }
+    }
+    
     private let proBadgeSize: SessionProBadge.Size
     private let proBadgeThemeBackgroundColor: ThemeValue
     private let withStretchingSpacer: Bool
     
     // MARK: - UI Components
     
-    private let label: UILabel = UILabel()
+    private let label: SRCopyableLabel = SRCopyableLabel()
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: proBadgeSize, themeBackgroundColor: proBadgeThemeBackgroundColor)

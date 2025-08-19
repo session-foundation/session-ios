@@ -41,6 +41,11 @@ public extension LibSessionCacheType {
         return dependencies[feature: .allUsersSessionPro]
     }
     
+    func shouldShowProBadge(for profile: Profile?) -> Bool {
+        guard let profile = profile, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .allUsersSessionPro] || (profile.showProBadge == true)
+    }
+    
     func getCurrentUserProProof() -> String? {
         guard isSessionPro else {
             return nil

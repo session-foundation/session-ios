@@ -42,7 +42,7 @@ public extension ProfilePictureView {
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none,
         using dependencies: Dependencies
-    ) -> (Info?, Info?) {
+    ) -> (info: Info?, additionalInfo: Info?) {
         let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
             for: displayPictureUrl
         )

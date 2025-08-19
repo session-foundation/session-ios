@@ -5,22 +5,50 @@ import SessionUIKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 import SessionMessagingKit
+import Lucide
 
 struct MessageInfoScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var index = 1
     @State var feedbackMessage: String? = nil
+    @State var isExpanded: Bool = false
     
     static private let cornerRadius: CGFloat = 17
     
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     let dependencies: Dependencies
-    var isMessageFailed: Bool {
-        return [.failed, .failedToSync].contains(messageViewModel.state)
+    let isMessageFailed: Bool
+    let isCurrentUser: Bool
+    let profileInfo: ProfilePictureView.Info?
+    var proFeatures: [String] = []
+    var proCTAVariant: ProCTAModal.Variant = .generic
+    
+    public init(actions: [ContextMenuVC.Action], messageViewModel: MessageViewModel, using dependencies: Dependencies) {
+        self.actions = actions
+        self.messageViewModel = messageViewModel
+        self.dependencies = dependencies
+        
+        self.isMessageFailed = [.failed, .failedToSync].contains(messageViewModel.state)
+        self.isCurrentUser = (messageViewModel.currentUserSessionIds ?? []).contains(messageViewModel.authorId)
+        self.profileInfo = ProfilePictureView.getProfilePictureInfo(
+            size: .message,
+            publicKey: (
+                // Prioritise the profile.id because we override it for
+                // messages sent by the current user in communities
+                messageViewModel.profile?.id ??
+                messageViewModel.authorId
+            ),
+            threadVariant: .contact,    // Always show the display picture in 'contact' mode
+            displayPictureUrl: nil,
+            profile: messageViewModel.profile,
+            profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
+            using: dependencies
+        ).info
+        
+        (self.proFeatures, self.proCTAVariant) = getProFeaturesInfo()
     }
-    private var isCurrentUser: Bool { (messageViewModel.currentUserSessionIds ?? []).contains(messageViewModel.authorId) }
     
     var body: some View {
         ZStack (alignment: .topLeading) {
@@ -184,7 +212,7 @@ struct MessageInfoScreen: View {
                             ) {
                                 InfoBlock(title: "attachmentsFileId".localized()) {
                                     Text(attachment.downloadUrl.map { Attachment.fileId(for: $0) } ?? "")
-                                        .font(.system(size: Values.mediumFontSize))
+                                        .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                                 
@@ -193,7 +221,7 @@ struct MessageInfoScreen: View {
                                 ) {
                                     InfoBlock(title: "attachmentsFileType".localized()) {
                                         Text(attachment.contentType)
-                                            .font(.system(size: Values.mediumFontSize))
+                                            .font(.Body.largeRegular)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
@@ -201,7 +229,7 @@ struct MessageInfoScreen: View {
                                     
                                     InfoBlock(title: "attachmentsFileSize".localized()) {
                                         Text(Format.fileSize(attachment.byteCount))
-                                            .font(.system(size: Values.mediumFontSize))
+                                            .font(.Body.largeRegular)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
@@ -216,7 +244,7 @@ struct MessageInfoScreen: View {
                                     }()
                                     InfoBlock(title: "attachmentsResolution".localized()) {
                                         Text(resolution)
-                                            .font(.system(size: Values.mediumFontSize))
+                                            .font(.Body.largeRegular)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
@@ -228,7 +256,7 @@ struct MessageInfoScreen: View {
                                     }()
                                     InfoBlock(title: "attachmentsDuration".localized()) {
                                         Text(duration)
-                                            .font(.system(size: Values.mediumFontSize))
+                                            .font(.Body.largeRegular)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
@@ -256,15 +284,54 @@ struct MessageInfoScreen: View {
                             alignment: .leading,
                             spacing: Values.mediumSpacing
                         ) {
+                            // Pro feature message
+                            if proFeatures.count > 0 {
+                                VStack(
+                                    alignment: .leading,
+                                    spacing: Values.mediumSpacing
+                                ) {
+                                    HStack(spacing: Values.verySmallSpacing) {
+                                        SessionProBadge_SwiftUI(size: .small)
+                                        Text("message".localized())
+                                            .font(.Body.extraLargeBold)
+                                            .foregroundColor(themeColor: .textPrimary)
+                                    }
+                                    .onTapGesture {
+                                        showSessionProCTAIfNeeded()
+                                    }
+                                    
+                                    Text("proMessageInfoFeatures".localized())
+                                        .font(.Body.largeRegular)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                    
+                                    VStack(
+                                        alignment: .leading,
+                                        spacing: Values.smallSpacing
+                                    ) {
+                                        ForEach(self.proFeatures, id: \.self) { feature in
+                                            HStack(spacing: Values.smallSpacing) {
+                                                AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
+                                                    .font(.system(size: 17))
+                                                    .foregroundColor(themeColor: .primary)
+                                                
+                                                Text(feature)
+                                                    .font(.Body.largeRegular)
+                                                    .foregroundColor(themeColor: .textPrimary)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
                             InfoBlock(title: "sent".localized()) {
                                 Text(messageViewModel.dateForUI.fromattedForMessageInfo)
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                             }
                             
                             InfoBlock(title: "received".localized()) {
                                 Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                             }
                             
@@ -272,7 +339,7 @@ struct MessageInfoScreen: View {
                                 let failureText: String = messageViewModel.mostRecentFailureText ?? "messageStatusFailedToSend".localized()
                                 InfoBlock(title: "theError".localized() + ":") {
                                     Text(failureText)
-                                        .font(.system(size: Values.mediumFontSize))
+                                        .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .danger)
                                 }
                             }
@@ -281,28 +348,12 @@ struct MessageInfoScreen: View {
                                 HStack(
                                     spacing: 10
                                 ) {
-                                    let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
-                                        size: .message,
-                                        publicKey: (
-                                            // Prioritise the profile.id because we override it for
-                                            // messages sent by the current user in communities
-                                            messageViewModel.profile?.id ??
-                                            messageViewModel.authorId
-                                        ),
-                                        threadVariant: .contact,    // Always show the display picture in 'contact' mode
-                                        displayPictureUrl: nil,
-                                        profile: messageViewModel.profile,
-                                        profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
-                                        using: dependencies
-                                    )
-                                    
                                     let size: ProfilePictureView.Size = .list
-                                    
-                                    if let info: ProfilePictureView.Info = info {
+                                    if let info: ProfilePictureView.Info = self.profileInfo {
                                         ProfilePictureSwiftUI(
                                             size: size,
                                             info: info,
-                                            additionalInfo: additionalInfo,
+                                            additionalInfo: nil,
                                             dataManager: dependencies[singleton: .imageDataManager]
                                         )
                                         .frame(
@@ -316,20 +367,28 @@ struct MessageInfoScreen: View {
                                         alignment: .leading,
                                         spacing: Values.verySmallSpacing
                                     ) {
-                                        if isCurrentUser {
-                                            Text("you".localized())
-                                                .bold()
-                                                .font(.system(size: Values.mediumLargeFontSize))
-                                                .foregroundColor(themeColor: .textPrimary)
+                                        HStack(spacing: Values.verySmallSpacing) {
+                                            if isCurrentUser {
+                                                Text("you".localized())
+                                                    .font(.Body.extraLargeBold)
+                                                    .foregroundColor(themeColor: .textPrimary)
+                                            }
+                                            else if !messageViewModel.authorName.isEmpty {
+                                                Text(messageViewModel.authorName)
+                                                    .font(.Body.extraLargeBold)
+                                                    .foregroundColor(themeColor: .textPrimary)
+                                            }
+                                            
+                                            if (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: messageViewModel.authorId)}) {
+                                                SessionProBadge_SwiftUI(size: .small)
+                                                    .onTapGesture {
+                                                        showSessionProCTAIfNeeded()
+                                                    }
+                                            }
                                         }
-                                        else if !messageViewModel.authorName.isEmpty {
-                                            Text(messageViewModel.authorName)
-                                                .bold()
-                                                .font(.system(size: Values.mediumLargeFontSize))
-                                                .foregroundColor(themeColor: .textPrimary)
-                                        }
+                                        
                                         Text(messageViewModel.authorId)
-                                            .font(.spaceMono(size: Values.smallFontSize))
+                                            .font(.Display.base)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                 }
@@ -419,6 +478,43 @@ struct MessageInfoScreen: View {
         .toastView(message: $feedbackMessage)
     }
     
+    private func getProFeaturesInfo() -> (proFeatures: [String], proCTAVariant: ProCTAModal.Variant) {
+        var proFeatures: [String] = []
+        var proCTAVariant: ProCTAModal.Variant = .generic
+        
+        guard dependencies[feature: .sessionProEnabled] else { return (proFeatures, proCTAVariant) }
+        
+        if (dependencies.mutate(cache: .libSession) { $0.shouldShowProBadge(for: messageViewModel.profile) }) {
+            proFeatures.append("Session Pro Badge") // TODO: Localization
+        }
+        
+        if (messageViewModel.isProMessage || messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit) {
+            proFeatures.append("proIncreasedMessageLengthFeature".localized())
+            proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
+        }
+        
+        if ImageDataManager.isAnimatedImage(profileInfo?.source?.imageData) {
+            proFeatures.append("proAnimatedDisplayPictureFeature".localized())
+            proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
+        }
+        
+        return (proFeatures, proCTAVariant)
+    }
+    
+    private func showSessionProCTAIfNeeded() {
+        guard dependencies[feature: .sessionProEnabled] && (!dependencies[cache: .libSession].isSessionPro) else {
+            return
+        }
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: dependencies[singleton: .sessionProState],
+                variant: proCTAVariant,
+                dataManager: dependencies[singleton: .imageDataManager],
+            )
+        )
+        self.host.controller?.present(sessionProModal, animated: true)
+    }
+    
     private func showMediaFullScreen(attachment: Attachment) {
         if let mediaGalleryView = MediaGalleryViewModel.createDetailViewController(
             for: messageViewModel.threadId,
@@ -440,6 +536,7 @@ struct MessageInfoScreen: View {
 
 struct MessageBubble: View {
     @State private var maxWidth: CGFloat?
+    @State private var isExpanded: Bool = false
     
     static private let cornerRadius: CGFloat = 18
     static private let inset: CGFloat = 12
@@ -457,6 +554,15 @@ struct MessageBubble: View {
     var body: some View {
         ZStack {
             let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
+            let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: messageViewModel)
+            let height: CGFloat = VisibleMessageCell.getBodyTappableLabel(
+                for: messageViewModel,
+                with: maxWidth,
+                textColor: bodyLabelTextColor,
+                searchText: nil,
+                delegate: nil,
+                using: dependencies
+            ).height
             
             VStack(
                 alignment: .leading,
@@ -520,7 +626,18 @@ struct MessageBubble: View {
                     ) {
                         AttributedText(bodyText)
                             .foregroundColor(themeColor: bodyLabelTextColor)
-                            .padding(.all, Self.inset)
+                            .padding(.horizontal, Self.inset)
+                            .frame(
+                                maxHeight: (isExpanded ? .infinity : maxHeight)
+                            )
+                    }
+                    
+                    if (maxHeight < height && !isExpanded) {
+                        Text("messageBubbleReadMore".localized())
+                            .bold()
+                            .font(.system(size: Values.smallFontSize))
+                            .foregroundColor(themeColor: bodyLabelTextColor)
+                            .padding(.horizontal, Self.inset)
                     }
                 }
                 else {
@@ -547,6 +664,10 @@ struct MessageBubble: View {
                     }
                 }
             }
+            .padding(.vertical, Self.inset)
+            .onTapGesture {
+                self.isExpanded = true
+            }
         }
     }
 }
@@ -563,8 +684,7 @@ struct InfoBlock<Content>: View where Content: View {
             spacing: Values.verySmallSpacing
         ) {
             Text(self.title)
-                .bold()
-                .font(.system(size: Values.mediumLargeFontSize))
+                .font(.Body.extraLargeBold)
                 .foregroundColor(themeColor: .textPrimary)
             self.content()
         }
@@ -584,7 +704,7 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
         let messageInfoView = MessageInfoScreen(
             actions: actions,
             messageViewModel: messageViewModel,
-            dependencies: dependencies
+            using: dependencies
         )
         
         super.init(rootView: messageInfoView)
@@ -621,6 +741,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
             expiresStartedAtMs: nil,
             expiresInSeconds: nil,
+            isProMessage: true,
             state: .failed,
             isSenderModeratorOrAdmin: false,
             currentUserProfile: Profile(
@@ -649,7 +770,7 @@ struct MessageInfoView_Previews: PreviewProvider {
         MessageInfoScreen(
             actions: actions,
             messageViewModel: messageViewModel,
-            dependencies: Dependencies.createEmpty()
+            using: Dependencies.createEmpty()
         )
     }
 }

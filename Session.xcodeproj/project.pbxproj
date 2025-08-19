@@ -176,6 +176,7 @@
 		942BA9412E4487F7007C4595 /* LightBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9402E4487EE007C4595 /* LightBox.swift */; };
 		942BA9BF2E4ABBA1007C4595 /* _030_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _030_LastProfileUpdateTimestamp.swift */; };
 		942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */; };
+		942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -401,7 +402,6 @@
 		C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */ = {isa = PBXBuildFile; fileRef = C3CA3AC7255CDB2900F4C6D4 /* spanish.txt */; };
 		C3D0972B2510499C00F6E3E4 /* BackgroundPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D0972A2510499C00F6E3E4 /* BackgroundPoller.swift */; };
 		C3D90A5C25773A25002C9DF5 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
-		C3DAB3242480CB2B00725F25 /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		D2179CFC16BB0B3A0006F3AB /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D2179CFB16BB0B3A0006F3AB /* CoreTelephony.framework */; };
 		D2179CFE16BB0B480006F3AB /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D2179CFD16BB0B480006F3AB /* SystemConfiguration.framework */; };
 		D221A08E169C9E5E00537ABF /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D221A08D169C9E5E00537ABF /* UIKit.framework */; };
@@ -3358,6 +3358,7 @@
 				94CD96282E1B855E0097754D /* Input View */,
 				942256932C23F8DD00C0FDBF /* SwiftUI */,
 				B8B5BCEB2394D869003823C9 /* SessionButton.swift */,
+				C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */,
 				94CD95BA2E08D9D40097754D /* SessionProBadge.swift */,
 				942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */,
 				FD52090228B4680F006098F6 /* RadioButton.swift */,
@@ -4455,7 +4456,6 @@
 				FD71164728E2CE8700B47552 /* SessionCell+AccessoryView.swift */,
 				FD71164528E2CC1300B47552 /* SessionHighlightingBackgroundLabel.swift */,
 				7B71A98E2925E2A600E54854 /* SessionFooterView.swift */,
-				C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -6078,6 +6078,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */,
 				942256952C23F8DD00C0FDBF /* AttributedText.swift in Sources */,
 				942256992C23F8DD00C0FDBF /* Toast.swift in Sources */,
 				C331FF972558FA6B00070591 /* Fonts.swift in Sources */,
@@ -6845,7 +6846,6 @@
 				94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */,
 				4C4AE6A1224AF35700D4AF6F /* SendMediaNavigationController.swift in Sources */,
 				B82149C125D605C6009C0F2A /* InfoBanner.swift in Sources */,
-				C3DAB3242480CB2B00725F25 /* SRCopyableLabel.swift in Sources */,
 				7B9F71D02852EEE2006DFE7B /* Emoji+Category.swift in Sources */,
 				FD78EA0B2DDFE45E00D55B50 /* Interaction+UI.swift in Sources */,
 				7BAADFCC27B0EF23007BCF92 /* CallVideoView.swift in Sources */,

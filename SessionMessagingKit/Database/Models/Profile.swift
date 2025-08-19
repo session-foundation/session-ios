@@ -55,8 +55,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     public let blocksCommunityMessageRequests: Bool?
     
     /// The Pro Proof for when this profile is updated
-    // TODO: Implement this when the structure of Session Pro Proof is determined
+    // TODO: Implement these when the structure of Session Pro Proof is determined
     public let sessionProProof: String?
+    public var showProBadge: Bool?
     
     // MARK: - Initialization
     
@@ -68,7 +69,8 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        sessionProProof: String? = nil
+        sessionProProof: String? = nil,
+        showProBadge: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -78,6 +80,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.profileLastUpdated = profileLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.sessionProProof = sessionProProof
+        self.showProBadge = showProBadge
     }
 }
 
@@ -218,7 +221,8 @@ public extension Profile {
             displayPictureEncryptionKey: nil,
             profileLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
-            sessionProProof: nil
+            sessionProProof: nil,
+            showProBadge: nil
         )
     }
     
