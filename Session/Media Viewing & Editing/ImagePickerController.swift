@@ -563,11 +563,29 @@ extension ImagePickerGridController: UIGestureRecognizerDelegate {
         if let pan = gestureRecognizer as? UIPanGestureRecognizer {
             let velocity = pan.velocity(in: collectionView)
             
-            // Check the horizontal movement is greater than vertical then
-            // treat it as a "selection" pan rather than a "scroll".
-            // Vertical velocity == scrolling the list.
-            // Horizontal velocity == less common for scrolling (do panning multi select)
-            return abs(velocity.x) > abs(velocity.y)
+            // Threshold for what's considered "significant" movement in either direction.
+            let minVelocity: CGFloat = 30.0
+
+            // A buffer for diagonal detection.
+            // If the absolute difference between x and y velocity is within this buffer,
+            // it's considered diagonal.
+            let diagonalBuffer: CGFloat = 30.0
+
+            guard abs(velocity.x) > minVelocity || abs(velocity.y) > minVelocity else {
+                // Not enough movement to make a decision, let other gestures handle it or ignore.
+                return false
+            }
+
+            if abs(velocity.x) > minVelocity && abs(velocity.y) > minVelocity && abs(abs(velocity.x) - abs(velocity.y)) <= diagonalBuffer {
+                // Dialognal detected
+                return false // Prevent the pan gesture for diagonal scrolls
+            }
+            
+            if abs(velocity.x) > abs(velocity.y) {
+                return true
+            }
+            
+            return false
         }
         
         return true
