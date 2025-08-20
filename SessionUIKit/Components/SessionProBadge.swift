@@ -48,14 +48,22 @@ public class SessionProBadge: UIView {
         }
     }
     
-    private let size: Size
+    public var size: Size {
+        didSet {
+            widthConstraint.constant = size.width
+            heightConstraint.constant = size.height
+            proImageWidthConstraint.constant = size.proFontWidth
+            proImageHeightConstraint.constant = size.proFontHeight
+            self.layer.cornerRadius = size.cornerRadius
+        }
+    }
     
     // MARK: -  Initialization
     
-    public init(size: Size, themeBackgroundColor: ThemeValue = .primary) {
+    public init(size: Size = .small) {
         self.size = size
         super.init(frame: .zero)
-        self.setupView(themeBackgroundColor)
+        setUpViewHierarchy()
     }
     
     public override init(frame: CGRect) {
@@ -67,6 +75,7 @@ public class SessionProBadge: UIView {
     }
     
     // MARK: - UI
+    
     private lazy var proImageView: UIImageView = {
         let result: UIImageView = UIImageView(image: UIImage(named: "session_pro"))
         result.contentMode = .scaleAspectFit
@@ -74,16 +83,21 @@ public class SessionProBadge: UIView {
         return result
     }()
     
-    private func setupView(_ themeBackgroundColor: ThemeValue) {
+    private var widthConstraint: NSLayoutConstraint!
+    private var heightConstraint: NSLayoutConstraint!
+    private var proImageWidthConstraint: NSLayoutConstraint!
+    private var proImageHeightConstraint: NSLayoutConstraint!
+    
+    private func setUpViewHierarchy() {
         self.addSubview(proImageView)
-        proImageView.set(.height, to: self.size.proFontHeight)
-        proImageView.set(.width, to: self.size.proFontWidth)
+        proImageWidthConstraint = proImageView.set(.height, to: self.size.proFontHeight)
+        proImageHeightConstraint = proImageView.set(.width, to: self.size.proFontWidth)
         proImageView.center(in: self)
         
-        self.themeBackgroundColor = themeBackgroundColor
+        self.themeBackgroundColor = .primary
         self.clipsToBounds = true
         self.layer.cornerRadius = self.size.cornerRadius
-        self.set(.width, to: self.size.width)
-        self.set(.height, to: self.size.height)
+        widthConstraint = self.set(.width, to: self.size.width)
+        heightConstraint = self.set(.height, to: self.size.height)
     }
 }

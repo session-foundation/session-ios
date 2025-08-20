@@ -300,9 +300,13 @@ struct MessageInfoScreen: View {
                                         showSessionProCTAIfNeeded()
                                     }
                                     
-                                    Text("proMessageInfoFeatures".localized())
-                                        .font(.Body.largeRegular)
-                                        .foregroundColor(themeColor: .textPrimary)
+                                    Text(
+                                        "proMessageInfoFeatures"
+                                            .put(key: "app_pro", value: Constants.app_pro)
+                                            .localized()
+                                    )
+                                    .font(.Body.largeRegular)
+                                    .foregroundColor(themeColor: .textPrimary)
                                     
                                     VStack(
                                         alignment: .leading,

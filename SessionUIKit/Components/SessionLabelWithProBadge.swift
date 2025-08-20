@@ -66,7 +66,8 @@ public class SessionLabelWithProBadge: UIView {
     private let label: SRCopyableLabel = SRCopyableLabel()
     
     private lazy var sessionProBadge: SessionProBadge = {
-        let result: SessionProBadge = SessionProBadge(size: proBadgeSize, themeBackgroundColor: proBadgeThemeBackgroundColor)
+        let result: SessionProBadge = SessionProBadge(size: proBadgeSize)
+        result.themeBackgroundColor = proBadgeThemeBackgroundColor
         result.isHidden = true
         
         return result
