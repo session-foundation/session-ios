@@ -43,6 +43,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // Context menu
     var contextMenuWindow: ContextMenuWindow?
     var contextMenuVC: ContextMenuVC?
+    var documentHandler: DocumentPickerHandler?
     
     // Mentions
     var currentMentionStartIndex: String.Index?
@@ -1710,7 +1711,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         switch section.model {
             case .loadOlder, .loadNewer:
                 let loadingIndicator: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
-                loadingIndicator.themeTintColor = .textPrimary
+                loadingIndicator.themeColor = .textPrimary
                 loadingIndicator.alpha = 0.5
                 loadingIndicator.startAnimating()
                 
@@ -1979,6 +1980,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
         becomeFirstResponder()
         reloadInputViews()
+    }
+    
+    // Manually cancel the search and clear the text to remove hightlights
+    func willManuallyCancelSearchUI() {
+        searchController.uiSearchController.isActive = false
+        searchController.uiSearchController.searchBar.text = ""
     }
 
     func didDismissSearchController(_ searchController: UISearchController) {

@@ -878,18 +878,7 @@ class GalleryGridCellItem: PhotoGridItem {
         self.galleryItem = galleryItem
     }
 
-    var type: PhotoGridItemType {
-        if galleryItem.isVideo {
-            return .video
-        }
-        
-        if galleryItem.isAnimated {
-            return .animated
-        }
-        
-        return .photo
-    }
-    
+    var isVideo: Bool { galleryItem.isVideo }
     var source: ImageDataManager.DataSource {
         ImageDataManager.DataSource.thumbnailFrom(
             attachment: galleryItem.attachment,

@@ -77,7 +77,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build and Run Tests',
         commands: [
-          'echo "Explicitly running unit tests on `App_Store_Release` configuration to ensure optimisation behaviour is consistent"',
+          'echo "Explicitly running unit tests on \'App_Store_Release\' configuration to ensure optimisation behaviour is consistent"',
           'echo "If tests fail inconsistently from local builds this is likely the difference"',
           'echo ""',
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | xcbeautify --is-ci',
@@ -89,9 +89,19 @@ local clean_up_old_test_sims_on_commit_trigger = {
         ],
       },
       {
+        name: 'Stop Simulator Keep-Alive',
+        commands: [
+          'echo "Signaling simulator keep-alive to stop and clean up..."',
+          sim_delete_cmd,
+        ],
+        depends_on: ['Build and Run Tests'],
+        when: {
+          status: ['success', 'failure'],
+        },
+      },
+      {
         name: 'Unit Test Summary',
         commands: [
-          sim_delete_cmd,
           'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult'
         ],
         depends_on: ['Build and Run Tests']
