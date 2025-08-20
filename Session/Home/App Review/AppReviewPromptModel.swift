@@ -15,7 +15,6 @@ enum AppReviewPromptState {
     case enjoyingSession
     case rateSession
     case feedback
-    case none
 }
 
 extension AppReviewPromptState {
@@ -57,8 +56,6 @@ extension AppReviewPromptState {
                 primaryButtonTitle: "openSurvey".localized(),
                 secondaryButtonTitle: "notNow".localized()
             )
-        case .none:
-            return .init(title: "", message: "", primaryButtonTitle: "", secondaryButtonTitle: "")
         }
     }
 }

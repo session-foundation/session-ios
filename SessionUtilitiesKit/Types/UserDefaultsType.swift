@@ -173,7 +173,7 @@ public extension UserDefaults.BoolKey {
     static let hasChangedTheme: UserDefaults.BoolKey = "hasChangedTheme"
     
     /// Indicates whether the user pressed the donate button
-    static let hasDonated: UserDefaults.BoolKey = "hasDonated"
+    static let hasPressedDonateButton: UserDefaults.BoolKey = "hasPressedDonateButton"
     
     /// Indicates wheter app has already presented the user the app review prompt dialog
     static let didShowAppReviewPrompt: UserDefaults.BoolKey = "didShowAppReviewPrompt"

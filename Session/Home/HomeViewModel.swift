@@ -7,6 +7,8 @@ import DifferenceKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import StoreKit
+import SessionUIKit
 
 // MARK: - Log.Category
 
@@ -56,6 +58,10 @@ public class HomeViewModel: NavigatableStateHolder {
             .assign { [weak self] updatedState in self?.state = updatedState }
     }
     
+    public struct HomeViewModelEvent: Hashable {
+        let appReviewPromptTimestamp: TimeInterval?
+    }
+    
     // MARK: - State
 
     public struct State: ObservableKeyProvider {
@@ -76,6 +82,8 @@ public class HomeViewModel: NavigatableStateHolder {
         let unreadMessageRequestThreadCount: Int
         let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
         let itemCache: [String: SessionThreadViewModel]
+        let appReviewPromptState: AppReviewPromptState?
+        let appReviewPromptTimestamp: TimeInterval?
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -97,7 +105,11 @@ public class HomeViewModel: NavigatableStateHolder {
                 .setting(.hasHiddenMessageRequests),
                 .conversationCreated,
                 .anyMessageCreatedInAnyConversation,
-                .anyContactBlockedStatusChanged
+                .anyContactBlockedStatusChanged,
+                .userDefault(.hasVisitedPathScreen),
+                .userDefault(.hasPressedDonateButton),
+                .userDefault(.hasChangedTheme),
+                .updateScreen(HomeViewModel.self)
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -148,7 +160,9 @@ public class HomeViewModel: NavigatableStateHolder {
                     groupSQL: SessionThreadViewModel.groupSQL,
                     orderSQL: SessionThreadViewModel.homeOrderSQL
                 ),
-                itemCache: [:]
+                itemCache: [:],
+                appReviewPromptState: nil,
+                appReviewPromptTimestamp: nil
             )
         }
     }
@@ -170,6 +184,8 @@ public class HomeViewModel: NavigatableStateHolder {
         var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
         var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
+        var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
+        var appReviewPromptTimestamp: TimeInterval? = nil
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -195,6 +211,17 @@ public class HomeViewModel: NavigatableStateHolder {
                     key: .messageRequestUnreadMessageReceived,
                     value: nil
                 ))
+            }
+        
+            /// Check if incomplete app review can be shown again to user
+            let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
+            
+            if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
+                dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+                dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
+                dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+                
+                appReviewPromptState = .rateSession
             }
         }
         
@@ -361,6 +388,36 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         }
         
+        groupedOtherEvents?[.userDefault]?.forEach { event in
+            if let updatedValue = event.value as? Bool {
+                
+                switch event.key {
+                    case .userDefault(.hasVisitedPathScreen):
+                        if updatedValue == true {
+                            appReviewPromptState = .enjoyingSession
+                        }
+                    case .userDefault(.hasPressedDonateButton):
+                        if updatedValue == true {
+                            appReviewPromptState = .enjoyingSession
+                        }
+                    case .userDefault(.hasChangedTheme):
+                        if updatedValue == true {
+                            appReviewPromptState = .enjoyingSession
+                        }
+                    default: break
+                }
+            }
+        }
+        
+        /// Next trigger should be ignored if `didShowAppReviewPrompt` is true
+        if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] == true {
+            appReviewPromptState = nil
+        }
+        
+        if let event: HomeViewModelEvent = events.first?.value as? HomeViewModelEvent {
+            appReviewPromptTimestamp = event.appReviewPromptTimestamp
+        }
+
         /// Generate the new state
         return State(
             viewState: (loadResult.info.totalCount == 0 ?
@@ -376,7 +433,9 @@ public class HomeViewModel: NavigatableStateHolder {
             hasHiddenMessageRequests: hasHiddenMessageRequests,
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
             loadedPageInfo: loadResult.info,
-            itemCache: itemCache
+            itemCache: itemCache,
+            appReviewPromptState: appReviewPromptState,
+            appReviewPromptTimestamp: appReviewPromptTimestamp
         )
     }
     
@@ -475,6 +534,92 @@ public class HomeViewModel: NavigatableStateHolder {
         ].flatMap { $0 }
     }
     
+    // MARK: - Handle App review
+    private static func handleAppReviewTriggerFlag(_ flag: Bool) -> AppReviewPromptState? {
+        guard flag == true else { return nil }
+        
+        return .enjoyingSession
+    }
+
+    func viewDidAppear() {
+        let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [dependencies] in
+            dependencies.notifyAsync(
+                priority: .immediate,
+                key: .updateScreen(HomeViewModel.self),
+                value: HomeViewModelEvent(
+                    appReviewPromptTimestamp: timestamp,
+                )
+            )
+        }
+    }
+    
+    func scheduleAppReviewRetry() {
+        let now = dependencies.dateNow
+        
+        guard let retryDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: now) else {
+            return
+        }
+        
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = retryDate
+    }
+    
+    @MainActor func submitAppStoreReview() {
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
+        
+        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: scene)
+        }
+    }
+    
+    @MainActor func submitFeedbackSurvery() {
+        guard let url: URL = URL(string: Constants.feedback_url) else { return }
+        
+        var surverUrl: URL {
+            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+                return url
+            }
+            
+            // stringlint:ignore_contents
+            components.queryItems = [
+                .init(name: "platform", value: "iOS"),
+                .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
+            ]
+            
+            guard let finalURL = components.url else { return url }
+            
+            return finalURL
+        }
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                hasCloseButton: true,
+                onConfirm: { modal in
+                    UIApplication.shared.open(surverUrl, options: [:], completionHandler: nil)
+                    modal.dismiss(animated: true)
+                },
+                onCancel: { modal in
+                    UIPasteboard.general.string = surverUrl.absoluteString
+                    
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        self.transitionToScreen(modal, transitionType: .present)
+    }
+
     // MARK: - Functions
     
     @MainActor func loadPageBefore() {

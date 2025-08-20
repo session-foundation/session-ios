@@ -95,8 +95,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     private lazy var appReviewPrompt: AppReviewPromptDialog = {
         let prompt = AppReviewPromptDialog()
-        prompt.delegate = self
-        prompt.translatesAutoresizingMaskIntoConstraints = false
         
         // Layers
         prompt.themeBorderColor = .borderSeparator
@@ -348,7 +346,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         newConversationButton.center(.horizontal, in: view)
         newConversationButton.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide, withInset: -Values.smallSpacing)
         
-        appReviewPrompt.updatePrompt(.none)
+        appReviewPrompt.onPrimaryTapped = { [weak self] state in self?.onHandlePrimaryTappedForState(state) }
+        appReviewPrompt.onSecondaryTapped = { [weak self] in self?.onHandleSecondayTappedForState($0) }
         
         // Preview prompt
         view.addSubview(appReviewPrompt)
@@ -369,11 +368,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Onion request path countries cache
         viewModel.dependencies.warmCache(cache: .ip2Country)
         
-        // Check app review for rating retry
-        viewModel.dependencies[singleton: .appReviewManager].checkIfCanRetryAppReview()
-        
         // Bind the UI to the view model
         bindViewModel()
+        
+        viewModel.navigatableState.setupBindings(viewController: self, disposables: &disposables)
     }
     
     public override func viewDidAppear(_ animated: Bool) {
@@ -381,8 +379,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         viewModel.dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: false)
         
-        // Show app review dialog when all flags are valid
-        viewModel.dependencies[singleton: .appReviewManager].shouldShowReviewModalNextTime()
+        viewModel.viewDidAppear()
     }
     
     // MARK: - Updating
@@ -402,14 +399,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] state in self?.render(state: state) }
-            .store(in: &disposables)
-        
-        viewModel
-            .dependencies[singleton: .appReviewManager]
-            .$currentPrompToShow
-            .receive(on: DispatchQueue.main)
-            .removeDuplicates()
-            .sink { [weak self] state in self?.appReviewPrompt.updatePrompt(state) }
             .store(in: &disposables)
     }
     
@@ -443,19 +432,19 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Update the overall view state (loading, empty, or loaded)
         switch state.viewState {
-        case .loading:
-            loadingConversationsLabel.isHidden = false
-            emptyStateStackView.isHidden = true
-            
-        case .empty(let isNewUser):
-            loadingConversationsLabel.isHidden = true
-            emptyStateStackView.isHidden = false
-            accountCreatedView.isHidden = !isNewUser
-            emptyStateLogoView.isHidden = isNewUser
-            
-        case .loaded:
-            loadingConversationsLabel.isHidden = true
-            emptyStateStackView.isHidden = true
+            case .loading:
+                loadingConversationsLabel.isHidden = false
+                emptyStateStackView.isHidden = true
+                
+            case .empty(let isNewUser):
+                loadingConversationsLabel.isHidden = true
+                emptyStateStackView.isHidden = false
+                accountCreatedView.isHidden = !isNewUser
+                emptyStateLogoView.isHidden = isNewUser
+                
+            case .loaded:
+                loadingConversationsLabel.isHidden = true
+                emptyStateStackView.isHidden = true
         }
         
         // If we are still loading then don't try to load the table content (it'll be empty and we
@@ -486,6 +475,12 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
         ) { [weak self] updatedData in
             self?.sections = updatedData
+        }
+    
+        // App reivew
+        if let promptState = state.appReviewPromptState, state.appReviewPromptTimestamp != nil {
+            appReviewPrompt.setReviewPrompt(promptState)
+            viewModel.dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
         }
     }
     
@@ -828,87 +823,27 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
 }
 
-extension HomeVC: AppReviewPromptDialogDelegate {
-    func willHandlePromptState(_ state: AppReviewPromptState, isPrimary: Bool) {
-        guard state != .enjoyingSession else {
-            if isPrimary { viewModel.dependencies[singleton: .appReviewManager].scheduleAppReviewRetry() }
-
-            return
-        }
-        
-        appReviewPrompt.updatePrompt(.none)
-        
-        if isPrimary {
-            switch state {
-            case .feedback: showSurveyAlert()
-            case .rateSession: viewModel.dependencies[singleton: .appReviewManager].willSubmitAppReview()
-            default:  break
-            }
+// MARK: - Alert for survey
+private extension HomeVC {
+    func onHandlePrimaryTappedForState(_ state: AppReviewPromptState) {
+        switch state {
+            case .enjoyingSession:
+                viewModel.scheduleAppReviewRetry()
+            case .feedback:
+                // Close prompt before showing survery
+                appReviewPrompt.setReviewPrompt(nil)
+                viewModel.submitFeedbackSurvery()
+            case .rateSession:
+                // Close prompt before showing app review
+                appReviewPrompt.setReviewPrompt(nil)
+                viewModel.submitAppStoreReview()
         }
     }
     
-    func didChangePromptState(_ state: AppReviewPromptState) {
-        // Adjust insents so tableview can still be scrolled to bottom
-        let originalBottomInsets = (
-            Values.largeSpacing +
-            HomeVC.newConversationButtonSize +
-            Values.smallSpacing +
-            (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
-        )
-        
-        if state == .none {
-            tableView.contentInset.bottom = originalBottomInsets
-        } else {
-            tableView.contentInset.bottom = originalBottomInsets + (appReviewPrompt.frame.size.height + 24)
+    func onHandleSecondayTappedForState(_ state: AppReviewPromptState) {
+        switch state {
+        case .feedback, .rateSession: appReviewPrompt.setReviewPrompt(nil)
+        default: break
         }
-    }
-}
-
-// MARK: - Alert for survey
-private extension HomeVC {
-    func showSurveyAlert() {
-        guard let url: URL = URL(string: Constants.feedback_url) else { return }
-        
-        var surverUrl: URL {
-            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-                return url
-            }
-            
-            // stringlint:ignore_contents
-            components.queryItems = [
-                .init(name: "platform", value: "iOS"),
-                .init(name: "version", value: viewModel.dependencies[cache: .appVersion].appVersion)
-            ]
-            
-            guard let finalURL = components.url else { return url }
-            
-            return finalURL
-        }
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
-                hasCloseButton: true,
-                onConfirm: { modal in
-                    UIApplication.shared.open(surverUrl, options: [:], completionHandler: nil)
-                    modal.dismiss(animated: true)
-                },
-                onCancel: { modal in
-                    UIPasteboard.general.string = surverUrl.absoluteString
-                    
-                    modal.dismiss(animated: true)
-                }
-            )
-        )
-        
-        present(modal, animated: true)
     }
 }

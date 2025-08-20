@@ -3,13 +3,10 @@
 import UIKit
 import SessionUIKit
 
-protocol AppReviewPromptDialogDelegate: AnyObject {
-    func willHandlePromptState(_ state: AppReviewPromptState, isPrimary: Bool)
-    func didChangePromptState(_ state: AppReviewPromptState)
-}
-
 class AppReviewPromptDialog: UIView {
-    weak var delegate: AppReviewPromptDialogDelegate?
+    var onCloseTapped: (() -> Void)?
+    var onPrimaryTapped: ((AppReviewPromptState) -> Void)?
+    var onSecondaryTapped: ((AppReviewPromptState) -> Void)?
     
     private lazy var closeButton: UIButton = {
         let button = UIButton(type: .custom)
@@ -101,55 +98,58 @@ class AppReviewPromptDialog: UIView {
         return stack
     }()
     
-    private var prompt: AppReviewPromptState = .none
+    private var prompt: AppReviewPromptState?
     
     override init(frame: CGRect) {
         super.init(frame: frame)
         
         setupHierarchy()
         setupLayout()
+        
+        setReviewPrompt(nil)
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func updatePrompt(_ prompt: AppReviewPromptState) {
+    func setReviewPrompt(_ prompt: AppReviewPromptState?) {
         self.prompt = prompt
         
-        isHidden = prompt == .none
+        isHidden = prompt == nil
         
-        titleLabel.text = prompt.promptContent.title
-        messageLabel.text = prompt.promptContent.message
+        titleLabel.text = prompt?.promptContent.title ?? ""
+        messageLabel.text = prompt?.promptContent.message ?? ""
         
-        primaryButton.setTitle(prompt.promptContent.primaryButtonTitle, for: .normal)
-        secondaryButton.setTitle(prompt.promptContent.secondaryButtonTitle, for: .normal)
-        
-        delegate?.didChangePromptState(prompt)
+        primaryButton.setTitle(prompt?.promptContent.primaryButtonTitle, for: .normal)
+        secondaryButton.setTitle(prompt?.promptContent.secondaryButtonTitle, for: .normal)
     }
     
     @objc
     func close() {
-        updatePrompt(.none)
+        setReviewPrompt(nil)
     }
     
     @objc
     func primaryEvent() {
-        let current = prompt
+        let current = prompt ?? .enjoyingSession
         
         if current == .enjoyingSession {
-            updatePrompt(.rateSession)
+            setReviewPrompt(.rateSession)
         }
-        
-        delegate?.willHandlePromptState(current, isPrimary: true)
+    
+        onPrimaryTapped?(current)
     }
     
     @objc
     func secondaryEvent() {
-        switch prompt {
-        case .enjoyingSession: updatePrompt(.feedback)
-        default: delegate?.willHandlePromptState(prompt, isPrimary: false)
+        let current = prompt ?? .enjoyingSession
+        
+        if current == .enjoyingSession {
+            setReviewPrompt(.feedback)
         }
+        
+        onSecondaryTapped?(current)
     }
 }
 
