@@ -214,8 +214,8 @@ extension MessageSender {
                         // from the correct time.
                         var scheduledTimestampForDeletion: Double? {
                             guard interaction.isExpiringMessage else { return nil }
-                            let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                            return Double(sentTimestampMs)
+                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                            return sentTimestampMs
                         }
                     
                         try interaction.with(

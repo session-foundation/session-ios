@@ -105,12 +105,7 @@ extension ContextMenuVC {
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             
-            let canCountdown: Bool = {
-                guard cellViewModel.variant.isOutgoing else { return true }
-                    
-                let state = cellViewModel.state
-                return state != .sending && state != .failed
-            }()
+            let canCountdown: Bool  = (!cellViewModel.variant.isOutgoing || ![.sending, .failed].contains(cellViewModel.state))
             
             return Action(
                 icon: Lucide.image(icon: .trash2, size: 24),
