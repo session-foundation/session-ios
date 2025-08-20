@@ -20,6 +20,7 @@ public extension SessionCell {
         let editingPlaceholder: String?
         let interaction: Interaction
         let accessibility: Accessibility?
+        let textTailingView: UIView?
         let extraViewGenerator: (() -> UIView)?
         
         private let fontStyle: FontStyle
@@ -32,6 +33,7 @@ public extension SessionCell {
             editingPlaceholder: String? = nil,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
+            textTailingView: UIView? = nil,
             extraViewGenerator: (() -> UIView)? = nil
         ) {
             self.text = text
@@ -40,6 +42,7 @@ public extension SessionCell {
             self.editingPlaceholder = editingPlaceholder
             self.interaction = interaction
             self.accessibility = accessibility
+            self.textTailingView = textTailingView
             self.extraViewGenerator = extraViewGenerator
         }
         

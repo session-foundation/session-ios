@@ -73,7 +73,6 @@ extension SessionCell {
             
             if let newView: UIView = maybeView {
                 addSubview(newView)
-                newView.pin(to: self)
                 layout(view: newView, accessory: accessory)
             }
             
@@ -156,6 +155,9 @@ extension SessionCell {
             using dependencies: Dependencies
         ) -> UIView? {
             switch accessory {
+                case is SessionCell.AccessoryConfig.ProBadge:
+                    return SessionProBadge(size: .small)
+                
                 case is SessionCell.AccessoryConfig.Icon:
                     return createIconView(using: dependencies)
                     
@@ -191,6 +193,9 @@ extension SessionCell {
         
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
+                case let accessory as SessionCell.AccessoryConfig.ProBadge:
+                    layoutProBadgeView(view, size: accessory.proBadgeSize)
+        
                 case let accessory as SessionCell.AccessoryConfig.Icon:
                     layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
                     
@@ -231,6 +236,9 @@ extension SessionCell {
             using dependencies: Dependencies
         ) {
             switch accessory {
+                case let accessory as SessionCell.AccessoryConfig.ProBadge:
+                    configureProBadgeView(view, tintColor: tintColor)
+                
                 case let accessory as SessionCell.AccessoryConfig.Icon:
                     configureIconView(view, accessory, tintColor: tintColor)
                     
@@ -274,6 +282,22 @@ extension SessionCell {
             }
         }
         
+        // MARK: -- Pro Badge
+        
+        private func layoutProBadgeView(_ view: UIView?, size: SessionProBadge.Size) {
+            guard let badgeView: SessionProBadge = view as? SessionProBadge else { return }
+            badgeView.size = size
+            badgeView.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
+            badgeView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
+            badgeView.pin(.top, to: .top, of: self)
+            badgeView.pin(.bottom, to: .bottom, of: self)
+        }
+        
+        private func configureProBadgeView(_ view: UIView?, tintColor: ThemeValue) {
+            guard let badgeView: SessionProBadge = view as? SessionProBadge else { return }
+            badgeView.themeBackgroundColor = tintColor
+        }
+        
         // MARK: -- Icon
         
         private func createIconView(using dependencies: Dependencies) -> SessionImageView {
@@ -295,6 +319,8 @@ extension SessionCell {
             imageView.set(.height, to: iconSize.size)
             imageView.pin(.leading, to: .leading, of: self, withInset: (shouldFill ? 0 : Values.smallSpacing))
             imageView.pin(.trailing, to: .trailing, of: self, withInset: (shouldFill ? 0 : -Values.smallSpacing))
+            imageView.pin(.top, to: .top, of: self)
+            imageView.pin(.bottom, to: .bottom, of: self)
             fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
             minWidthConstraint.isActive = !fixedWidthConstraint.isActive
         }
@@ -573,6 +599,8 @@ extension SessionCell {
             radioBorderView.center(.vertical, in: self)
             radioBorderView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
             minWidthConstraint.isActive = true
+            
+            view.pin(to: self)
         }
         
         private func configureHighlightingBackgroundLabelAndRadioView(
@@ -756,6 +784,8 @@ extension SessionCell {
             
             view.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             view.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
+            view.pin(.top, to: .top, of: self)
+            view.pin(.bottom, to: .bottom, of: self)
         }
         
         private func configureCustomView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.AnyCustom) {

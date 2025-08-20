@@ -6,7 +6,7 @@ public class SessionProBadge: UIView {
     public enum Size {
         case mini, small, medium, large
         
-        var width: CGFloat {
+        public var width: CGFloat {
             switch self {
                 case .mini: return 24
                 case .small: return 32
@@ -14,7 +14,7 @@ public class SessionProBadge: UIView {
                 case .large: return 52
             }
         }
-        var height: CGFloat {
+        public var height: CGFloat {
             switch self {
                 case .mini: return 11
                 case .small: return 14.5
@@ -22,7 +22,7 @@ public class SessionProBadge: UIView {
                 case .large: return 26
             }
         }
-        var cornerRadius: CGFloat {
+        public var cornerRadius: CGFloat {
             switch self {
                 case .mini: return 2.5
                 case .small: return 3.5
@@ -30,7 +30,7 @@ public class SessionProBadge: UIView {
                 case .large: return 6
             }
         }
-        var proFontHeight: CGFloat {
+        public var proFontHeight: CGFloat {
             switch self {
                 case .mini: return 5
                 case .small: return 6
@@ -38,7 +38,7 @@ public class SessionProBadge: UIView {
                 case .large: return 11
             }
         }
-        var proFontWidth: CGFloat {
+        public var proFontWidth: CGFloat {
             switch self {
                 case .mini: return 17
                 case .small: return 24
@@ -60,9 +60,9 @@ public class SessionProBadge: UIView {
     
     // MARK: -  Initialization
     
-    public init(size: Size = .small) {
+    public init(size: Size) {
         self.size = size
-        super.init(frame: .zero)
+        super.init(frame: CGRect(x: 0, y: 0, width: size.width, height: size.height))
         setUpViewHierarchy()
     }
     
@@ -90,8 +90,8 @@ public class SessionProBadge: UIView {
     
     private func setUpViewHierarchy() {
         self.addSubview(proImageView)
-        proImageWidthConstraint = proImageView.set(.height, to: self.size.proFontHeight)
-        proImageHeightConstraint = proImageView.set(.width, to: self.size.proFontWidth)
+        proImageHeightConstraint = proImageView.set(.height, to: self.size.proFontHeight)
+        proImageWidthConstraint = proImageView.set(.width, to: self.size.proFontWidth)
         proImageView.center(in: self)
         
         self.themeBackgroundColor = .primary

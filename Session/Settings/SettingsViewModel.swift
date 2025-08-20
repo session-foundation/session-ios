@@ -42,6 +42,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     enum NavItem: Equatable {
         case close
+        case edit
         case qrCode
     }
     
@@ -49,8 +50,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case profileInfo
         case sessionId
         
-        case donationAndCommunity
-        case network
+        case sessionProAndCommunity
+        case donationAndnetwork
         case settings
         case helpAndData
         
@@ -66,7 +67,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         var style: SessionTableSectionStyle {
             switch self {
                 case .sessionId: return .titleSeparator
-                case .donationAndCommunity, .network, .settings, .helpAndData: return .padding
+                case .sessionProAndCommunity, .donationAndnetwork, .settings, .helpAndData: return .padding
                 default: return .none
             }
         }
@@ -79,9 +80,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case sessionId
         case idActions
         
-        case donate
+        case sessionPro
         case inviteAFriend
         
+        case donate
         case path
         case sessionNetwork
         
@@ -112,7 +114,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
         SessionNavItem(
             id: .qrCode,
-            image: UIImage(named: "QRCode")?
+            image: Lucide.image(icon: .qrCode, size: 24)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             accessibilityIdentifier: "View QR code",
@@ -122,6 +124,24 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
                 viewController.setNavBarTitle("qrCode".localized())
                 self?.transitionToScreen(viewController)
+            }
+        ),
+        SessionNavItem(
+            id: .edit,
+            image: Lucide.image(icon: .pencil, size: 22)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            accessibilityIdentifier: "Edit Profile Name",
+            action: { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: self.updateDisplayName(current: self.internalState.profile.displayName())
+                        ),
+                        transitionType: .present
+                    )
+                }
             }
         )
     ]
@@ -263,7 +283,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             switch (state.serviceNetwork, state.forceOffline) {
                                 case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                                 case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
+                                default: return .pencil
                             }
                         }()
                     ),
@@ -286,18 +306,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         state.profile.displayName(),
                         font: .titleLarge,
                         alignment: .center,
-                        interaction: .editable
-                    ),
-                    trailingAccessory: .icon(
-                        .pencil,
-                        size: .small,
-                        customTint: .textSecondary
+                        interaction: .editable,
+                        textTailingView: (
+                            viewModel.dependencies[cache: .libSession].isSessionPro ?
+                                SessionProBadge(size: .medium) :
+                                nil
+                        )
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: IconSize.small.size,
                             bottom: Values.mediumSpacing,
                             interItem: 0
                         ),
@@ -368,20 +387,19 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let donationAndCommunity: SectionModel = SectionModel(
-            model: .donationAndCommunity,
+        let sessionProAndCommunity: SectionModel = SectionModel(
+            model: .sessionProAndCommunity,
             elements: [
                 SessionCell.Info(
-                    id: .donate,
-                    leadingAccessory: .icon(
-                        .heart,
-                        customTint: .sessionButton_border
-                    ),
-                    title: "donate".localized(),
+                    id: .sessionPro,
+                    leadingAccessory: .proBadge(size: .small),
+                    title: Constants.app_pro,
                     styling: SessionCell.StyleInfo(
                         tintColor: .sessionButton_border
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                    onTap: { [weak viewModel] in
+                        // TODO: Implement
+                    }
                 ),
                 SessionCell.Info(
                     id: .inviteAFriend,
@@ -405,9 +423,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let network: SectionModel = SectionModel(
-            model: .network,
+        let donationAndNetwork: SectionModel = SectionModel(
+            model: .donationAndnetwork,
             elements: [
+                SessionCell.Info(
+                    id: .donate,
+                    leadingAccessory: .icon(
+                        .heart,
+                        customTint: .sessionButton_border
+                    ),
+                    title: "donate".localized(),
+                    styling: SessionCell.StyleInfo(
+                        tintColor: .sessionButton_border
+                    ),
+                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                ),
                 SessionCell.Info(
                     id: .path,
                     leadingAccessory: .custom(
@@ -425,9 +455,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             .withRenderingMode(.alwaysTemplate)
                     ),
                     title: Constants.network_name,
-                    trailingAccessory: .custom(
-                        info: NewTagView.Info()
-                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         let viewController: SessionHostingViewController = SessionHostingViewController(
                             rootView: SessionNetworkScreen(
@@ -580,7 +607,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             elements: helpAndDataElements
         )
         
-        return [profileInfo, sessionId, donationAndCommunity, network, settings, helpAndData]
+        return [profileInfo, sessionId, sessionProAndCommunity, donationAndNetwork, settings, helpAndData]
     }
     
     public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(
@@ -628,6 +655,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 self?.updatedName != current
             },
             cancelStyle: .alert_text,
+            hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { [weak self] modal in
                 guard
