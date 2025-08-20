@@ -1977,7 +1977,7 @@ extension ConversationVC:
                             )
                         ),
                         to: destination,
-                        namespace: .default,
+                        namespace: destination.defaultNamespace,
                         interactionId: cellViewModel.id,
                         attachments: nil,
                         authMethod: authMethod,
