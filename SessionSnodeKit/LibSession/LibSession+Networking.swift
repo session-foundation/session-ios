@@ -917,7 +917,7 @@ public extension LibSession {
         func snodeCacheSize() -> Int
     }
     
-    class NoopNetworkCache: NetworkCacheType {
+    class NoopNetworkCache: NetworkCacheType, NoopDependency {
         public var isSuspended: Bool { return false }
         public var networkStatus: AnyPublisher<NetworkStatus, Never> {
             Just(NetworkStatus.unknown).eraseToAnyPublisher()

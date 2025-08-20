@@ -589,19 +589,19 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let section: HomeViewModel.SectionModel = sections[section]
         
         switch section.model {
-        case .loadMore:
-            let loadingIndicator: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
-            loadingIndicator.themeTintColor = .textPrimary
-            loadingIndicator.alpha = 0.5
-            loadingIndicator.startAnimating()
+            case .loadMore:
+                let loadingIndicator: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
+                loadingIndicator.themeColor = .textPrimary
+                loadingIndicator.alpha = 0.5
+                loadingIndicator.startAnimating()
+                
+                let view: UIView = UIView()
+                view.addSubview(loadingIndicator)
+                loadingIndicator.center(in: view)
+                
+                return view
             
-            let view: UIView = UIView()
-            view.addSubview(loadingIndicator)
-            loadingIndicator.center(in: view)
-            
-            return view
-            
-        default: return nil
+            default: return nil
         }
     }
     
