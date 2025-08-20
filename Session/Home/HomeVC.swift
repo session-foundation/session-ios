@@ -44,6 +44,15 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     private var loadingConversationsLabelTopConstraint: NSLayoutConstraint?
     private var navBarProfileView: ProfilePictureView?
     
+    private lazy var tableViewBottomInsets: CGFloat = {
+        (
+            Values.largeSpacing +
+            HomeVC.newConversationButtonSize +
+            Values.smallSpacing +
+            (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
+        )
+    }()
+    
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
         result.accessibilityLabel = "Recovery phrase reminder"
@@ -75,12 +84,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         result.contentInset = UIEdgeInsets(
             top: 0,
             left: 0,
-            bottom: (
-                Values.largeSpacing +
-                HomeVC.newConversationButtonSize +
-                Values.smallSpacing +
-                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
-            ),
+            bottom: tableViewBottomInsets,
             right: 0
         )
         result.showsVerticalScrollIndicator = false
@@ -348,6 +352,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         appReviewPrompt.onPrimaryTapped = { [weak self] state in self?.onHandlePrimaryTappedForState(state) }
         appReviewPrompt.onSecondaryTapped = { [weak self] in self?.onHandleSecondayTappedForState($0) }
+        appReviewPrompt.onCloseTapped = { [weak self] in self?.viewModel.handlePromptChangeState(nil) }
         
         // Preview prompt
         view.addSubview(appReviewPrompt)
@@ -481,6 +486,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         if let promptState = state.appReviewPromptState, state.appReviewPromptTimestamp != nil {
             appReviewPrompt.setReviewPrompt(promptState)
             viewModel.dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
+            
+            tableView.contentInset.bottom = tableViewBottomInsets + (appReviewPrompt.frame.size.height + 24)
+        } else {
+            appReviewPrompt.setReviewPrompt(nil)
+            tableView.contentInset.bottom = tableViewBottomInsets
         }
     }
     
@@ -828,22 +838,23 @@ private extension HomeVC {
     func onHandlePrimaryTappedForState(_ state: AppReviewPromptState) {
         switch state {
             case .enjoyingSession:
+                viewModel.handlePromptChangeState(.rateSession)
                 viewModel.scheduleAppReviewRetry()
             case .feedback:
                 // Close prompt before showing survery
-                appReviewPrompt.setReviewPrompt(nil)
+                viewModel.handlePromptChangeState(nil)
                 viewModel.submitFeedbackSurvery()
             case .rateSession:
                 // Close prompt before showing app review
-                appReviewPrompt.setReviewPrompt(nil)
+                viewModel.handlePromptChangeState(nil)
                 viewModel.submitAppStoreReview()
         }
     }
     
     func onHandleSecondayTappedForState(_ state: AppReviewPromptState) {
         switch state {
-        case .feedback, .rateSession: appReviewPrompt.setReviewPrompt(nil)
-        default: break
+        case .feedback, .rateSession: viewModel.handlePromptChangeState(nil)
+        case .enjoyingSession: viewModel.handlePromptChangeState(.feedback)
         }
     }
 }

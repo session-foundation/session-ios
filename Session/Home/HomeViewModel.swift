@@ -60,6 +60,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     public struct HomeViewModelEvent: Hashable {
         let appReviewPromptTimestamp: TimeInterval?
+        let appReviewPromptState: AppReviewPromptState?
     }
     
     // MARK: - State
@@ -213,9 +214,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 ))
             }
         
-            /// Check if incomplete app review can be shown again to user
+            /// Check if incomplete app review can be shown again to user on next app launch
             let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
-            
+
             if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
                 dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
                 dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
@@ -416,6 +417,7 @@ public class HomeViewModel: NavigatableStateHolder {
         
         if let event: HomeViewModelEvent = events.first?.value as? HomeViewModelEvent {
             appReviewPromptTimestamp = event.appReviewPromptTimestamp
+            appReviewPromptState = event.appReviewPromptState
         }
 
         /// Generate the new state
@@ -544,12 +546,13 @@ public class HomeViewModel: NavigatableStateHolder {
     func viewDidAppear() {
         let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [dependencies] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
             dependencies.notifyAsync(
                 priority: .immediate,
                 key: .updateScreen(HomeViewModel.self),
                 value: HomeViewModelEvent(
                     appReviewPromptTimestamp: timestamp,
+                    appReviewPromptState: state.appReviewPromptState
                 )
             )
         }
@@ -558,12 +561,34 @@ public class HomeViewModel: NavigatableStateHolder {
     func scheduleAppReviewRetry() {
         let now = dependencies.dateNow
         
-        guard let retryDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: now) else {
+        guard let retryDate = Calendar.current.date(byAdding: .minute, value: 2, to: now) else {
             return
         }
         
         dependencies[defaults: .standard, key: .rateAppRetryDate] = retryDate
     }
+    
+    func handlePromptChangeState(_ state: AppReviewPromptState?) {
+        let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        
+        dependencies.notifyAsync(
+            priority: .immediate,
+            key: .updateScreen(HomeViewModel.self),
+            value: HomeViewModelEvent(
+                appReviewPromptTimestamp: timestamp,
+                appReviewPromptState: state
+            )
+        )
+    }
+    
+    func clearFlags() {
+         dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+         dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
+         dependencies[defaults: .standard, key: .hasPressedDonateButton] = false
+         dependencies[defaults: .standard, key: .hasChangedTheme] = false
+         dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
+     }
     
     @MainActor func submitAppStoreReview() {
         dependencies[defaults: .standard, key: .rateAppRetryDate] = nil

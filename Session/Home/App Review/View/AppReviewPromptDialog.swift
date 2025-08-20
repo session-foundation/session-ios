@@ -127,28 +127,18 @@ class AppReviewPromptDialog: UIView {
     
     @objc
     func close() {
-        setReviewPrompt(nil)
+        onCloseTapped?()
     }
     
     @objc
     func primaryEvent() {
         let current = prompt ?? .enjoyingSession
-        
-        if current == .enjoyingSession {
-            setReviewPrompt(.rateSession)
-        }
-    
         onPrimaryTapped?(current)
     }
     
     @objc
     func secondaryEvent() {
         let current = prompt ?? .enjoyingSession
-        
-        if current == .enjoyingSession {
-            setReviewPrompt(.feedback)
-        }
-        
         onSecondaryTapped?(current)
     }
 }
