@@ -210,7 +210,7 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         // Process image attachments
         if UTType.isImage(contentType) || UTType.isAnimated(contentType) {
             return (
-                Data.isValidImage(at: path, type: UTType(sessionMimeType: contentType), using: dependencies),
+                MediaUtils.isValidImage(at: path, type: UTType(sessionMimeType: contentType), using: dependencies),
                 nil
             )
         }

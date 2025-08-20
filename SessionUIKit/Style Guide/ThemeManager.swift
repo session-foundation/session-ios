@@ -234,14 +234,19 @@ public enum ThemeManager {
         with primaryColor: Theme.PrimaryColor
     ) -> T? {
         switch value {
-            case .value(let value, let alpha): return T.resolve(value, for: theme)?.alpha(alpha)
+            case .value(let value, let alpha):
+                let color: T? = color(for: value, in: theme, with: primaryColor)
+                return color?.alpha(alpha)
+                
             case .primary: return T.resolve(primaryColor)
             case .explicitPrimary(let explicitPrimary): return T.resolve(explicitPrimary)
             
             case .highlighted(let value, let alwaysDarken):
+                let color: T? = color(for: value, in: theme, with: primaryColor)!
+                
                 switch (currentTheme.interfaceStyle, alwaysDarken) {
-                    case (.light, _), (_, true): return T.resolve(value, for: theme)?.brighten(-0.06)
-                    default: return T.resolve(value, for: theme)?.brighten(0.08)
+                    case (.light, _), (_, true): return color?.brighten(-0.06)
+                    default: return color?.brighten(0.08)
                 }
                 
             case .dynamicForInterfaceStyle(let light, let dark):

@@ -111,6 +111,7 @@ public class SignalAttachment: Equatable {
     public var sourceFilename: String? { return dataSource.sourceFilename?.filteredFilename }
     public var isValidImage: Bool { return dataSource.isValidImage }
     public var isValidVideo: Bool { return dataSource.isValidVideo }
+    public var imageSize: CGSize? { return dataSource.imageSize }
 
     // This flag should be set for text attachments that can be sent as text messages.
     public var isConvertibleToTextMessage = false
@@ -179,71 +180,6 @@ public class SignalAttachment: Equatable {
         }
         
         return errorDescription
-    }
-
-    public func staticThumbnail(using dependencies: Dependencies) -> UIImage? {
-        if isAnimatedImage {
-            return image()
-        }
-        else if isImage {
-            return image()
-        }
-        else if isVideo {
-            return videoPreview(using: dependencies)
-        }
-        else if isAudio {
-            return nil
-        }
-        
-        return nil
-    }
-
-    public func image() -> UIImage? {
-        if let cachedImage = cachedImage {
-            return cachedImage
-        }
-        guard let image = UIImage(data: dataSource.data) else {
-            return nil
-        }
-        
-        cachedImage = image
-        return image
-    }
-
-    public func videoPreview(using dependencies: Dependencies) -> UIImage? {
-        if let cachedVideoPreview = cachedVideoPreview {
-            return cachedVideoPreview
-        }
-
-        guard let mediaUrl = dataUrl else {
-            return nil
-        }
-
-        do {
-            let filePath = mediaUrl.path
-            guard
-                dependencies[singleton: .fileManager].fileExists(atPath: filePath),
-                let mimeType: String = dataType.sessionMimeType,
-                let assetInfo: (asset: AVURLAsset, cleanup: () -> Void) = AVURLAsset.asset(
-                    for: filePath,
-                    mimeType: mimeType,
-                    sourceFilename: sourceFilename,
-                    using: dependencies
-                )
-            else { return nil }
-            
-            let generator = AVAssetImageGenerator(asset: assetInfo.asset)
-            generator.appliesPreferredTrackTransform = true
-            let cgImage = try generator.copyCGImage(at: CMTimeMake(value: 0, timescale: 1), actualTime: nil)
-            let image = UIImage(cgImage: cgImage)
-            assetInfo.cleanup()
-
-            cachedVideoPreview = image
-            return image
-
-        } catch {
-            return nil
-        }
     }
     
     public func text() -> String? {
@@ -462,7 +398,7 @@ public class SignalAttachment: Equatable {
         }
 
         if UTType.supportedAnimatedImageTypes.contains(type) {
-            guard dataSource.dataLength <= MediaUtils.maxFileSizeAnimatedImage else {
+            guard dataSource.dataLength <= SNUtilitiesKit.maxFileSize else {
                 attachment.error = .fileSizeTooLarge
                 return attachment
             }
@@ -515,7 +451,7 @@ public class SignalAttachment: Equatable {
         
         return (
             doesImageHaveAcceptableFileSize(dataSource: dataSource, imageQuality: imageQuality) &&
-            dataSource.dataLength <= MediaUtils.maxFileSizeImage
+            dataSource.dataLength <= SNUtilitiesKit.maxFileSize
         )
     }
 
@@ -545,7 +481,7 @@ public class SignalAttachment: Equatable {
         assert(attachment.error == nil)
 
         if imageQuality == .original &&
-            attachment.dataLength < MediaUtils.maxFileSizeGeneric &&
+            attachment.dataLength < SNUtilitiesKit.maxFileSize &&
             UTType.supportedOutputImageTypes.contains(attachment.dataType) {
             // We should avoid resizing images attached "as documents" if possible.
             return attachment
@@ -575,7 +511,7 @@ public class SignalAttachment: Equatable {
             dataSource.sourceFilename = jpgFilename
 
             if doesImageHaveAcceptableFileSize(dataSource: dataSource, imageQuality: imageQuality) &&
-                dataSource.dataLength <= MediaUtils.maxFileSizeImage {
+                dataSource.dataLength <= SNUtilitiesKit.maxFileSize {
                 let recompressedAttachment = SignalAttachment(dataSource: dataSource, dataType: .jpeg)
                 recompressedAttachment.cachedImage = dstImage
                 return recompressedAttachment
@@ -759,7 +695,7 @@ public class SignalAttachment: Equatable {
             dataSource: dataSource,
             type: type,
             validTypes: UTType.supportedVideoTypes,
-            maxFileSize: MediaUtils.maxFileSizeVideo,
+            maxFileSize: SNUtilitiesKit.maxFileSize,
             using: dependencies
         )
     }
@@ -878,7 +814,7 @@ public class SignalAttachment: Equatable {
         guard
             let dataSource = dataSource,
             UTType.supportedOutputVideoTypes.contains(type),
-            dataSource.dataLength <= MediaUtils.maxFileSizeVideo
+            dataSource.dataLength <= SNUtilitiesKit.maxFileSize
         else { return false }
         
         return false
@@ -895,7 +831,7 @@ public class SignalAttachment: Equatable {
             dataSource: dataSource,
             type: type,
             validTypes: UTType.supportedAudioTypes,
-            maxFileSize: MediaUtils.maxFileSizeAudio,
+            maxFileSize: SNUtilitiesKit.maxFileSize,
             using: dependencies
         )
     }
@@ -911,7 +847,7 @@ public class SignalAttachment: Equatable {
             dataSource: dataSource,
             type: type,
             validTypes: nil,
-            maxFileSize: MediaUtils.maxFileSizeGeneric,
+            maxFileSize: SNUtilitiesKit.maxFileSize,
             using: dependencies
         )
     }

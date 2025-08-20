@@ -225,17 +225,30 @@ extension ContextMenuVC {
                 )
             )
         )
-        let canSave: Bool = (
-            cellViewModel.cellType == .mediaMessage &&
-            (cellViewModel.attachments ?? [])
-                .filter { attachment in
-                    attachment.isValid &&
-                    attachment.isVisualMedia && (
-                        attachment.state == .downloaded ||
-                        attachment.state == .uploaded
-                    )
-                }.isEmpty == false
-        )
+        let canSave: Bool = {
+            switch cellViewModel.cellType {
+                case .mediaMessage:
+                    return (cellViewModel.attachments ?? [])
+                        .filter { attachment in
+                            attachment.isValid &&
+                            attachment.isVisualMedia && (
+                                attachment.state == .downloaded ||
+                                attachment.state == .uploaded
+                            )
+                        }.isEmpty == false
+                    
+                case .audio, .genericAttachment:
+                    return (cellViewModel.attachments ?? [])
+                        .filter { attachment in
+                            attachment.isValid && (
+                                attachment.state == .downloaded ||
+                                attachment.state == .uploaded
+                            )
+                        }.isEmpty == false
+                    
+                default: return false
+            }
+        }()
         let canCopySessionId: Bool = (
             cellViewModel.variant == .standardIncoming &&
             cellViewModel.threadVariant != .community
