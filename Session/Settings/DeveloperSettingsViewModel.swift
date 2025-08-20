@@ -408,6 +408,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     onTap: { [weak self] in
                         self?.copyAppGroupPath()
                     }
+                ),
+                SessionCell.Info(
+                    id: .copyAppGroupPath,
+                    title: "Reset App Review Prompt",
+                    subtitle: """
+                    Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
+                    onTap: { [weak self] in
+                        self?.resetAppReviewPrompt()
+                    }
                 )
             ]
         )
@@ -1426,6 +1437,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         showToast(
             text: "copied".localized(),
+            backgroundColor: .backgroundSecondary
+        )
+    }
+    
+    private func resetAppReviewPrompt() {
+        dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+        dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
+        dependencies[defaults: .standard, key: .hasPressedDonateButton] = false
+        dependencies[defaults: .standard, key: .hasChangedTheme] = false
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
+        
+        showToast(
+            text: "cleared".localized(),
             backgroundColor: .backgroundSecondary
         )
     }

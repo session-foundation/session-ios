@@ -561,7 +561,7 @@ public class HomeViewModel: NavigatableStateHolder {
     func scheduleAppReviewRetry() {
         let now = dependencies.dateNow
         
-        guard let retryDate = Calendar.current.date(byAdding: .minute, value: 2, to: now) else {
+        guard let retryDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: now) else {
             return
         }
         
@@ -580,16 +580,7 @@ public class HomeViewModel: NavigatableStateHolder {
             )
         )
     }
-    
-    func clearFlags() {
-         dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-         dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
-         dependencies[defaults: .standard, key: .hasPressedDonateButton] = false
-         dependencies[defaults: .standard, key: .hasChangedTheme] = false
-         dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
-     }
-    
+
     @MainActor func submitAppStoreReview() {
         dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
