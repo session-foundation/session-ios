@@ -307,9 +307,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         interaction: .editable,
-                        textTailingView: (
+                        textTailing: (
                             viewModel.dependencies[cache: .libSession].isSessionPro ?
-                                SessionProBadge(size: .medium) :
+                            SessionProBadge(size: .medium).toImage() :
                                 nil
                         )
                     ),
@@ -433,9 +433,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         customTint: .sessionButton_border
                     ),
                     title: "donate".localized(),
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .sessionButton_border
-                    ),
                     onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
                 ),
                 SessionCell.Info(

@@ -100,4 +100,14 @@ public class SessionProBadge: UIView {
         widthConstraint = self.set(.width, to: self.size.width)
         heightConstraint = self.set(.height, to: self.size.height)
     }
+    
+    public func toImage() -> UIImage? {
+        self.proImageView.frame = CGRect(
+            x: (size.width - size.proFontWidth) / 2,
+            y: (size.height - size.proFontHeight) / 2,
+            width: size.proFontWidth,
+            height: size.proFontHeight
+        )
+        return self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
+    }
 }
