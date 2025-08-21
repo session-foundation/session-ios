@@ -115,16 +115,14 @@ public extension SessionCell {
         var font: UIFont {
             switch self {
                 case .title: return .boldSystemFont(ofSize: 16)
-                case .titleLarge: return .systemFont(ofSize: Values.veryLargeFontSize, weight: .medium)
+                case .titleLarge: return Fonts.Headings.H4
                 case .titleRegular: return .systemFont(ofSize: 16)
                     
                 case .subtitle: return .systemFont(ofSize: 14)
                 case .subtitleBold: return .boldSystemFont(ofSize: 14)
                 
                 case .monoSmall: return Fonts.spaceMono(ofSize: Values.smallFontSize)
-                case .monoLarge: return Fonts.spaceMono(
-                    ofSize: (isIPhone5OrSmaller ? Values.mediumFontSize : Values.largeFontSize)
-                )
+                case .monoLarge: return Fonts.Display.extraLarge
             }
         }
     }

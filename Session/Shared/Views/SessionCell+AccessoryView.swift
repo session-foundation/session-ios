@@ -155,6 +155,9 @@ extension SessionCell {
             using dependencies: Dependencies
         ) -> UIView? {
             switch accessory {
+                case is SessionCell.AccessoryConfig.QRCode:
+                    return createQRCodeView()
+                
                 case is SessionCell.AccessoryConfig.ProBadge:
                     return SessionProBadge(size: .small)
                 
@@ -193,6 +196,9 @@ extension SessionCell {
         
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
+                case let accessory as SessionCell.AccessoryConfig.QRCode:
+                    layoutQRCodeView(view)
+                
                 case let accessory as SessionCell.AccessoryConfig.ProBadge:
                     layoutProBadgeView(view, size: accessory.proBadgeSize)
         
@@ -236,6 +242,9 @@ extension SessionCell {
             using dependencies: Dependencies
         ) {
             switch accessory {
+                case let accessory as SessionCell.AccessoryConfig.QRCode:
+                    configureQRCodeView(view, accessory)
+                
                 case let accessory as SessionCell.AccessoryConfig.ProBadge:
                     configureProBadgeView(view, tintColor: tintColor)
                 
@@ -280,6 +289,49 @@ extension SessionCell {
                 // If we get an unknown case then just hide again
                 default: self.isHidden = true
             }
+        }
+        
+        // MARK: -- QRCode
+        
+        private func createQRCodeView() -> UIView {
+            let result: UIView = UIView()
+            result.layer.cornerRadius = 10
+            result.layer.masksToBounds = true
+            
+            let qrCodeImageView: UIImageView = UIImageView()
+            qrCodeImageView.contentMode = .scaleAspectFit
+            
+            result.addSubview(qrCodeImageView)
+            qrCodeImageView.pin(to: result, withInset: Values.smallSpacing)
+            result.set(.width, to: 190)
+            result.set(.height, to: 190)
+            
+            return result
+        }
+        
+        private func layoutQRCodeView(_ view: UIView?) {
+            guard let view: UIView = view else { return }
+            
+            view.pin(to: self)
+            fixedWidthConstraint.constant = 190
+            fixedWidthConstraint.isActive = true
+        }
+        
+        private func configureQRCodeView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.QRCode) {
+            guard
+                let backgroundView: UIView = view,
+                let qrCodeImageView: UIImageView = view?.subviews.first as? UIImageView
+            else { return }
+            
+            let backgroundThemeColor: ThemeValue = (accessory.themeStyle == .light ? .backgroundSecondary : .textPrimary)
+            let qrCodeThemeColor: ThemeValue = (accessory.themeStyle == .light ? .textPrimary : .backgroundPrimary)
+            let qrCodeImage: UIImage = QRCode
+                .generate(for: accessory.string, hasBackground: accessory.hasBackground, iconName: accessory.logo)
+                .withRenderingMode(.alwaysTemplate)
+            
+            qrCodeImageView.image = qrCodeImage
+            qrCodeImageView.themeTintColor = qrCodeThemeColor
+            backgroundView.themeBackgroundColor = backgroundThemeColor
         }
         
         // MARK: -- Pro Badge

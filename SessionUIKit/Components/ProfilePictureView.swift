@@ -62,7 +62,7 @@ public final class ProfilePictureView: UIView {
             switch self {
                 case .navigation, .message: return 26
                 case .list: return 46
-                case .hero: return 80
+                case .hero: return 90
                 case .modal: return 90
             }
         }
@@ -106,8 +106,8 @@ public final class ProfilePictureView: UIView {
         
         var isLeadingAligned: Bool {
             switch self {
-                case .none, .crown, .letter: return true
-                case .rightPlus, .pencil: return false
+                case .none, .letter: return true
+                case .rightPlus, .pencil, .crown: return false
             }
         }
     }
@@ -418,7 +418,7 @@ public final class ProfilePictureView: UIView {
                 label.isHidden = true
             
             case .crown:
-                imageView.image = UIImage(systemName: "crown.fill")
+                imageView.image = UIImage(named: "ic_crown")?.withRenderingMode(.alwaysTemplate)
                 imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .dynamicForPrimary(
                     .green,

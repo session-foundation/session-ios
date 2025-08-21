@@ -35,6 +35,20 @@ public extension SessionCell {
 // MARK: - DSL
 
 public extension SessionCell.Accessory {
+    static func qrCode(
+        for string: String,
+        hasBackground: Bool,
+        logo: String? = nil,
+        themeStyle: UIUserInterfaceStyle
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.QRCode(
+            for: string,
+            hasBackground: hasBackground,
+            logo: logo,
+            themeStyle: themeStyle
+        )
+    }
+    
     static func proBadge(
         size: SessionProBadge.Size
     ) -> SessionCell.Accessory {
@@ -222,6 +236,53 @@ public extension SessionCell.Accessory {
 
 // stringlint:ignore_contents
 public extension SessionCell.AccessoryConfig {
+    // MARK: - QRCode
+    
+    class QRCode: SessionCell.Accessory {
+        override public var viewIdentifier: String {
+            "qr-code"
+        }
+        
+        public let string: String
+        public let hasBackground: Bool
+        public let logo: String?
+        public let themeStyle: UIUserInterfaceStyle
+        
+        fileprivate init(
+            for string: String,
+            hasBackground: Bool,
+            logo: String? = nil,
+            themeStyle: UIUserInterfaceStyle
+        ) {
+            self.string = string
+            self.hasBackground = hasBackground
+            self.logo = logo
+            self.themeStyle = themeStyle
+            
+            super.init(accessibility: Accessibility(identifier: "Session QRCode"))
+        }
+        
+        // MARK: - Conformance
+        
+        override public func hash(into hasher: inout Hasher) {
+            string.hash(into: &hasher)
+            hasBackground.hash(into: &hasher)
+            logo?.hash(into: &hasher)
+            themeStyle.hash(into: &hasher)
+        }
+        
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: QRCode = other as? QRCode else { return false }
+            
+            return (
+                string == rhs.string &&
+                hasBackground == rhs.hasBackground &&
+                logo == rhs.logo &&
+                themeStyle == rhs.themeStyle
+            )
+        }
+    }
+    
     // MARK: - Pro Badge
     
     class ProBadge: SessionCell.Accessory {
