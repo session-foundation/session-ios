@@ -233,6 +233,10 @@ public extension Dependencies {
             ObservedEvent(key: .featureGroup(feature), value: nil)
         ])
     }
+    
+    func defaultValue<T: FeatureOption>(feature: FeatureConfig<T>) -> T? {
+        return feature.createInstance(self).defaultOption
+    }
 }
 
 // MARK: - DependenciesError
