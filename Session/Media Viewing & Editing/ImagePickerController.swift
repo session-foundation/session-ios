@@ -562,30 +562,21 @@ extension ImagePickerGridController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if let pan = gestureRecognizer as? UIPanGestureRecognizer {
             let velocity = pan.velocity(in: collectionView)
-            
+
             // Threshold for what's considered "significant" movement in either direction.
             let minVelocity: CGFloat = 30.0
-
-            // A buffer for diagonal detection.
-            // If the absolute difference between x and y velocity is within this buffer,
-            // it's considered diagonal.
-            let diagonalBuffer: CGFloat = 30.0
 
             guard abs(velocity.x) > minVelocity || abs(velocity.y) > minVelocity else {
                 // Not enough movement to make a decision, let other gestures handle it or ignore.
                 return false
             }
 
-            if abs(velocity.x) > minVelocity && abs(velocity.y) > minVelocity && abs(abs(velocity.x) - abs(velocity.y)) <= diagonalBuffer {
-                // Dialognal detected
-                return false // Prevent the pan gesture for diagonal scrolls
-            }
-            
-            if abs(velocity.x) > abs(velocity.y) {
-                return true
-            }
-            
-            return false
+            // We only want to activate the "drag to select" within a ~30 degree angle in either
+            // direction so approximate if the velocity is within this angle
+            let ratio = abs(velocity.y / velocity.x)
+            let tangentOf30DegreeBuffer: CGFloat = 0.577 // This is about `tan(30)`
+
+            return (ratio < tangentOf30DegreeBuffer)
         }
         
         return true
