@@ -248,7 +248,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 message: message,
                 threadId: thread.id,
                 interactionId: interaction?.id,
-                authMethod: try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies)
+                authMethod: try Authentication.with(swarmPublicKey: thread.id, using: dependencies)
             )
             .retry(5)
             // Start the timeout timer for the call

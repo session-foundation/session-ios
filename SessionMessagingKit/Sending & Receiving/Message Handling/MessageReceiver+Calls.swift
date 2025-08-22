@@ -404,7 +404,7 @@ extension MessageReceiver {
                 message: message,
                 disappearingMessagesConfiguration: try? DisappearingMessagesConfiguration
                     .fetchOne(db, id: threadId),
-                authMethod: try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
+                authMethod: try Authentication.with(swarmPublicKey: threadId, using: dependencies),
                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )

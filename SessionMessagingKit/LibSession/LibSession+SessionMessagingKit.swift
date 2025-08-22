@@ -1113,6 +1113,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval?
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval?
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData
 }
 
 public extension LibSessionCacheType {
@@ -1383,6 +1385,10 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool { return false }
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        return GroupAuthData(groupIdentityPrivateKey: nil, authData: nil)
+    }
 }
 
 // MARK: - Convenience

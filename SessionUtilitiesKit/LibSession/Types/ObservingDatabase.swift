@@ -47,7 +47,7 @@ public extension ObservingDatabase {
         addEvent(ObservedEvent(key: key, value: nil))
     }
     
-    func addEvent(_ value: AnyHashable?, forKey key: ObservableKey) {
+    func addEvent<T: Hashable>(_ value: T?, forKey key: ObservableKey) {
         addEvent(ObservedEvent(key: key, value: value))
     }
 }

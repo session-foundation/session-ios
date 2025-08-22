@@ -436,7 +436,6 @@ public extension MessageViewModel.DeletionBehaviours {
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(
-                                    db,
                                     swarmPublicKey: threadData.currentUserSessionId,
                                     using: dependencies
                                 ),

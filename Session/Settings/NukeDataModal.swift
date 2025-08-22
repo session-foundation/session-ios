@@ -178,25 +178,23 @@ final class NukeDataModal: Modal {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
                 dependencies[singleton: .storage]
-                    .readPublisher { db -> (AuthenticationMethod, [AuthenticationMethod]) in
-                        (
-                            try Authentication.with(
-                                db,
-                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                                using: dependencies
-                            ),
-                            try OpenGroup
-                                .filter(OpenGroup.Columns.isActive == true)
-                                .select(.server)
-                                .distinct()
-                                .asRequest(of: String.self)
-                                .fetchSet(db)
-                                .map { try Authentication.with(db, server: $0, using: dependencies) }
-                        )
+                    .readPublisher { db -> [AuthenticationMethod] in
+                        try OpenGroup
+                            .filter(OpenGroup.Columns.isActive == true)
+                            .select(.server)
+                            .distinct()
+                            .asRequest(of: String.self)
+                            .fetchSet(db)
+                            .map { try Authentication.with(db, server: $0, using: dependencies) }
                     }
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .tryFlatMap { (userAuth: AuthenticationMethod, communityAuth: [AuthenticationMethod]) -> AnyPublisher<(AuthenticationMethod, [String]), Error> in
-                        Publishers
+                    .tryFlatMap { (communityAuth: [AuthenticationMethod]) -> AnyPublisher<(AuthenticationMethod, [String]), Error> in
+                        let userAuth: AuthenticationMethod = try Authentication.with(
+                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                            using: dependencies
+                        )
+                        
+                        return Publishers
                             .MergeMany(
                                 try communityAuth.compactMap { authMethod in
                                     switch authMethod.info {

@@ -289,7 +289,6 @@ internal extension LibSessionCacheType {
         // send a fire-and-forget API call to delete the messages from the swarm
         if isAdmin && !messageHashesToDelete.isEmpty {
             (try? Authentication.with(
-                db,
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )).map { authMethod in

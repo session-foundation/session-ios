@@ -70,75 +70,52 @@ extension KeyValueStore {
 // MARK: - Keys
 
 public extension KeyValueStore {
-    struct BoolKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
-        public let rawValue: String
-        
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
+    protocol Key: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+        var rawValue: String { get }
+        init(_ rawValue: String)
     }
     
-    struct DateKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct BoolKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct DoubleKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct DateKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct IntKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct DoubleKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct Int64Key: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct IntKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct StringKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct Int64Key: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct EnumKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+    struct StringKey: Key {
         public let rawValue: String
-        
         public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
+    
+    struct EnumKey: Key {
+        public let rawValue: String
+        public init(_ rawValue: String) { self.rawValue = rawValue }
+    }
+}
+
+public extension KeyValueStore.Key {
+    init?(rawValue: String) { self.init(rawValue) }
+    init(stringLiteral value: String) { self.init(value) }
+    init(unicodeScalarLiteral value: String) { self.init(value) }
+    init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
 }
 
 // MARK: - GRDB Interactions
@@ -170,30 +147,45 @@ public extension ObservingDatabase {
             // Default to false if it doesn't exist
             (self[key.rawValue]?.unsafeValue(as: Bool.self) ?? false)
         }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
     subscript(key: KeyValueStore.DoubleKey) -> Double? {
         get { self[key.rawValue]?.value(as: Double.self) }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
     subscript(key: KeyValueStore.IntKey) -> Int? {
         get { self[key.rawValue]?.value(as: Int.self) }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
     subscript(key: KeyValueStore.Int64Key) -> Int64? {
         get { self[key.rawValue]?.value(as: Int64.self) }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
     subscript(key: KeyValueStore.StringKey) -> String? {
         get { self[key.rawValue]?.value(as: String.self) }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
-    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == Int {
+    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == Int, T: Hashable {
         get {
             guard let rawValue: Int = self[key.rawValue]?.value(as: Int.self) else {
                 return nil
@@ -201,10 +193,13 @@ public extension ObservingDatabase {
             
             return T(rawValue: rawValue)
         }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
-    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == String {
+    subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == String, T: Hashable {
         get {
             guard let rawValue: String = self[key.rawValue]?.value(as: String.self) else {
                 return nil
@@ -212,7 +207,10 @@ public extension ObservingDatabase {
             
             return T(rawValue: rawValue)
         }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
     }
     
     /// Value will be stored as a timestamp in seconds since 1970
@@ -227,48 +225,56 @@ public extension ObservingDatabase {
                 key: key.rawValue,
                 value: newValue.map { $0.timeIntervalSince1970 }
             )
+            self.addEvent(newValue, forKey: .keyValue(key))
         }
     }
     
     func setting(key: KeyValueStore.BoolKey, to newValue: Bool) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
     func setting(key: KeyValueStore.DoubleKey, to newValue: Double?) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
     func setting(key: KeyValueStore.IntKey, to newValue: Int?) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
     func setting(key: KeyValueStore.Int64Key, to newValue: Int64?) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
     func setting(key: KeyValueStore.StringKey, to newValue: String?) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
-    func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == Int {
+    func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == Int, T: Hashable {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
-    func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == String {
+    func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == String, T: Hashable {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
     
@@ -276,6 +282,25 @@ public extension ObservingDatabase {
     func setting(key: KeyValueStore.DateKey, to newValue: Date?) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue.map { $0.timeIntervalSince1970 })
         self[key.rawValue] = result
+        self.addEvent(newValue, forKey: .keyValue(key))
         return result
     }
+}
+
+// MARK: - ObservationManager
+
+public extension ObservableKey {
+    fileprivate static func keyValue(_ key: String) -> ObservableKey { ObservableKey(key, .keyValue) }
+    
+    static func keyValue(_ key: KeyValueStore.BoolKey) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.DateKey) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.DoubleKey) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.IntKey) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.Int64Key) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.StringKey) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.EnumKey) -> ObservableKey { keyValue(key.rawValue) }
+}
+
+public extension GenericObservableKey {
+    static let keyValue: GenericObservableKey = "keyValue"
 }

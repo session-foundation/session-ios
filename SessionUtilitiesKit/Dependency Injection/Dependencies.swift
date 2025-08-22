@@ -125,6 +125,10 @@ public class Dependencies {
     
     // MARK: - Instance management
     
+    public func warmSingleton<S>(singleton: SingletonConfig<S>) {
+        _ = getOrCreate(singleton)
+    }
+    
     public func warmCache<M, I>(cache: CacheConfig<M, I>) {
         _ = getOrCreate(cache)
     }
@@ -227,7 +231,6 @@ public extension Dependencies {
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
-        dependecyChangeContinuation.yield((key, nil))
         notifyAsync(events: [
             ObservedEvent(key: .feature(feature), value: nil),
             ObservedEvent(key: .featureGroup(feature), value: nil)
@@ -446,5 +449,51 @@ private extension Dependencies.DependencyStorage {
                 return (.feature(instance), instance)
             }
         }
+    }
+}
+
+// MARK: - Async/Await
+
+public extension Dependencies {
+    private func stream<T>(key: DependencyStorage.Key, initialValueRetriever: () -> T?) -> AsyncStream<T> {
+        return AsyncStream { continuation in
+            if let initialValue: T = initialValueRetriever() {
+                continuation.yield(initialValue)
+            }
+            
+            let observationTask = Task { [weak self] in
+                guard let self else { return continuation.finish() }
+                
+                for await (changedKey, changedValue) in self.dependecyChangeStream {
+                    guard changedKey == key else { continue }
+                    
+                    if let newInstance = changedValue?.value(as: T.self) {
+                        continuation.yield(newInstance)
+                    }
+                }
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                observationTask.cancel()
+            }
+        }
+    }
+    
+    func stream<S>(singleton: SingletonConfig<S>) -> AsyncStream<S> {
+        let key = DependencyStorage.Key.Variant.singleton.key(singleton.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[singleton: singleton] })
+    }
+    
+    func stream<M, I>(cache: CacheConfig<M, I>) -> AsyncStream<I> {
+        let key = DependencyStorage.Key.Variant.cache.key(cache.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[cache: cache] })
+    }
+    
+    func stream<T: FeatureOption>(feature: FeatureConfig<T>) -> AsyncStream<T> {
+        let key = DependencyStorage.Key.Variant.feature.key(feature.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[feature: feature] })
     }
 }

@@ -181,15 +181,17 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     }
                     
                     dependencies[singleton: .storage]
-                        .writePublisher { db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
-                            (
-                                try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies),
-                                try DisappearingMessagesConfiguration.fetchOne(db, id: thread.id)
-                            )
+                        .writePublisher { db -> DisappearingMessagesConfiguration? in
+                            try DisappearingMessagesConfiguration.fetchOne(db, id: thread.id)
                         }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                        .tryFlatMap { authMethod, disappearingMessagesConfiguration in
-                            try MessageSender.preparedSend(
+                        .tryFlatMap { disappearingMessagesConfiguration in
+                            let authMethod: AuthenticationMethod = try Authentication.with(
+                                swarmPublicKey: thread.id,
+                                using: dependencies
+                            )
+                            
+                            return try MessageSender.preparedSend(
                                 message: CallMessage(
                                     uuid: uuid,
                                     kind: .offer,
@@ -226,7 +228,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
         return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
+            .readPublisher { db -> DisappearingMessagesConfiguration? in
                 /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                 guard
                     SessionThread
@@ -235,13 +237,15 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                         .isNotEmpty(db)
                 else { throw WebRTCSessionError.noThread }
                 
-                return (
-                    try Authentication.with(db, swarmPublicKey: sessionId, using: dependencies),
-                    try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
-                )
+                return try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
             }
-            .flatMap { [weak self, dependencies] authMethod, disappearingMessagesConfiguration in
-                Future<Void, Error> { resolver in
+            .tryFlatMap { [weak self, dependencies] disappearingMessagesConfiguration in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: sessionId,
+                    using: dependencies
+                )
+                
+                return Future<Void, Error> { resolver in
                     self?.peerConnection?.answer(for: mediaConstraints) { [weak self] sdp, error in
                         if let error = error {
                             resolver(Result.failure(error))
@@ -313,7 +317,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         self.queuedICECandidates.removeAll()
         
         return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
+            .readPublisher { db -> DisappearingMessagesConfiguration? in
                 /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                 guard
                     SessionThread
@@ -322,13 +326,15 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                         .isNotEmpty(db)
                 else { throw WebRTCSessionError.noThread }
                 
-                return (
-                    try Authentication.with(db, swarmPublicKey: contactSessionId, using: dependencies),
-                    try DisappearingMessagesConfiguration.fetchOne(db, id: contactSessionId)
-                )
+                return try DisappearingMessagesConfiguration.fetchOne(db, id: contactSessionId)
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .tryFlatMap { [dependencies] authMethod, disappearingMessagesConfiguration in
+            .tryFlatMap { [dependencies] disappearingMessagesConfiguration in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: contactSessionId,
+                    using: dependencies
+                )
+                
                 Log.info(.calls, "Batch sending \(candidates.count) ICE candidates.")
                 
                 return try MessageSender
@@ -368,7 +374,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     
     public func endCall(with sessionId: String) {
         return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
+            .readPublisher { db -> DisappearingMessagesConfiguration? in
                 /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                 guard
                     SessionThread
@@ -377,13 +383,15 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                         .isNotEmpty(db)
                 else { throw WebRTCSessionError.noThread }
                 
-                return (
-                    try Authentication.with(db, swarmPublicKey: sessionId, using: dependencies),
-                    try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
-                )
+                return try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .tryFlatMap { [dependencies, uuid] authMethod, disappearingMessagesConfiguration in
+            .tryFlatMap { [dependencies, uuid] disappearingMessagesConfiguration in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: sessionId,
+                    using: dependencies
+                )
+                
                 Log.info(.calls, "Sending end call message.")
                 
                 return try MessageSender
