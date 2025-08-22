@@ -98,15 +98,18 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }()
     
     private lazy var appReviewPrompt: AppReviewPromptDialog = {
-        let prompt = AppReviewPromptDialog()
+        let result = AppReviewPromptDialog()
         
         // Layers
-        prompt.themeBorderColor = .borderSeparator
-        prompt.layer.borderWidth = 1
-        prompt.layer.cornerRadius = 12
-        prompt.themeBackgroundColor = .backgroundSecondary
+        result.themeBorderColor = .borderSeparator
+        result.layer.borderWidth = 1
+        result.layer.cornerRadius = 12
+        result.themeBackgroundColor = .backgroundSecondary
+        result.onPrimaryTapped = { [viewModel = self.viewModel] state in viewModel.handlePrimaryTappedForState(state) }
+        result.onSecondaryTapped = { [viewModel = self.viewModel] in viewModel.handleSecondayTappedForState($0) }
+        result.onCloseTapped = { [viewModel = self.viewModel] in viewModel.handlePromptChangeState(nil) }
         
-        return prompt
+        return result
     }()
     
     private lazy var newConversationButton: UIView = {
@@ -350,13 +353,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         newConversationButton.center(.horizontal, in: view)
         newConversationButton.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide, withInset: -Values.smallSpacing)
         
-        appReviewPrompt.onPrimaryTapped = { [weak self] state in self?.onHandlePrimaryTappedForState(state) }
-        appReviewPrompt.onSecondaryTapped = { [weak self] in self?.onHandleSecondayTappedForState($0) }
-        appReviewPrompt.onCloseTapped = { [weak self] in self?.viewModel.handlePromptChangeState(nil) }
-        
         // Preview prompt
         view.addSubview(appReviewPrompt)
-        
         appReviewPrompt.pin(.left, to: .left, of: view, withInset: 12)
         appReviewPrompt.pin(.right, to: .right, of: view, withInset: -12)
         appReviewPrompt.pin(.bottom, to: .top, of: newConversationButton, withInset: -10)
@@ -830,31 +828,5 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         }
         navigationController.modalPresentationCapturesStatusBarAppearance = true
         present(navigationController, animated: true, completion: nil)
-    }
-}
-
-// MARK: - Alert for survey
-private extension HomeVC {
-    func onHandlePrimaryTappedForState(_ state: AppReviewPromptState) {
-        switch state {
-            case .enjoyingSession:
-                viewModel.handlePromptChangeState(.rateSession)
-                viewModel.scheduleAppReviewRetry()
-            case .feedback:
-                // Close prompt before showing survery
-                viewModel.handlePromptChangeState(nil)
-                viewModel.submitFeedbackSurvery()
-            case .rateSession:
-                // Close prompt before showing app review
-                viewModel.handlePromptChangeState(nil)
-                viewModel.submitAppStoreReview()
-        }
-    }
-    
-    func onHandleSecondayTappedForState(_ state: AppReviewPromptState) {
-        switch state {
-            case .feedback, .rateSession: viewModel.handlePromptChangeState(nil)
-            case .enjoyingSession: viewModel.handlePromptChangeState(.feedback)
-        }
     }
 }

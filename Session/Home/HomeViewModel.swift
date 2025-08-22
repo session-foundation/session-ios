@@ -581,7 +581,8 @@ public class HomeViewModel: NavigatableStateHolder {
         )
     }
 
-    @MainActor func submitAppStoreReview() {
+    @MainActor
+    func submitAppStoreReview() {
         dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
         
@@ -590,7 +591,8 @@ public class HomeViewModel: NavigatableStateHolder {
         }
     }
     
-    @MainActor func submitFeedbackSurvery() {
+    @MainActor
+    func submitFeedbackSurvery() {
         guard let url: URL = URL(string: Constants.feedback_url) else { return }
         
         var surverUrl: URL {
@@ -634,6 +636,30 @@ public class HomeViewModel: NavigatableStateHolder {
         )
         
         self.transitionToScreen(modal, transitionType: .present)
+    }
+    
+    @MainActor
+    func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
+        switch state {
+            case .enjoyingSession:
+                handlePromptChangeState(.rateSession)
+                scheduleAppReviewRetry()
+            case .feedback:
+                // Close prompt before showing survery
+                handlePromptChangeState(nil)
+                submitFeedbackSurvery()
+            case .rateSession:
+                // Close prompt before showing app review
+                handlePromptChangeState(nil)
+                submitAppStoreReview()
+        }
+    }
+    
+    func handleSecondayTappedForState(_ state: AppReviewPromptState) {
+        switch state {
+            case .feedback, .rateSession: handlePromptChangeState(nil)
+            case .enjoyingSession: handlePromptChangeState(.feedback)
+        }
     }
 
     // MARK: - Functions
