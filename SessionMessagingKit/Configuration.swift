@@ -90,7 +90,8 @@ public enum SNMessagingKit { // Just to make the external API nice
                 (.updateProfilePicture, .recurringOnActive, false, false),
                 (.retrieveDefaultOpenGroupRooms, .recurringOnActive, false, false),
                 (.garbageCollection, .recurringOnActive, false, false),
-                (.failedGroupInvitesAndPromotions, .recurringOnLaunch, true, false)
+                (.failedGroupInvitesAndPromotions, .recurringOnLaunch, true, false),
+                (.checkForAppUpdates, .recurring, false, false)
             ]
         )
     }
