@@ -223,15 +223,6 @@ public extension String {
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    /// iOS strips anything that looks like a printf formatting character from the notification body, so if we want to dispay a literal "%" in
-    /// a notification it must be escaped.
-    ///
-    /// See https://developer.apple.com/documentation/usernotifications/unnotificationcontent/body for
-    /// more details.
-    var filteredForNotification: String {
-        self.replacingOccurrences(of: "%", with: "%%")
-    }
-    
     private var hasExcessiveDiacriticals: Bool {
         for char in self.enumerated() {
             let scalarCount = String(char.element).unicodeScalars.count

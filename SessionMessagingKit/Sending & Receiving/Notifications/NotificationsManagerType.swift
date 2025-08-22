@@ -251,7 +251,6 @@ public extension NotificationsManagerType {
                         )
                     }?
                     .filteredForDisplay
-                    .filteredForNotification
                     .nullIfEmpty?
                     .replacingMentions(
                         currentUserSessionIds: currentUserSessionIds,
