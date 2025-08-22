@@ -199,6 +199,7 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { defaults in
                 defaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+                defaults.when { $0.object(forKey: .any) }.thenReturn(nil)
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
