@@ -209,6 +209,15 @@ extension MessageSender {
                         try interaction.with(state: .sent).update(db)
                     
                     case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
+                        // The timestamp to use for scheduling message deletion. This is generated
+                        // when the message is successfully sent to ensure the deletion timer starts
+                        // from the correct time.
+                        var scheduledTimestampForDeletion: Double? {
+                            guard interaction.isExpiringMessage else { return nil }
+                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                            return sentTimestampMs
+                        }
+                    
                         try interaction.with(
                             serverHash: message.serverHash,
                             // Track the open group server message ID and update server timestamp (use server
@@ -218,6 +227,7 @@ extension MessageSender {
                                 nil :
                                 serverTimestampMs.map { Int64($0) }
                             ),
+                            expiresStartedAtMs: scheduledTimestampForDeletion, // Updates the expiresStartedAtMs value when message is marked as sent
                             openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) },
                             state: .sent
                         ).update(db)
@@ -240,7 +250,7 @@ extension MessageSender {
                         
                             if
                                 case .syncMessage = destination,
-                                let startedAtMs: Double = interaction.expiresStartedAtMs,
+                                let startedAtMs: Double = scheduledTimestampForDeletion,
                                 let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
                                 let serverHash: String = message.serverHash
                             {
