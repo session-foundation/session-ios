@@ -1710,6 +1710,33 @@ extension ConversationVC:
     }
     
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
+        // Dismiss current reaction sheet to present alert dialog
+        currentReactionListSheet?.dismiss(animated: true)
+        currentReactionListSheet = nil
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "clearAll".localized(),
+                body: .attributedText(
+                    "emojiReactsClearAll"
+                        .put(key: "emoji", value: emoji)
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
+                confirmTitle: "clear".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self] modal in
+                    // Call clear reaction event
+                    self?.clearAllReactions(cellViewModel, for: emoji)
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        present(modal, animated: true, completion: nil)
+    }
+    
+    func clearAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
         guard
             cellViewModel.threadVariant == .community,
             let roomToken: String = viewModel.threadData.openGroupRoomToken,
