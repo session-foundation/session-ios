@@ -33,7 +33,7 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     // Quic
     case invalidPayload
     case missingSecretKey
-    case nodeNotFound(Int?, String)
+    case nodeNotFound(String)
     case unassociatedPubkey
     case unableToRetrieveSwarm
 
@@ -70,11 +70,8 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             // Quic
             case .invalidPayload: return "Invalid payload (SnodeAPIError.invalidPayload)."
             case .missingSecretKey: return "Missing secret key (SnodeAPIError.missingSecretKey)."
-            case .nodeNotFound(let nodeIndex, _):
-                switch nodeIndex {
-                    case .some(let index): return "Error in Onion request path, with hop \(index) (SnodeAPIError.nodeNotFound)."
-                    case .none: return "Error in Onion request path (SnodeAPIError.nodeNotFound)."
-                }
+            case .nodeNotFound(let nodeHex):
+                return "Error in Onion request path, with node \(nodeHex) (SnodeAPIError.nodeNotFound)."
                 
             case .unassociatedPubkey: return "The service node is no longer associated with the public key (SnodeAPIError.unassociatedPubkey)."
             case .unableToRetrieveSwarm: return "Unable to retrieve the swarm for the given public key (SnodeAPIError.unableToRetrieveSwarm)."

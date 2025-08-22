@@ -4,7 +4,6 @@
 
 import Foundation
 import Combine
-import GRDB
 import Punycode
 import SessionUtilitiesKit
 
@@ -18,8 +17,8 @@ public final class SnodeAPI {
     public typealias PollResponse = [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)]
 
     public static func preparedPoll(
-        _ db: ObservingDatabase,
         namespaces: [SnodeAPI.Namespace],
+        lastHashes: [SnodeAPI.Namespace: String],
         refreshingConfigHashes: [String] = [],
         from snode: LibSession.Snode,
         authMethod: AuthenticationMethod,
@@ -53,9 +52,9 @@ public final class SnodeAPI {
         requests.append(
             contentsOf: try namespaces.map { namespace -> any ErasedPreparedRequest in
                 try SnodeAPI.preparedGetMessages(
-                    db,
                     namespace: namespace,
                     snode: snode,
+                    lastHash: lastHashes[namespace],
                     maxSize: namespaceMaxSizeMap[namespace]
                         .defaulting(to: fallbackSize),
                     authMethod: authMethod,
@@ -153,22 +152,13 @@ public final class SnodeAPI {
     public typealias PreparedGetMessagesResponse = (messages: [SnodeReceivedMessage], lastHash: String?)
     
     public static func preparedGetMessages(
-        _ db: ObservingDatabase,
         namespace: SnodeAPI.Namespace,
         snode: LibSession.Snode,
+        lastHash: String? = nil,
         maxSize: Int64? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<PreparedGetMessagesResponse> {
-        let maybeLastHash: String? = try SnodeReceivedMessageInfo
-            .fetchLastNotExpired(
-                db,
-                for: snode,
-                namespace: namespace,
-                swarmPublicKey: try authMethod.swarmPublicKey,
-                using: dependencies
-            )?
-            .hash
         let preparedRequest: Network.PreparedRequest<GetMessagesResponse> = try {
             // Check if this namespace requires authentication
             guard namespace.requiresReadAuthentication else {
@@ -178,7 +168,7 @@ public final class SnodeAPI {
                         swarmPublicKey: try authMethod.swarmPublicKey,
                         body: LegacyGetMessagesRequest(
                             pubkey: try authMethod.swarmPublicKey,
-                            lastHash: (maybeLastHash ?? ""),
+                            lastHash: (lastHash ?? ""),
                             namespace: namespace,
                             maxCount: nil,
                             maxSize: maxSize
@@ -194,7 +184,7 @@ public final class SnodeAPI {
                     endpoint: .getMessages,
                     swarmPublicKey: try authMethod.swarmPublicKey,
                     body: GetMessagesRequest(
-                        lastHash: (maybeLastHash ?? ""),
+                        lastHash: (lastHash ?? ""),
                         namespace: namespace,
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
@@ -217,7 +207,7 @@ public final class SnodeAPI {
                             rawMessage: rawMessage
                         )
                     },
-                    maybeLastHash
+                    lastHash
                 )
             }
     }
