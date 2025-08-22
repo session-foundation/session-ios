@@ -651,7 +651,7 @@ extension Attachment {
     
     public var shortDescription: String {
         if isImage { return "image".localized() }
-        if isAudio { return "audio".localized() }
+        if isAudio { return "messageVoice".localized() }
         if isVideo { return "video".localized() }
         return "document".localized()
     }
