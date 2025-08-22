@@ -10,7 +10,6 @@ extension ContextMenuVC {
     struct ExpirationInfo {
         let expiresStartedAtMs: Double?
         let expiresInSeconds: TimeInterval?
-        let canCountdown: Bool
     }
     
     struct Action {
@@ -104,16 +103,12 @@ extension ContextMenuVC {
         }
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
-            
-            let canCountdown: Bool  = (!cellViewModel.variant.isOutgoing || ![.sending, .failed].contains(cellViewModel.state))
-            
             return Action(
                 icon: Lucide.image(icon: .trash2, size: 24),
                 title: "delete".localized(),
                 expirationInfo: ExpirationInfo(
                     expiresStartedAtMs: cellViewModel.expiresStartedAtMs,
-                    expiresInSeconds: cellViewModel.expiresInSeconds,
-                    canCountdown: canCountdown
+                    expiresInSeconds: cellViewModel.expiresInSeconds
                 ),
                 themeColor: .danger,
                 shouldDismissInfoScreen: true,
