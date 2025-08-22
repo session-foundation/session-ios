@@ -97,7 +97,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    fileprivate let titleLabel: SRCopyableLabel = {
+    public let titleLabel: SRCopyableLabel = {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false

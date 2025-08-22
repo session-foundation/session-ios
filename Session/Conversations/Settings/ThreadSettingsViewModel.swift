@@ -322,15 +322,31 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         identifier: "Username",
                         label: threadViewModel.displayName
                     ),
-                    onTap: { [weak self] in
-                        guard
-                            let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
-                                threadViewModel: threadViewModel,
-                                currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                            )
-                        else { return }
+                    onTapView: { [weak self, threadId, dependencies] targetView in
+                        guard targetView is SessionProBadge else {
+                            guard
+                                let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
+                                    threadViewModel: threadViewModel,
+                                    currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                                )
+                            else { return }
+                            
+                            self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                            return
+                        }
                         
-                        self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                        let proCTAModalVariant: ProCTAModal.Variant = {
+                            switch threadViewModel.threadVariant {
+                                case .group:
+                                    return .groupLimit(
+                                        isAdmin: currentUserIsClosedGroupAdmin,
+                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) })
+                                    )
+                                default: return .generic
+                            }
+                        }()
+                        
+                        self?.showSessionProCTAIfNeeded(proCTAModalVariant)
                     }
                 ),
                 
@@ -2045,5 +2061,25 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             case (.community, _), (.legacyGroup, false), (.group, false): return nil
         }
+    }
+    
+    private func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) {
+        let shouldShowProCTA: Bool = {
+            guard dependencies[feature: .sessionProEnabled] else { return false }
+            if case .groupLimit = variant { return true }
+            return !dependencies[cache: .libSession].isSessionPro
+        }()
+        
+        guard shouldShowProCTA else { return }
+        
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: dependencies[singleton: .sessionProState],
+                variant: variant,
+                dataManager: dependencies[singleton: .imageDataManager],
+            )
+        )
+        
+        self.transitionToScreen(sessionProModal, transitionType: .present)
     }
 }

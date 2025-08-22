@@ -617,6 +617,15 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             let touchLocation: UITouch? = cell.lastTouchLocation
             cell.lastTouchLocation = nil
             
+            if
+                info.title?.textTailing != nil,
+                let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
+                cell.titleLabel.bounds.contains(localPoint),
+                cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true
+            {
+                return SessionProBadge(size: .large)
+            }
+            
             switch (info.leadingAccessory, info.trailingAccessory) {
                 case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabel):
                     return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell)

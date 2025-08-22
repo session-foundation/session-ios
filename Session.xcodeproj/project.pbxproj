@@ -153,6 +153,10 @@
 		940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433F2C7ED62300D9D2E0 /* StartupError.swift */; };
 		941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */; };
 		941375BD2D5195F30058F244 /* KeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BC2D5195F30058F244 /* KeyValueStore.swift */; };
+		9420CAC62E584B5800F738F6 /* GroupAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */; };
+		9420CAC72E584B5800F738F6 /* GroupNonAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC52E584B5800F738F6 /* GroupNonAdminCTA.webp */; };
+		9420CAC82E584B5800F738F6 /* GroupAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */; };
+		9420CAC92E584B5800F738F6 /* GroupNonAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC52E584B5800F738F6 /* GroupNonAdminCTA.webp */; };
 		942256802C23F8BB00C0FDBF /* StartConversationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567D2C23F8BB00C0FDBF /* StartConversationScreen.swift */; };
 		942256812C23F8BB00C0FDBF /* NewMessageScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567E2C23F8BB00C0FDBF /* NewMessageScreen.swift */; };
 		942256822C23F8BB00C0FDBF /* InviteAFriendScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567F2C23F8BB00C0FDBF /* InviteAFriendScreen.swift */; };
@@ -1529,6 +1533,8 @@
 		941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SessionNetwork.swift"; sourceTree = "<group>"; };
 		941375BC2D5195F30058F244 /* KeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueStore.swift; sourceTree = "<group>"; };
 		941375BE2D5196D10058F244 /* Number+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Number+Utilities.swift"; sourceTree = "<group>"; };
+		9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GroupAdminCTA.webp; sourceTree = "<group>"; };
+		9420CAC52E584B5800F738F6 /* GroupNonAdminCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GroupNonAdminCTA.webp; sourceTree = "<group>"; };
 		9422567D2C23F8BB00C0FDBF /* StartConversationScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StartConversationScreen.swift; sourceTree = "<group>"; };
 		9422567E2C23F8BB00C0FDBF /* NewMessageScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NewMessageScreen.swift; sourceTree = "<group>"; };
 		9422567F2C23F8BB00C0FDBF /* InviteAFriendScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InviteAFriendScreen.swift; sourceTree = "<group>"; };
@@ -2898,6 +2904,8 @@
 		94CD963F2E1BABE90097754D /* WebPImages */ = {
 			isa = PBXGroup;
 			children = (
+				9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */,
+				9420CAC52E584B5800F738F6 /* GroupNonAdminCTA.webp */,
 				94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */,
 				94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */,
 				94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */,
@@ -5656,6 +5664,8 @@
 				4535186E1FC635DD00210559 /* MainInterface.storyboard in Resources */,
 				B8D07406265C683A00F77E07 /* ElegantIcons.ttf in Resources */,
 				FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */,
+				9420CAC62E584B5800F738F6 /* GroupAdminCTA.webp in Resources */,
+				9420CAC72E584B5800F738F6 /* GroupNonAdminCTA.webp in Resources */,
 				3478504C1FD7496D007B8332 /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5726,6 +5736,8 @@
 				45A2F005204473A3002E978A /* NewMessage.aifc in Resources */,
 				45B74A882044AAB600CD42F8 /* aurora.aifc in Resources */,
 				45B74A742044AAB600CD42F8 /* aurora-quiet.aifc in Resources */,
+				9420CAC82E584B5800F738F6 /* GroupAdminCTA.webp in Resources */,
+				9420CAC92E584B5800F738F6 /* GroupNonAdminCTA.webp in Resources */,
 				7B0EFDF4275490EA00FFAAE7 /* ringing.mp3 in Resources */,
 				45B74A852044AAB600CD42F8 /* bamboo.aifc in Resources */,
 				45B74A782044AAB600CD42F8 /* bamboo-quiet.aifc in Resources */,
