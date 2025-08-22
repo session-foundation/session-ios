@@ -514,9 +514,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             profile: userProfile,
             profileIcon: {
                 switch (serviceNetwork, forceOffline) {
-                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                default: return .none
+                    case (.testnet, false): return .letter("T", false)     // stringlint:ignore
+                    case (.testnet, true): return .letter("T", true)       // stringlint:ignore
+                    default: return .none
                 }
             }(),
             additionalProfile: nil,
@@ -565,23 +565,23 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let section: HomeViewModel.SectionModel = sections[indexPath.section]
         
         switch section.model {
-        case .messageRequests:
-            let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-            let cell: MessageRequestsCell = tableView.dequeue(type: MessageRequestsCell.self, for: indexPath)
-            cell.accessibilityIdentifier = "Message requests banner"
-            cell.isAccessibilityElement = true
-            cell.update(with: Int(threadViewModel.threadUnreadCount ?? 0))
-            return cell
-            
-        case .threads:
-            let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-            let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
-            cell.update(with: threadViewModel, using: viewModel.dependencies)
-            cell.accessibilityIdentifier = "Conversation list item"
-            cell.accessibilityLabel = threadViewModel.displayName
-            return cell
-            
-        default: preconditionFailure("Other sections should have no content")
+            case .messageRequests:
+                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let cell: MessageRequestsCell = tableView.dequeue(type: MessageRequestsCell.self, for: indexPath)
+                cell.accessibilityIdentifier = "Message requests banner"
+                cell.isAccessibilityElement = true
+                cell.update(with: Int(threadViewModel.threadUnreadCount ?? 0))
+                return cell
+                
+            case .threads:
+                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
+                cell.update(with: threadViewModel, using: viewModel.dependencies)
+                cell.accessibilityIdentifier = "Conversation list item"
+                cell.accessibilityLabel = threadViewModel.displayName
+                return cell
+                
+            default: preconditionFailure("Other sections should have no content")
         }
     }
     
@@ -611,15 +611,15 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let section: HomeViewModel.SectionModel = sections[section]
         
         switch section.model {
-        case .loadMore: return HomeVC.loadingHeaderHeight
-        default: return 0
+            case .loadMore: return HomeVC.loadingHeaderHeight
+            default: return 0
         }
     }
     
     public func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         switch sections[section].model {
-        case .loadMore: self.viewModel.loadNextPage()
-        default: break
+            case .loadMore: self.viewModel.loadNextPage()
+            default: break
         }
     }
     
@@ -629,23 +629,23 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let section: HomeViewModel.SectionModel = sections[indexPath.section]
         
         switch section.model {
-        case .messageRequests:
-            let viewController: SessionTableViewController = SessionTableViewController(
-                viewModel: MessageRequestsViewModel(using: viewModel.dependencies)
-            )
-            self.navigationController?.pushViewController(viewController, animated: true)
+            case .messageRequests:
+                let viewController: SessionTableViewController = SessionTableViewController(
+                    viewModel: MessageRequestsViewModel(using: viewModel.dependencies)
+                )
+                self.navigationController?.pushViewController(viewController, animated: true)
+                
+            case .threads:
+                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let viewController: ConversationVC = ConversationVC(
+                    threadId: threadViewModel.threadId,
+                    threadVariant: threadViewModel.threadVariant,
+                    focusedInteractionInfo: nil,
+                    using: viewModel.dependencies
+                )
+                self.navigationController?.pushViewController(viewController, animated: true)
             
-        case .threads:
-            let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-            let viewController: ConversationVC = ConversationVC(
-                threadId: threadViewModel.threadId,
-                threadVariant: threadViewModel.threadVariant,
-                focusedInteractionInfo: nil,
-                using: viewModel.dependencies
-            )
-            self.navigationController?.pushViewController(viewController, animated: true)
-            
-        default: break
+            default: break
         }
     }
     
@@ -666,32 +666,32 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
         
         switch section.model {
-        case .threads:
-            // Cannot properly sync outgoing blinded message requests so don't provide the option,
-            // the 'Note to Self' conversation also doesn't support 'mark as unread' so don't
-            // provide it there either
-            guard
-                threadViewModel.threadVariant != .legacyGroup &&
-                    threadViewModel.threadId != threadViewModel.currentUserSessionId && (
-                        threadViewModel.threadVariant != .contact ||
-                        (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
+            case .threads:
+                // Cannot properly sync outgoing blinded message requests so don't provide the option,
+                // the 'Note to Self' conversation also doesn't support 'mark as unread' so don't
+                // provide it there either
+                guard
+                    threadViewModel.threadVariant != .legacyGroup &&
+                        threadViewModel.threadId != threadViewModel.currentUserSessionId && (
+                            threadViewModel.threadVariant != .contact ||
+                            (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
+                        )
+                else { return nil }
+                
+                return UIContextualAction.configuration(
+                    for: UIContextualAction.generateSwipeActions(
+                        [.toggleReadStatus],
+                        for: .leading,
+                        indexPath: indexPath,
+                        tableView: tableView,
+                        threadViewModel: threadViewModel,
+                        viewController: self,
+                        navigatableStateHolder: viewModel,
+                        using: viewModel.dependencies
                     )
-            else { return nil }
-            
-            return UIContextualAction.configuration(
-                for: UIContextualAction.generateSwipeActions(
-                    [.toggleReadStatus],
-                    for: .leading,
-                    indexPath: indexPath,
-                    tableView: tableView,
-                    threadViewModel: threadViewModel,
-                    viewController: self,
-                    navigatableStateHolder: viewModel,
-                    using: viewModel.dependencies
                 )
-            )
-            
-        default: return nil
+                
+            default: return nil
         }
     }
     
@@ -700,76 +700,76 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
         
         switch section.model {
-        case .messageRequests:
-            return UIContextualAction.configuration(
-                for: UIContextualAction.generateSwipeActions(
-                    [.hide],
-                    for: .trailing,
-                    indexPath: indexPath,
-                    tableView: tableView,
-                    threadViewModel: threadViewModel,
-                    viewController: self,
-                    navigatableStateHolder: viewModel,
-                    using: viewModel.dependencies
-                )
-            )
-            
-        case .threads:
-            let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadViewModel.threadId)
-            
-            // Cannot properly sync outgoing blinded message requests so only provide valid options
-            let shouldHavePinAction: Bool = {
-                switch threadViewModel.threadVariant {
-                    // Only allow unpin for legacy groups
-                case .legacyGroup: return threadViewModel.threadPinnedPriority > 0
-                    
-                default:
-                    return (
-                        sessionIdPrefix != .blinded15 &&
-                        sessionIdPrefix != .blinded25
+            case .messageRequests:
+                return UIContextualAction.configuration(
+                    for: UIContextualAction.generateSwipeActions(
+                        [.hide],
+                        for: .trailing,
+                        indexPath: indexPath,
+                        tableView: tableView,
+                        threadViewModel: threadViewModel,
+                        viewController: self,
+                        navigatableStateHolder: viewModel,
+                        using: viewModel.dependencies
                     )
-                }
-            }()
-            let shouldHaveMuteAction: Bool = {
-                switch threadViewModel.threadVariant {
-                case .contact: return (
-                    !threadViewModel.threadIsNoteToSelf &&
-                    sessionIdPrefix != .blinded15 &&
-                    sessionIdPrefix != .blinded25
                 )
-                    
-                case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
-                    
-                case .legacyGroup: return false
-                case .community: return true
-                }
-            }()
-            let destructiveAction: UIContextualAction.SwipeAction = {
-                switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, threadViewModel.currentUserIsClosedGroupAdmin) {
-                case (.contact, true, _, _): return .hide
-                case (.group, _, true, false), (.community, _, _, _): return .leave
-                default: return .delete
-                }
-            }()
-            
-            return UIContextualAction.configuration(
-                for: UIContextualAction.generateSwipeActions(
-                    [
-                        (!shouldHavePinAction ? nil : .pin),
-                        (!shouldHaveMuteAction ? nil : .mute),
-                        destructiveAction
-                    ].compactMap { $0 },
-                    for: .trailing,
-                    indexPath: indexPath,
-                    tableView: tableView,
-                    threadViewModel: threadViewModel,
-                    viewController: self,
-                    navigatableStateHolder: viewModel,
-                    using: viewModel.dependencies
+                
+            case .threads:
+                let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadViewModel.threadId)
+                
+                // Cannot properly sync outgoing blinded message requests so only provide valid options
+                let shouldHavePinAction: Bool = {
+                    switch threadViewModel.threadVariant {
+                            // Only allow unpin for legacy groups
+                        case .legacyGroup: return threadViewModel.threadPinnedPriority > 0
+                            
+                        default:
+                            return (
+                                sessionIdPrefix != .blinded15 &&
+                                sessionIdPrefix != .blinded25
+                            )
+                    }
+                }()
+                let shouldHaveMuteAction: Bool = {
+                    switch threadViewModel.threadVariant {
+                        case .contact: return (
+                            !threadViewModel.threadIsNoteToSelf &&
+                            sessionIdPrefix != .blinded15 &&
+                            sessionIdPrefix != .blinded25
+                        )
+                            
+                        case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
+                            
+                        case .legacyGroup: return false
+                        case .community: return true
+                    }
+                }()
+                let destructiveAction: UIContextualAction.SwipeAction = {
+                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, threadViewModel.currentUserIsClosedGroupAdmin) {
+                        case (.contact, true, _, _): return .hide
+                        case (.group, _, true, false), (.community, _, _, _): return .leave
+                        default: return .delete
+                    }
+                }()
+                
+                return UIContextualAction.configuration(
+                    for: UIContextualAction.generateSwipeActions(
+                        [
+                            (!shouldHavePinAction ? nil : .pin),
+                            (!shouldHaveMuteAction ? nil : .mute),
+                            destructiveAction
+                        ].compactMap { $0 },
+                        for: .trailing,
+                        indexPath: indexPath,
+                        tableView: tableView,
+                        threadViewModel: threadViewModel,
+                        viewController: self,
+                        navigatableStateHolder: viewModel,
+                        using: viewModel.dependencies
+                    )
                 )
-            )
-            
-        default: return nil
+                
+            default: return nil
         }
     }
     
@@ -853,8 +853,8 @@ private extension HomeVC {
     
     func onHandleSecondayTappedForState(_ state: AppReviewPromptState) {
         switch state {
-        case .feedback, .rateSession: viewModel.handlePromptChangeState(nil)
-        case .enjoyingSession: viewModel.handlePromptChangeState(.feedback)
+            case .feedback, .rateSession: viewModel.handlePromptChangeState(nil)
+            case .enjoyingSession: viewModel.handlePromptChangeState(.feedback)
         }
     }
 }
