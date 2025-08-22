@@ -9,93 +9,101 @@ class AppReviewPromptDialog: UIView {
     var onSecondaryTapped: ((AppReviewPromptState) -> Void)?
     
     private lazy var closeButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setImage(
+        let result = UIButton(type: .custom)
+        result.setImage(
             UIImage(named: "X")?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
-        button.themeTintColor = .textPrimary
-        button.addTarget(self, action: #selector(close), for: UIControl.Event.touchUpInside)
-        button.set(.width, to: Values.largeSpacing)
-        button.set(.height, to: Values.largeSpacing)
+        result.themeTintColor = .textPrimary
+        result.addTarget(self, action: #selector(close), for: UIControl.Event.touchUpInside)
+        result.set(.width, to: Values.largeSpacing)
+        result.set(.height, to: Values.largeSpacing)
         
-       return button
+       return result
     }()
     
     private lazy var titleLabel: UILabel = {
-        let label = UILabel()
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.themeTextColor = .textPrimary
-        label.font = .systemFont(ofSize: Values.mediumFontSize, weight: .medium)
-        return label
+        let result = UILabel()
+        result.textAlignment = .center
+        result.numberOfLines = 0
+        result.themeTextColor = .textPrimary
+        result.font = .systemFont(ofSize: 18, weight: .bold)
+        
+        return result
     }()
     
     private lazy var messageLabel: UILabel = {
-        let label = UILabel()
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.themeTextColor = .textSecondary
-        label.font = .systemFont(ofSize: Values.smallFontSize, weight: .regular)
-        return label
+        let result = UILabel()
+        result.textAlignment = .center
+        result.numberOfLines = 0
+        result.themeTextColor = .textSecondary
+        result.font = .systemFont(ofSize: 16, weight: .regular)
+        
+        return result
     }()
     
     private lazy var primaryButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setThemeTitleColor(.sessionButton_text, for: .normal)
-        button.setThemeTitleColor(.sessionButton_highlight, for: .highlighted)
+        let result = UIButton(type: .custom)
+        result.setThemeTitleColor(.sessionButton_text, for: .normal)
+        result.setThemeTitleColor(.sessionButton_highlight, for: .highlighted)
+        result.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        result.titleLabel?.numberOfLines = 0
+        result.titleLabel?.textAlignment = .center
+        result.addTarget(self, action: #selector(primaryEvent), for: .touchUpInside)
         
-        button.titleLabel?.numberOfLines = 3
-        button.titleLabel?.textAlignment = .center
-        
-        button.addTarget(self, action: #selector(primaryEvent), for: .touchUpInside)
-        
-        return button
+        return result
     }()
     
     private lazy var secondaryButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setThemeTitleColor(.textPrimary, for: .normal)
-        button.setThemeTitleColor(.textSecondary, for: .highlighted)
-        
-        button.titleLabel?.numberOfLines = 3
-        button.titleLabel?.textAlignment = .center
-        
-        button.addTarget(self, action: #selector(secondaryEvent), for: .touchUpInside)
+        let result = UIButton(type: .custom)
+        result.setThemeTitleColor(.textPrimary, for: .normal)
+        result.setThemeTitleColor(.textSecondary, for: .highlighted)
+        result.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        result.titleLabel?.numberOfLines = 0
+        result.titleLabel?.textAlignment = .center
+        result.addTarget(self, action: #selector(secondaryEvent), for: .touchUpInside)
  
-        return button
+        return result
     }()
     
     private lazy var buttonStack: UIStackView = {
-        let stack = UIStackView(arrangedSubviews: [
+        let result = UIStackView(arrangedSubviews: [
             primaryButton,
             secondaryButton
         ])
-        stack.axis = .horizontal
-        stack.distribution = .fillEqually
-        stack.alignment = .fill
-        stack.isLayoutMarginsRelativeArrangement = true
-        stack.layoutMargins = .init(
+        result.axis = .horizontal
+        result.distribution = .fillEqually
+        result.alignment = .fill
+        result.isLayoutMarginsRelativeArrangement = true
+        result.layoutMargins = .init(
             top: Values.mediumSpacing,
             left: 0,
             bottom: Values.mediumSpacing,
             right: 0
         )
         
-        return stack
+        return result
     }()
     
     private lazy var contentStack: UIStackView = {
-        let stack = UIStackView(arrangedSubviews: [
+        let result = UIStackView(arrangedSubviews: [
             titleLabel,
             messageLabel,
             buttonStack
         ])
-        stack.axis = .vertical
-        stack.distribution = .fill
-        stack.spacing = 6
-        return stack
+        result.axis = .vertical
+        result.distribution = .fill
+        result.spacing = 8
+        result.isLayoutMarginsRelativeArrangement = true
+        result.layoutMargins = .init(
+            top: 0,
+            left: Values.largeSpacing,
+            bottom: 0,
+            right: Values.largeSpacing
+        )
+        
+        return result
     }()
     
     private var prompt: AppReviewPromptState?
@@ -150,8 +158,8 @@ private extension AppReviewPromptDialog {
     }
     
     func setupLayout() {
-        closeButton.pin(.top, to: .top, of: self, withInset: Values.smallSpacing)
-        closeButton.pin(.right, to: .right, of: self, withInset: -Values.smallSpacing)
+        closeButton.pin(.top, to: .top, of: self, withInset: Values.mediumSmallSpacing)
+        closeButton.pin(.right, to: .right, of: self, withInset: -Values.mediumSmallSpacing)
         
         contentStack.pin(.top, to: .bottom, of: closeButton)
         contentStack.pin(.left, to: .left, of: self, withInset: Values.mediumSmallSpacing)
