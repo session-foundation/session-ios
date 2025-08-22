@@ -397,7 +397,7 @@ public final class MessageSender {
                     
                     return try Result(proto.serializedData().paddedMessageBody())
                         .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
-                        .successOrThrow()
+                        .get()
                     
                 default:
                     guard
@@ -415,7 +415,7 @@ public final class MessageSender {
                             }
                         }
                         .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
-                        .successOrThrow()
+                        .get()
             }
         }()
         
@@ -431,7 +431,7 @@ public final class MessageSender {
                     )
                 )
                 .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
-                .successOrThrow()
+                .get()
                 
                 let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
                     .ciphertextForGroupMessage(
@@ -474,7 +474,7 @@ public final class MessageSender {
                     )
                 )
                 .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
-                .successOrThrow()
+                .get()
             
             /// Community messages should be sent in plaintext
             case (.openGroup, _): return plaintext
@@ -489,7 +489,7 @@ public final class MessageSender {
                     )
                 )
                 .mapError { MessageSenderError.other(nil, "Couldn't encrypt message for destination: \(destination)", $0) }
-                .successOrThrow()
+                .get()
                 
             /// Config messages should be sent directly rather than via this method
             case (.closedGroup(let groupId), _) where (try? SessionId.Prefix(from: groupId)) == .group:

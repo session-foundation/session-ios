@@ -1894,7 +1894,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 },
                 completion: { [weak self, dependencies] result in
                     guard
-                        let numPinnedConversations: Int = try? result.successOrThrow(),
+                        let numPinnedConversations: Int = try? result.get(),
                         numPinnedConversations > 0
                     else { return }
                     

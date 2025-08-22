@@ -801,8 +801,7 @@ open class Storage {
         addCall(info)
         defer { removeCall(info) }
         
-        return try await Storage.performOperation(info, dbWriter, operation, dependencies)
-            .successOrThrow()
+        return try await Storage.performOperation(info, dbWriter, operation, dependencies).get()
     }
     
     private func addCall(_ call: CallInfo) {

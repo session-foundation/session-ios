@@ -411,7 +411,7 @@ public class ExtensionHelper: ExtensionHelperType {
             completion: { [weak self] result in
                 guard
                     let self = self,
-                    let dumps: [ConfigDump] = try? result.successOrThrow()
+                    let dumps: [ConfigDump] = try? result.get()
                 else { return }
                 
                 /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from

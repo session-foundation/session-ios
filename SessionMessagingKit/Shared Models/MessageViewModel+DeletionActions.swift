@@ -357,7 +357,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 }
             },
             completion: { result in
-                deletionBehaviours = try? result.successOrThrow()
+                deletionBehaviours = try? result.get()
                 semaphore.signal()
             }
         )

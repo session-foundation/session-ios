@@ -75,7 +75,7 @@ class LibSessionNetwork: NetworkType {
                             value: (try? result.get())?.count ?? 0
                         )
                     }
-                return try result.successOrThrow()
+                return try result.get()
             }
             .eraseToAnyPublisher()
     }

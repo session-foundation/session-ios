@@ -112,7 +112,7 @@ extension Onboarding {
             dependencies[singleton: .storage].readAsync(
                 retrieve: { db in Identity.fetchUserEd25519KeyPair(db) },
                 completion: { result in
-                    ed25519KeyPair = ((try? result.successOrThrow()) ?? .empty)
+                    ed25519KeyPair = ((try? result.get()) ?? .empty)
                     semaphore.signal()
                 }
             )
