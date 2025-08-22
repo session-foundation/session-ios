@@ -76,7 +76,7 @@ public extension ProfilePictureView {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
                                 case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
-                                case .hero, .modal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                                case .hero, .modal, .expanded: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
                         animationBehaviour: .generic(true),

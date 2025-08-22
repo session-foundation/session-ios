@@ -632,7 +632,10 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     
                     return cell.trailingAccessoryView.touchedView(touchLocation)
                     
-                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                case
+                    (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _),
+                    (is SessionCell.AccessoryConfig.DisplayPicture, _),
+                    (is SessionCell.AccessoryConfig.QRCode, _):
                     guard
                         let touchLocation: UITouch = touchLocation,
                         !cell.leadingAccessoryView.isHidden

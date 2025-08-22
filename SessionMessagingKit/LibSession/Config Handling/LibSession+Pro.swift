@@ -36,8 +36,16 @@ public extension LibSessionCacheType {
         return dependencies[feature: .allUsersSessionPro]
     }
     
-    func validateSessionProState(for sessionId: String?) -> Bool {
-        guard let sessionId = sessionId, dependencies[feature: .sessionProEnabled] else { return false }
+    func validateSessionProState(for threadId: String?) -> Bool {
+        guard let threadId = threadId, dependencies[feature: .sessionProEnabled] else { return false }
+        let threadVariant = dependencies[singleton: .storage].read { db in
+            try SessionThread
+                .select(SessionThread.Columns.variant)
+                .filter(id: threadId)
+                .asRequest(of: SessionThread.Variant.self)
+                .fetchOne(db)
+        }
+        guard threadVariant != .community else { return false }
         return dependencies[feature: .allUsersSessionPro]
     }
     

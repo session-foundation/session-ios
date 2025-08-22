@@ -98,6 +98,10 @@ extension SessionCell {
                     let localPoint: CGPoint = touch.location(in: label)
                     
                     return (label.bounds.contains(localPoint) ? label : self)
+                case (let profilePictureView as ProfilePictureView, _):
+                    let localPoint: CGPoint = touch.location(in: profilePictureView)
+                    
+                    return profilePictureView.getTouchedView(from: localPoint)
                     
                 default: return self
             }
@@ -296,7 +300,6 @@ extension SessionCell {
         private func createQRCodeView() -> UIView {
             let result: UIView = UIView()
             result.layer.cornerRadius = 10
-            result.layer.masksToBounds = true
             
             let qrCodeImageView: UIImageView = UIImageView()
             qrCodeImageView.contentMode = .scaleAspectFit
@@ -305,6 +308,29 @@ extension SessionCell {
             qrCodeImageView.pin(to: result, withInset: Values.smallSpacing)
             result.set(.width, to: 190)
             result.set(.height, to: 190)
+            
+            let iconImageView: UIImageView = UIImageView(
+                image: UIImage(named: "ic_user_round_fill")?
+                    .withRenderingMode(.alwaysTemplate)
+            )
+            iconImageView.contentMode = .scaleAspectFit
+            iconImageView.set(.width, to: 18)
+            iconImageView.set(.height, to: 18)
+            iconImageView.themeTintColor = .black
+            
+            let iconBackgroudView: UIView = UIView()
+            iconBackgroudView.themeBackgroundColor = .primary
+            iconBackgroudView.set(.width, to: 33)
+            iconBackgroudView.set(.height, to: 33)
+            iconBackgroudView.layer.cornerRadius = 16.5
+            iconBackgroudView.layer.masksToBounds = true
+            
+            iconBackgroudView.addSubview(iconImageView)
+            iconImageView.center(in: iconBackgroudView)
+            
+            result.addSubview(iconBackgroudView)
+            iconBackgroudView.pin(.top, to: .top, of: result, withInset: -10)
+            iconBackgroudView.pin(.trailing, to: .trailing, of: result, withInset: 17)
             
             return result
         }

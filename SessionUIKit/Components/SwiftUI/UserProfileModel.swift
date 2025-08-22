@@ -85,7 +85,7 @@ public struct UserProfileModel: View {
                             )
                             
                             if info.sessionId != nil {
-                                let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (20, 12)
+                                let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (24, 14)
                                 AttributedText(Lucide.Icon.qrCode.attributedString(size: iconSize, baselineOffset: 0))
                                     .font(.system(size: iconSize))
                                     .foregroundColor(themeColor: .black)

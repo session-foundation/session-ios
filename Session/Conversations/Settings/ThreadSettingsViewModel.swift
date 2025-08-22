@@ -29,6 +29,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
         }
     )
+    private var previousProfileImageStatus: ProfileImageStatus?
+    private var currentProfileImageStatus: ProfileImageStatus?
     // TODO: Refactor this with SessionThreadViewModel
     private var threadViewModelSubject: CurrentValueSubject<SessionThreadViewModel?, Never>
     
@@ -45,9 +47,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.threadVariant = threadVariant
         self.didTriggerSearch = didTriggerSearch
         self.threadViewModelSubject = CurrentValueSubject(nil)
+        self.previousProfileImageStatus = nil
+        self.currentProfileImageStatus = .normal
     }
     
     // MARK: - Config
+    enum ProfileImageStatus: Equatable {
+        case normal
+        case expanded
+        case qrCode
+    }
     
     enum NavItem: Equatable {
         case edit
@@ -183,9 +192,15 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 disappearingMessagesConfig: disappearingMessagesConfig
             )
         }
-        .compactMap { [weak self] current -> [SectionModel]? in self?.content(current) }
+        .compactMap { [weak self] current -> [SectionModel]? in
+            self?.content(
+                current,
+                currentProfileImageStatus: self?.currentProfileImageStatus,
+                previousProfileImageStatus: self?.previousProfileImageStatus
+            )
+        }
     
-    private func content(_ current: State) -> [SectionModel] {
+    private func content(_ current: State, currentProfileImageStatus: ProfileImageStatus?, previousProfileImageStatus: ProfileImageStatus?) -> [SectionModel] {
         // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
         // so dismiss the screen
         guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
@@ -220,49 +235,62 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         let conversationInfoSection: SectionModel = SectionModel(
             model: .conversationInfo,
             elements: [
-                SessionCell.Info(
-                    id: .avatar,
-                    accessory: .profile(
-                        id: threadViewModel.id,
-                        size: .hero,
-                        threadVariant: threadViewModel.threadVariant,
-                        displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
-                        profile: threadViewModel.profile,
-                        additionalProfile: threadViewModel.additionalProfile,
-                        accessibility: nil
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                        backgroundStyle: .noBackground
-                    ),
-                    onTap: { [weak self] in
-                        switch (threadViewModel.threadVariant, threadViewModel.threadDisplayPictureUrl, currentUserIsClosedGroupAdmin) {
-                            case (.contact, _, _): self?.viewDisplayPicture(threadViewModel: threadViewModel)
-                            case (.group, _, true):
-                                self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
-                            
-                            case (_, .some, _): self?.viewDisplayPicture(threadViewModel: threadViewModel)
-                            default: break
+                (currentProfileImageStatus == .qrCode ?
+                    SessionCell.Info(
+                        id: .qrCode,
+                        accessory: .qrCode(
+                            for: threadId,
+                            hasBackground: false,
+                            logo: "SessionWhite40", // stringlint:ignore
+                            themeStyle:  ThemeManager.currentTheme.interfaceStyle
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            alignment: .centerHugging,
+                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            backgroundStyle: .noBackground
+                        ),
+                        onTap: { [weak self] in
+                            self?.currentProfileImageStatus = previousProfileImageStatus
+                            self?.previousProfileImageStatus = currentProfileImageStatus
+                            self?.forceRefresh(type: .postDatabaseQuery)
                         }
-                        
-                    }
-                ),
-                SessionCell.Info(
-                    id: .qrCode,
-                    accessory: .qrCode(
-                        for: threadId,
-                        hasBackground: false,
-                        logo: "SessionWhite40", // stringlint:ignore
-                        themeStyle:  ThemeManager.currentTheme.interfaceStyle
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                        backgroundStyle: .noBackground
-                    ),
-                    onTap: { [weak self] in
-                    }
+                    ) :
+                    SessionCell.Info(
+                        id: .avatar,
+                        accessory: .profile(
+                            id: threadViewModel.id,
+                            size: (currentProfileImageStatus == .expanded ? .expanded : .hero),
+                            threadVariant: threadViewModel.threadVariant,
+                            displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
+                            profile: threadViewModel.profile,
+                            profileIcon: ((threadViewModel.threadIsNoteToSelf || threadVariant == .group) ? .none : .qrCode),
+                            additionalProfile: threadViewModel.additionalProfile,
+                            accessibility: nil
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            alignment: .centerHugging,
+                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            backgroundStyle: .noBackground
+                        ),
+                        onTapView: { [weak self] targetView in
+                            let didTapQRCodeIcon: Bool = !(targetView is ProfilePictureView)
+                            
+                            switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin, didTapQRCodeIcon) {
+                                case (.group, true, _):
+                                    self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
+                                case (.group, _, _):
+                                    break
+                                case (_, _, true):
+                                    self?.currentProfileImageStatus = .qrCode
+                                    self?.previousProfileImageStatus = currentProfileImageStatus
+                                    self?.forceRefresh(type: .postDatabaseQuery)
+                                case (_, _, false):
+                                    self?.currentProfileImageStatus = (currentProfileImageStatus == .expanded ? .normal : .expanded)
+                                    self?.previousProfileImageStatus = currentProfileImageStatus
+                                    self?.forceRefresh(type: .postDatabaseQuery)
+                            }
+                        }
+                    )
                 ),
                 SessionCell.Info(
                     id: .displayName,
@@ -1171,24 +1199,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     // MARK: - Functions
-    
-    private func viewDisplayPicture(threadViewModel: SessionThreadViewModel) {
-        guard
-            let fileUrl: String = threadViewModel.threadDisplayPictureUrl,
-            let path: String = try? dependencies[singleton: .displayPictureManager].path(for: fileUrl)
-        else { return }
-        
-        let navController: UINavigationController = StyledNavigationController(
-            rootViewController: ProfilePictureVC(
-                imageSource: .url(URL(fileURLWithPath: path)),
-                title: threadViewModel.displayName,
-                using: dependencies
-            )
-        )
-        navController.modalPresentationStyle = .fullScreen
-        
-        self.transitionToScreen(navController, transitionType: .present)
-    }
     
     private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
         guard
