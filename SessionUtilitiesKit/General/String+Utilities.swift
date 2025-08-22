@@ -147,7 +147,7 @@ public extension String {
             case .twoUnits: // 2 units, no localization, short version e.g 1w 1d
                 dateComponentsFormatter.maximumUnitCount = 2
                 dateComponentsFormatter.unitsStyle = .abbreviated
-                dateComponentsFormatter.zeroFormattingBehavior = .dropLeading
+                dateComponentsFormatter.zeroFormattingBehavior = .dropAll // Changed from .dropLeading to also remove trailing 0's ei. 12h 0m -> 12h
                 calendar.locale = Locale(identifier: "en-US")
                 dateComponentsFormatter.calendar = calendar
                 return dateComponentsFormatter.string(from: duration) ?? ""
