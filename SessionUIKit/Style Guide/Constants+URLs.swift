@@ -6,4 +6,5 @@ public extension Constants {
     static let session_staking_url = "https://docs.getsession.org/session-network/staking"
     static let session_token_url = "https://token.getsession.org"
     static let session_donations_url = "https://session.foundation/donate#app"
+    static let session_feedback_url = "https://www.surveymonkey.com/r/YLDZJR8"
 }

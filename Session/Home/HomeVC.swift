@@ -33,7 +33,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         super.init(nibName: nil, bundle: nil)
     }
-
+    
     required init?(coder: NSCoder) {
         preconditionFailure("Use init() instead.")
     }
@@ -67,7 +67,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         return result
     }()
-        
+    
     private lazy var tableView: UITableView = {
         let result = UITableView()
         result.separatorStyle = .none
@@ -89,7 +89,22 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         result.dataSource = self
         result.delegate = self
         result.sectionHeaderTopPadding = 0
-
+        
+        return result
+    }()
+    
+    private lazy var appReviewPrompt: AppReviewPromptDialog = {
+        let result = AppReviewPromptDialog()
+        
+        // Layers
+        result.themeBorderColor = .borderSeparator
+        result.layer.borderWidth = 1
+        result.layer.cornerRadius = 12
+        result.themeBackgroundColor = .backgroundSecondary
+        result.onPrimaryTapped = { [viewModel = self.viewModel] state in viewModel.handlePrimaryTappedForState(state) }
+        result.onSecondaryTapped = { [viewModel = self.viewModel] in viewModel.handleSecondayTappedForState($0) }
+        result.onCloseTapped = { [viewModel = self.viewModel] in viewModel.handlePromptChangeState(nil) }
+        
         return result
     }()
     
@@ -160,7 +175,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         innerShadowLayer.shadowOffset = .zero
         innerShadowLayer.shadowOpacity = 0.4
         innerShadowLayer.shadowRadius = 2
-
+        
         let cutout: UIBezierPath = UIBezierPath(
             roundedRect: innerShadowLayer.bounds
                 .insetBy(dx: innerShadowLayer.shadowRadius, dy: innerShadowLayer.shadowRadius),
@@ -173,7 +188,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         path.append(cutout)
         innerShadowLayer.shadowPath = path.cgPath
         result.layer.addSublayer(innerShadowLayer)
-
+        
         return result
     }()
     
@@ -192,7 +207,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         instructionLabel.lineBreakMode = .byWordWrapping
         instructionLabel.numberOfLines = 0
         
-        let result = UIStackView(arrangedSubviews: [ 
+        let result = UIStackView(arrangedSubviews: [
             emptyConvoLabel,
             UIView.vSpacer(Values.smallSpacing),
             instructionLabel
@@ -250,7 +265,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             .localized()
         welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center
-
+        
         let result = UIStackView(arrangedSubviews: [
             image,
             accountCreatedLabel,
@@ -334,6 +349,12 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         newConversationButton.center(.horizontal, in: view)
         newConversationButton.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide, withInset: -Values.smallSpacing)
         
+        // Preview prompt
+        view.addSubview(appReviewPrompt)
+        appReviewPrompt.pin(.left, to: .left, of: view, withInset: 12)
+        appReviewPrompt.pin(.right, to: .right, of: view, withInset: -12)
+        appReviewPrompt.pin(.bottom, to: .top, of: newConversationButton, withInset: -10)
+        
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if
             viewModel.dependencies[cache: .general].userExists,
@@ -348,12 +369,16 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Bind the UI to the view model
         bindViewModel()
+        
+        viewModel.navigatableState.setupBindings(viewController: self, disposables: &disposables)
     }
     
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
         viewModel.dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: false)
+        
+        viewModel.viewDidAppear()
     }
     
     // MARK: - Updating
@@ -391,7 +416,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             tableViewTopConstraint?.isActive = false
             loadingConversationsLabelTopConstraint?.isActive = false
             seedReminderView.isHidden = !state.showViewedSeedBanner
-
+            
             if state.showViewedSeedBanner {
                 loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .bottom, of: seedReminderView, withInset: Values.mediumSpacing)
                 tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
@@ -450,6 +475,28 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         ) { [weak self] updatedData in
             self?.sections = updatedData
         }
+    
+        // App reivew, check if `state.appReviewPromptState` has value and `state.appReviewPromptTimestamp`
+        // `state.appReviewPromptTimestamp` will only have value if triggered via viewDidAppear or review prompt events
+        if let promptState = state.appReviewPromptState, state.appReviewPromptTimestamp != nil {
+            appReviewPrompt.setReviewPrompt(promptState)
+            viewModel.didShowAppReviewPrompt()
+        } else {
+            appReviewPrompt.setReviewPrompt(nil)
+        }
+        
+        tableView.contentInset = UIEdgeInsets(
+            top: 0,
+            left: 0,
+            bottom: (
+                Values.largeSpacing +
+                HomeVC.newConversationButtonSize +
+                Values.smallSpacing +
+                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0) +
+                ((state.appReviewPromptState != nil && state.appReviewPromptTimestamp != nil) ? (appReviewPrompt.frame.size.height + 24) : 0)
+            ),
+            right: 0
+        )
     }
     
     private func updateNavBarButtons(
@@ -580,7 +627,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             default: break
         }
     }
-
+    
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -602,7 +649,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     using: viewModel.dependencies
                 )
                 self.navigationController?.pushViewController(viewController, animated: true)
-                
+            
             default: break
         }
     }
@@ -630,10 +677,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // provide it there either
                 guard
                     threadViewModel.threadVariant != .legacyGroup &&
-                    threadViewModel.threadId != threadViewModel.currentUserSessionId && (
-                        threadViewModel.threadVariant != .contact ||
-                        (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
-                    )
+                        threadViewModel.threadId != threadViewModel.currentUserSessionId && (
+                            threadViewModel.threadVariant != .contact ||
+                            (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
+                        )
                 else { return nil }
                 
                 return UIContextualAction.configuration(
@@ -648,7 +695,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         using: viewModel.dependencies
                     )
                 )
-            
+                
             default: return nil
         }
     }
@@ -678,9 +725,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = {
                     switch threadViewModel.threadVariant {
-                        // Only allow unpin for legacy groups
+                            // Only allow unpin for legacy groups
                         case .legacyGroup: return threadViewModel.threadPinnedPriority > 0
-                        
+                            
                         default:
                             return (
                                 sessionIdPrefix != .blinded15 &&
@@ -695,7 +742,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                             sessionIdPrefix != .blinded15 &&
                             sessionIdPrefix != .blinded25
                         )
-                        
+                            
                         case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
                             
                         case .legacyGroup: return false
@@ -746,7 +793,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             present(targetViewController, animated: true, completion: nil)
             return
         }
-
+        
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
         viewController.setNavBarTitle("sessionRecoveryPassword".localized())
         self.navigationController?.pushViewController(viewController, animated: true)

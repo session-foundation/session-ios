@@ -167,8 +167,12 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                             trailingAccessory: .radio(
                                 isSelected: (state.theme == theme)
                             ),
-                            onTap: {
+                            onTap: { [dependencies = viewModel.dependencies] in
                                 ThemeManager.updateThemeState(theme: theme)
+                                // Update trigger only if it's not set to true
+                                if !dependencies[defaults: .standard, key: .hasChangedTheme] {
+                                    dependencies[defaults: .standard, key: .hasChangedTheme] = true
+                                }
                             }
                         )
                     }

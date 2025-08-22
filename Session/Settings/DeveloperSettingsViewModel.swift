@@ -81,6 +81,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case truncatePubkeysInLogs
         case copyDocumentsPath
         case copyAppGroupPath
+        case resetAppReviewPrompt
         
         case defaultLogLevel
         case advancedLogging
@@ -120,6 +121,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
                 case .copyDocumentsPath: return "copyDocumentsPath"
                 case .copyAppGroupPath: return "copyAppGroupPath"
+                case .resetAppReviewPrompt: return "resetAppReviewPrompt"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -169,6 +171,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
                 case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
+                case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -407,6 +410,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
                     onTap: { [weak self] in
                         self?.copyAppGroupPath()
+                    }
+                ),
+                SessionCell.Info(
+                    id: .resetAppReviewPrompt,
+                    title: "Reset App Review Prompt",
+                    subtitle: """
+                    Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
+                    onTap: { [weak self] in
+                        self?.resetAppReviewPrompt()
                     }
                 )
             ]
@@ -957,6 +971,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .copyDocumentsPath: break   // Not a feature
                 case .copyAppGroupPath: break   // Not a feature
+                case .resetAppReviewPrompt: break
                 case .resetSnodeCache: break    // Not a feature
                 case .createMockContacts: break // Not a feature
                 case .exportDatabase: break     // Not a feature
@@ -1426,6 +1441,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         showToast(
             text: "copied".localized(),
+            backgroundColor: .backgroundSecondary
+        )
+    }
+    
+    private func resetAppReviewPrompt() {
+        dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+        dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
+        dependencies[defaults: .standard, key: .hasPressedDonateButton] = false
+        dependencies[defaults: .standard, key: .hasChangedTheme] = false
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
+        
+        showToast(
+            text: "Cleared",
             backgroundColor: .backgroundSecondary
         )
     }
