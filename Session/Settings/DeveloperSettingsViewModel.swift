@@ -81,6 +81,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case truncatePubkeysInLogs
         case copyDocumentsPath
         case copyAppGroupPath
+        case resetAppReviewPrompt
         
         case defaultLogLevel
         case advancedLogging
@@ -120,6 +121,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
                 case .copyDocumentsPath: return "copyDocumentsPath"
                 case .copyAppGroupPath: return "copyAppGroupPath"
+                case .resetAppReviewPrompt: return "resetAppReviewPrompt"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -169,6 +171,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
                 case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
+                case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -410,7 +413,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 ),
                 SessionCell.Info(
-                    id: .copyAppGroupPath,
+                    id: .resetAppReviewPrompt,
                     title: "Reset App Review Prompt",
                     subtitle: """
                     Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
@@ -968,6 +971,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .copyDocumentsPath: break   // Not a feature
                 case .copyAppGroupPath: break   // Not a feature
+                case .resetAppReviewPrompt: break
                 case .resetSnodeCache: break    // Not a feature
                 case .createMockContacts: break // Not a feature
                 case .exportDatabase: break     // Not a feature
@@ -1450,7 +1454,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
         
         showToast(
-            text: "cleared".localized(),
+            text: "Cleared",
             backgroundColor: .backgroundSecondary
         )
     }

@@ -126,8 +126,8 @@ class AppReviewPromptDialog: UIView {
         
         isHidden = prompt == nil
         
-        titleLabel.text = prompt?.promptContent.title ?? ""
-        messageLabel.text = prompt?.promptContent.message ?? ""
+        titleLabel.text = prompt?.promptContent.title
+        messageLabel.text = prompt?.promptContent.message
         
         primaryButton.setTitle(prompt?.promptContent.primaryButtonTitle, for: .normal)
         secondaryButton.setTitle(prompt?.promptContent.secondaryButtonTitle, for: .normal)

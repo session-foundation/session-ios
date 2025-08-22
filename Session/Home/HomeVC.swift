@@ -44,15 +44,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     private var loadingConversationsLabelTopConstraint: NSLayoutConstraint?
     private var navBarProfileView: ProfilePictureView?
     
-    private lazy var tableViewBottomInsets: CGFloat = {
-        (
-            Values.largeSpacing +
-            HomeVC.newConversationButtonSize +
-            Values.smallSpacing +
-            (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
-        )
-    }()
-    
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
         result.accessibilityLabel = "Recovery phrase reminder"
@@ -84,7 +75,12 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         result.contentInset = UIEdgeInsets(
             top: 0,
             left: 0,
-            bottom: tableViewBottomInsets,
+            bottom: (
+                Values.largeSpacing +
+                HomeVC.newConversationButtonSize +
+                Values.smallSpacing +
+                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
+            ),
             right: 0
         )
         result.showsVerticalScrollIndicator = false
@@ -480,16 +476,27 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             self?.sections = updatedData
         }
     
-        // App reivew
+        // App reivew, check if `state.appReviewPromptState` has value and `state.appReviewPromptTimestamp`
+        // `state.appReviewPromptTimestamp` will only have value if triggered via viewDidAppear or review prompt events
         if let promptState = state.appReviewPromptState, state.appReviewPromptTimestamp != nil {
             appReviewPrompt.setReviewPrompt(promptState)
-            viewModel.dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
-            
-            tableView.contentInset.bottom = tableViewBottomInsets + (appReviewPrompt.frame.size.height + 24)
+            viewModel.didShowAppReviewPrompt()
         } else {
             appReviewPrompt.setReviewPrompt(nil)
-            tableView.contentInset.bottom = tableViewBottomInsets
         }
+        
+        tableView.contentInset = UIEdgeInsets(
+            top: 0,
+            left: 0,
+            bottom: (
+                Values.largeSpacing +
+                HomeVC.newConversationButtonSize +
+                Values.smallSpacing +
+                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0) +
+                ((state.appReviewPromptState != nil && state.appReviewPromptTimestamp != nil) ? (appReviewPrompt.frame.size.height + 24) : 0)
+            ),
+            right: 0
+        )
     }
     
     private func updateNavBarButtons(

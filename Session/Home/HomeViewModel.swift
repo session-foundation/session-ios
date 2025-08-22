@@ -554,6 +554,10 @@ public class HomeViewModel: NavigatableStateHolder {
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
     }
     
+    func didShowAppReviewPrompt() {
+        dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
+    }
+    
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
         let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
@@ -581,21 +585,11 @@ public class HomeViewModel: NavigatableStateHolder {
     func submitFeedbackSurvery() {
         guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
         
-        var surverUrl: URL {
-            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-                return url
-            }
-            
-            // stringlint:ignore_contents
-            components.queryItems = [
-                .init(name: "platform", value: "iOS"),
-                .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
-            ]
-            
-            guard let finalURL = components.url else { return url }
-            
-            return finalURL
-        }
+        var surveyUrl: URL = url.appending(queryItems: [
+            .init(name: "platform", value: "iOS"),
+            .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
+        ])
+        
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "urlOpen".localized(),
@@ -610,11 +604,11 @@ public class HomeViewModel: NavigatableStateHolder {
                 cancelStyle: .alert_text,
                 hasCloseButton: true,
                 onConfirm: { modal in
-                    UIApplication.shared.open(surverUrl, options: [:], completionHandler: nil)
+                    UIApplication.shared.open(surveyUrl, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
                 onCancel: { modal in
-                    UIPasteboard.general.string = surverUrl.absoluteString
+                    UIPasteboard.general.string = surveyUrl.absoluteString
                     
                     modal.dismiss(animated: true)
                 }
@@ -705,5 +699,20 @@ private extension ObservedEvent {
                 
             default: return false
         }
+    }
+}
+
+private extension URL {
+    @available(iOS, introduced: 13.0, obsoleted: 16.0)
+    func appending(queryItems: [URLQueryItem]) -> URL {
+        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
+            return self
+        }
+        
+        var existingItems = components.queryItems ?? []
+        existingItems.append(contentsOf: queryItems)
+        components.queryItems = existingItems
+
+        return components.url ?? self
     }
 }
