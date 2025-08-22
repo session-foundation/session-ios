@@ -138,6 +138,19 @@ public class HomeViewModel: NavigatableStateHolder {
         }
         
         static func initialState(using dependencies: Dependencies) -> State {
+            /// Check if incomplete app review can be shown again to user on next app launch
+            let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
+            
+            var promptState: AppReviewPromptState?
+
+            if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
+                dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+                dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
+                dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+                
+                promptState = .rateSession
+            }
+            
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -162,7 +175,7 @@ public class HomeViewModel: NavigatableStateHolder {
                     orderSQL: SessionThreadViewModel.homeOrderSQL
                 ),
                 itemCache: [:],
-                appReviewPromptState: nil,
+                appReviewPromptState: promptState,
                 appReviewPromptTimestamp: nil
             )
         }
@@ -212,17 +225,6 @@ public class HomeViewModel: NavigatableStateHolder {
                     key: .messageRequestUnreadMessageReceived,
                     value: nil
                 ))
-            }
-        
-            /// Check if incomplete app review can be shown again to user on next app launch
-            let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
-
-            if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
-                dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-                dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
-                dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-                
-                appReviewPromptState = .rateSession
             }
         }
         
@@ -389,30 +391,24 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         }
         
-        groupedOtherEvents?[.userDefault]?.forEach { event in
-            if let updatedValue = event.value as? Bool {
-                
-                switch event.key {
-                    case .userDefault(.hasVisitedPathScreen):
-                        if updatedValue == true {
-                            appReviewPromptState = .enjoyingSession
-                        }
-                    case .userDefault(.hasPressedDonateButton):
-                        if updatedValue == true {
-                            appReviewPromptState = .enjoyingSession
-                        }
-                    case .userDefault(.hasChangedTheme):
-                        if updatedValue == true {
-                            appReviewPromptState = .enjoyingSession
-                        }
-                    default: break
-                }
-            }
-        }
-        
         /// Next trigger should be ignored if `didShowAppReviewPrompt` is true
         if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] == true {
             appReviewPromptState = nil
+        } else {
+            groupedOtherEvents?[.userDefault]?.forEach { event in
+                switch (event.key, event.value) {
+                    case (.userDefault(.hasVisitedPathScreen), let value as Bool) where value == true:
+                        appReviewPromptState = .enjoyingSession
+                        
+                    case (.userDefault(.hasPressedDonateButton), let value as Bool) where value == true:
+                        appReviewPromptState = .enjoyingSession
+                        
+                    case (.userDefault(.hasChangedTheme), let value as Bool) where value == true:
+                        appReviewPromptState = .enjoyingSession
+                        
+                    default: break
+                }
+            }
         }
         
         if let event: HomeViewModelEvent = events.first?.value as? HomeViewModelEvent {
@@ -537,12 +533,6 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     // MARK: - Handle App review
-    private static func handleAppReviewTriggerFlag(_ flag: Bool) -> AppReviewPromptState? {
-        guard flag == true else { return nil }
-        
-        return .enjoyingSession
-    }
-
     func viewDidAppear() {
         let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
@@ -559,13 +549,9 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func scheduleAppReviewRetry() {
-        let now = dependencies.dateNow
-        
-        guard let retryDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: now) else {
-            return
-        }
-        
-        dependencies[defaults: .standard, key: .rateAppRetryDate] = retryDate
+        /// Wait 2 weeks before trying again
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
+            .addingTimeInterval(2 * 7 * 24 * 60 * 60)
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
@@ -593,7 +579,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     @MainActor
     func submitFeedbackSurvery() {
-        guard let url: URL = URL(string: Constants.feedback_url) else { return }
+        guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
         
         var surverUrl: URL {
             guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {

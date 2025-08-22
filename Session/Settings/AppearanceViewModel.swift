@@ -149,9 +149,6 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
         )
     }
     
-    @MainActor private func didUpdateTheme(theme: Theme?) {
-    }
-    
     private static func sections(
         state: State,
         previousState: State,
@@ -173,7 +170,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                             onTap: { [dependencies = viewModel.dependencies] in
                                 ThemeManager.updateThemeState(theme: theme)
                                 // Update trigger only if it's not set to true
-                                if dependencies[defaults: .standard, key: .hasChangedTheme] == false {
+                                if !dependencies[defaults: .standard, key: .hasChangedTheme] {
                                     dependencies[defaults: .standard, key: .hasChangedTheme] = true
                                 }
                             }

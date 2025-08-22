@@ -16,5 +16,4 @@ public enum Constants {
     public static let session_network_data_price: String = "Price data powered by CoinGecko<br/>Accurate at {date_time}"
     public static let app_pro: String = "Session Pro"
     public static let store_variant: String = "App Store"
-    public static let feedback_url: String = "https://www.surveymonkey.com/r/YLDZJR8"
 }

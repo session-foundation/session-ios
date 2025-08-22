@@ -851,7 +851,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.transitionToScreen(modal, transitionType: .present)
         
         // Mark app review flag that donate button was tapped
-        if dependencies[defaults: .standard, key: .hasPressedDonateButton] == false {
+        if !dependencies[defaults: .standard, key: .hasPressedDonateButton] {
             dependencies[defaults: .standard, key: .hasPressedDonateButton] = true
         }
     }

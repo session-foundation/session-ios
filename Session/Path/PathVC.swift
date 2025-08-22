@@ -73,7 +73,7 @@ final class PathVC: BaseVC {
         setUpNavBar()
         setUpViewHierarchy()
         
-        if dependencies[defaults: .standard, key: .hasVisitedPathScreen] == false {
+        if !dependencies[defaults: .standard, key: .hasVisitedPathScreen] {
             dependencies[defaults: .standard, key: .hasVisitedPathScreen] = true
         }
     }
