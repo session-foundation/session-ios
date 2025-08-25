@@ -255,15 +255,12 @@ open class Storage {
     
     public func perform(
         migrations: [Migration.Type],
-        async: Bool = true,
-        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onComplete: @escaping (Result<Void, Error>) -> ()
-    ) {
+        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?
+    ) async throws {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
             Log.error(.storage, "Startup failed with error: \(error)")
-            onComplete(.failure(error))
-            return
+            throw error
         }
         
         // Setup and run any required migrations
@@ -277,7 +274,7 @@ open class Storage {
         
         // Determine which migrations need to be performed and gather the relevant settings needed to
         // inform the app of progress/states
-        let completedMigrations: [String] = (try? dbWriter.read { db in try migrator.completedMigrations(db) })
+        let completedMigrations: [String] = (try? await dbWriter.read { [migrator] db in try migrator.completedMigrations(db) })
             .defaulting(to: [])
         let unperformedMigrations: [Migration.Type] = migrations
             .reduce(into: []) { result, next in
@@ -304,57 +301,15 @@ open class Storage {
             )
             let totalProgress: CGFloat = (completedExpectedDuration / totalMinExpectedDuration)
             
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
-        }
-        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
-            // Make sure to transition the progress updater to 100% for the final migration (just
-            // in case the migration itself didn't update to 100% itself)
-            if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
-                MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
-            }
-            
-            self?.hasCompletedMigrations = true
-            
-            // Output any events tracked during the migration and trigger any `postCommitActions` which
-            // should occur
-            if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
-                dependencies.notifyAsync(events: events)
-            }
-            
-            if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
-                actions.values.forEach { $0() }
-            }
-            
-            // Don't log anything in the case of a 'success' or if the database is suspended (the
-            // latter will happen if the user happens to return to the background too quickly on
-            // launch so is unnecessarily alarming, it also gets caught and logged separately by
-            // the 'write' functions anyway)
-            switch result {
-                case .success: break
-                case .failure(DatabaseError.SQLITE_ABORT): break
-                case .failure(let error):
-                    let completedMigrations: [String] = (try? dbWriter
-                        .read { db in try migrator.completedMigrations(db) })
-                        .defaulting(to: [])
-                    let failedMigrationName: String = migrator.migrations
-                        .filter { !completedMigrations.contains($0) }
-                        .first
-                        .defaulting(to: "Unknown")
-                    Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
-            }
-            
-            onComplete(result)
         }
         
         // if there aren't any migrations to run then just complete immediately (this way the migrator
         // doesn't try to execute on the DBWrite thread so returning from the background can't get blocked
         // due to some weird endless process running)
-        guard !unperformedMigrations.isEmpty else {
-            migrationCompleted(.success(()))
-            return
-        }
+        guard !unperformedMigrations.isEmpty else { return }
         
         // Create the `MigrationContext` 
         let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
@@ -364,22 +319,58 @@ open class Storage {
             migrationContext.progressUpdater(firstMigrationIdentifier, 0)
         }
         
-        MigrationExecution.$current.withValue(migrationContext) {
-            // Note: The non-async migration should only be used for unit tests
-            guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
-            
-            migrator.asyncMigrate(dbWriter) { [dependencies] result in
-                let finalResult: Result<Void, Error> = {
-                    switch result {
-                        case .failure(let error): return .failure(error)
-                        case .success: return .success(())
+        return try await withCheckedThrowingContinuation { [weak self, migrator, dependencies] continuation in
+            MigrationExecution.$current.withValue(migrationContext) { [weak self, migrator, dependencies] in
+                migrator.asyncMigrate(dbWriter) { [weak self, migrator, dependencies] result in
+                    let finalResult: Result<Void, Error> = {
+                        switch result {
+                            case .failure(let error): return .failure(error)
+                            case .success: return .success(())
+                        }
+                    }()
+                    
+                    // Make sure to transition the progress updater to 100% for the final migration (just
+                    // in case the migration itself didn't update to 100% itself)
+                    if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
+                        MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
                     }
-                }()
-                
-                // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
-                // performs subsequent database operations
-                DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
-                    migrationCompleted(finalResult)
+                    
+                    self?.hasCompletedMigrations = true
+                    
+                    // Output any events tracked during the migration and trigger any `postCommitActions` which
+                    // should occur
+                    if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
+                        dependencies.notifyAsync(events: events)
+                    }
+                    
+                    if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
+                        actions.values.forEach { $0() }
+                    }
+                    
+                    /// Don't log anything in the case of a `success` or if the database is suspended (the latter will happen if the
+                    /// user happens to return to the background too quickly on launch so is unnecessarily alarming, it also gets
+                    /// caught and logged separately by the `write` functions anyway)
+                    switch result {
+                        case .success: break
+                        case .failure(DatabaseError.SQLITE_ABORT): break
+                        case .failure(let error):
+                            Task { [migrator] in
+                                let completedMigrations: [String] = (try? await dbWriter
+                                    .read { [migrator] db in try migrator.completedMigrations(db) })
+                                    .defaulting(to: [])
+                                let failedMigrationName: String = migrator.migrations
+                                    .filter { !completedMigrations.contains($0) }
+                                    .first
+                                    .defaulting(to: "Unknown")
+                                Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
+                            }
+                    }
+                    
+                    /// Resume the continuation
+                    switch result {
+                        case .failure(let error): continuation.resume(throwing: error)
+                        case .success: continuation.resume()
+                    }
                 }
             }
         }

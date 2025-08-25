@@ -91,12 +91,14 @@ public enum ConfigurationSyncJob: JobExecutor {
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> AuthenticationMethod in
-                try Authentication.with(db, swarmPublicKey: swarmPublicKey, using: dependencies)
-            }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Network.BatchResponse), Error> in
-                try SnodeAPI.preparedSequence(
+        AnyPublisher
+            .lazy { () -> Network.PreparedRequest<Network.BatchResponse> in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: swarmPublicKey,
+                    using: dependencies
+                )
+                
+                return try SnodeAPI.preparedSequence(
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
@@ -131,11 +133,11 @@ public enum ConfigurationSyncJob: JobExecutor {
                         .appending(contentsOf: additionalTransientData?.afterSequenceRequests),
                     requireAllBatchResponses: (additionalTransientData?.requireAllBatchResponses == true),
                     swarmPublicKey: swarmPublicKey,
-                    snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
                     overallTimeout: Network.defaultTimeout,
                     using: dependencies
-                ).send(using: dependencies)
+                )
             }
+            .flatMap { request in request.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .tryMap { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
@@ -193,37 +195,32 @@ public enum ConfigurationSyncJob: JobExecutor {
                             
                             // If the failure is due to being offline then we should automatically
                             // retry if the connection is re-established
-                            dependencies[cache: .libSessionNetwork].networkStatus
-                                .first()
-                                .sinkUntilComplete(
-                                    receiveValue: { status in
-                                        switch status {
-                                            // If we are currently connected then use the standard
-                                            // retry behaviour
-                                            case .connected: failure(job, error, false)
-                                                
-                                            // If not then permanently fail the job and reschedule it
-                                            // to run again if we re-establish the connection
-                                            default:
-                                                failure(job, error, true)
-                                                
-                                                dependencies[cache: .libSessionNetwork].networkStatus
-                                                    .filter { $0 == .connected }
-                                                    .first()
-                                                    .sinkUntilComplete(
-                                                        receiveCompletion: { _ in
-                                                            dependencies[singleton: .storage].writeAsync { db in
-                                                                ConfigurationSyncJob.enqueue(
-                                                                    db,
-                                                                    swarmPublicKey: swarmPublicKey,
-                                                                    using: dependencies
-                                                                )
-                                                            }
-                                                        }
-                                                    )
-                                        }
-                                    }
-                                )
+                            Task { [dependencies] in
+                                let currentStatus: NetworkStatus = (await dependencies[singleton: .network]
+                                    .networkStatus
+                                    .first(where: { _ in true }) ?? .unknown)
+                                
+                                // If we are currently connected then use the standard retry behaviour
+                                guard currentStatus != .connected else {
+                                    return failure(job, error, false)
+                                }
+                                
+                                // Otherwise we should permanently fail the job and reschedule it
+                                // to run again if we re-establish the connection
+                                failure(job, error, true)
+                                
+                                _ = await dependencies[singleton: .network].networkStatus.first(where: {
+                                    $0 == .connected
+                                })
+                                
+                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                    ConfigurationSyncJob.enqueue(
+                                        db,
+                                        swarmPublicKey: swarmPublicKey,
+                                        using: dependencies
+                                    )
+                                }
+                            }
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in

@@ -220,8 +220,8 @@ public extension ClosedGroup {
         }
         
         /// Start the poller
-        dependencies.mutate(cache: .groupPollers) {
-            $0.getOrCreatePoller(for: group.id).startIfNeeded()
+        Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
+            await manager.getOrCreatePoller(for: group.id).startIfNeeded()
         }
         
         /// Subscribe for group push notifications
@@ -276,7 +276,9 @@ public extension ClosedGroup {
         if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
             threadIds.forEach { threadId in
                 if dataToRemove.contains(.poller) {
-                    dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
+                    Task { [manager = dependencies[singleton: .groupPollerManager]] in
+                        await manager.stopAndRemovePoller(for: threadId)
+                    }
                 }
                 
                 if dataToRemove.contains(.libSessionState) {

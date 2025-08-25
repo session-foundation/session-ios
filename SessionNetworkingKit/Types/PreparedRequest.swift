@@ -13,6 +13,12 @@ public extension Network {
             fileprivate let info: ResponseInfoType
             fileprivate let originalData: Any
             fileprivate let convertedData: R
+            
+            public init(info: ResponseInfoType, originalData: Any, convertedData: R) {
+                self.info = info
+                self.originalData = originalData
+                self.convertedData = convertedData
+            }
         }
         
         public let endpoint: (any EndpointType)
@@ -27,10 +33,8 @@ public extension Network {
         public let responseType: R.Type
         public let cachedResponse: CachedResponse?
         fileprivate let responseConverter: ((ResponseInfoType, Any) throws -> R)
-        public let subscriptionHandler: (() -> Void)?
         public let outputEventHandler: (((CachedResponse)) -> Void)?
         public let completionEventHandler: ((Subscribers.Completion<Error>) -> Void)?
-        public let cancelEventHandler: (() -> Void)?
         
         // The following types are needed for `BatchRequest` handling
         public let method: HTTPMethod
@@ -52,9 +56,6 @@ public extension Network {
             request: Request<T, E>,
             responseType: R.Type,
             requireAllBatchResponses: Bool = true,
-//            retryCount: Int = 0,
-//            requestTimeout: TimeInterval = Network.defaultTimeout,
-//            requestAndPathBuildTimeout: TimeInterval? = nil,
             using dependencies: Dependencies
         ) throws where R: Decodable {
             try self.init(
@@ -62,9 +63,6 @@ public extension Network {
                 responseType: responseType,
                 additionalSignatureData: NoSignature.null,
                 requireAllBatchResponses: requireAllBatchResponses,
-//                retryCount: retryCount,
-//                requestTimeout: requestTimeout,
-//                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
         }
@@ -74,9 +72,6 @@ public extension Network {
             responseType: R.Type,
             additionalSignatureData: S?,
             requireAllBatchResponses: Bool = true,
-//            retryCount: Int = 0,
-//            requestTimeout: TimeInterval = Network.defaultTimeout,
-//            requestAndPathBuildTimeout: TimeInterval? = nil,
             using dependencies: Dependencies
         ) throws where R: Decodable {
             let batchRequests: [Network.BatchRequest.Child]? = (request.body as? BatchRequestChildRetrievable)?.requests
@@ -207,7 +202,6 @@ public extension Network {
                     }
                 }
             }()
-            self.subscriptionHandler = nil
             self.completionEventHandler = {
                 guard
                     let subRequestEventHandlers: [((Subscribers.Completion<Error>) -> Void)] = batchRequests?
@@ -218,15 +212,6 @@ public extension Network {
                 // Since the completion event doesn't provide us with any data we can't return the
                 // individual subRequest results here
                 return { result in subRequestEventHandlers.forEach { $0(result) } }
-            }()
-            self.cancelEventHandler = {
-                guard
-                    let subRequestEventHandlers: [(() -> Void)] = batchRequests?
-                        .compactMap({ $0.request.cancelEventHandler }),
-                    !subRequestEventHandlers.isEmpty
-                else { return nil }
-                
-                return { subRequestEventHandlers.forEach { $0() } }
             }()
             
             // The following data is needed in this type for handling batch requests
@@ -285,10 +270,8 @@ public extension Network {
             responseType: R.Type,
             cachedResponse: CachedResponse?,
             responseConverter: @escaping (ResponseInfoType, Any) throws -> R,
-            subscriptionHandler: (() -> Void)?,
             outputEventHandler: ((CachedResponse) -> Void)?,
             completionEventHandler: ((Subscribers.Completion<Error>) -> Void)?,
-            cancelEventHandler: (() -> Void)?,
             method: HTTPMethod,
             endpointName: String,
             headers: [HTTPHeader: String],
@@ -315,10 +298,8 @@ public extension Network {
             self.responseType = responseType
             self.cachedResponse = cachedResponse
             self.responseConverter = responseConverter
-            self.subscriptionHandler = subscriptionHandler
             self.outputEventHandler = outputEventHandler
             self.completionEventHandler = completionEventHandler
-            self.cancelEventHandler = cancelEventHandler
             
             // The following data is needed in this type for handling batch requests
             self.method = method
@@ -349,7 +330,6 @@ public protocol ErasedPreparedRequest {
     var erasedResponseConverter: ((ResponseInfoType, Any) throws -> Any) { get }
     var erasedOutputEventHandler: ((ResponseInfoType, Any, Any) -> Void)? { get }
     var completionEventHandler: ((Subscribers.Completion<Error>) -> Void)? { get }
-    var cancelEventHandler: (() -> Void)? { get }
     
     func batchRequestEndpoint<E: EndpointType>(of type: E.Type) -> E?
     func encodeForBatchRequest(to encoder: Encoder) throws
@@ -469,10 +449,8 @@ public extension Network.PreparedRequest {
             responseType: responseType,
             cachedResponse: cachedResponse,
             responseConverter: responseConverter,
-            subscriptionHandler: subscriptionHandler,
             outputEventHandler: outputEventHandler,
             completionEventHandler: completionEventHandler,
-            cancelEventHandler: cancelEventHandler,
             method: method,
             endpointName: endpointName,
             headers: signedDestination.headers,
@@ -526,7 +504,6 @@ public extension Network.PreparedRequest {
                     }
             },
             responseConverter: responseConverter,
-            subscriptionHandler: subscriptionHandler,
             outputEventHandler: self.outputEventHandler.map { eventHandler in
                 { data in
                     guard let validResponse: R = try? originalConverter(data.info, data.originalData) else {
@@ -541,7 +518,6 @@ public extension Network.PreparedRequest {
                 }
             },
             completionEventHandler: completionEventHandler,
-            cancelEventHandler: cancelEventHandler,
             method: method,
             endpointName: endpointName,
             headers: headers,
@@ -559,23 +535,9 @@ public extension Network.PreparedRequest {
     }
     
     func handleEvents(
-        receiveSubscription: (() -> Void)? = nil,
         receiveOutput: (((ResponseInfoType, R)) -> Void)? = nil,
-        receiveCompletion: ((Subscribers.Completion<Error>) -> Void)? = nil,
-        receiveCancel: (() -> Void)? = nil
+        receiveCompletion: ((Subscribers.Completion<Error>) -> Void)? = nil
     ) -> Network.PreparedRequest<R> {
-        let subscriptionHandler: (() -> Void)? = {
-            switch (self.subscriptionHandler, receiveSubscription) {
-                case (.none, .none): return nil
-                case (.some(let eventHandler), .none): return eventHandler
-                case (.none, .some(let eventHandler)): return eventHandler
-                case (.some(let originalEventHandler), .some(let eventHandler)):
-                    return {
-                        originalEventHandler()
-                        eventHandler()
-                    }
-            }
-        }()
         let outputEventHandler: ((CachedResponse) -> Void)? = {
             switch (self.outputEventHandler, receiveOutput) {
                 case (.none, .none): return nil
@@ -604,18 +566,6 @@ public extension Network.PreparedRequest {
                     }
             }
         }()
-        let cancelEventHandler: (() -> Void)? = {
-            switch (self.cancelEventHandler, receiveCancel) {
-                case (.none, .none): return nil
-                case (.some(let eventHandler), .none): return eventHandler
-                case (.none, .some(let eventHandler)): return eventHandler
-                case (.some(let originalEventHandler), .some(let eventHandler)):
-                    return {
-                        originalEventHandler()
-                        eventHandler()
-                    }
-            }
-        }()
         
         return Network.PreparedRequest(
             endpoint: endpoint,
@@ -630,10 +580,8 @@ public extension Network.PreparedRequest {
             responseType: responseType,
             cachedResponse: cachedResponse,
             responseConverter: responseConverter,
-            subscriptionHandler: subscriptionHandler,
             outputEventHandler: outputEventHandler,
             completionEventHandler: completionEventHandler,
-            cancelEventHandler: cancelEventHandler,
             method: method,
             endpointName: endpointName,
             headers: headers,
@@ -679,10 +627,8 @@ public extension Network.PreparedRequest {
                 convertedData: cachedResponse
             ),
             responseConverter: { _, _ in cachedResponse },
-            subscriptionHandler: nil,
             outputEventHandler: nil,
             completionEventHandler: nil,
-            cancelEventHandler: nil,
             method: .get,
             endpointName: E.name,
             headers: [:],
@@ -719,6 +665,57 @@ public extension Decodable {
     
     static func decoded(from data: Data, using dependencies: Dependencies) throws -> Self {
         return try data.decoded(as: Self.self, using: dependencies)
+    }
+}
+
+public extension Network.PreparedRequest {
+    func decode(
+        info: ResponseInfoType,
+        data: Data?,
+        using dependencies: Dependencies
+    ) throws -> (originalData: Any, convertedData: R) {
+        // Depending on the 'originalType' we need to process the response differently
+        let targetData: Any = try {
+            switch originalType {
+                case let erasedBatchResponse as ErasedBatchResponseMap.Type:
+                    let response: Network.BatchResponse = try Network.BatchResponse.decodingResponses(
+                        from: data,
+                        as: batchResponseTypes,
+                        requireAllResults: requireAllBatchResponses,
+                        using: dependencies
+                    )
+                    
+                    return try erasedBatchResponse.from(
+                        batchEndpoints: batchEndpoints,
+                        response: response
+                    )
+                
+                case is Network.BatchResponse.Type:
+                    return try Network.BatchResponse.decodingResponses(
+                        from: data,
+                        as: batchResponseTypes,
+                        requireAllResults: requireAllBatchResponses,
+                        using: dependencies
+                    )
+                    
+                case is NoResponse.Type: return NoResponse()
+                case is Optional<Data>.Type: return data as Any
+                case is Data.Type: return try data ?? { throw NetworkError.parsingFailed }()
+                
+                case is _OptionalProtocol.Type:
+                    guard let data: Data = data else { return data as Any }
+                    
+                    return try originalType.decoded(from: data, using: dependencies)
+                
+                default:
+                    guard let data: Data = data else { throw NetworkError.parsingFailed }
+                    
+                    return try originalType.decoded(from: data, using: dependencies)
+            }
+        }()
+        
+        // Generate and return the converted data
+        return (targetData, try responseConverter(info, targetData))
     }
 }
 

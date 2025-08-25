@@ -10,12 +10,10 @@ import SessionUtilitiesKit
 
 // MARK: - Cache
 
-public extension Cache {
-    static let ip2Country: CacheConfig<IP2CountryCacheType, IP2CountryImmutableCacheType> = Dependencies.create(
+public extension Singleton {
+    static let ip2Country: SingletonConfig<IP2CountryType> = Dependencies.create(
         identifier: "ip2Country",
-        createInstance: { dependencies in IP2Country(using: dependencies) },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
+        createInstance: { dependencies in IP2Country(using: dependencies) }
     )
 }
 
@@ -27,9 +25,8 @@ public extension Log.Category {
 
 // MARK: - IP2Country
 
-fileprivate class IP2Country: IP2CountryCacheType {
+fileprivate actor IP2Country: IP2CountryType {
     private var countryNamesCache: [String: String] = [:]
-    private let _cacheLoaded: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
     private var disposables: Set<AnyCancellable> = Set()
     private var currentLocale: String {
         let result: String? = Locale.current.identifier
@@ -44,9 +41,7 @@ fileprivate class IP2Country: IP2CountryCacheType {
         
         return (result ?? "en")  // Fallback to English
     }
-    public var cacheLoaded: AnyPublisher<Bool, Never> {
-        _cacheLoaded.filter { $0 }.eraseToAnyPublisher()
-    }
+    public var isLoaded: Bool = false
     
     // MARK: - Tables
     
@@ -166,91 +161,50 @@ fileprivate class IP2Country: IP2CountryCacheType {
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
-        /// Ensure the lookup tables get loaded in the background
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            _ = self?.cache
-            
-            /// Then register for path change callbacks which will be used to update the country name cache
-            self?.registerNetworkObservables(using: dependencies)
+        Task { [weak self] in
+            _ = await self?.cache
+            await self?.setLoaded(true)
+            Log.info(.ip2Country, "IP2Country cache loaded.")
         }
     }
     
     // MARK: - Functions
     
-    private func registerNetworkObservables(using dependencies: Dependencies) {
-        /// Register for path change callbacks which will be used to update the country name cache
-        dependencies[cache: .libSessionNetwork].paths
-            .subscribe(on: DispatchQueue.global(qos: .utility), using: dependencies)
-            .receive(on: DispatchQueue.global(qos: .utility), using: dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.global(qos: .background).async {
-                        self?.registerNetworkObservables(using: dependencies)
-                    }
-                },
-                receiveValue: { [weak self] paths in
-                    dependencies.mutate(cache: .ip2Country) { _ in
-                        self?.populateCacheIfNeeded(paths: paths)
-                    }
-                }
-            )
-            .store(in: &disposables)
+    private func setLoaded(_ loaded: Bool) {
+        self.isLoaded = loaded
     }
-
-    private func populateCacheIfNeeded(paths: [[LibSession.Snode]]) {
-        guard !paths.isEmpty else { return }
+    
+    public func country(for ip: String) async -> String {
+        guard isLoaded else { return "onionRoutingPathUnknownCountry".localized() }
         
-        paths.forEach { path in
-            path.forEach { snode in
-                self.cacheCountry(for: snode.ip, inCache: &countryNamesCache)
-            }
+        let currentLocale: String = self.currentLocale  /// Store local copy for efficiency
+        let key: String = "\(ip)-\(currentLocale)"
+        
+        switch countryNamesCache[key] {
+            case .some(let value): return value
+            case .none:
+                guard
+                    let ipAsInt: Int64 = IPv4.toInt(ip),
+                    let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
+                    let localeStartIndex: Int = cache.countryLocationsLocaleCode.firstIndex(where: { $0 == currentLocale }),
+                    let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in
+                        geonameId == cache.countryBlocksGeonameId[countryBlockGeonameIdIndex]
+                    }),
+                    (localeStartIndex + countryNameIndex) < cache.countryLocationsCountryName.count
+                else { return "onionRoutingPathUnknownCountry".localized() }
+                
+                let result: String = cache.countryLocationsCountryName[localeStartIndex + countryNameIndex]
+                countryNamesCache[key] = result
+                
+                return result
         }
-        
-        self._cacheLoaded.send(true)
-        Log.info(.ip2Country, "Update onion request path countries.")
-    }
-    
-    private func cacheCountry(for ip: String, inCache nameCache: inout [String: String]) {
-        let currentLocale: String = self.currentLocale  // Store local copy for efficiency
-        
-        guard nameCache["\(ip)-\(currentLocale)"] == nil else { return }
-        
-        guard
-            let ipAsInt: Int64 = IPv4.toInt(ip),
-            let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
-            let localeStartIndex: Int = cache.countryLocationsLocaleCode.firstIndex(where: { $0 == currentLocale }),
-            let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in
-                geonameId == cache.countryBlocksGeonameId[countryBlockGeonameIdIndex]
-            }),
-            (localeStartIndex + countryNameIndex) < cache.countryLocationsCountryName.count
-        else { return }
-        
-        let result: String = cache.countryLocationsCountryName[localeStartIndex + countryNameIndex]
-        nameCache["\(ip)-\(currentLocale)"] = result
-    }
-    
-    // MARK: - Functions
-    
-    public func country(for ip: String) -> String {
-        guard _cacheLoaded.value else { return "resolving".localized() }
-        
-        return (countryNamesCache["\(ip)-\(currentLocale)"] ?? "onionRoutingPathUnknownCountry".localized())
     }
 }
 
-// MARK: - IP2CountryCacheType
+// MARK: - IP2CountryType
 
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol IP2CountryImmutableCacheType: ImmutableCacheType {
-    var cacheLoaded: AnyPublisher<Bool, Never> { get }
+public protocol IP2CountryType {
+    var isLoaded: Bool { get async }
     
-    func country(for ip: String) -> String
-}
-
-public protocol IP2CountryCacheType: IP2CountryImmutableCacheType, MutableCacheType {
-    var cacheLoaded: AnyPublisher<Bool, Never> { get }
-    
-    func country(for ip: String) -> String
+    func country(for ip: String) async -> String
 }

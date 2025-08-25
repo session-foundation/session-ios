@@ -1161,9 +1161,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         Log.info("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
         
         /// Stop all pollers
-        dependencies[singleton: .currentUserPoller].stop()
-        dependencies.remove(cache: .groupPollers)
-        dependencies.remove(cache: .communityPollers)
+        dependencies.remove(singleton: .currentUserPoller)
+        dependencies.remove(singleton: .groupPollerManager)
+        dependencies.remove(singleton: .communityPollerManager)
         
         /// Reset the network
         ///
@@ -1225,7 +1225,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
         
         /// Start the new network cache and clear out the old one
-        dependencies.warmCache(cache: .libSessionNetwork)
+        dependencies.warm(singleton: .network)
         
         /// Free the `oldNetworkCache` so it can be destroyed(the 'if' is only there to prevent the "variable never read" warning)
         if oldNetworkCache != nil { oldNetworkCache = nil }

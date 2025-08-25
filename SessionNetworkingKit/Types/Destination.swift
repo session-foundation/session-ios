@@ -106,12 +106,7 @@ public extension Network {
         }
         
         case snode(LibSession.Snode, swarmPublicKey: String?)
-        case randomSnode(swarmPublicKey: String, snodeRetrievalRetryCount: Int)
-        case randomSnodeLatestNetworkTimeTarget(
-            swarmPublicKey: String,
-            snodeRetrievalRetryCount: Int,
-            bodyWithUpdatedTimestampMs: ((UInt64, Dependencies) -> Encodable?)
-        )
+        case randomSnode(swarmPublicKey: String)
         case server(info: ServerInfo)
         case serverUpload(info: ServerInfo, fileName: String?)
         case serverDownload(info: ServerInfo)
@@ -129,7 +124,7 @@ public extension Network {
         public var url: URL? {
             switch self {
                 case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return try? info.url
-                case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: return nil
+                case .snode, .randomSnode: return nil
                 case .cached: return nil
             }
         }
@@ -139,7 +134,7 @@ public extension Network {
                 case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
                     return info.headers
                     
-                case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: return [:]
+                case .snode, .randomSnode: return [:]
                 case .cached(_, _, _, let headers, _): return headers
             }
         }
@@ -258,17 +253,8 @@ public extension Network {
                         lhsSwarmPublicKey == rhsSwarmPublicKey
                     )
                 
-                case (.randomSnode(let lhsSwarmPublicKey, let lhsRetryCount), .randomSnode(let rhsSwarmPublicKey, let rhsRetryCount)):
-                    return (
-                        lhsSwarmPublicKey == rhsSwarmPublicKey &&
-                        lhsRetryCount == rhsRetryCount
-                    )
-                
-                case (.randomSnodeLatestNetworkTimeTarget(let lhsSwarmPublicKey, let lhsRetryCount, _), .randomSnodeLatestNetworkTimeTarget(let rhsSwarmPublicKey, let rhsRetryCount, _)):
-                    return (
-                        lhsSwarmPublicKey == rhsSwarmPublicKey &&
-                        lhsRetryCount == rhsRetryCount
-                    )
+                case (.randomSnode(let lhsSwarmPublicKey), .randomSnode(let rhsSwarmPublicKey)):
+                    return (lhsSwarmPublicKey == rhsSwarmPublicKey)
                     
                 case (.server(let lhsInfo), .server(let rhsInfo)): return (lhsInfo == rhsInfo)
                 

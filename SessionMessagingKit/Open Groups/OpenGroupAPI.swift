@@ -1368,7 +1368,7 @@ private extension OpenGroupAPI {
 private extension Network.Destination {
     func signed(data: OpenGroupAPI.AdditionalSigningData, body: Data?, using dependencies: Dependencies) throws -> Network.Destination {
         switch self {
-            case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: throw NetworkError.unauthorised
+            case .snode, .randomSnode: throw NetworkError.unauthorised
             case .cached: return self
             case .server(let info): return .server(info: try info.signed(data, body, using: dependencies))
             case .serverUpload(let info, let fileName):

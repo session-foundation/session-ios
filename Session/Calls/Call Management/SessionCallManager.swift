@@ -194,9 +194,11 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             // Stop all jobs except for message sending and when completed suspend the database
             dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
                 if self.currentCall?.hasEnded != false  {
-                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    Log.flush()
+                    Task { [dependencies] in
+                        await dependencies[singleton: .network].suspendNetworkAccess()
+                        dependencies[singleton: .storage].suspendDatabaseAccess()
+                        Log.flush()
+                    }
                 }
             }
         }
@@ -293,8 +295,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
-            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-                dependencies[singleton: .currentUserPoller].stop()
+            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [poller = dependencies[singleton: .currentUserPoller]] in
+                Task(priority: .userInitiated) {
+                    await poller.stop()
+                }
             }
             Log.flush()
         }

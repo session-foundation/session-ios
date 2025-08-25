@@ -18,10 +18,16 @@ public extension Singleton {
 // MARK: - NetworkType
 
 public protocol NetworkType {
-    func getSwarm(for swarmPublicKey: String) -> AnyPublisher<Set<LibSession.Snode>, Error>
-    func getRandomNodes(count: Int) -> AnyPublisher<Set<LibSession.Snode>, Error>
+    var isSuspended: Bool { get async }
+    nonisolated var networkStatus: AsyncStream<NetworkStatus> { get }
+    nonisolated var syncState: NetworkSyncState { get }
     
-    func send(
+    func getActivePaths() async throws -> [LibSession.Path]
+    func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode>
+    func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode>
+    
+    @available(*, deprecated, message: "We want to shift from Combine to Async/Await when possible")
+    nonisolated func send(
         endpoint: (any EndpointType),
         destination: Network.Destination,
         body: Data?,
@@ -30,7 +36,32 @@ public protocol NetworkType {
         overallTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error>
     
-    func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error>
+    func send(
+        endpoint: (any EndpointType),
+        destination: Network.Destination,
+        body: Data?,
+        category: Network.RequestCategory,
+        requestTimeout: TimeInterval,
+        overallTimeout: TimeInterval?
+    ) async throws -> (info: ResponseInfoType, value: Data?)
+    
+    func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: AppVersionResponse)
+    
+    func setNetworkStatus(status: NetworkStatus) async
+    func suspendNetworkAccess() async
+    func resumeNetworkAccess() async
+    func finishCurrentObservations() async
+    func clearCache() async
+}
+
+/// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
+public final class NetworkSyncState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _isSuspended: Bool = false
+    
+    public var isSuspended: Bool { lock.withLock { _isSuspended } }
+
+    func update(isSuspended: Bool) { lock.withLock { self._isSuspended = isSuspended } }
 }
 
 // MARK: - Network Constants
@@ -142,6 +173,7 @@ public extension Network {
                     fileName: nil
                 ),
                 body: data,
+                category: .upload,
                 requestTimeout: Network.fileUploadTimeout,
                 overallTimeout: overallTimeout
             ),
@@ -162,6 +194,7 @@ public extension Network {
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),
+                category: .download,
                 requestTimeout: Network.fileUploadTimeout
             ),
             responseType: Data.self,

@@ -125,11 +125,11 @@ public class Dependencies {
     
     // MARK: - Instance management
     
-    public func warmSingleton<S>(singleton: SingletonConfig<S>) {
+    public func warm<S>(singleton: SingletonConfig<S>) {
         _ = getOrCreate(singleton)
     }
     
-    public func warmCache<M, I>(cache: CacheConfig<M, I>) {
+    public func warm<M, I>(cache: CacheConfig<M, I>) {
         _ = getOrCreate(cache)
     }
     
@@ -140,6 +140,10 @@ public class Dependencies {
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
         let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
         setValue(value, typedStorage: .cache(value), key: cache.identifier)
+    }
+    
+    public func remove<S>(singleton: SingletonConfig<S>) {
+        removeValue(singleton.identifier, of: .singleton)
     }
     
     public func remove<M, I>(cache: CacheConfig<M, I>) {

@@ -31,7 +31,7 @@ final class PathStatusView: UIView {
     
     private let dependencies: Dependencies
     private let size: Size
-    private var disposables: Set<AnyCancellable> = Set()
+    private var statusObservationTask: Task<Void, Never>?
     
     init(size: Size = .small, using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -41,11 +41,15 @@ final class PathStatusView: UIView {
         
         setUpViewHierarchy()
         setStatus(to: .unknown) // Default to the unknown status
-        registerObservers()
+        startObservingNetwork()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        statusObservationTask?.cancel()
     }
     
     // MARK: - Layout
@@ -72,24 +76,28 @@ final class PathStatusView: UIView {
     
     // MARK: - Functions
 
-    private func registerObservers() {
-        /// Register for status updates (will be called immediately with current status)
-        dependencies[cache: .libSessionNetwork].networkStatus
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.global(qos: .background).async {
-                        self?.registerObservers()
+    private func startObservingNetwork() {
+        statusObservationTask?.cancel()
+        statusObservationTask = Task.detached(priority: .background) { [weak self, dependencies] in
+            var specificNetworkObservationTask: Task<Void, Never>?
+            
+            for await network in dependencies.stream(singleton: .network) {
+                specificNetworkObservationTask?.cancel()
+                specificNetworkObservationTask = Task<Void, Never> {
+                    do {
+                        for await status in network.networkStatus {
+                            try Task.checkCancellation()
+                            
+                            await self?.setStatus(to: status)
+                        }
                     }
-                },
-                receiveValue: { [weak self] status in self?.setStatus(to: status) }
-            )
-            .store(in: &disposables)
+                    catch { Log.info("PathStatusView networkStatus observation ended, restarting.") }
+                }
+            }
+        }
     }
 
-    private func setStatus(to status: NetworkStatus) {
+    @MainActor private func setStatus(to status: NetworkStatus) {
         themeBackgroundColor = status.themeColor
         layer.themeShadowColor = status.themeColor
     }

@@ -191,9 +191,9 @@ extension MessageSender {
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     
                     // Start polling
-                    dependencies
-                        .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
-                        .startIfNeeded()
+                    Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
+                        await manager.getOrCreatePoller(for: thread.id).startIfNeeded()
+                    }
                     
                     // Subscribe for push notifications (if PNs are enabled)
                     preparedNotificationSubscription?
@@ -384,7 +384,7 @@ extension MessageSender {
                                         using: dependencies
                                     )
                                 
-                            case .groupUpdateTo(let url, let key, let fileName):
+                            case .groupUpdateTo(let url, let key, _):
                                 try ClosedGroup
                                     .filter(id: groupSessionId)
                                     .updateAllAndConfig(

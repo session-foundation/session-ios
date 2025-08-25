@@ -2,7 +2,7 @@
 
 import Foundation
 
-final class StreamLifecycleManager<Element: Sendable>: @unchecked Sendable {
+public final class StreamLifecycleManager<Element: Sendable>: @unchecked Sendable {
     private let lock: NSLock = NSLock()
     private var continuations: [UUID: AsyncStream<Element>.Continuation] = [:]
     
@@ -11,21 +11,22 @@ final class StreamLifecycleManager<Element: Sendable>: @unchecked Sendable {
     public init() {}
     
     deinit {
-        finish()
+        finishCurrentStreams()
     }
     
     // MARK: - Functions
     
-    func track(_ continuation: AsyncStream<Element>.Continuation) -> UUID {
+    func makeTrackedStream() -> (stream: AsyncStream<Element>, id: UUID) {
+        let (stream, continuation) = AsyncStream.makeStream(of: Element.self)
         let id: UUID = UUID()
         
         lock.withLock { continuations[id] = continuation }
+
+        continuation.onTermination = { @Sendable [self] _ in
+            self.finishStream(id: id)
+        }
         
-        return id
-    }
-    
-    func untrack(id: UUID) {
-        _ = lock.withLock { continuations.removeValue(forKey: id) }
+        return (stream, id)
     }
     
     func send(_ value: Element) {
@@ -38,7 +39,15 @@ final class StreamLifecycleManager<Element: Sendable>: @unchecked Sendable {
         }
     }
     
-    func finish() {
+    func finishStream(id: UUID) {
+        lock.withLock {
+            if let continuation: AsyncStream<Element>.Continuation = continuations.removeValue(forKey: id) {
+                continuation.finish()
+            }
+        }
+    }
+    
+    func finishCurrentStreams() {
         let currentContinuations: [UUID: AsyncStream<Element>.Continuation] = lock.withLock {
             let continuationsToFinish: [UUID: AsyncStream<Element>.Continuation] = continuations
             continuations.removeAll()

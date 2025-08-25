@@ -125,7 +125,7 @@ public final class OpenGroupManager {
         }
         
         // First check if there is no poller for the specified server
-        if Set(dependencies[cache: .communityPollers].serversBeingPolled).intersection(serverOptions).isEmpty {
+        if Set(dependencies[singleton: .communityPollerManager].syncState.serversBeingPolled).intersection(serverOptions).isEmpty {
             return false
         }
         
@@ -210,7 +210,7 @@ public final class OpenGroupManager {
         guard
             successfullyAddedGroup,
             !dependencies[singleton: .storage].isSuspended,
-            !dependencies[cache: .libSessionNetwork].isSuspended
+            !dependencies[singleton: .network].syncState.isSuspended
         else {
             return Just(())
                 .setFailureType(to: Error.self)
@@ -274,12 +274,12 @@ public final class OpenGroupManager {
                 receiveCompletion: { [dependencies] result in
                     switch result {
                         case .finished:
-                            // (Re)start the poller if needed (want to force it to poll immediately in the next
-                            // run loop to avoid a big delay before the next poll)
-                            dependencies.mutate(cache: .communityPollers) { cache in
-                                let poller: CommunityPollerType = cache.getOrCreatePoller(for: server.lowercased())
-                                poller.stop()
-                                poller.startIfNeeded()
+                            /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid
+                            /// a big delay before the next poll)
+                            Task { [communityPollerManager = dependencies[singleton: .communityPollerManager]] in
+                                let poller = await communityPollerManager.getOrCreatePoller(for: server.lowercased())
+                                await poller.stop()
+                                await poller.startIfNeeded()
                             }
                             
                         case .failure(let error): Log.error(.openGroup, "Failed to join open group with error: \(error).")
@@ -317,8 +317,8 @@ public final class OpenGroupManager {
             .defaulting(to: 1)
         
         if numActiveRooms == 1, let server: String = server?.lowercased() {
-            dependencies.mutate(cache: .communityPollers) {
-                $0.stopAndRemovePoller(for: server)
+            Task { [manager = dependencies[singleton: .communityPollerManager]] in
+                await manager.stopAndRemovePoller(for: server)
             }
         }
         

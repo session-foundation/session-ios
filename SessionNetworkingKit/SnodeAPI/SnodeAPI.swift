@@ -126,7 +126,6 @@ public final class SnodeAPI {
         requests: [any ErasedPreparedRequest],
         requireAllBatchResponses: Bool,
         swarmPublicKey: String,
-        snodeRetrievalRetryCount: Int,
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
@@ -138,8 +137,7 @@ public final class SnodeAPI {
                     swarmPublicKey: swarmPublicKey,
                     body: Network.BatchRequest(requestsKey: .requests, requests: requests),
                     requestTimeout: requestTimeout,
-                    overallTimeout: overallTimeout,
-                    snodeRetrievalRetryCount: snodeRetrievalRetryCount
+                    overallTimeout: overallTimeout
                 ),
                 responseType: Network.BatchResponse.self,
                 requireAllBatchResponses: requireAllBatchResponses,
@@ -215,7 +213,7 @@ public final class SnodeAPI {
     public static func getSessionID(
         for onsName: String,
         using dependencies: Dependencies
-    ) -> AnyPublisher<String, Error> {
+    ) async throws -> String {
         let validationCount = 3
         
         // The name must be lowercased

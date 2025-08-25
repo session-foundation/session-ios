@@ -2,23 +2,11 @@
 
 import Foundation
 
-public actor CurrentValueAsyncStream<Element: Sendable> {
+public actor CurrentValueAsyncStream<Element: Sendable>: CancellationAwareStreamType {
     private let lifecycleManager: StreamLifecycleManager<Element> = StreamLifecycleManager()
     
     /// This is the most recently emitted value
     public private(set) var currentValue: Element
-    
-    /// Every time `stream` is accessed it will create a **new** stream
-    ///
-    /// **Note:** This is non-isolated so it can be exposed via protocols without `async`, this is safe because `AsyncStream` is
-    /// thread-safe internally and `Element` is `Sendable` so it's verified to be safe to send concurrently
-    nonisolated public var stream: AsyncStream<Element> {
-        AsyncStream { continuation in
-            Task {
-                await self.add(continuation: continuation)
-            }
-        }
-    }
     
     // MARK: - Initialization
 
@@ -28,25 +16,20 @@ public actor CurrentValueAsyncStream<Element: Sendable> {
     
     // MARK: - Functions
 
-    public func send(_ newValue: Element) {
+    public func send(_ newValue: Element) async {
         currentValue = newValue
         lifecycleManager.send(newValue)
     }
 
-    public func finish() {
-        lifecycleManager.finish()
+    public func finishCurrentStreams() async {
+        lifecycleManager.finishCurrentStreams()
     }
     
-    // MARK: - Internal Functions
-    
-    private func add(continuation: AsyncStream<Element>.Continuation) {
-        let id: UUID = lifecycleManager.track(continuation)
-
-        continuation.onTermination = { @Sendable [lifecycleManager] _ in
-            lifecycleManager.untrack(id: id)
-        }
-        
-        /// Since we've added a new subscriber we need to yield the current value to them
+    public func beforeYield(to continuation: AsyncStream<Element>.Continuation) async {
         continuation.yield(currentValue)
+    }
+    
+    public func makeTrackedStream() -> AsyncStream<Element> {
+        lifecycleManager.makeTrackedStream().stream
     }
 }
