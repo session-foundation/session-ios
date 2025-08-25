@@ -363,7 +363,7 @@ public class HomeViewModel: NavigatableStateHolder {
         
         /// Generate the new state
         return State(
-            viewState: (loadResult.info.totalCount == 0 ?
+            viewState: (loadResult.info.totalCount == 0 && unreadMessageRequestThreadCount == 0 ?
                 .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
                 .loaded
             ),
