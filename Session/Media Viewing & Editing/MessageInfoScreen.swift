@@ -590,7 +590,7 @@ struct MessageInfoScreen: View {
                     onStartThread: self.onStartThread,
                     onProBadgeTapped: self.showSessionProCTAIfNeeded
                 ),
-                dataManager: dependencies[singleton: .imageDataManager],
+                dataManager: dependencies[singleton: .imageDataManager]
             )
         )
         self.host.controller?.present(userProfileModal, animated: true, completion: nil)
