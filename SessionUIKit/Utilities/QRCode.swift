@@ -77,7 +77,7 @@ public enum QRCode {
         return finalImage ?? qrUIImage
     }
     
-    static func qrCodeImageWithTintAndBackground(
+    public static func qrCodeImageWithTintAndBackground(
         image: UIImage,
         themeStyle: UIUserInterfaceStyle,
         size: CGSize? = nil,

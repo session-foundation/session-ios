@@ -459,8 +459,7 @@ struct MessageInfoScreen: View {
                                                     .foregroundColor(themeColor: tintColor)
                                                     .frame(width: 26, height: 26)
                                                 Text(actions[index].title)
-                                                    .bold()
-                                                    .font(.system(size: Values.mediumLargeFontSize))
+                                                    .font(.Headings.H8)
                                                     .foregroundColor(themeColor: tintColor)
                                             }
                                             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -537,7 +536,22 @@ struct MessageInfoScreen: View {
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
         guard (try? SessionId.Prefix(from: messageViewModel.authorId)) != .blinded25 else { return }
         
-        guard let profileInfo: ProfilePictureView.Info = profileInfo else { return }
+        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.getProfilePictureInfo(
+            size: .message,
+            publicKey: (
+                // Prioritise the profile.id because we override it for
+                // messages sent by the current user in communities
+                messageViewModel.profile?.id ??
+                messageViewModel.authorId
+            ),
+            threadVariant: .contact,    // Always show the display picture in 'contact' mode
+            displayPictureUrl: nil,
+            profile: messageViewModel.profile,
+            profileIcon: .none,
+            using: dependencies
+        ).info else {
+            return
+        }
         
         let (sessionId, blindedId): (String?, String?) = {
             guard (try? SessionId.Prefix(from: messageViewModel.authorId)) == .blinded15 else {

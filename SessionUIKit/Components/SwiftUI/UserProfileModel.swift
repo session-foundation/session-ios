@@ -73,7 +73,7 @@ public struct UserProfileModel: View {
                                 )
                                 .scaleEffect(scale, anchor: .topLeading)
                                 .onTapGesture {
-                                    withAnimation {
+                                    withAnimation(.easeInOut(duration: 0.1)) {
                                         self.isProfileImageExpanding.toggle()
                                     }
                                 }
@@ -375,8 +375,6 @@ public struct UserProfileModel: View {
         viewController.modalPresentationStyle = .fullScreen
         self.host.controller?.present(viewController, animated: true)
     }
-    
-    
 }
 
 public extension UserProfileModel {

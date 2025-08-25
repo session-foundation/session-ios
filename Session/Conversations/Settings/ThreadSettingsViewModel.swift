@@ -1,5 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+import SwiftUI
 import Foundation
 import Combine
 import Lucide
@@ -236,19 +237,25 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     SessionCell.Info(
                         id: .qrCode,
                         accessory: .qrCode(
-                            for: threadId,
+                            for: threadViewModel.getQRCodeString(),
                             hasBackground: false,
                             logo: "SessionWhite40", // stringlint:ignore
-                            themeStyle:  ThemeManager.currentTheme.interfaceStyle
+                            themeStyle: ThemeManager.currentTheme.interfaceStyle
                         ),
                         styling: SessionCell.StyleInfo(
                             alignment: .centerHugging,
                             customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
                             backgroundStyle: .noBackground
                         ),
-                        onTap: { [weak self] in
-                            self?.profileImageStatus = (previous: profileImageStatus?.current, current: profileImageStatus?.previous)
-                            self?.forceRefresh(type: .postDatabaseQuery)
+                        onTapView: { [weak self] targetView in
+                            let didTapProfileIcon: Bool = !(targetView is UIImageView)
+                            
+                            if didTapProfileIcon {
+                                self?.profileImageStatus = (previous: profileImageStatus?.current, current: profileImageStatus?.previous)
+                                self?.forceRefresh(type: .postDatabaseQuery)
+                            } else {
+                                self?.showQRCodeLightBox(for: threadViewModel)
+                            }
                         }
                     ) :
                     SessionCell.Info(
@@ -2078,5 +2085,47 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
         
         self.transitionToScreen(sessionProModal, transitionType: .present)
+    }
+    
+    private func showQRCodeLightBox(for threadViewModel: SessionThreadViewModel) {
+        let qrCodeImage: UIImage = QRCode.generate(
+            for: threadViewModel.getQRCodeString(),
+            hasBackground: false,
+            iconName: "SessionWhite40" // stringlint:ignore
+        )
+        .withRenderingMode(.alwaysTemplate)
+        
+        let viewController = SessionHostingViewController(
+            rootView: LightBox(
+                itemsToShare: [
+                    QRCode.qrCodeImageWithTintAndBackground(
+                        image: qrCodeImage,
+                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
+                        size: CGSize(width: 400, height: 400),
+                        insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+                    )
+                ]
+            ) {
+                VStack {
+                    Spacer()
+                    
+                    QRCodeView(
+                        qrCodeImage: qrCodeImage,
+                        themeStyle: ThemeManager.currentTheme.interfaceStyle
+                    )
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity
+                    )
+                    
+                    Spacer()
+                }
+                .backgroundColor(themeColor: .newConversation_background)
+            },
+            customizedNavigationBackground: .backgroundSecondary
+        )
+        viewController.modalPresentationStyle = .fullScreen
+        self.transitionToScreen(viewController, transitionType: .present)
     }
 }

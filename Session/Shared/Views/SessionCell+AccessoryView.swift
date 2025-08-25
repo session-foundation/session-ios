@@ -92,16 +92,21 @@ extension SessionCell {
         // MARK: - Interaction
         
         func touchedView(_ touch: UITouch) -> UIView {
-            switch (currentContentView, currentContentView?.subviews.first) {
-                case (let label as SessionHighlightingBackgroundLabel, _),
-                    (_, let label as SessionHighlightingBackgroundLabel):
+            switch (currentContentView, currentContentView?.subviews.first, currentContentView?.subviews.last) {
+                case (let label as SessionHighlightingBackgroundLabel, _, _),
+                    (_, let label as SessionHighlightingBackgroundLabel, _):
                     let localPoint: CGPoint = touch.location(in: label)
                     
                     return (label.bounds.contains(localPoint) ? label : self)
-                case (let profilePictureView as ProfilePictureView, _):
+                case (let profilePictureView as ProfilePictureView, _, _):
                     let localPoint: CGPoint = touch.location(in: profilePictureView)
                     
                     return profilePictureView.getTouchedView(from: localPoint)
+                
+                case (_, let qrCodeImageView as UIImageView , .some(let profileIcon)):
+                    let localPoint: CGPoint = touch.location(in: profileIcon)
+                    
+                    return (profileIcon.bounds.contains(localPoint) ? profileIcon : qrCodeImageView)
                     
                 default: return self
             }
