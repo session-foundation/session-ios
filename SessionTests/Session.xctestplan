@@ -34,7 +34,7 @@
         {
           "containerPath" : "container:Session.xcodeproj",
           "identifier" : "C3C2A59E255385C100C340D1",
-          "name" : "SessionSnodeKit"
+          "name" : "SessionNetworkingKit"
         },
         {
           "containerPath" : "container:Session.xcodeproj",
@@ -87,7 +87,7 @@
       "target" : {
         "containerPath" : "container:Session.xcodeproj",
         "identifier" : "FDB5DAF92A981C42002C8721",
-        "name" : "SessionSnodeKitTests"
+        "name" : "SessionNetworkingKitTests"
       }
     },
     {

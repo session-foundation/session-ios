@@ -7,7 +7,7 @@ import Combine
 import UniformTypeIdentifiers
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton

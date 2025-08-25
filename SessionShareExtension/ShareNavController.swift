@@ -7,7 +7,7 @@ import CoreServices
 import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
@@ -45,7 +45,6 @@ final class ShareNavController: UINavigationController {
         dependencies.warmCache(cache: .appVersion)
 
         AppSetup.setupEnvironment(
-            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
                 // stringlint:ignore_start
                 if !Log.loggerExists(withPrefix: "SessionShareExtension") {

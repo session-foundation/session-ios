@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import WebRTC
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 

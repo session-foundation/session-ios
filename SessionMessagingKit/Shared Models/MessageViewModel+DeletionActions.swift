@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension MessageViewModel {

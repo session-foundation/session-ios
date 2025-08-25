@@ -6,7 +6,7 @@ import GRDB
 import SessionUtil
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 

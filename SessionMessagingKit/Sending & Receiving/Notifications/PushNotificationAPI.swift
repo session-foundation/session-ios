@@ -5,7 +5,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - KeychainStorage
@@ -186,10 +186,10 @@ public enum PushNotificationAPI {
                             timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
                         )
                     }
-                )
+                ),
+                retryCount: PushNotificationAPI.maxRetryCount
             ),
             responseType: SubscribeResponse.self,
-            retryCount: PushNotificationAPI.maxRetryCount,
             using: dependencies
         )
         .handleEvents(
@@ -233,10 +233,10 @@ public enum PushNotificationAPI {
                             timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
                         )
                     }
-                )
+                ),
+                retryCount: PushNotificationAPI.maxRetryCount
             ),
             responseType: UnsubscribeResponse.self,
-            retryCount: PushNotificationAPI.maxRetryCount,
             using: dependencies
         )
         .handleEvents(

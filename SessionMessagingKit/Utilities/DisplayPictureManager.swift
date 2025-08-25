@@ -4,7 +4,7 @@ import UIKit
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton
@@ -281,7 +281,7 @@ public class DisplayPictureManager {
                 guard
                     let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
                         data: encryptedData,
-                        requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                        overallTimeout: Network.fileUploadTimeout,
                         using: dependencies
                     )
                 else {

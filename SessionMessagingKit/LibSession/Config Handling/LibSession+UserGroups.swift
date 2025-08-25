@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Size Restrictions
 

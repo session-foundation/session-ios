@@ -5,7 +5,7 @@ import CallKit
 import UserNotifications
 import SessionUIKit
 import SessionMessagingKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
