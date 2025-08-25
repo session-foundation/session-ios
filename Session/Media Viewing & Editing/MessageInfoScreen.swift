@@ -18,6 +18,8 @@ struct MessageInfoScreen: View {
     
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
+    let threadCanWrite: Bool
+    let onStartThread: (() -> Void)?
     let dependencies: Dependencies
     let isMessageFailed: Bool
     let isCurrentUser: Bool
@@ -25,9 +27,17 @@ struct MessageInfoScreen: View {
     var proFeatures: [String] = []
     var proCTAVariant: ProCTAModal.Variant = .generic
     
-    public init(actions: [ContextMenuVC.Action], messageViewModel: MessageViewModel, using dependencies: Dependencies) {
+    public init(
+        actions: [ContextMenuVC.Action],
+        messageViewModel: MessageViewModel,
+        threadCanWrite: Bool,
+        onStartThread: (() -> Void)?,
+        using dependencies: Dependencies
+    ) {
         self.actions = actions
         self.messageViewModel = messageViewModel
+        self.threadCanWrite = threadCanWrite
+        self.onStartThread = onStartThread
         self.dependencies = dependencies
         
         self.isMessageFailed = [.failed, .failedToSync].contains(messageViewModel.state)
@@ -397,6 +407,9 @@ struct MessageInfoScreen: View {
                                     }
                                 }
                             }
+                            .onTapGesture {
+                                showUserProfileModal()
+                            }
                         }
                         .frame(
                             maxWidth: .infinity,
@@ -513,10 +526,60 @@ struct MessageInfoScreen: View {
             modal: ProCTAModal(
                 delegate: dependencies[singleton: .sessionProState],
                 variant: proCTAVariant,
-                dataManager: dependencies[singleton: .imageDataManager],
+                dataManager: dependencies[singleton: .imageDataManager]
             )
         )
         self.host.controller?.present(sessionProModal, animated: true)
+    }
+    
+    func showUserProfileModal() {
+        guard threadCanWrite else { return }
+        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
+        guard (try? SessionId.Prefix(from: messageViewModel.authorId)) != .blinded25 else { return }
+        
+        guard let profileInfo: ProfilePictureView.Info = profileInfo else { return }
+        
+        let (sessionId, blindedId): (String?, String?) = {
+            guard (try? SessionId.Prefix(from: messageViewModel.authorId)) == .blinded15 else {
+                return (messageViewModel.authorId, nil)
+            }
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
+                try? BlindedIdLookup.fetchOne(db, id: messageViewModel.authorId)
+            }
+            return (lookup?.sessionId, messageViewModel.authorId)
+        }()
+        
+        let qrCodeImage: UIImage? = {
+            guard let sessionId: String = sessionId else { return nil }
+            return QRCode.generate(for: sessionId, hasBackground: false, iconName: "SessionWhite40") // stringlint:ignore
+        }()
+        
+        let isMessasgeRequestsEnabled: Bool = {
+            guard messageViewModel.threadVariant == .community else { return true }
+            return messageViewModel.profile?.blocksCommunityMessageRequests != true
+        }()
+        
+        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+            modal: UserProfileModel(
+                info: .init(
+                    sessionId: sessionId,
+                    blindedId: blindedId,
+                    qrCodeImage: qrCodeImage,
+                    profileInfo: profileInfo,
+                    displayName: messageViewModel.authorName,
+                    nickname: messageViewModel.profile?.displayName(
+                        for: messageViewModel.threadVariant,
+                        ignoringNickname: true
+                    ),
+                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
+                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                    onStartThread: self.onStartThread,
+                    onProBadgeTapped: self.showSessionProCTAIfNeeded
+                ),
+                dataManager: dependencies[singleton: .imageDataManager],
+            )
+        )
+        self.host.controller?.present(userProfileModal, animated: true, completion: nil)
     }
     
     private func showMediaFullScreen(attachment: Attachment) {
@@ -703,11 +766,15 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
     init(
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
+        threadCanWrite: Bool,
+        onStartThread: (() -> Void)?,
         using dependencies: Dependencies
     ) {
         let messageInfoView = MessageInfoScreen(
             actions: actions,
             messageViewModel: messageViewModel,
+            threadCanWrite: threadCanWrite,
+            onStartThread: onStartThread,
             using: dependencies
         )
         
@@ -774,6 +841,8 @@ struct MessageInfoView_Previews: PreviewProvider {
         MessageInfoScreen(
             actions: actions,
             messageViewModel: messageViewModel,
+            threadCanWrite: true,
+            onStartThread: nil,
             using: Dependencies.createEmpty()
         )
     }

@@ -2073,7 +2073,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             modal: ProCTAModal(
                 delegate: dependencies[singleton: .sessionProState],
                 variant: variant,
-                dataManager: dependencies[singleton: .imageDataManager],
+                dataManager: dependencies[singleton: .imageDataManager]
             )
         )
         

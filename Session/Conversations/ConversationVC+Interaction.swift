@@ -2218,6 +2218,14 @@ extension ConversationVC:
         let messageInfoViewController = MessageInfoViewController(
             actions: actions,
             messageViewModel: finalCellViewModel,
+            threadCanWrite: (viewModel.threadData.threadCanWrite == true),
+            onStartThread: { [weak self] in
+                self?.startThread(
+                    with: cellViewModel.authorId,
+                    openGroupServer: cellViewModel.threadOpenGroupServer,
+                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                )
+            },
             using: viewModel.dependencies
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
