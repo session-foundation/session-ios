@@ -29,8 +29,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
         }
     )
-    private var previousProfileImageStatus: ProfileImageStatus?
-    private var currentProfileImageStatus: ProfileImageStatus?
+    private var profileImageStatus: (previous: ProfileImageStatus?, current: ProfileImageStatus?)
     // TODO: Refactor this with SessionThreadViewModel
     private var threadViewModelSubject: CurrentValueSubject<SessionThreadViewModel?, Never>
     
@@ -47,8 +46,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.threadVariant = threadVariant
         self.didTriggerSearch = didTriggerSearch
         self.threadViewModelSubject = CurrentValueSubject(nil)
-        self.previousProfileImageStatus = nil
-        self.currentProfileImageStatus = .normal
+        self.profileImageStatus = (previous: nil, current: .normal)
     }
     
     // MARK: - Config
@@ -195,12 +193,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         .compactMap { [weak self] current -> [SectionModel]? in
             self?.content(
                 current,
-                currentProfileImageStatus: self?.currentProfileImageStatus,
-                previousProfileImageStatus: self?.previousProfileImageStatus
+                profileImageStatus: self?.profileImageStatus
             )
         }
     
-    private func content(_ current: State, currentProfileImageStatus: ProfileImageStatus?, previousProfileImageStatus: ProfileImageStatus?) -> [SectionModel] {
+    private func content(_ current: State, profileImageStatus: (previous: ProfileImageStatus?, current: ProfileImageStatus?)?) -> [SectionModel] {
         // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
         // so dismiss the screen
         guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
@@ -235,7 +232,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         let conversationInfoSection: SectionModel = SectionModel(
             model: .conversationInfo,
             elements: [
-                (currentProfileImageStatus == .qrCode ?
+                (profileImageStatus?.current == .qrCode ?
                     SessionCell.Info(
                         id: .qrCode,
                         accessory: .qrCode(
@@ -250,8 +247,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             backgroundStyle: .noBackground
                         ),
                         onTap: { [weak self] in
-                            self?.currentProfileImageStatus = previousProfileImageStatus
-                            self?.previousProfileImageStatus = currentProfileImageStatus
+                            self?.profileImageStatus = (previous: profileImageStatus?.current, current: profileImageStatus?.previous)
                             self?.forceRefresh(type: .postDatabaseQuery)
                         }
                     ) :
@@ -259,7 +255,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         id: .avatar,
                         accessory: .profile(
                             id: threadViewModel.id,
-                            size: (currentProfileImageStatus == .expanded ? .expanded : .hero),
+                            size: (profileImageStatus?.current == .expanded ? .expanded : .hero),
                             threadVariant: threadViewModel.threadVariant,
                             displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
                             profile: threadViewModel.profile,
@@ -281,12 +277,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 case (.group, _, _):
                                     break
                                 case (_, _, true):
-                                    self?.currentProfileImageStatus = .qrCode
-                                    self?.previousProfileImageStatus = currentProfileImageStatus
+                                    self?.profileImageStatus = (previous: profileImageStatus?.current, current: .qrCode)
                                     self?.forceRefresh(type: .postDatabaseQuery)
                                 case (_, _, false):
-                                    self?.currentProfileImageStatus = (currentProfileImageStatus == .expanded ? .normal : .expanded)
-                                    self?.previousProfileImageStatus = currentProfileImageStatus
+                                    self?.profileImageStatus = (
+                                        previous: profileImageStatus?.current,
+                                        current: (profileImageStatus?.current == .expanded ? .normal : .expanded)
+                                    )
                                     self?.forceRefresh(type: .postDatabaseQuery)
                             }
                         }

@@ -30,7 +30,7 @@ public extension UILabel {
         lineBreakMode = .byWordWrapping
     }
     
-    /// Returns true if `point` (in this label's coordinate space) hits a drawn NSTextAttachment.
+    /// Returns true if `point` (in this label's coordinate space) hits a drawn NSTextAttachment at the end of the string.
     /// Works with multi-line labels, alignment, and truncation.
     func isPointOnTrailingAttachment(_ point: CGPoint, hitPadding: CGFloat = 0) -> Bool {
         guard let attributed = attributedText, attributed.length > 0 else { return false }
