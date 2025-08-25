@@ -15,4 +15,6 @@ public enum Constants {
     public static let usd_name_short: String = "USD"
     public static let session_network_data_price: String = "Price data powered by CoinGecko<br/>Accurate at {date_time}"
     public static let app_pro: String = "Session Pro"
+    public static let session_foundation: String = "Session Foundation"
+    public static let pro: String = "Pro"
 }
