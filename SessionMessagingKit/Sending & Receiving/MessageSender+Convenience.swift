@@ -26,7 +26,7 @@ extension MessageSender {
             message: VisibleMessage.from(
                 db,
                 interaction: interaction,
-                proProof: dependencies.mutate(cache: .libSession, { $0.getProProof() })
+                proProof: dependencies.mutate(cache: .libSession, { $0.getCurrentUserProProof() })
             ),
             threadId: threadId,
             interactionId: interactionId,

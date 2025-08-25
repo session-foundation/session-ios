@@ -35,6 +35,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
+        case customTTL
         case sessionPro
         case sessionNetwork
         case general
@@ -47,6 +48,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         var title: String? {
             switch self {
                 case .developerMode: return nil
+                case .customTTL: return "Custom TTL"
                 case .sessionPro: return "Session Pro"
                 case .sessionNetwork: return "Session Network"
                 case .general: return "General"
@@ -68,10 +70,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
-        
-        case enableSessionPro
-        case proStatus
-        case proIncomingMessages
         
         case versionBlindedID
         case scheduleLocalNotification
@@ -102,6 +100,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsAllowInviteById
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
+        
+        case shortenFileTTL
+        
+        case enableSessionPro
+        case proStatus
+        case allUsersSessionPro
         
         case createMockContacts
         case forceSlowDatabaseQueries
@@ -145,9 +149,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .versionBlindedID: return "versionBlindedID"
                 case .scheduleLocalNotification: return "scheduleLocalNotification"
                 
+                case .shortenFileTTL: return "shortenFileTTL"
+                
                 case .enableSessionPro: return "enableSessionPro"
                 case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
+                case .allUsersSessionPro: return "allUsersSessionPro"
 
                 case .createMockContacts: return "createMockContacts"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
@@ -195,9 +201,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .versionBlindedID: result.append(.versionBlindedID); fallthrough
                 case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
                 
+                case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
+                
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
+                case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
                 
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
@@ -239,9 +247,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsDeleteBeforeNow: Bool
         let updatedGroupsDeleteAttachmentsBeforeNow: Bool
         
+        let shortenFileTTL: Bool
+        
         let sessionProEnabled: Bool
         let mockCurrentUserSessionPro: Bool
-        let treatAllIncomingMessagesAsProMessages: Bool
+        let allUsersSessionPro: Bool
         
         let forceSlowDatabaseQueries: Bool
     }
@@ -292,9 +302,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
                 updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow],
                 
+                shortenFileTTL: dependencies[feature: .shortenFileTTL],
+                
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries]
             )
@@ -823,6 +835,26 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        let customTTL: SectionModel = SectionModel(
+            model: .customTTL,
+            elements: [
+                SessionCell.Info(
+                    id: .shortenFileTTL,
+                    title: "Shorten File TTL",
+                    subtitle: "Set the TTL for files in the cache to 1 minute",
+                    trailingAccessory: .toggle(
+                        current.shortenFileTTL,
+                        oldValue: previous?.shortenFileTTL
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .shortenFileTTL,
+                            to: !current.shortenFileTTL
+                        )
+                    }
+                )
+            ]
+        )
         let sessionPro: SectionModel = SectionModel(
             model: .sessionPro,
             elements: [
@@ -861,19 +893,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         }
                     ),
                     SessionCell.Info(
-                        id: .proIncomingMessages,
-                        title: "All Pro Incoming Messages",
+                        id: .allUsersSessionPro,
+                        title: "Everyone is a Pro",
                         subtitle: """
                         Treat all incoming messages as Pro messages.
+                        Treat all contacts, groups as Session Pro.
                         """,
                         trailingAccessory: .toggle(
-                            current.treatAllIncomingMessagesAsProMessages,
-                            oldValue: previous?.treatAllIncomingMessagesAsProMessages
+                            current.allUsersSessionPro,
+                            oldValue: previous?.allUsersSessionPro
                         ),
                         onTap: { [weak self] in
                             self?.updateFlag(
-                                for: .treatAllIncomingMessagesAsProMessages,
-                                to: !current.treatAllIncomingMessagesAsProMessages
+                                for: .allUsersSessionPro,
+                                to: !current.allUsersSessionPro
                             )
                         }
                     )
@@ -923,6 +956,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             network,
             disappearingMessages,
             groups,
+            customTTL,
             sessionPro,
             sessionNetwork,
             database
@@ -1035,6 +1069,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
                 
+                case .shortenFileTTL:
+                    guard dependencies.hasSet(feature: .shortenFileTTL) else { return }
+                    
+                    updateFlag(for: .shortenFileTTL, to: nil)
+                
                 case .enableSessionPro:
                     guard dependencies.hasSet(feature: .sessionProEnabled) else { return }
                     
@@ -1045,12 +1084,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .mockCurrentUserSessionPro, to: nil)
                     
-                case .proIncomingMessages:
-                    guard dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) else {
+                case .allUsersSessionPro:
+                    guard dependencies.hasSet(feature: .allUsersSessionPro) else {
                         return
                     }
                     
-                    updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
+                    updateFlag(for: .allUsersSessionPro, to: nil)
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }
@@ -1265,8 +1304,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
             updateFlag(for: .mockCurrentUserSessionPro, to: nil)
         }
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
+        if dependencies.hasSet(feature: .allUsersSessionPro) {
+            updateFlag(for: .allUsersSessionPro, to: nil)
         }
     }
     
