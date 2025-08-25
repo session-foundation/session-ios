@@ -517,10 +517,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         guard cellViewModel.cellType != .textOnlyMessage else {
             let inset: CGFloat = 12
             let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+            let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
             
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                 switch linkPreview.variant {
                     case .standard:
+                        // Stack view
+                        let stackView = UIStackView(arrangedSubviews: [])
+                        stackView.axis = .vertical
+                        stackView.spacing = 2
+                    
                         let linkPreviewView: LinkPreviewView = LinkPreviewView(maxWidth: maxWidth)
                         linkPreviewView.update(
                             with: LinkPreview.SentState(
@@ -536,10 +542,26 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             using: dependencies
                         )
                         self.linkPreviewView = linkPreviewView
-                        bubbleView.addSubview(linkPreviewView)
-                        linkPreviewView.pin(to: bubbleView, withInset: 0)
+                        stackView.addArrangedSubview(linkPreviewView)
+                        readMoreButton.themeTextColor = bodyLabelTextColor
+                        let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
+                        self.bodayTappableLabelHeightConstraint = linkPreviewView.bodyTappableLabel?.set(
+                            .height,
+                            to: (shouldExpanded ? linkPreviewView.bodyTappableLabelHeight : min(linkPreviewView.bodyTappableLabelHeight, maxHeight))
+                        )
+                        if ((linkPreviewView.bodyTappableLabelHeight - maxHeight >= lineHeight) && !shouldExpanded) {
+                            stackView.addArrangedSubview(readMoreButton)
+                            readMoreButton.isHidden = false
+                            readMoreButton.transform = CGAffineTransform(translationX: inset, y: 0)
+                        }
+                    
+                        bubbleView.addSubview(stackView)
+                        stackView.pin([UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: bubbleView)
+                        stackView.pin(.bottom, to: .bottom, of: bubbleView, withInset: -inset)
                         snContentView.addArrangedSubview(bubbleBackgroundView)
                         self.bodyTappableLabel = linkPreviewView.bodyTappableLabel
+                        self.bodyTappableLabelHeight = linkPreviewView.bodyTappableLabelHeight
+                        
                         
                     case .openGroupInvitation:
                         let openGroupInvitationView: OpenGroupInvitationView = OpenGroupInvitationView(
@@ -598,7 +620,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     .height,
                     to: (shouldExpanded ? height : min(height, maxHeight))
                 )
-                if (height > maxHeight && !shouldExpanded) {
+                if ((height - maxHeight >= lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
                 }
@@ -642,6 +664,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         /// Add any quote & body if present
         let inset: CGFloat = 12
         let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+        let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
         
         switch (cellViewModel.quote, cellViewModel.body) {
             /// Both quote and body
@@ -685,7 +708,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     .height,
                     to: (shouldExpanded ? height : min(height, maxHeight))
                 )
-                if (height > maxHeight && !shouldExpanded) {
+                if ((height - maxHeight >= lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
                 }
@@ -722,7 +745,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     .height,
                     to: (shouldExpanded ? height : min(height, maxHeight))
                 )
-                if (height > maxHeight && !shouldExpanded) {
+                if ((height - maxHeight > UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
                 }

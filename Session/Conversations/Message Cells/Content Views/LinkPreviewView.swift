@@ -85,6 +85,7 @@ final class LinkPreviewView: UIView {
     }()
     
     var bodyTappableLabel: TappableLabel?
+    var bodyTappableLabelHeight: CGFloat = 0
 
     // MARK: - Initialization
     
@@ -202,18 +203,22 @@ final class LinkPreviewView: UIView {
         bodyTappableLabelContainer.subviews.forEach { $0.removeFromSuperview() }
         
         if let cellViewModel: MessageViewModel = cellViewModel {
-            let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+            let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
                 for: cellViewModel,
                 with: maxWidth,
                 textColor: (bodyLabelTextColor ?? .textPrimary),
                 searchText: lastSearchText,
                 delegate: delegate,
                 using: dependencies
-            ).label
+            )
             
             self.bodyTappableLabel = bodyTappableLabel
+            self.bodyTappableLabelHeight = height
             bodyTappableLabelContainer.addSubview(bodyTappableLabel)
-            bodyTappableLabel.pin(to: bodyTappableLabelContainer, withInset: 12)
+            bodyTappableLabel.pin(.leading, to: .leading, of: bodyTappableLabelContainer, withInset: 12)
+            bodyTappableLabel.pin(.top, to: .top, of: bodyTappableLabelContainer, withInset: 12)
+            bodyTappableLabel.pin(.trailing, to: .trailing, of: bodyTappableLabelContainer, withInset: -12)
+            bodyTappableLabel.pin(.bottom, to: .bottom, of: bodyTappableLabelContainer)
         }
         
         if state is LinkPreview.DraftState {
