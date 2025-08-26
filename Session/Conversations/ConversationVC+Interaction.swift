@@ -2341,7 +2341,7 @@ extension ConversationVC:
                 cancelTitle: "cancel".localized(),
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
+                onConfirm: { [weak self] modal in
                     /// Determine the selected action index
                     let selectedIndex: Int = {
                         switch modal.info.body {
@@ -2356,51 +2356,26 @@ extension ConversationVC:
                         }
                     }()
                     
-                    /// Stop the messages audio if needed
-                    messagesToDelete.forEach { cellViewModel in
-                        self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
+                    if selectedIndex != 0 {
+                        modal.dismiss(animated: true)
                     }
                     
-                    /// Trigger the deletion behaviours
-                    deletionBehaviours
-                        .publisherForAction(at: selectedIndex, using: dependencies)
-                        .showingBlockingLoading(
-                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
-                                self?.viewModel.navigatableState :
-                                nil
+                    if selectedIndex == 0 {
+                        // Delete for self
+                        self?.willDeleteMessages(
+                            cellViewModel,
+                            selectedIndex: selectedIndex,
+                            dissmissModal: modal,
+                            completion: completion
                         )
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async {
-                                    switch result {
-                                        case .finished:
-                                            modal.dismiss(animated: true) {
-                                                /// Dispatch after a delay because becoming the first responder can cause
-                                                /// an odd appearance animation
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
-                                                    self?.viewModel.showToast(
-                                                        text: "deleteMessageDeleted"
-                                                            .putNumber(messagesToDelete.count)
-                                                            .localized(),
-                                                        backgroundColor: .backgroundSecondary,
-                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                                    )
-                                                }
-                                            }
-                                            
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "deleteMessageFailed"
-                                                    .putNumber(messagesToDelete.count)
-                                                    .localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
+                    } else {
+                        // Delete for everyone
+                        self?.showDeleteForEveryoneConfirmation(
+                            cellViewModel,
+                            selectedIndex: selectedIndex,
+                            completion: completion
                         )
+                    }
                 },
                 afterClosed: { [weak self] in
                     self?.becomeFirstResponder()
@@ -2696,6 +2671,87 @@ extension ConversationVC:
             )
         )
         self.present(modal, animated: true)
+    }
+    
+    private func showDeleteForEveryoneConfirmation(_ cellViewModel: MessageViewModel, selectedIndex: Int, completion: (() -> Void)?) {
+        let messagesToDelete: [MessageViewModel] = [cellViewModel]
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "deleteMessage"
+                    .putNumber(messagesToDelete.count)
+                    .localized(),
+                body: .text("deleteMessagesDescriptionEveryone".localized()),
+                confirmTitle: "delete".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self] modal in
+                    self?.willDeleteMessages(
+                        cellViewModel,
+                        selectedIndex: selectedIndex,
+                        dissmissModal: modal,
+                        completion: completion
+                    )
+                }
+            )
+        )
+        
+        present(modal, animated: true, completion: nil)
+    }
+    
+    private func willDeleteMessages(_ cellViewModel: MessageViewModel, selectedIndex: Int, dissmissModal:  ConfirmationModal, completion: (() -> Void)?) {
+        /// Retrieve the deletion actions for the selected message(s) of there are any
+        let messagesToDelete: [MessageViewModel] = [cellViewModel]
+        
+        guard let deletionBehaviours: MessageViewModel.DeletionBehaviours = self.viewModel.deletionActions(for: messagesToDelete) else {
+            return
+        }
+        
+        /// Stop the messages audio if needed
+        messagesToDelete.forEach { cellViewModel in
+            viewModel.stopAudioIfNeeded(for: cellViewModel)
+        }
+        
+        /// Trigger the deletion behaviours
+        deletionBehaviours
+            .publisherForAction(at: selectedIndex, using: viewModel.dependencies)
+            .showingBlockingLoading(
+                in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
+                    viewModel.navigatableState :
+                    nil
+            )
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    DispatchQueue.main.async {
+                        switch result {
+                            case .finished:
+                                dissmissModal.dismiss(animated: true) {
+                                    /// Dispatch after a delay because becoming the first responder can cause
+                                    /// an odd appearance animation
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+                                        self?.viewModel.showToast(
+                                            text: "deleteMessageDeleted"
+                                                .putNumber(messagesToDelete.count)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                    }
+                                }
+                                
+                            case .failure:
+                                self?.viewModel.showToast(
+                                    text: "deleteMessageFailed"
+                                        .putNumber(messagesToDelete.count)
+                                        .localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                )
+                        }
+                        completion?()
+                    }
+                }
+            )
     }
 
     // MARK: - VoiceMessageRecordingViewDelegate
