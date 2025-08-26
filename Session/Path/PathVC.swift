@@ -144,14 +144,11 @@ final class PathVC: BaseVC {
             for await network in dependencies.stream(singleton: .network) {
                 specificNetworkObservationTask?.cancel()
                 specificNetworkObservationTask = Task<Void, Never> {
-                    do {
-                        for await _ in network.networkStatus {
-                            try Task.checkCancellation()
-                            
-                            await self?.loadPathsAsync()
-                        }
+                    for await _ in network.networkStatus {
+                        await self?.loadPathsAsync()
                     }
-                    catch { Log.info("PathStatusView networkStatus observation ended, restarting.") }
+                    
+                    Log.info("PathVC networkStatus observation ended, restarting.")
                 }
             }
         }
@@ -410,22 +407,21 @@ private final class LineView: UIView {
     
     private func startObservingNetwork() {
         statusObservationTask?.cancel()
-        statusObservationTask = Task { [weak self, dependencies] in
+        statusObservationTask = Task.detached(priority: .userInitiated) { [weak self, dependencies] in
             var specificNetworkObservationTask: Task<Void, Never>?
             
             for await network in dependencies.stream(singleton: .network) {
                 specificNetworkObservationTask?.cancel()
                 specificNetworkObservationTask = Task<Void, Never> {
-                    do {
-                        for await status in network.networkStatus {
-                            try Task.checkCancellation()
-                            
-                            self?.setStatus(to: status)
-                        }
+                    for await status in network.networkStatus {
+                        await self?.setStatus(to: status)
                     }
-                    catch { Log.info("PathStatusView networkStatus observation ended, restarting.") }
+                    
+                    Log.info("LineView networkStatus observation ended, restarting.")
                 }
             }
+            
+            specificNetworkObservationTask?.cancel()
         }
     }
 
