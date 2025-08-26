@@ -544,7 +544,12 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                     case .finished: break
                                                     case .failure(let error):
                                                         modalActivityIndicator.dismiss {
-                                                            return showError("onsErrorNotRecognized".localized())
+                                                            switch error {
+                                                                case SnodeAPIError.onsNotFound:
+                                                                    return showError("onsErrorNotRecognized".localized())
+                                                                default:
+                                                                    return showError("onsErrorUnableToSearch".localized())
+                                                            }
                                                         }
                                                 }
                                             },

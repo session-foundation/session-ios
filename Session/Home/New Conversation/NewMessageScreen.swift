@@ -98,7 +98,12 @@ struct NewMessageScreen: View {
                             case .failure(let error):
                                 modalActivityIndicator.dismiss {
                                     let message: String = {
-                                        return "onsErrorNotRecognized".localized()
+                                        switch error {
+                                            case SnodeAPIError.onsNotFound:
+                                                return "onsErrorNotRecognized".localized()
+                                            default:
+                                                return "onsErrorUnableToSearch".localized()
+                                        }
                                     }()
                                     
                                     errorString = message
