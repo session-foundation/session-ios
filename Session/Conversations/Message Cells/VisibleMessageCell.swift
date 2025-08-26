@@ -1158,42 +1158,39 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         guard
             let firstAttachment: Attachment = mediaAttachments.first,
-            var width: CGFloat = firstAttachment.width.map({ CGFloat($0) }),
-            var height: CGFloat = firstAttachment.height.map({ CGFloat($0) }),
+            let originalWidth: CGFloat = firstAttachment.width.map({ CGFloat($0) }),
+            let originalHeight: CGFloat = firstAttachment.height.map({ CGFloat($0) }),
             mediaAttachments.count == 1,
-            width > 0,
-            height > 0
+            originalWidth > 0,
+            originalHeight > 0
         else { return defaultSize }
         
         // Honor the content aspect ratio for single media
-        let size: CGSize = CGSize(width: width, height: height)
-        var aspectRatio = (size.width / size.height)
+        let originalSize: CGSize = CGSize(width: originalWidth, height: originalHeight)
+        var aspectRatio = (originalSize.width / originalSize.height)
+        
         // Clamp the aspect ratio so that very thin/wide content still looks alright
         let minAspectRatio: CGFloat = 0.35
         let maxAspectRatio = 1 / minAspectRatio
-        let maxSize = CGSize(width: maxMessageWidth, height: maxMessageWidth)
         aspectRatio = aspectRatio.clamp(minAspectRatio, maxAspectRatio)
         
+        // Constraint the image
+        let constraintWidth = min(maxMessageWidth, originalSize.width)
+        let constraintHeight = min(maxMessageWidth, originalSize.height)
+        
+        var finalWidth: CGFloat
+        var finalHeight: CGFloat
+        
         if aspectRatio > 1 {
-            width = maxSize.width
-            height = width / aspectRatio
+            finalWidth = constraintWidth
+            finalHeight = finalWidth / aspectRatio
         }
         else {
-            height = maxSize.height
-            width = height * aspectRatio
+            finalHeight = constraintHeight
+            finalWidth = finalHeight * aspectRatio
         }
         
-        // Don't blow up small images unnecessarily
-        let minSize: CGFloat = 150
-        let shortSourceDimension = min(size.width, size.height)
-        let shortDestinationDimension = min(width, height)
-        
-        if shortDestinationDimension > minSize && shortDestinationDimension > shortSourceDimension {
-            let factor = minSize / shortDestinationDimension
-            width *= factor; height *= factor
-        }
-        
-        return CGSize(width: width, height: height)
+        return CGSize(width: finalWidth, height: finalHeight)
     }
 
     static func getMaxWidth(for cellViewModel: MessageViewModel, includingOppositeGutter: Bool = true) -> CGFloat {
