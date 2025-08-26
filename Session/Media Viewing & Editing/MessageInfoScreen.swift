@@ -615,6 +615,8 @@ struct MessageInfoScreen: View {
     }
 }
 
+// MARK: - MessageBubble
+
 struct MessageBubble: View {
     @State private var maxWidth: CGFloat?
     @State private var isExpanded: Bool = false
@@ -634,7 +636,7 @@ struct MessageBubble: View {
     
     var body: some View {
         ZStack {
-            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
+            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel, includingOppositeGutter: false) - 2 * Self.inset)
             let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: messageViewModel)
             let height: CGFloat = VisibleMessageCell.getBodyTappableLabel(
                 for: messageViewModel,
@@ -705,9 +707,9 @@ struct MessageBubble: View {
                         searchText: nil,
                         using: dependencies
                     ) {
-                        AttributedText(bodyText)
-                            .foregroundColor(themeColor: bodyLabelTextColor)
+                        TappableLabel_SwiftUI(themeAttributedText: bodyText, maxWidth: maxWidth)
                             .padding(.horizontal, Self.inset)
+                            .padding(.top, Self.inset)
                             .frame(
                                 maxHeight: (isExpanded ? .infinity : maxHeight)
                             )
@@ -727,6 +729,7 @@ struct MessageBubble: View {
                             if let attachment: Attachment = messageViewModel.attachments?.first(where: { $0.isAudio }){
                                 // TODO: Playback Info and check if playing function is needed
                                 VoiceMessageView_SwiftUI(attachment: attachment)
+                                    .padding(.top, Self.inset)
                             }
                         case .audio, .genericAttachment:
                             if let attachment: Attachment = messageViewModel.attachments?.first {
@@ -736,6 +739,7 @@ struct MessageBubble: View {
                                     textColor: bodyLabelTextColor
                                 )
                                 .modifier(MaxWidthEqualizer.notify)
+                                .padding(.top, Self.inset)
                                 .frame(
                                     width: maxWidth,
                                     alignment: .leading
@@ -745,13 +749,15 @@ struct MessageBubble: View {
                     }
                 }
             }
-            .padding(.vertical, Self.inset)
+            .padding(.bottom, Self.inset)
             .onTapGesture {
                 self.isExpanded = true
             }
         }
     }
 }
+
+// MARK: - InfoBlock
 
 struct InfoBlock<Content>: View where Content: View {
     let title: String
@@ -775,6 +781,8 @@ struct InfoBlock<Content>: View where Content: View {
         )
     }
 }
+
+// MARK: - MessageInfoViewController
 
 final class MessageInfoViewController: SessionHostingViewController<MessageInfoScreen> {
     init(
@@ -806,6 +814,8 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
         setNavBarTitle("messageInfo".localized(), customFontSize: customTitleFontSize)
     }
 }
+
+// MARK: - Preview
 
 struct MessageInfoView_Previews: PreviewProvider {
     static var messageViewModel: MessageViewModel {
