@@ -9,10 +9,11 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     private let dependencies: Dependencies
+    private var networkObservationTask: Task<Void, Never>?
     public let webRTCSession: WebRTCSession
     
     var currentConnectionStep: ConnectionStep
@@ -176,6 +177,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
     }
     
+    deinit {
+        networkObservationTask?.cancel()
+    }
+    
     // stringlint:ignore_contents
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
@@ -248,7 +253,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 message: message,
                 threadId: thread.id,
                 interactionId: interaction?.id,
-                authMethod: try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies)
+                authMethod: try Authentication.with(swarmPublicKey: thread.id, using: dependencies)
             )
             .retry(5)
             // Start the timeout timer for the call
@@ -476,16 +481,15 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         // Register a callback to get the current network status then remove it immediately as we only
         // care about the current status
-        dependencies[cache: .libSessionNetwork].networkStatus
-            .sinkUntilComplete(
-                receiveValue: { [weak self, dependencies] status in
-                    guard status != .connected else { return }
-                    
-                    self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
-                        self?.tryToReconnect()
-                    }
+        networkObservationTask = Task { [weak self, dependencies] in
+            for await status in dependencies[singleton: .network].networkStatus {
+                guard status != .connected else { return }
+                
+                self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
+                    self?.tryToReconnect()
                 }
-            )
+            }
+        }
         
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession

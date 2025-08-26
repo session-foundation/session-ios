@@ -204,3 +204,15 @@ extension AnyPublisher: @retroactive ExpressibleByArrayLiteral where Output: Ran
         self = Just(Output(elements)).setFailureType(to: Failure.self).eraseToAnyPublisher()
     }
 }
+
+public extension AnyPublisher where Failure == Error {
+    static func lazy(_ closure: @escaping () throws -> Output) -> Self {
+        return Deferred {
+            Future { promise in
+                do { promise(.success(try closure())) }
+                catch { promise(.failure(error)) }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+}

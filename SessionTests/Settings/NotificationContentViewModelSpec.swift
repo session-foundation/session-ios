@@ -6,7 +6,7 @@ import Quick
 import Nimble
 import SessionUtil
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -21,12 +21,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))

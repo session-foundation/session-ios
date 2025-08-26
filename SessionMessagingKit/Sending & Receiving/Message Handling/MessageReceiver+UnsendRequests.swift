@@ -1,8 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -68,16 +69,17 @@ extension MessageReceiver {
         switch threadVariant {
             case .legacyGroup, .group, .community: break
             case .contact:
-                dependencies[singleton: .storage]
-                    .readPublisher { db in
-                        try SnodeAPI.preparedDeleteMessages(
+                AnyPublisher
+                    .lazy {
+                        let authMethod: AuthenticationMethod = try Authentication.with(
+                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                            using: dependencies
+                        )
+                        
+                        return try SnodeAPI.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                                using: dependencies
-                            ),
+                            authMethod: authMethod,
                             using: dependencies
                         )
                     }

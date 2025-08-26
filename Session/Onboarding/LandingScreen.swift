@@ -10,39 +10,26 @@ struct LandingScreen: View {
     public class ViewModel {
         fileprivate let dependencies: Dependencies
         private let onOnboardingComplete: () -> ()
-        private var disposables: Set<AnyCancellable> = Set()
+        private var onboardingStateObservationTask: Task<Void, Never>?
         
         init(onOnboardingComplete: @escaping () -> Void, using dependencies: Dependencies) {
             self.dependencies = dependencies
             self.onOnboardingComplete = onOnboardingComplete
         }
         
-        fileprivate func register(setupComplete: () -> ()) {
-            // Reset the Onboarding cache to create a new user (in case the user previously went back)
-            dependencies.set(cache: .onboarding, to: Onboarding.Cache(flow: .register, using: dependencies))
+        fileprivate func setupFor(flow: Onboarding.Flow) async {
+            /// Reset the Onboarding cache to create a new user (in case the user previously went back)
+            let onboarding: Onboarding.Manager = Onboarding.Manager(flow: flow, using: dependencies)
+            try? await onboarding.loadInitialState()
+            dependencies.set(singleton: .onboarding, to: onboarding)
             
             /// Once the onboarding process is complete we need to call `onOnboardingComplete`
-            dependencies[cache: .onboarding].onboardingCompletePublisher
-                .subscribe(on: DispatchQueue.main, using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sink(receiveValue: { [weak self] _ in self?.onOnboardingComplete() })
-                .store(in: &disposables)
-            
-            setupComplete()
-        }
-        
-        fileprivate func restore(setupComplete: () -> ()) {
-            // Reset the Onboarding cache to create a new user (in case the user previously went back)
-            dependencies.set(cache: .onboarding, to: Onboarding.Cache(flow: .restore, using: dependencies))
-            
-            /// Once the onboarding process is complete we need to call `onOnboardingComplete`
-            dependencies[cache: .onboarding].onboardingCompletePublisher
-                .subscribe(on: DispatchQueue.main, using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sink(receiveValue: { [weak self] _ in self?.onOnboardingComplete() })
-                .store(in: &disposables)
-            
-            setupComplete()
+            onboardingStateObservationTask?.cancel()
+            onboardingStateObservationTask = Task { [weak self, dependencies] in
+                if let _ = await dependencies[singleton: .onboarding].state.first(where: { $0 == .completed }) {
+                    self?.onOnboardingComplete()
+                }
+            }
         }
     }
     
@@ -158,22 +145,28 @@ struct LandingScreen: View {
     }
     
     private func register() {
-        viewModel.register {
-            let viewController: SessionHostingViewController = SessionHostingViewController(
-                rootView: DisplayNameScreen(using: viewModel.dependencies)
-            )
-            viewController.setUpNavBarSessionIcon()
-            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        Task(priority: .userInitiated) {
+            await viewModel.setupFor(flow: .register)
+            await MainActor.run {
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: DisplayNameScreen(flow: .register, using: viewModel.dependencies)
+                )
+                viewController.setUpNavBarSessionIcon()
+                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            }
         }
     }
     
     private func restore() {
-        viewModel.restore {
-            let viewController: SessionHostingViewController = SessionHostingViewController(
-                rootView: LoadAccountScreen(using: viewModel.dependencies)
-            )
-            viewController.setNavBarTitle("loadAccount".localized())
-            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        Task(priority: .userInitiated) {
+            await viewModel.setupFor(flow: .restore)
+            await MainActor.run {
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: LoadAccountScreen(using: viewModel.dependencies)
+                )
+                viewController.setNavBarTitle("loadAccount".localized())
+                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            }
         }
     }
     

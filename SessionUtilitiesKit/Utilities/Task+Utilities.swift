@@ -9,4 +9,19 @@ public extension Task where Success == Never, Failure == Never {
         let nanosecondsToSleep: UInt64 = (UInt64(interval.milliseconds) * 1_000_000)
         try await Task.sleep(nanoseconds: nanosecondsToSleep)
     }
+    
+    static func sleep(
+        for interval: DispatchTimeInterval,
+        checkingEvery checkInterval: DispatchTimeInterval = .milliseconds(100),
+        until condition: () async -> Bool
+    ) async throws {
+        var currentWaitDuration: Int = 0
+        
+        while currentWaitDuration < interval.milliseconds {
+            guard await !condition() else { return }
+            
+            try await Task.sleep(for: checkInterval)
+            currentWaitDuration += checkInterval.milliseconds
+        }
+    }
 }

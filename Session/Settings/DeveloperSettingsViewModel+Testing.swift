@@ -27,7 +27,7 @@ extension DeveloperSettingsViewModel {
     /// ```
     ///
     /// **Note:** All values need to be provided as strings (eg. booleans)
-    static func processUnitTestEnvVariablesIfNeeded(using dependencies: Dependencies) {
+    static func processUnitTestEnvVariablesIfNeeded(using dependencies: Dependencies) async {
 #if targetEnvironment(simulator)
         enum EnvironmentVariable: String {
             /// Disables animations for the app (where possible)
@@ -62,7 +62,7 @@ extension DeveloperSettingsViewModel {
             case debugDisappearingMessageDurations
         }
         
-        ProcessInfo.processInfo.environment.forEach { key, value in
+        for (key, value) in ProcessInfo.processInfo.environment {
             guard let variable: EnvironmentVariable = EnvironmentVariable(rawValue: key) else { return }
             
             switch variable {
@@ -71,7 +71,7 @@ extension DeveloperSettingsViewModel {
                     
                     guard value == "false" else { return }
                     
-                    UIView.setAnimationsEnabled(false)
+                    await UIView.setAnimationsEnabled(false)
                     
                 case .showStringKeys:
                     dependencies.set(feature: .showStringKeys, to: (value == "true"))
@@ -87,7 +87,7 @@ extension DeveloperSettingsViewModel {
                         default: network = .mainnet
                     }
                     
-                    DeveloperSettingsViewModel.updateServiceNetwork(to: network, using: dependencies)
+                    await DeveloperSettingsViewModel.updateServiceNetwork(to: network, using: dependencies)
                     
                 case .forceOffline:
                     dependencies.set(feature: .forceOffline, to: (value == "true"))

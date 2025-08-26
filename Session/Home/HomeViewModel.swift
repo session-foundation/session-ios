@@ -159,7 +159,7 @@ public class HomeViewModel: NavigatableStateHolder {
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
-        let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
+        let startedAsNewUser: Bool = (await dependencies[singleton: .onboarding].initialFlow == .register)
         var userProfile: Profile = previousState.userProfile
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
@@ -363,7 +363,7 @@ public class HomeViewModel: NavigatableStateHolder {
         
         /// Generate the new state
         return State(
-            viewState: (loadResult.info.totalCount == 0 ?
+            viewState: (loadResult.info.totalCount == 0 && unreadMessageRequestThreadCount == 0 ?
                 .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
                 .loaded
             ),

@@ -51,6 +51,7 @@ public extension ObservableKey {
     static func conversationDeleted(_ id: String) -> ObservableKey {
         ObservableKey("conversationDeleted-\(id)", .conversationDeleted)
     }
+    static let anyConversationDeleted: ObservableKey = "anyConversationDeleted"
     
     // MARK: - Messages
     
@@ -240,7 +241,9 @@ public extension ObservingDatabase {
         switch type {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))
             case .updated: addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
-            case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
+            case .deleted:
+                addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
+                addEvent(ObservedEvent(key: .anyConversationDeleted, value: event))
         }
     }
 }

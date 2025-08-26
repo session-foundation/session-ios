@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public enum ExpirationUpdateJob: JobExecutor {
     public static var maxFailureCount: Int = -1
@@ -24,18 +24,19 @@ public enum ExpirationUpdateJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db in
-                try SnodeAPI
+        AnyPublisher
+            .lazy {
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                    using: dependencies
+                )
+                
+                return try SnodeAPI
                     .preparedUpdateExpiry(
                         serverHashes: details.serverHashes,
                         updatedExpiryMs: details.expirationTimestampMs,
                         shortenOnly: true,
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                            using: dependencies
-                        ),
+                        authMethod: authMethod,
                         using: dependencies
                     )
             }

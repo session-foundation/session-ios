@@ -9,7 +9,7 @@ import SessionUtil
 import SessionUtilitiesKit
 import SessionUIKit
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class MessageReceiverGroupsSpec: QuickSpec {
@@ -29,11 +29,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)

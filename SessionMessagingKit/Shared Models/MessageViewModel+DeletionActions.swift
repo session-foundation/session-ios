@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension MessageViewModel {
@@ -357,7 +357,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 }
             },
             completion: { result in
-                deletionBehaviours = try? result.successOrThrow()
+                deletionBehaviours = try? result.get()
                 semaphore.signal()
             }
         )
@@ -436,7 +436,6 @@ public extension MessageViewModel.DeletionBehaviours {
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(
-                                    db,
                                     swarmPublicKey: threadData.currentUserSessionId,
                                     using: dependencies
                                 ),

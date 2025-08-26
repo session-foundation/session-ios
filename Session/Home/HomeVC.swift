@@ -340,11 +340,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
             viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {
-            appDelegate.startPollersIfNeeded()
+            Task { await appDelegate.startPollersIfNeeded() }
         }
         
         // Onion request path countries cache
-        viewModel.dependencies.warmCache(cache: .ip2Country)
+        viewModel.dependencies.warm(singleton: .ip2Country)
         
         // Bind the UI to the view model
         bindViewModel()
@@ -769,7 +769,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         self.navigationController?.setViewControllers([ self, searchController ], animated: true)
     }
     
-    @objc private func createNewConversation() {
+    @MainActor @objc private func createNewConversation() {
         viewModel.dependencies[singleton: .app].createNewConversation()
     }
     

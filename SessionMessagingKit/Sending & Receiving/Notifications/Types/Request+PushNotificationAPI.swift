@@ -1,7 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: Request - PushNotificationAPI
@@ -12,7 +12,8 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        retryCount: Int = 0
     ) throws {
         self = try Request(
             endpoint: endpoint,
@@ -23,7 +24,8 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
                 headers: headers,
                 x25519PublicKey: PushNotificationAPI.serverPublicKey
             ),
-            body: body
+            body: body,
+            retryCount: retryCount
         )
     }
 }

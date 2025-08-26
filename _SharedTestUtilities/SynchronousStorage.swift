@@ -11,8 +11,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
     
     public init(
         customWriter: DatabaseWriter? = nil,
-        migrationTargets: [MigratableTarget.Type]? = nil,
-        migrations: [Storage.KeyedMigration]? = nil,
+        migrations: [Migration.Type]? = nil,
         using dependencies: Dependencies,
         initialData: ((ObservingDatabase) throws -> ())? = nil
     ) {
@@ -21,20 +20,9 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         
         super.init(customWriter: customWriter, using: dependencies)
         
-        // Process any migration targets first
-        if let migrationTargets: [MigratableTarget.Type] = migrationTargets {
+        if let migrations: [Migration.Type] = migrations {
             perform(
-                migrationTargets: migrationTargets,
-                async: false,
-                onProgressUpdate: nil,
-                onComplete: { _ in }
-            )
-        }
-        
-        // Then process any provided migration info
-        if let migrations: [Storage.KeyedMigration] = migrations {
-            perform(
-                sortedMigrations: migrations,
+                migrations: migrations,
                 async: false,
                 onProgressUpdate: nil,
                 onComplete: { _ in }

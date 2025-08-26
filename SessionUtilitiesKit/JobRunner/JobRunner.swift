@@ -904,6 +904,8 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func scheduleRecurringJobsIfNeeded() {
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+        
         let scheduleInfo: [ScheduleInfo] = registeredRecurringJobs
         let variants: Set<Job.Variant> = Set(scheduleInfo.map { $0.variant })
         let maybeExistingJobs: [Job]? = dependencies[singleton: .storage].read { db in
