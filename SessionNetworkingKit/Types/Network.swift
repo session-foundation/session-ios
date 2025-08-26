@@ -54,6 +54,12 @@ public protocol NetworkType {
     func clearCache() async
 }
 
+public extension NetworkType {
+    func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> AppVersionResponse {
+        return try await checkClientVersion(ed25519SecretKey: ed25519SecretKey).value
+    }
+}
+
 /// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
 public final class NetworkSyncState: @unchecked Sendable {
     private let lock = NSLock()
