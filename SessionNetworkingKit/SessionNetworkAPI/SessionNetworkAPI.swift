@@ -7,15 +7,11 @@ import Combine
 import SessionUtilitiesKit
 
 public enum SessionNetworkAPI {
-    public static let workQueue = DispatchQueue(label: "SessionNetworkAPI.workQueue", qos: .userInitiated)
-    public static let client = HTTPClient()
-    
     // MARK: - Info
     
     /// General token info. This endpoint combines the `/price` and `/token` endpoint information.
     ///
     /// `GET/info`
-
     public static func prepareInfo(
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Info> {
