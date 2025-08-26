@@ -74,7 +74,7 @@ public class AttachmentPrepViewController: OWSViewController {
     private lazy var imageEditorView: ImageEditorView? = {
         guard let imageEditorModel = attachmentItem.imageEditorModel else { return nil }
         
-        let view: ImageEditorView = ImageEditorView(model: imageEditorModel, delegate: self)
+        let view: ImageEditorView = ImageEditorView(model: imageEditorModel, delegate: self, using: dependencies)
         view.translatesAutoresizingMaskIntoConstraints = false
         
         guard view.configureSubviews() else { return nil }
@@ -201,7 +201,7 @@ public class AttachmentPrepViewController: OWSViewController {
         ])
         
         if attachment.isImage, let editorView: ImageEditorView = imageEditorView {
-            let size: CGSize = (attachment.image()?.size ?? CGSize.zero)
+            let size: CGSize = (attachment.imageSize ?? CGSize.zero)
             let isPortrait: Bool = (size.height > size.width)
             
             NSLayoutConstraint.activate([

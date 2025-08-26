@@ -13,6 +13,10 @@ public class Dependencies {
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
+    private typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
+    private let dependecyChangeStream: AsyncStream<DependencyChange>
+    private let dependecyChangeContinuation: AsyncStream<DependencyChange>.Continuation
+    
     // MARK: - Subscript Access
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
@@ -36,7 +40,14 @@ public class Dependencies {
     
     // MARK: - Initialization
     
-    public static func createEmpty() -> Dependencies { return Dependencies() }
+    public static func createEmpty() -> Dependencies { return Dependencies(forTesting: false) }
+    
+    /// This constructor should not be used directly (except for `TestDependencies`), use `Dependencies.createEmpty()` instead
+    internal init(forTesting: Bool) {
+        let (stream, continuation) = AsyncStream.makeStream(of: DependencyChange.self)
+        dependecyChangeStream = stream
+        dependecyChangeContinuation = continuation
+    }
     
     // MARK: - Functions
     
@@ -112,7 +123,7 @@ public class Dependencies {
         return elements.popRandomElement()
     }
     
-    // MARK: - Instance replacing
+    // MARK: - Instance management
     
     public func warmCache<M, I>(cache: CacheConfig<M, I>) {
         _ = getOrCreate(cache)
@@ -133,6 +144,26 @@ public class Dependencies {
     
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
         _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
+    }
+    
+    private func waitUntilInitialised(targetKey: Dependencies.DependencyStorage.Key) async throws {
+        /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
+        guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
+        
+        for await (key, instance) in dependecyChangeStream {
+            /// If the target instance has been set (and isn't a `NoopDependency`) then we can stop waiting (observing the stream)
+            if key == targetKey && instance?.isNoop == false {
+                break
+            }
+        }
+    }
+    
+    public func waitUntilInitialised<S>(singleton: SingletonConfig<S>) async throws {
+        try await waitUntilInitialised(targetKey: DependencyStorage.Key.Variant.singleton.key(singleton.identifier))
+    }
+    
+    public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async throws {
+        try await waitUntilInitialised(targetKey: DependencyStorage.Key.Variant.cache.key(cache.identifier))
     }
 }
 
@@ -196,6 +227,7 @@ public extension Dependencies {
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
+        dependecyChangeContinuation.yield((key, nil))
         notifyAsync(events: [
             ObservedEvent(key: .feature(feature), value: nil),
             ObservedEvent(key: .featureGroup(feature), value: nil)
@@ -243,6 +275,15 @@ private extension Dependencies {
             case cache(ThreadSafeObject<MutableCacheType>)
             case userDefaults(UserDefaultsType)
             case feature(any FeatureType)
+            
+            var isNoop: Bool {
+                switch self {
+                    case .singleton(let value): return value is NoopDependency
+                    case .userDefaults(let value): return value is NoopDependency
+                    case .feature(let value): return value is NoopDependency
+                    case .cache(let value): return value.performMap { $0 is NoopDependency }
+                }
+            }
             
             func distinctKey(for identifier: String) -> Key {
                 switch self {
@@ -340,18 +381,30 @@ private extension Dependencies {
     
     /// Convenience method to store a dependency instance in memory in a thread-safe way
     @discardableResult private func setValue<T>(_ value: T, typedStorage: DependencyStorage.Value, key: String) -> T {
-        return _storage.performUpdateAndMap { storage in
-            storage.instances[typedStorage.distinctKey(for: key)] = typedStorage
+        let finalKey: DependencyStorage.Key = typedStorage.distinctKey(for: key)
+        let result: T = _storage.performUpdateAndMap { storage in
+            storage.instances[finalKey] = typedStorage
             return (storage, value)
         }
+        
+        /// We generally _shouldn't_ be setting a dependency to a no-op value so log a warning when we do so
+        if typedStorage.isNoop {
+            Log.warn("Setting noop dependency for \(key)")
+        }
+        
+        dependecyChangeContinuation.yield((finalKey, typedStorage))
+        return result
     }
     
     /// Convenience method to remove a dependency instance from memory in a thread-safe way
     private func removeValue(_ key: String, of variant: DependencyStorage.Key.Variant) {
+        let finalKey: DependencyStorage.Key = variant.key(key)
         _storage.performUpdate { storage in
-            storage.instances.removeValue(forKey: variant.key(key))
+            storage.instances.removeValue(forKey: finalKey)
             return storage
         }
+        
+        dependecyChangeContinuation.yield((finalKey, nil))
     }
 }
  

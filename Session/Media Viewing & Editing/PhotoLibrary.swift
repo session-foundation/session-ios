@@ -47,18 +47,7 @@ class PhotoPickerAssetItem: PhotoGridItem {
 
     // MARK: PhotoGridItem
 
-    var type: PhotoGridItemType {
-        if asset.mediaType == .video {
-            return .video
-        }
-
-        if asset.utType?.isAnimated == true {
-            return .animated
-        }
-
-        return  .photo
-    }
-    
+    var isVideo: Bool { asset.mediaType == .video }
     var source: ImageDataManager.DataSource {
         return .asyncSource(self.asset.localIdentifier) { [photoCollectionContents, asset, size, pixelDimension] in
             await photoCollectionContents.requestThumbnail(

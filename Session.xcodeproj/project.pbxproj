@@ -662,6 +662,8 @@
 		FD37EA1928AC5CCA003AE748 /* NotificationSoundViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */; };
 		FD39352C28F382920084DADA /* VersionFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39352B28F382920084DADA /* VersionFooterView.swift */; };
 		FD39353628F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */; };
+		FD3937082E4AD3FE00571F17 /* NoopDependency.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3937072E4AD3F800571F17 /* NoopDependency.swift */; };
+		FD39370C2E4D7BCA00571F17 /* DocumentPickerHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */; };
 		FD3AABE928306BBD00E5099A /* ThreadPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3AABE828306BBD00E5099A /* ThreadPickerViewModel.swift */; };
 		FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */; };
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
@@ -821,7 +823,6 @@
 		FD7728982849E8110018502F /* UITableView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728972849E8110018502F /* UITableView+ReusableView.swift */; };
 		FD778B6429B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD778B6329B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift */; };
 		FD78E9EE2DD6D32500D55B50 /* ImageDataManager+Singleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A622DD5BDDD00BEF49F /* ImageDataManager+Singleton.swift */; };
-		FD78E9F02DD6D61200D55B50 /* Data+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754CB2C9BAF37002A2623 /* Data+Image.swift */; };
 		FD78E9F22DDA9EA200D55B50 /* MockImageDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9F12DDA9E9B00D55B50 /* MockImageDataManager.swift */; };
 		FD78E9F42DDABA4F00D55B50 /* AttachmentUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9F32DDABA4200D55B50 /* AttachmentUploader.swift */; };
 		FD78E9F62DDD43AD00D55B50 /* Mutation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78E9F52DDD43AB00D55B50 /* Mutation.swift */; };
@@ -1988,6 +1989,8 @@
 		FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSoundViewModel.swift; sourceTree = "<group>"; };
 		FD39352B28F382920084DADA /* VersionFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionFooterView.swift; sourceTree = "<group>"; };
 		FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_FlagMessageHashAsDeletedOrInvalid.swift; sourceTree = "<group>"; };
+		FD3937072E4AD3F800571F17 /* NoopDependency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopDependency.swift; sourceTree = "<group>"; };
+		FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerHandler.swift; sourceTree = "<group>"; };
 		FD3AABE828306BBD00E5099A /* ThreadPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPickerViewModel.swift; sourceTree = "<group>"; };
 		FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindedIdLookupSpec.swift; sourceTree = "<group>"; };
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
@@ -2320,7 +2323,6 @@
 		FDE754C82C9BAF36002A2623 /* UTType+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UTType+Utilities.swift"; sourceTree = "<group>"; };
 		FDE754C92C9BAF36002A2623 /* ImageFormat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImageFormat.swift; sourceTree = "<group>"; };
 		FDE754CA2C9BAF37002A2623 /* DataSource.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
-		FDE754CB2C9BAF37002A2623 /* Data+Image.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+Image.swift"; sourceTree = "<group>"; };
 		FDE754D12C9BAF53002A2623 /* JobDependencies.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JobDependencies.swift; sourceTree = "<group>"; };
 		FDE754D32C9BAF6B002A2623 /* UICollectionView+ReusableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UICollectionView+ReusableView.swift"; sourceTree = "<group>"; };
 		FDE754D52C9BAF89002A2623 /* Crypto.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Crypto.swift; sourceTree = "<group>"; };
@@ -3015,7 +3017,6 @@
 		B8A582AF258C665E00AFD84C /* Media */ = {
 			isa = PBXGroup;
 			children = (
-				FDE754CB2C9BAF37002A2623 /* Data+Image.swift */,
 				FDE754CA2C9BAF37002A2623 /* DataSource.swift */,
 				FDE754C92C9BAF36002A2623 /* ImageFormat.swift */,
 				FDE754C72C9BAF36002A2623 /* MediaUtils.swift */,
@@ -4181,6 +4182,7 @@
 		FD2272D22C34ECBB004D8A6C /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */,
 				FD0E353A2AB98773006A81F7 /* AppVersion.swift */,
 				FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */,
 				FDE755042C9BB4ED002A2623 /* Bencode.swift */,
@@ -5019,6 +5021,7 @@
 		FDF01FAE2A9ED0C800CAF969 /* Dependency Injection */ = {
 			isa = PBXGroup;
 			children = (
+				FD3937072E4AD3F800571F17 /* NoopDependency.swift */,
 				FDE7551F2C9BC1A6002A2623 /* CacheConfig.swift */,
 				FDC6D75F2862B3F600B04575 /* Dependencies.swift */,
 				FD2272ED2C3521D6004D8A6C /* FeatureConfig.swift */,
@@ -6357,7 +6360,6 @@
 				FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */,
 				FDE521902E04CCEB00061B8E /* AVURLAsset+Utilities.swift in Sources */,
 				FD6673FF2D77F9C100041530 /* ScreenLock.swift in Sources */,
-				FD78E9F02DD6D61200D55B50 /* Data+Image.swift in Sources */,
 				FDB3DA8B2E24834000148F8D /* AVURLAsset+Utilities.swift in Sources */,
 				FD17D7C727F5207C00122BE0 /* DatabaseMigrator+Utilities.swift in Sources */,
 				FD848B9328420164000E298B /* UnicodeScalar+Utilities.swift in Sources */,
@@ -6403,6 +6405,7 @@
 				FD7728962849E7E90018502F /* String+Utilities.swift in Sources */,
 				C35D0DB525AE5F1200B6BF49 /* UIEdgeInsets.swift in Sources */,
 				FDF222092818D2B0000A4995 /* NSAttributedString+Utilities.swift in Sources */,
+				FD39370C2E4D7BCA00571F17 /* DocumentPickerHandler.swift in Sources */,
 				C32C5E0C256DDAFA003C73A2 /* NSRegularExpression+SSK.swift in Sources */,
 				FD29598D2A43BC0B00888A17 /* Version.swift in Sources */,
 				FD71160028C8253500B47552 /* UIView+Combine.swift in Sources */,
@@ -6414,6 +6417,7 @@
 				FDAA16762AC28A3B00DDBF77 /* UserDefaultsType.swift in Sources */,
 				FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */,
 				FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */,
+				FD3937082E4AD3FE00571F17 /* NoopDependency.swift in Sources */,
 				FD74434A2D07CA9F00862443 /* Codable+Utilities.swift in Sources */,
 				FD0559562E026E1B00DC48CE /* ObservingDatabase.swift in Sources */,
 				FD74434B2D07CA9F00862443 /* CGFloat+Utilities.swift in Sources */,
@@ -8162,7 +8166,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 623;
+				CURRENT_PROJECT_VERSION = 625;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8202,7 +8206,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.0;
+				MARKETING_VERSION = 2.14.1;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -8243,7 +8247,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 623;
+				CURRENT_PROJECT_VERSION = 625;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8278,7 +8282,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.0;
+				MARKETING_VERSION = 2.14.1;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -8729,7 +8733,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 623;
+				CURRENT_PROJECT_VERSION = 625;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8768,7 +8772,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.0;
+				MARKETING_VERSION = 2.14.1;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -9319,7 +9323,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 623;
+				CURRENT_PROJECT_VERSION = 625;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -9352,7 +9356,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.0;
+				MARKETING_VERSION = 2.14.1;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",

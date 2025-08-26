@@ -201,7 +201,7 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        guard let dependencies: Dependencies = dependencies, Data.isValidImage(at: asset.filePath, type: .gif, using: dependencies) else {
+        guard let dependencies: Dependencies = dependencies, MediaUtils.isValidImage(at: asset.filePath, type: .gif, using: dependencies) else {
             Log.error(.giphy, "Cell received invalid asset.")
             clearViewState()
             return
