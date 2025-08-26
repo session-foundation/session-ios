@@ -9,7 +9,7 @@ class AppReviewPromptDialog: UIView {
     var onSecondaryTapped: ((AppReviewPromptState) -> Void)?
     
     private static let closeSize: CGFloat = 24
-    
+
     private lazy var closeButton: UIButton = UIButton(primaryAction: UIAction { [weak self] _ in self?.close() })
         .withConfiguration(
             UIButton.Configuration
@@ -161,8 +161,8 @@ class AppReviewPromptDialog: UIView {
 
 private extension AppReviewPromptDialog {
     func setupHierarchy() {
-        addSubview(closeButton)
         addSubview(contentStack)
+        addSubview(closeButton)
     }
     
     func setupLayout() {

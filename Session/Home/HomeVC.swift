@@ -72,17 +72,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let result = UITableView()
         result.separatorStyle = .none
         result.themeBackgroundColor = .clear
-        result.contentInset = UIEdgeInsets(
-            top: 0,
-            left: 0,
-            bottom: (
-                Values.largeSpacing +
-                HomeVC.newConversationButtonSize +
-                Values.smallSpacing +
-                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
-            ),
-            right: 0
-        )
         result.showsVerticalScrollIndicator = false
         result.register(view: MessageRequestsCell.self)
         result.register(view: FullConversationCell.self)
@@ -450,6 +439,23 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // don't want to trigger the callbacks until a successful load)
         guard state.viewState != .loading else { return }
         
+        // App reivew, check if `state.appReviewPromptState` has value
+        // `state.appReviewPromptState` will only have value if triggered via viewDidAppear or review prompt events
+        appReviewPrompt.setReviewPrompt(state.appReviewPromptState)
+        
+        tableView.contentInset = UIEdgeInsets(
+            top: 0,
+            left: 0,
+            bottom: (
+                Values.largeSpacing +
+                HomeVC.newConversationButtonSize +
+                Values.smallSpacing +
+                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0) +
+                (state.appReviewPromptState != nil ? (appReviewPrompt.frame.size.height + 24) : 0)
+            ),
+            right: 0
+        )
+        
         // Reload the table content (update without animations on the first render)
         guard initialConversationLoadComplete else {
             sections = state.sections(viewModel: viewModel)
@@ -475,28 +481,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         ) { [weak self] updatedData in
             self?.sections = updatedData
         }
-    
-        // App reivew, check if `state.appReviewPromptState` has value and `state.appReviewPromptTimestamp`
-        // `state.appReviewPromptTimestamp` will only have value if triggered via viewDidAppear or review prompt events
-        if let promptState = state.appReviewPromptState, state.appReviewPromptTimestamp != nil {
-            appReviewPrompt.setReviewPrompt(promptState)
-            viewModel.didShowAppReviewPrompt()
-        } else {
-            appReviewPrompt.setReviewPrompt(nil)
-        }
-        
-        tableView.contentInset = UIEdgeInsets(
-            top: 0,
-            left: 0,
-            bottom: (
-                Values.largeSpacing +
-                HomeVC.newConversationButtonSize +
-                Values.smallSpacing +
-                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0) +
-                ((state.appReviewPromptState != nil && state.appReviewPromptTimestamp != nil) ? (appReviewPrompt.frame.size.height + 24) : 0)
-            ),
-            right: 0
-        )
     }
     
     private func updateNavBarButtons(

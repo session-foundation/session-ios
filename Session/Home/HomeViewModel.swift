@@ -47,7 +47,24 @@ public class HomeViewModel: NavigatableStateHolder {
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
-        self.state = State.initialState(using: dependencies)
+        
+        /// Check if incomplete app review can be shown again to user on next app launch
+        let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
+        
+        var promptState: AppReviewPromptState?
+
+        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
+            dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+            dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
+            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+            
+            promptState = .rateSession
+        }
+        
+        self.state = State.initialState(
+            using: dependencies,
+            appReviewPromptState: promptState
+        )
         
         /// Bind the state
         self.observationTask = ObservationBuilder
@@ -59,7 +76,7 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     public struct HomeViewModelEvent: Hashable {
-        let appReviewPromptTimestamp: TimeInterval?
+        let pendingAppReviewPromptState: AppReviewPromptState?
         let appReviewPromptState: AppReviewPromptState?
     }
     
@@ -84,7 +101,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
         let itemCache: [String: SessionThreadViewModel]
         let appReviewPromptState: AppReviewPromptState?
-        let appReviewPromptTimestamp: TimeInterval?
+        let pendingAppReviewPromptState: AppReviewPromptState?
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -137,20 +154,7 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        static func initialState(using dependencies: Dependencies) -> State {
-            /// Check if incomplete app review can be shown again to user on next app launch
-            let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
-            
-            var promptState: AppReviewPromptState?
-
-            if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
-                dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-                dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
-                dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-                
-                promptState = .rateSession
-            }
-            
+        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -175,8 +179,8 @@ public class HomeViewModel: NavigatableStateHolder {
                     orderSQL: SessionThreadViewModel.homeOrderSQL
                 ),
                 itemCache: [:],
-                appReviewPromptState: promptState,
-                appReviewPromptTimestamp: nil
+                appReviewPromptState: nil,
+                pendingAppReviewPromptState: appReviewPromptState
             )
         }
     }
@@ -199,7 +203,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
         var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
         var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
-        var appReviewPromptTimestamp: TimeInterval? = nil
+        var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -393,18 +397,18 @@ public class HomeViewModel: NavigatableStateHolder {
         
         /// Next trigger should be ignored if `didShowAppReviewPrompt` is true
         if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] == true {
-            appReviewPromptState = nil
+            pendingAppReviewPromptState = nil
         } else {
             groupedOtherEvents?[.userDefault]?.forEach { event in
                 switch (event.key, event.value) {
                     case (.userDefault(.hasVisitedPathScreen), let value as Bool) where value == true:
-                        appReviewPromptState = .enjoyingSession
+                        pendingAppReviewPromptState = .enjoyingSession
                         
                     case (.userDefault(.hasPressedDonateButton), let value as Bool) where value == true:
-                        appReviewPromptState = .enjoyingSession
+                        pendingAppReviewPromptState = .enjoyingSession
                         
                     case (.userDefault(.hasChangedTheme), let value as Bool) where value == true:
-                        appReviewPromptState = .enjoyingSession
+                        pendingAppReviewPromptState = .enjoyingSession
                         
                     default: break
                 }
@@ -412,7 +416,7 @@ public class HomeViewModel: NavigatableStateHolder {
         }
         
         if let event: HomeViewModelEvent = events.first?.value as? HomeViewModelEvent {
-            appReviewPromptTimestamp = event.appReviewPromptTimestamp
+            pendingAppReviewPromptState = event.pendingAppReviewPromptState
             appReviewPromptState = event.appReviewPromptState
         }
 
@@ -433,7 +437,7 @@ public class HomeViewModel: NavigatableStateHolder {
             loadedPageInfo: loadResult.info,
             itemCache: itemCache,
             appReviewPromptState: appReviewPromptState,
-            appReviewPromptTimestamp: appReviewPromptTimestamp
+            pendingAppReviewPromptState: pendingAppReviewPromptState
         )
     }
     
@@ -533,16 +537,18 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     // MARK: - Handle App review
-    func viewDidAppear() {
-        let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+    @MainActor func viewDidAppear() {
+        guard state.pendingAppReviewPromptState != nil else { return }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
+            self.didShowAppReviewPrompt()
+            
             dependencies.notifyAsync(
                 priority: .immediate,
                 key: .updateScreen(HomeViewModel.self),
                 value: HomeViewModelEvent(
-                    appReviewPromptTimestamp: timestamp,
-                    appReviewPromptState: state.appReviewPromptState
+                    pendingAppReviewPromptState: nil,
+                    appReviewPromptState: state.pendingAppReviewPromptState
                 )
             )
         }
@@ -559,13 +565,11 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
-        let timestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        
         dependencies.notifyAsync(
             priority: .immediate,
             key: .updateScreen(HomeViewModel.self),
             value: HomeViewModelEvent(
-                appReviewPromptTimestamp: timestamp,
+                pendingAppReviewPromptState: nil,
                 appReviewPromptState: state
             )
         )
