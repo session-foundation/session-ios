@@ -226,16 +226,15 @@ public extension ClosedGroup {
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-            try? PushNotificationAPI
-                .preparedSubscribe(
-                    db,
+            Task.detached(priority: .userInitiated) {
+                try? await PushNotificationAPI.subscribe(
                     token: Data(hex: token),
-                    sessionIds: [SessionId(.group, hex: group.id)],
+                    swarmAuthentication: [
+                        try? Authentication.with(swarmPublicKey: group.id, using: dependencies)
+                    ].compactMap { $0 },
                     using: dependencies
                 )
-                .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .sinkUntilComplete()
+            }
         }
     }
     
@@ -307,17 +306,15 @@ public extension ClosedGroup {
             /// Bulk unsubscripe from updated groups being removed
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    try? PushNotificationAPI
-                        .preparedUnsubscribe(
-                            db,
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        try? await PushNotificationAPI.unsubscribe(
                             token: Data(hex: token),
-                            sessionIds: threadVariants
+                            swarmAuthentication: threadVariants
                                 .filter { $0.variant == .group }
-                                .map { SessionId(.group, hex: $0.id) },
+                                .compactMap { try? Authentication.with(swarmPublicKey: $0.id, using: dependencies) },
                             using: dependencies
                         )
-                        .send(using: dependencies)
-                        .sinkUntilComplete()
+                    }
                 }
             }
         }

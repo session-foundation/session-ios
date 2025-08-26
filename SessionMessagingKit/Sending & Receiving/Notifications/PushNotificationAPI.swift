@@ -34,102 +34,74 @@ public enum PushNotificationAPI {
         token: Data,
         isForcedUpdate: Bool,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
+    ) async throws {
         let hexEncodedToken: String = token.toHexString()
         let oldToken: String? = dependencies[defaults: .standard, key: .deviceToken]
         let lastUploadTime: Double = dependencies[defaults: .standard, key: .lastDeviceTokenUpload]
         let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
-            Log.info(.cat, "Device token hasn't changed or expired; no need to re-upload.")
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+            return Log.info(.cat, "Device token hasn't changed or expired; no need to re-upload.")
         }
         
-        return dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> in
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                
-                return try PushNotificationAPI
-                    .preparedSubscribe(
-                        db,
-                        token: token,
-                        sessionIds: [userSessionId]
-                            .appending(contentsOf: try ClosedGroup
-                                .select(.threadId)
-                                .filter(
-                                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                                )
-                                .filter(ClosedGroup.Columns.shouldPoll)
-                                .asRequest(of: String.self)
-                                .fetchSet(db)
-                                .map { SessionId(.group, hex: $0) }
-                            ),
-                        using: dependencies
-                    )
-                    .handleEvents(
-                        receiveOutput: { _, response in
-                            guard response.subResponses.first?.success == true else { return }
-                            
-                            dependencies[defaults: .standard, key: .deviceToken] = hexEncodedToken
-                            dependencies[defaults: .standard, key: .lastDeviceTokenUpload] = now
-                            dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
-                        }
-                    )
-            }
-            .flatMap { $0.send(using: dependencies) }
-            .map { _ in () }
-            .eraseToAnyPublisher()
+        let swarmAuthentication: [AuthenticationMethod] = try await retrieveAllSwarmAuth(using: dependencies)
+        let response: SubscribeResponse = try await PushNotificationAPI.subscribe(
+            token: token,
+            swarmAuthentication: swarmAuthentication,
+            using: dependencies
+        )
+        
+        /// Only cache the token data If we successfully subscribed for user PNs
+        if response.subResponses.first?.success == true {
+            dependencies[defaults: .standard, key: .deviceToken] = hexEncodedToken
+            dependencies[defaults: .standard, key: .lastDeviceTokenUpload] = now
+            dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+        }
     }
     
     public static func unsubscribeAll(
         token: Data,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
-        return dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<PushNotificationAPI.UnsubscribeResponse> in
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                
-                return try PushNotificationAPI
-                    .preparedUnsubscribe(
-                        db,
-                        token: token,
-                        sessionIds: [userSessionId]
-                            .appending(contentsOf: (try? ClosedGroup
-                                .select(.threadId)
-                                .filter(
-                                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                                )
-                                .asRequest(of: String.self)
-                                .fetchSet(db))
-                                .defaulting(to: [])
-                                .map { SessionId(.group, hex: $0) }),
-                        using: dependencies
-                    )
-                    .handleEvents(
-                        receiveOutput: { _, response in
-                            guard response.subResponses.first?.success == true else { return }
-                            
-                            dependencies[defaults: .standard, key: .deviceToken] = nil
-                        }
-                    )
-            }
-            .flatMap { $0.send(using: dependencies) }
-            .map { _ in () }
-            .eraseToAnyPublisher()
+    ) async throws {
+        let swarmAuthentication: [AuthenticationMethod] = try await retrieveAllSwarmAuth(using: dependencies)
+        let response: UnsubscribeResponse = try await PushNotificationAPI.unsubscribe(
+            token: token,
+            swarmAuthentication: swarmAuthentication,
+            using: dependencies
+        )
+        
+        /// If we successfully unsubscribed for user PNs then remove the cached token
+        if response.subResponses.first?.success == true {
+            dependencies[defaults: .standard, key: .deviceToken] = nil
+        }
+    }
+    
+    private static func retrieveAllSwarmAuth(using dependencies: Dependencies) async throws -> [AuthenticationMethod] {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let groupIds: Set<String> = try await dependencies[singleton: .storage].readAsync { db in
+            try ClosedGroup
+               .select(.threadId)
+               .filter(
+                   ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                   ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+               )
+               .asRequest(of: String.self)
+               .fetchSet(db)
+        }
+        
+        return try ([userSessionId.hexString] + groupIds).map {
+            try Authentication.with(swarmPublicKey: $0, using: dependencies)
+        }
     }
     
     // MARK: - Prepared Requests
     
-    public static func preparedSubscribe(
-        _ db: ObservingDatabase,
+    public static func subscribe(
         token: Data,
-        sessionIds: [SessionId],
+        swarmAuthentication: [AuthenticationMethod],
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<SubscribeResponse> {
+    ) async throws -> SubscribeResponse {
+        guard !swarmAuthentication.isEmpty else { return SubscribeResponse(subResponses: []) }
         guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
             throw NetworkError.invalidPreparedRequest
         }
@@ -145,115 +117,110 @@ public enum PushNotificationAPI {
             throw KeychainStorageError.keySpecInvalid
         }
         
-        return try Network.PreparedRequest(
-            request: Request(
-                method: .post,
-                endpoint: Endpoint.subscribe,
-                body: SubscribeRequest(
-                    subscriptions: sessionIds.map { sessionId -> SubscribeRequest.Subscription in
-                        SubscribeRequest.Subscription(
-                            namespaces: {
-                                switch sessionId.prefix {
-                                    case .group: return [
-                                        .groupMessages,
-                                        .configGroupKeys,
-                                        .configGroupInfo,
-                                        .configGroupMembers,
-                                        .revokedRetrievableGroupMessages
-                                    ]
-                                    default: return [
-                                        .default,
-                                        .configUserProfile,
-                                        .configContacts,
-                                        .configConvoInfoVolatile,
-                                        .configUserGroups
-                                    ]
-                                }
-                            }(),
-                            /// Note: Unfortunately we always need the message content because without the content
-                            /// control messages can't be distinguished from visible messages which results in the
-                            /// 'generic' notification being shown when receiving things like typing indicator updates
-                            includeMessageData: true,
-                            serviceInfo: ServiceInfo(
-                                token: token.toHexString()
-                            ),
-                            notificationsEncryptionKey: notificationsEncryptionKey,
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: sessionId.hexString,
-                                using: dependencies
-                            ),
-                            timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
-                        )
-                    }
+        do {
+            let request: Network.PreparedRequest<SubscribeResponse> = try Network.PreparedRequest(
+                request: Request(
+                    method: .post,
+                    endpoint: Endpoint.subscribe,
+                    body: SubscribeRequest(
+                        subscriptions: swarmAuthentication.map { authMethod -> SubscribeRequest.Subscription in
+                            SubscribeRequest.Subscription(
+                                namespaces: {
+                                    switch try? SessionId.Prefix(from: try? authMethod.swarmPublicKey) {
+                                        case .group: return [
+                                            .groupMessages,
+                                            .configGroupKeys,
+                                            .configGroupInfo,
+                                            .configGroupMembers,
+                                            .revokedRetrievableGroupMessages
+                                        ]
+                                        default: return [
+                                            .default,
+                                            .configUserProfile,
+                                            .configContacts,
+                                            .configConvoInfoVolatile,
+                                            .configUserGroups
+                                        ]
+                                    }
+                                }(),
+                                /// Note: Unfortunately we always need the message content because without the content
+                                /// control messages can't be distinguished from visible messages which results in the
+                                /// 'generic' notification being shown when receiving things like typing indicator updates
+                                includeMessageData: true,
+                                serviceInfo: ServiceInfo(
+                                    token: token.toHexString()
+                                ),
+                                notificationsEncryptionKey: notificationsEncryptionKey,
+                                authMethod: authMethod,
+                                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
+                            )
+                        }
+                    ),
+                    retryCount: PushNotificationAPI.maxRetryCount
                 ),
-                retryCount: PushNotificationAPI.maxRetryCount
-            ),
-            responseType: SubscribeResponse.self,
-            using: dependencies
-        )
-        .handleEvents(
-            receiveOutput: { _, response in
-                zip(response.subResponses, sessionIds).forEach { subResponse, sessionId in
-                    guard subResponse.success != true else { return }
-                    
-                    Log.error(.cat, "Couldn't subscribe for push notifications for: \(sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
-                }
-            },
-            receiveCompletion: { result in
-                switch result {
-                    case .finished: break
-                    case .failure(let error): Log.error(.cat, "Couldn't subscribe for push notifications due to error: \(error).")
-                }
+                responseType: SubscribeResponse.self,
+                using: dependencies
+            )
+            let response: SubscribeResponse = try await request.send(using: dependencies)
+            
+            zip(response.subResponses, swarmAuthentication).forEach { subResponse, authMethod in
+                guard subResponse.success != true else { return }
+                
+                let swarmPublicKey: String = ((try? authMethod.swarmPublicKey) ?? "INVALID")
+                Log.error(.cat, "Couldn't subscribe for push notifications for: \(swarmPublicKey) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
             }
-        )
+            
+            return response
+        }
+        catch {
+            Log.error(.cat, "Couldn't subscribe for push notifications due to error: \(error).")
+            throw error
+        }
     }
     
-    public static func preparedUnsubscribe(
-        _ db: ObservingDatabase,
+    public static func unsubscribe(
         token: Data,
-        sessionIds: [SessionId],
+        swarmAuthentication: [AuthenticationMethod],
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<UnsubscribeResponse> {
-        return try Network.PreparedRequest(
-            request: Request(
-                method: .post,
-                endpoint: Endpoint.unsubscribe,
-                body: UnsubscribeRequest(
-                    subscriptions: sessionIds.map { sessionId -> UnsubscribeRequest.Subscription in
-                        UnsubscribeRequest.Subscription(
-                            serviceInfo: ServiceInfo(
-                                token: token.toHexString()
-                            ),
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: sessionId.hexString,
-                                using: dependencies
-                            ),
-                            timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
-                        )
-                    }
+    ) async throws -> UnsubscribeResponse {
+        guard !swarmAuthentication.isEmpty else { return UnsubscribeResponse(subResponses: []) }
+        
+        do {
+            let request: Network.PreparedRequest<UnsubscribeResponse> = try Network.PreparedRequest(
+                request: Request(
+                    method: .post,
+                    endpoint: Endpoint.unsubscribe,
+                    body: UnsubscribeRequest(
+                        subscriptions: swarmAuthentication.map { authMethod -> UnsubscribeRequest.Subscription in
+                            UnsubscribeRequest.Subscription(
+                                serviceInfo: ServiceInfo(
+                                    token: token.toHexString()
+                                ),
+                                authMethod: authMethod,
+                                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
+                            )
+                        }
+                    ),
+                    retryCount: PushNotificationAPI.maxRetryCount
                 ),
-                retryCount: PushNotificationAPI.maxRetryCount
-            ),
-            responseType: UnsubscribeResponse.self,
-            using: dependencies
-        )
-        .handleEvents(
-            receiveOutput: { _, response in
-                zip(response.subResponses, sessionIds).forEach { subResponse, sessionId in
-                    guard subResponse.success != true else { return }
-                    
-                    Log.error(.cat, "Couldn't unsubscribe for push notifications for: \(sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
-                }
-            },
-            receiveCompletion: { result in
-                switch result {
-                    case .finished: break
-                    case .failure(let error): Log.error(.cat, "Couldn't unsubscribe for push notifications due to error: \(error).")
-                }
+                responseType: UnsubscribeResponse.self,
+                using: dependencies
+            )
+            let response: UnsubscribeResponse = try await request.send(using: dependencies)
+            
+            zip(response.subResponses, swarmAuthentication).forEach { subResponse, authMethod in
+                guard subResponse.success != true else { return }
+                
+                let swarmPublicKey: String = ((try? authMethod.swarmPublicKey) ?? "INVALID")
+                Log.error(.cat, "Couldn't unsubscribe for push notifications for: \(swarmPublicKey) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
             }
-        )
+            
+            return response
+        }
+        catch {
+            Log.error(.cat, "Couldn't unsubscribe for push notifications due to error: \(error).")
+            throw error
+        }
     }
     
     // MARK: - Notification Handling

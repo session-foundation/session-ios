@@ -12,8 +12,7 @@ extension MessageSender {
         groupState: [ConfigDump.Variant: LibSession.Config],
         thread: SessionThread,
         group: ClosedGroup,
-        members: [GroupMember],
-        preparedNotificationsSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
+        members: [GroupMember]
     )
     
     public static func createGroup(
@@ -118,26 +117,12 @@ extension MessageSender {
                         canStartJob: false
                     )
                     
-                    // Prepare the notification subscription
-                    var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
-                    
-                    if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                        preparedNotificationSubscription = try? PushNotificationAPI
-                            .preparedSubscribe(
-                                db,
-                                token: Data(hex: token),
-                                sessionIds: [createdInfo.groupSessionId],
-                                using: dependencies
-                            )
-                    }
-                    
                     return (
                         createdInfo.groupSessionId,
                         createdInfo.groupState,
                         thread,
                         createdInfo.group,
-                        createdInfo.members,
-                        preparedNotificationSubscription
+                        createdInfo.members
                     )
                 }
             }
@@ -187,7 +172,7 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { groupSessionId, _, thread, group, groupMembers, preparedNotificationSubscription in
+                receiveOutput: { groupSessionId, _, thread, group, groupMembers in
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     
                     // Start polling
@@ -196,10 +181,20 @@ extension MessageSender {
                     }
                     
                     // Subscribe for push notifications (if PNs are enabled)
-                    preparedNotificationSubscription?
-                        .send(using: dependencies)
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .sinkUntilComplete()
+                    if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                        Task.detached(priority: .userInitiated) { [dependencies] in
+                            try? await PushNotificationAPI.subscribe(
+                                token: Data(hex: token),
+                                swarmAuthentication: [
+                                    try? Authentication.with(
+                                        swarmPublicKey: groupSessionId.hexString,
+                                        using: dependencies
+                                    )
+                                ].compactMap { $0 },
+                                using: dependencies
+                            )
+                        }
+                    }
                     
                     dependencies[singleton: .storage].writeAsync { db in
                         // Save jobs for sending group member invitations
@@ -239,7 +234,7 @@ extension MessageSender {
                     }
                 }
             )
-            .map { _, _, thread, _, _, _ in thread }
+            .map { _, _, thread, _, _ in thread }
             .eraseToAnyPublisher()
     }
     
