@@ -86,40 +86,41 @@ struct NewMessageScreen: View {
         
         // This could be an ONS name
         ModalActivityIndicatorViewController
-            .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { modalActivityIndicator in
-            SnodeAPI
-                .getSessionID(for: accountIdOrONS, using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                modalActivityIndicator.dismiss {
-                                    let message: String = {
-                                        switch error {
-                                            case SnodeAPIError.onsNotFound:
-                                                return "onsErrorNotRecognized".localized()
-                                            default:
-                                                return "onsErrorUnableToSearch".localized()
-                                        }
-                                    }()
-                                    
-                                    errorString = message
-                                }
-                        }
-                    },
-                    receiveValue: { sessionId in
-                        modalActivityIndicator.dismiss {
-                            self.startNewDM(with: sessionId)
+            .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { [dependencies] modalActivityIndicator in
+                Task { [accountIdOrONS, dependencies] in
+                    do {
+                        let sessionIdHexString: String = try await SnodeAPI.getSessionID(
+                            for: accountIdOrONS,
+                            using: dependencies
+                        )
+                        
+                        await MainActor.run {
+                            modalActivityIndicator.dismiss {
+                                self.startNewDM(with: sessionIdHexString)
+                            }
                         }
                     }
-                )
+                    catch {
+                        await MainActor.run {
+                            modalActivityIndicator.dismiss {
+                                let message: String = {
+                                    switch error {
+                                        case SnodeAPIError.onsNotFound:
+                                            return "onsErrorNotRecognized".localized()
+                                        default:
+                                            return "onsErrorUnableToSearch".localized()
+                                    }
+                                }()
+                                
+                                self.errorString = message
+                            }
+                        }
+                    }
+                }
         }
     }
     
-    private func startNewDM(with sessionId: String) {
+    @MainActor private func startNewDM(with sessionId: String) {
         dependencies[singleton: .app].presentConversationCreatingIfNeeded(
             for: sessionId,
             variant: .contact,

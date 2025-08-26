@@ -533,27 +533,15 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 
                             case (.some(let inviteByIdValue), _):
                                 // This could be an ONS name
-                                let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
-                                    SnodeAPI
-                                        .getSessionID(for: inviteByIdValue, using: dependencies)
-                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                                        .receive(on: DispatchQueue.main, using: dependencies)
-                                        .sinkUntilComplete(
-                                            receiveCompletion: { result in
-                                                switch result {
-                                                    case .finished: break
-                                                    case .failure(let error):
-                                                        modalActivityIndicator.dismiss {
-                                                            switch error {
-                                                                case SnodeAPIError.onsNotFound:
-                                                                    return showError("onsErrorNotRecognized".localized())
-                                                                default:
-                                                                    return showError("onsErrorUnableToSearch".localized())
-                                                            }
-                                                        }
-                                                }
-                                            },
-                                            receiveValue: { sessionIdHexString in
+                                let viewController = ModalActivityIndicatorViewController() { [weak self, dependencies] modalActivityIndicator in
+                                    Task { [weak self, modalActivityIndicator, dependencies] in
+                                        do {
+                                            let sessionIdHexString: String = try await SnodeAPI.getSessionID(
+                                                for: inviteByIdValue,
+                                                using: dependencies
+                                            )
+                                            
+                                            await MainActor.run {
                                                 guard !currentMemberIds.contains(sessionIdHexString) else {
                                                     // FIXME: Localise this
                                                     return showError("This Account ID or ONS belongs to an existing member")
@@ -568,7 +556,20 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                     }
                                                 }
                                             }
-                                        )
+                                        }
+                                        catch {
+                                            await MainActor.run {
+                                                modalActivityIndicator.dismiss {
+                                                    switch error {
+                                                        case SnodeAPIError.onsNotFound:
+                                                            return showError("onsErrorNotRecognized".localized())
+                                                        default:
+                                                            return showError("onsErrorUnableToSearch".localized())
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 self?.transitionToScreen(viewController, transitionType: .present)
                         }
