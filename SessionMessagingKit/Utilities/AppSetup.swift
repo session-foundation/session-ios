@@ -1,18 +1,14 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFoundation
 import GRDB
 import SessionUIKit
-import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum AppSetup {
-    public static func performSetup(
-        migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        using dependencies: Dependencies
-    ) async {
-        var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
-        
+    public static func performSetup(using dependencies: Dependencies) async throws {
         /// Order matters here.
         ///
         /// All of these "singletons" should have any dependencies used in their
@@ -33,23 +29,27 @@ public enum AppSetup {
             windowManager: OWSWindowManager(default: ())
         )
         
-        try await dependencies[singleton: .storage].perform(
-            migrations: SNMessagingKit.migrations,
-            onProgressUpdate: { [weak self] progress, minEstimatedTotalTime in
-                self?.loadingViewController?.updateProgress(
-                    progress: progress,
-                    minEstimatedTotalTime: minEstimatedTotalTime
-                )
-            }
+        dependencies.warm(cache: .appVersion)
+        dependencies.warm(singleton: .network)
+        
+        /// Configure the different targets
+        SNUtilitiesKit.configure(
+            networkMaxFileSize: Network.maxFileSize,
+            maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
+            using: dependencies
         )
+        SNMessagingKit.configure(using: dependencies)
     }
     
-    public static func setup(
-        backgroundTask: SessionBackgroundTask? = nil,
-        migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        using dependencies: Dependencies
-    ) async {
-        
+    public static func performDatabaseMigrations(
+        using dependencies: Dependencies,
+        migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil
+    ) async throws {
+        /// Run the migrations
+        try await dependencies[singleton: .storage].perform(
+            migrations: SNMessagingKit.migrations,
+            onProgressUpdate: migrationProgressChanged
+        )
     }
     
     public static func postMigrationSetup(using dependencies: Dependencies) async throws {
@@ -60,7 +60,7 @@ public enum AppSetup {
             dumpSessionIds: Set<SessionId>,
             unreadCount: Int?
         )
-        let userInfo: UserInfo? = try await dependencies[singleton: .storage].readAsync { db -> UserInfo? in
+        let userInfo: UserInfo? = try? await dependencies[singleton: .storage].readAsync { db -> UserInfo? in
             guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                 return nil
             }
