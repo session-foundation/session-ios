@@ -8,27 +8,35 @@ class AppReviewPromptDialog: UIView {
     var onPrimaryTapped: ((AppReviewPromptState) -> Void)?
     var onSecondaryTapped: ((AppReviewPromptState) -> Void)?
     
-    private lazy var closeButton: UIButton = {
-        let result = UIButton(type: .custom)
-        result.setImage(
-            UIImage(named: "X")?
-                .withRenderingMode(.alwaysTemplate),
-            for: .normal
+    private static let closeSize: CGFloat = 24
+    
+    private lazy var closeButton: UIButton = UIButton(primaryAction: UIAction { [weak self] _ in self?.close() })
+        .withConfiguration(
+            UIButton.Configuration
+                .plain()
+                .withImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate))
+                .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
-        result.themeTintColor = .textPrimary
-        result.addTarget(self, action: #selector(close), for: UIControl.Event.touchUpInside)
-        result.set(.width, to: Values.largeSpacing)
-        result.set(.height, to: Values.largeSpacing)
-        
-       return result
-    }()
+        .withConfigurationUpdateHandler { button in
+            switch button.state {
+                case .highlighted: button.imageView?.tintAdjustmentMode = .dimmed
+                default: button.imageView?.tintAdjustmentMode = .normal
+            }
+        }
+        .withImageViewContentMode(.scaleAspectFit)
+        .withThemeTintColor(.textPrimary)
+        .withAccessibility(
+            identifier: "Close button"
+        )
+        .with(.width, of: AppReviewPromptDialog.closeSize)
+        .with(.height, of: AppReviewPromptDialog.closeSize)
     
     private lazy var titleLabel: UILabel = {
         let result = UILabel()
         result.textAlignment = .center
         result.numberOfLines = 0
         result.themeTextColor = .textPrimary
-        result.font = .systemFont(ofSize: 18, weight: .bold)
+        result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         
         return result
     }()
@@ -38,7 +46,7 @@ class AppReviewPromptDialog: UIView {
         result.textAlignment = .center
         result.numberOfLines = 0
         result.themeTextColor = .textSecondary
-        result.font = .systemFont(ofSize: 16, weight: .regular)
+        result.font = ConfirmationModal.explanationFont
         
         return result
     }()
@@ -47,7 +55,7 @@ class AppReviewPromptDialog: UIView {
         let result = UIButton(type: .custom)
         result.setThemeTitleColor(.sessionButton_text, for: .normal)
         result.setThemeTitleColor(.sessionButton_highlight, for: .highlighted)
-        result.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        result.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.titleLabel?.numberOfLines = 0
         result.titleLabel?.textAlignment = .center
         result.addTarget(self, action: #selector(primaryEvent), for: .touchUpInside)
@@ -59,7 +67,7 @@ class AppReviewPromptDialog: UIView {
         let result = UIButton(type: .custom)
         result.setThemeTitleColor(.textPrimary, for: .normal)
         result.setThemeTitleColor(.textSecondary, for: .highlighted)
-        result.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        result.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.titleLabel?.numberOfLines = 0
         result.titleLabel?.textAlignment = .center
         result.addTarget(self, action: #selector(secondaryEvent), for: .touchUpInside)
@@ -96,11 +104,11 @@ class AppReviewPromptDialog: UIView {
         result.distribution = .fill
         result.spacing = 8
         result.isLayoutMarginsRelativeArrangement = true
-        result.layoutMargins = .init(
-            top: 0,
-            left: Values.largeSpacing,
-            bottom: 0,
-            right: Values.largeSpacing
+        result.layoutMargins = UIEdgeInsets(
+            top: Values.largeSpacing,
+            left: Values.veryLargeSpacing,
+            bottom: Values.verySmallSpacing,
+            right: Values.veryLargeSpacing
         )
         
         return result
@@ -158,12 +166,9 @@ private extension AppReviewPromptDialog {
     }
     
     func setupLayout() {
-        closeButton.pin(.top, to: .top, of: self, withInset: Values.mediumSmallSpacing)
-        closeButton.pin(.right, to: .right, of: self, withInset: -Values.mediumSmallSpacing)
+        closeButton.pin(.top, to: .top, of: self, withInset: Values.smallSpacing)
+        closeButton.pin(.right, to: .right, of: self, withInset: -Values.smallSpacing)
         
-        contentStack.pin(.top, to: .bottom, of: closeButton)
-        contentStack.pin(.left, to: .left, of: self, withInset: Values.mediumSmallSpacing)
-        contentStack.pin(.right, to: .right, of: self, withInset: -Values.mediumSmallSpacing)
-        contentStack.pin(.bottom, to: .bottom, of: self, withInset: -Values.mediumSmallSpacing)
+        contentStack.pin(to: self)
     }
 }
