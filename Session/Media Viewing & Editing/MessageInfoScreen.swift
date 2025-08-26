@@ -501,7 +501,7 @@ struct MessageInfoScreen: View {
         guard dependencies[feature: .sessionProEnabled] else { return (proFeatures, proCTAVariant) }
         
         if (dependencies.mutate(cache: .libSession) { $0.shouldShowProBadge(for: messageViewModel.profile) }) {
-            proFeatures.append("Session Pro Badge") // TODO: Localization
+            proFeatures.append("appProBadge".put(key: "app_pro", value: Constants.app_pro).localized())
         }
         
         if (messageViewModel.isProMessage || messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit) {
