@@ -34,7 +34,7 @@ public enum SyncPushTokensJob: JobExecutor {
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return deferred(job) // Don't need to do anything if it's not the main app
         }
-        guard dependencies[cache: .onboarding].state == .completed else {
+        guard dependencies[singleton: .onboarding].syncState.state == .completed else {
             Log.info(.syncPushTokensJob, "Deferred due to incomplete registration")
             return deferred(job)
         }

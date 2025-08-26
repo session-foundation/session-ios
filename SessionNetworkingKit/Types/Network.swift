@@ -20,6 +20,7 @@ public extension Singleton {
 public protocol NetworkType {
     var isSuspended: Bool { get async }
     nonisolated var networkStatus: AsyncStream<NetworkStatus> { get }
+    @available(*, deprecated, message: "Should try to refactor the code to use proper async/await")
     nonisolated var syncState: NetworkSyncState { get }
     
     func getActivePaths() async throws -> [LibSession.Path]

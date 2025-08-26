@@ -54,29 +54,33 @@ struct LoadAccountScreen: View {
     }
     
     private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onSuccess: (() -> ())?, onError: (() -> ())?) {
-        do {
-            guard seed.count == 16 else { throw Mnemonic.DecodingError.generic }
-            
-            try dependencies.mutate(cache: .onboarding) { try $0.setSeedData(seed) }
-        }
-        catch {
-            errorString =  source.genericErrorMessage
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                onError?()
+        Task(priority: .userInitiated) {
+            do {
+                guard seed.count == 16 else { throw Mnemonic.DecodingError.generic }
+                
+                try await dependencies[singleton: .onboarding].setSeedData(seed)
             }
-            return
+            catch {
+                errorString = source.genericErrorMessage
+                try await Task.sleep(for: .seconds(1))
+                await MainActor.run { onError?() }
+                return
+            }
+            
+            Task {
+                try await Task.sleep(for: .seconds(1))
+                await MainActor.run { onSuccess?() }
+            }
+            
+            await MainActor.run {
+                // Otherwise continue on to request push notifications permissions
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: PNModeScreen(using: dependencies)
+                )
+                viewController.setUpNavBarSessionIcon()
+                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            }
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            onSuccess?()
-        }
-        
-        // Otherwise continue on to request push notifications permissions
-        let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: PNModeScreen(using: dependencies)
-        )
-        viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
     func continueWithHexEncodedSeed(onSuccess: (() -> ())?, onError: (() -> ())?) {

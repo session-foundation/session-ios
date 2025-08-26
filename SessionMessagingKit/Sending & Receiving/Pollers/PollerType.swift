@@ -134,7 +134,7 @@ public extension PollerType {
         pollTask = Task {
             /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
             let networkStatus: NetworkStatus? = await dependencies[singleton: .network].networkStatus
-                .first(where: { _ in true })
+                .first()
             
             if networkStatus != .connected {
                 Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")

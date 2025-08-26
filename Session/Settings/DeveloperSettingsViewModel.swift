@@ -1229,27 +1229,29 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         dependencies.warm(singleton: .network)
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
-        Onboarding.Cache(
+        let updatedOnboarding: Onboarding.Manager = Onboarding.Manager(
             ed25519KeyPair: identityData.ed25519KeyPair,
             x25519KeyPair: identityData.x25519KeyPair,
             displayName: existingProfile.name
                 .nullIfEmpty
                 .defaulting(to: "Anonymous"),
             using: dependencies
-        ).completeRegistration { [dependencies] in
-            /// Re-enable developer mode
-            dependencies.setAsync(.developerModeEnabled, true)
-            
-            /// Restart the current user poller (there won't be any other pollers though)
-            Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
-                await poller.startIfNeeded()
-            }
-            
-            /// Re-sync the push tokens (if there are any)
-            SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
-            
-            Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
+        )
+        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+        await updatedOnboarding.completeRegistration()
+        
+        /// Re-enable developer mode
+        dependencies.setAsync(.developerModeEnabled, true)
+        
+        /// Restart the current user poller (there won't be any other pollers though)
+        Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
+            await poller.startIfNeeded()
         }
+        
+        /// Re-sync the push tokens (if there are any)
+        SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
+        
+        Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
     }
     
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
@@ -1781,7 +1783,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 "Clearing current account data..."
                             )
                             
-                            (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                            Task(priority: .userInitiated) {
+                                await (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                            }
                         }
                         
                         /// Need to shut everything down before the swap out the data to prevent crashes

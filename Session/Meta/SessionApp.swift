@@ -108,7 +108,7 @@ public class SessionApp: SessionAppType {
         )
     }
     
-    public func createNewConversation() {
+    @MainActor public func createNewConversation() {
         guard let homeViewController: HomeVC = self.homeViewController else { return }
         
         let viewController = SessionHostingViewController(
@@ -249,7 +249,7 @@ public protocol SessionAppType {
         dismissing presentingViewController: UIViewController?,
         animated: Bool
     )
-    func createNewConversation()
+    @MainActor func createNewConversation()
     func resetData(onReset: (() async -> ())) async
     func showPromotedScreen()
 }

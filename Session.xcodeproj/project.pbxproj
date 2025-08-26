@@ -987,6 +987,7 @@
 		FDCC22D22E56E0BC00C77B1A /* StreamLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D12E56E0B600C77B1A /* StreamLifecycleManager.swift */; };
 		FDCC22D42E5C0D9900C77B1A /* AppSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272DC2C34EFFA004D8A6C /* AppSetup.swift */; };
 		FDCC22D62E5D2ADC00C77B1A /* CancellationAwareAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D52E5D2AD700C77B1A /* CancellationAwareAsyncStream.swift */; };
+		FDCC22D82E5D3C1400C77B1A /* AsyncStream+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D72E5D3C1000C77B1A /* AsyncStream+Utilities.swift */; };
 		FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */; };
 		FDCDB8E02811007F00352A0C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */; };
 		FDD20C162A09E64A003898FB /* GetExpiriesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD20C152A09E64A003898FB /* GetExpiriesRequest.swift */; };
@@ -2267,6 +2268,7 @@
 		FDCC22CF2E52E45A00C77B1A /* GroupAuthData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupAuthData.swift; sourceTree = "<group>"; };
 		FDCC22D12E56E0B600C77B1A /* StreamLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamLifecycleManager.swift; sourceTree = "<group>"; };
 		FDCC22D52E5D2AD700C77B1A /* CancellationAwareAsyncStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationAwareAsyncStream.swift; sourceTree = "<group>"; };
+		FDCC22D72E5D3C1000C77B1A /* AsyncStream+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AsyncStream+Utilities.swift"; sourceTree = "<group>"; };
 		FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiGenerator.swift; sourceTree = "<group>"; };
 		FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupOnlyRequest.swift; sourceTree = "<group>"; };
 		FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -3955,6 +3957,7 @@
 				94C58AC82D2E036E00609195 /* Permissions.swift */,
 				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
 				FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */,
+				FDCC22D72E5D3C1000C77B1A /* AsyncStream+Utilities.swift */,
 				FD7443452D07CA9F00862443 /* CGFloat+Utilities.swift */,
 				FD7443462D07CA9F00862443 /* CGPoint+Utilities.swift */,
 				FD7443472D07CA9F00862443 /* CGRect+Utilities.swift */,
@@ -6325,6 +6328,7 @@
 				FDE754DD2C9BAF8A002A2623 /* Mnemonic.swift in Sources */,
 				FD52CB652E13B6E900A4DA70 /* ObservationBuilder.swift in Sources */,
 				FDBEE52E2B6A18B900C143A0 /* UserDefaultsConfig.swift in Sources */,
+				FDCC22D82E5D3C1400C77B1A /* AsyncStream+Utilities.swift in Sources */,
 				FD78EA042DDEC3C500D55B50 /* MultiTaskManager.swift in Sources */,
 				FD78EA062DDEC8F600D55B50 /* AsyncSequence+Utilities.swift in Sources */,
 				FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */,

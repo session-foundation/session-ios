@@ -332,15 +332,15 @@ final class NukeDataModal: Modal {
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
         
-        // Stop any pollers
-        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-        
         // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
         // profile storage
         let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
         let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
         
         Task {
+            // Stop any pollers
+            await (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+            
             await dependencies[singleton: .app].resetData { [dependencies] in
                 // Resetting the data clears the old user defaults. We need to restore the unlink default.
                 dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked

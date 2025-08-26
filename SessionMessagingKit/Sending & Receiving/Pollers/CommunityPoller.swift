@@ -706,6 +706,7 @@ public final class CommunityPollerManagerSyncState: @unchecked Sendable {
 // MARK: - CommunityPollerManagerType
 
 public protocol CommunityPollerManagerType {
+    @available(*, deprecated, message: "Should try to refactor the code to use proper async/await")
     nonisolated var syncState: CommunityPollerManagerSyncState { get }
     var serversBeingPolled: Set<String> { get async }
     var allPollers: [any PollerType] { get async }

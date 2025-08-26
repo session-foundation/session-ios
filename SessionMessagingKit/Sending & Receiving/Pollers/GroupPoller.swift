@@ -120,7 +120,7 @@ public actor GroupPoller: SwarmPollerType {
             /// `GroupKeys` config message
             guard
                 isExpired != true,
-                let response: PollResponse = await receivedPollResponse.first(where: { _ in true }),
+                let response: PollResponse = await receivedPollResponse.first(),
                 !response.contains(where: { $0.namespace == .configGroupKeys })
             else { return }
             
