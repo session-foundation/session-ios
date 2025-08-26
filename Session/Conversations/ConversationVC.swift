@@ -2107,8 +2107,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             // Check if the last known keyboard frame exists,
             // if it does not intersect with the target rectangle (the cell to be scrolled to),
-            // and if the keyboard's height is greater than 80 points (to check if keyboard is visible currently isKeyboardVisible is not set via notif).
-            if let keyboardFrame = lastKnownKeyboardFrame, !keyboardFrame.intersects(targetRect), keyboardFrame.height > 80 {
+            if let keyboardFrame = lastKnownKeyboardFrame, !keyboardFrame.intersects(targetRect) {
                 // If all conditions are met, scroll the table view to make the target rectangle visible.
                 // This is to ensure a cell is not covered by the keyboard.
                 self.tableView.scrollRectToVisible(targetRect, animated: true)
