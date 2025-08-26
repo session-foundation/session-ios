@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import Combine
 import Punycode
 import SessionUtilitiesKit
 
@@ -224,55 +223,47 @@ public final class SnodeAPI {
             let nameHash = dependencies[singleton: .crypto].generate(
                 .hash(message: Array(onsName.utf8))
             )
-        else {
-            return Fail(error: SnodeAPIError.onsHashingFailed)
-                .eraseToAnyPublisher()
-        }
+        else { throw SnodeAPIError.onsHashingFailed }
         
         // Ask 3 different snodes for the Session ID associated with the given name hash
         let base64EncodedNameHash = nameHash.toBase64()
-        
-        return dependencies[singleton: .network]
+        let nodes: Set<LibSession.Snode> = try await dependencies[singleton: .network]
             .getRandomNodes(count: validationCount)
-            .tryFlatMap { nodes in
-                Publishers.MergeMany(
-                    try nodes.map { snode in
-                        try SnodeAPI
-                            .prepareRequest(
-                                request: Request(
-                                    endpoint: .oxenDaemonRPCCall,
-                                    snode: snode,
-                                    body: OxenDaemonRPCRequest(
-                                        endpoint: .daemonOnsResolve,
-                                        body: ONSResolveRequest(
-                                            type: 0, // type 0 means Session
-                                            base64EncodedNameHash: base64EncodedNameHash
-                                        )
-                                    )
-                                ),
-                                responseType: ONSResolveResponse.self,
-                                using: dependencies
-                            )
-                            .tryMap { _, response -> String in
-                                try dependencies[singleton: .crypto].tryGenerate(
-                                    .sessionId(name: onsName, response: response)
+        let results: [String] = try await withThrowingTaskGroup { [dependencies] group in
+            for node in nodes {
+                group.addTask { [dependencies] in
+                    let request: Network.PreparedRequest<ONSResolveResponse> = try SnodeAPI.prepareRequest(
+                        request: Request(
+                            endpoint: .oxenDaemonRPCCall,
+                            snode: node,
+                            body: OxenDaemonRPCRequest(
+                                endpoint: .daemonOnsResolve,
+                                body: ONSResolveRequest(
+                                    type: 0, // type 0 means Session
+                                    base64EncodedNameHash: base64EncodedNameHash
                                 )
-                            }
-                            .send(using: dependencies)
-                            .map { _, sessionId in sessionId }
-                            .eraseToAnyPublisher()
-                    }
-                )
-            }
-            .collect()
-            .tryMap { results -> String in
-                guard results.count == validationCount, Set(results).count == 1 else {
-                    throw SnodeAPIError.onsValidationFailed
+                            )
+                        ),
+                        responseType: ONSResolveResponse.self,
+                        using: dependencies
+                    )
+                    
+                    let response: ONSResolveResponse = try await request.send(using: dependencies)
+                    
+                    return try dependencies[singleton: .crypto].tryGenerate(
+                        .sessionId(name: onsName, response: response)
+                    )
                 }
-                
-                return results[0]
             }
-            .eraseToAnyPublisher()
+            
+            return try await group.reduce(into: []) { result, next in result.append(next) }
+        }
+        
+        guard results.count == validationCount, Set(results).count == 1 else {
+            throw SnodeAPIError.onsValidationFailed
+        }
+        
+        return results[0]
     }
     
     public static func preparedGetExpiries(
@@ -315,8 +306,7 @@ public final class SnodeAPI {
                             message: message,
                             namespace: namespace
                         ),
-                        overallTimeout: Network.defaultTimeout,
-                        snodeRetrievalRetryCount: 0   // The SendMessageJob already has a retry mechanism
+                        overallTimeout: Network.defaultTimeout
                     ),
                     responseType: SendMessagesResponse.self,
                     using: dependencies
@@ -333,8 +323,7 @@ public final class SnodeAPI {
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     ),
-                    overallTimeout: Network.defaultTimeout,
-                    snodeRetrievalRetryCount: 0   // The SendMessageJob already has a retry mechanism
+                    overallTimeout: Network.defaultTimeout
                 ),
                 responseType: SendMessagesResponse.self,
                 using: dependencies
@@ -545,6 +534,7 @@ public final class SnodeAPI {
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func preparedDeleteAllMessages(
         namespace: SnodeAPI.Namespace,
+        snode: LibSession.Snode,
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         authMethod: AuthenticationMethod,
@@ -554,16 +544,15 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAll,
+                    snode: snode,
                     swarmPublicKey: try authMethod.swarmPublicKey,
-                    requiresLatestNetworkTime: true,
                     body: DeleteAllMessagesRequest(
                         namespace: namespace,
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     ),
                     requestTimeout: requestTimeout,
-                    overallTimeout: overallTimeout,
-                    snodeRetrievalRetryCount: 0
+                    overallTimeout: overallTimeout
                 ),
                 responseType: DeleteAllMessagesResponse.self,
                 using: dependencies
@@ -576,39 +565,6 @@ public final class SnodeAPI {
                 return try response.validResultMap(
                     swarmPublicKey: try authMethod.swarmPublicKey,
                     validationData: targetInfo.timestampMs,
-                    using: dependencies
-                )
-            }
-    }
-    
-    /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
-    public static func preparedDeleteAllMessages(
-        beforeMs: UInt64,
-        namespace: SnodeAPI.Namespace,
-        authMethod: AuthenticationMethod,
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<[String: Bool]> {
-        return try SnodeAPI
-            .prepareRequest(
-                request: Request(
-                    endpoint: .deleteAllBefore,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    requiresLatestNetworkTime: true,
-                    body: DeleteAllBeforeRequest(
-                        beforeMs: beforeMs,
-                        namespace: namespace,
-                        authMethod: authMethod,
-                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    ),
-                    retryCount: maxRetryCount,
-                ),
-                responseType: DeleteAllMessagesResponse.self,
-                using: dependencies
-            )
-            .tryMap { _, response -> [String: Bool] in
-                try response.validResultMap(
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    validationData: beforeMs,
                     using: dependencies
                 )
             }
