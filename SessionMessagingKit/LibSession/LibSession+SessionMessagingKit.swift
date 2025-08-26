@@ -206,11 +206,11 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: ObservingDatabase, requestId: String?) {
+        public func loadState(_ db: ObservingDatabase) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard configStore.isEmpty else {
-                return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state")
+                return Log.warn(.libSession, "Ignoring loadState due to existing state")
             }
             
             /// Retrieve the existing dumps from the database
@@ -282,7 +282,7 @@ public extension LibSession {
                 )
             }
             
-            Log.info(.libSession, "Completed loadState\(requestId.map { " for \($0)" } ?? "")")
+            Log.info(.libSession, "Completed loadState")
         }
         
         public func loadDefaultStateFor(
@@ -950,7 +950,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase, requestId: String?)
+    func loadState(_ db: ObservingDatabase)
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -1169,10 +1169,6 @@ public extension LibSessionCacheType {
         return try perform(for: variant, sessionId: userSessionId, change: { _ in try change() })
     }
     
-    func loadState(_ db: ObservingDatabase) {
-        loadState(db, requestId: nil)
-    }
-    
     func addEvent(key: ObservableKey, value: AnyHashable?) {
         addEvent(ObservedEvent(key: key, value: value))
     }
@@ -1212,7 +1208,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase, requestId: String?) {}
+    func loadState(_ db: ObservingDatabase) {}
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
