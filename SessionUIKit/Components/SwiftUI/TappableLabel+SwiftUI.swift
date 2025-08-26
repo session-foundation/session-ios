@@ -21,7 +21,6 @@ public struct TappableLabel_SwiftUI: UIViewRepresentable {
         let result: TappableLabel = TappableLabel()
         result.setContentHuggingPriority(.required, for: .horizontal)
         result.setContentHuggingPriority(.required, for: .vertical)
-        // 🔑 Allow SwiftUI to compress vertically so .frame(maxHeight:) can apply
         result.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         result.themeAttributedText = themeAttributedText
         result.themeBackgroundColor = .clear
@@ -58,11 +57,9 @@ public struct TappableLabel_SwiftUI: UIViewRepresentable {
                 label.bottomAnchor.constraint(equalTo: bottomAnchor)
             ])
             
-            // Container hugs; don't stretch to parent
             setContentHuggingPriority(.required, for: .horizontal)
             setContentCompressionResistancePriority(.required, for: .horizontal)
             setContentHuggingPriority(.required, for: .vertical)
-            // 🔑 Also allow the container to compress vertically
             setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         }
         
@@ -131,8 +128,6 @@ public struct TappableLabel_SwiftUI: UIViewRepresentable {
                 return CGSize(width: cap, height: wrapped.height)
             }
         }
-        
-        // MARK: - Measurement helpers (local to this file)
         
         private func fittedLineCount(fromBottoms bottoms: [CGFloat], cap: CGFloat) -> Int {
             var count = 0
