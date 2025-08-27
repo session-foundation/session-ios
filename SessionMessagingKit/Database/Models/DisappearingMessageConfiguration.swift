@@ -266,7 +266,7 @@ public extension DisappearingMessagesConfiguration {
                     .filter(Interaction.Columns.threadId == threadId),
                     .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
                     .filter(Interaction.Columns.authorId == userSessionId.hexString),
-                    .filter(Interaction.Columns.expiresInSeconds != 0),
+                    .filter(Interaction.Columns.expiresInSeconds != 0)
                 )
                 
             case (true, .disappearAfterRead):
@@ -322,7 +322,7 @@ public extension DisappearingMessagesConfiguration {
                 try Interaction.deleteWhere(
                     db,
                     .filter(Interaction.Columns.threadId == threadId),
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
                 )
             case .community: break
         }
