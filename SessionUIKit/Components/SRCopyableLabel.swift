@@ -7,7 +7,7 @@
 
 import UIKit
 
-@objc class SRCopyableLabel : UILabel {
+@objc public class SRCopyableLabel : UILabel {
 
     override public var canBecomeFirstResponder: Bool { return true }
 
@@ -29,7 +29,7 @@ import UIKit
         ))
     }
 
-    override func copy(_ sender: Any?) {
+    public override func copy(_ sender: Any?) {
         UIPasteboard.general.string = text
         UIMenuController.shared.hideMenu(from: self)
     }
@@ -42,7 +42,7 @@ import UIKit
         }
     }
 
-    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+    public override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         return (action == #selector(copy(_:)))
     }
 }

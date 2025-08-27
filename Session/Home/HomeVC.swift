@@ -293,7 +293,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: self.viewModel.state.serviceNetwork,
             forceOffline: self.viewModel.state.forceOffline
         )
-        setUpNavBarSessionHeading()
+        setUpNavBarSessionHeading(currentUserSessionProState: viewModel.dependencies[singleton: .sessionProState])
         
         // Recovery phrase reminder
         view.addSubview(seedReminderView)

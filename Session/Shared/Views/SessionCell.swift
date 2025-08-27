@@ -97,7 +97,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    fileprivate let titleLabel: SRCopyableLabel = {
+    public let titleLabel: SRCopyableLabel = {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
@@ -564,6 +564,7 @@ public class SessionCell: UITableViewCell {
         titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
         titleLabel.accessibilityLabel = info.title?.accessibility?.label
         titleLabel.isHidden = (info.title == nil)
+        titleLabel.attachTrailing(info.title?.textTailing)
         titleTextField.text = info.title?.text
         titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
         titleTextField.placeholder = info.title?.editingPlaceholder

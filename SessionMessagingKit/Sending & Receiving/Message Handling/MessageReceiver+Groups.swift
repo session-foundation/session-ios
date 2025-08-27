@@ -140,13 +140,14 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
+            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                profileUpdateTimestamp: profileUpdateTimestamp,
                 using: dependencies
             )
         }
@@ -244,13 +245,14 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
+            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                profileUpdateTimestamp: profileUpdateTimestamp,
                 using: dependencies
             )
         }
@@ -604,13 +606,14 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
+            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                profileUpdateTimestamp: profileUpdateTimestamp,
                 using: dependencies
             )
         }
@@ -627,7 +630,7 @@ extension MessageReceiver {
                         name: $0,
                         displayPictureUrl: profile.profilePictureUrl,
                         displayPictureEncryptionKey: profile.profileKey,
-                        displayPictureLastUpdated: (Double(sentTimestampMs) / 1000)
+                        profileLastUpdated: (Double(sentTimestampMs) / 1000)
                     )
                 }
             },
