@@ -41,6 +41,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case logging
         case network
         case disappearingMessages
+        case communities
         case groups
         case database
         
@@ -53,6 +54,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .logging: return "Logging"
                 case .network: return "Network"
                 case .disappearingMessages: return "Disappearing Messages"
+                case .communities: return "Communities"
                 case .groups: return "Groups"
                 case .database: return "Database"
             }
@@ -93,6 +95,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case debugDisappearingMessageDurations
         
+        case communityPollLimit
+        
         case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
         case updatedGroupsAllowHistoricAccessOnInvite
@@ -131,6 +135,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .pushNotificationService: return "pushNotificationService"
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
+                    
+                case .communityPollLimit: return "communityPollLimit"
                 
                 case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
                 case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
@@ -181,6 +187,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
+                case .communityPollLimit: result.append(.communityPollLimit); fallthrough
+                
                 case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
                 case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
                 case .updatedGroupsAllowHistoricAccessOnInvite:
@@ -228,6 +236,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let pushNotificationService: PushNotificationAPI.Service
         
         let debugDisappearingMessageDurations: Bool
+        
+        let communityPollLimit: Int
         
         let updatedGroupsDisableAutoApprove: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
@@ -281,6 +291,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 pushNotificationService: dependencies[feature: .pushNotificationService],
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
+                
+                communityPollLimit: dependencies[feature: .communityPollLimit],
                 
                 updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
@@ -580,6 +592,32 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             for: .debugDisappearingMessageDurations,
                             to: !current.debugDisappearingMessageDurations
                         )
+                    }
+                )
+            ]
+        )
+        let communities: SectionModel = SectionModel(
+            model: .communities,
+            elements: [
+                SessionCell.Info(
+                    id: .communityPollLimit,
+                    title: "Community Poll Limit",
+                    subtitle: """
+                    The number of messages to try to retrieve when polling a community (up to a maximum of 256).
+                    
+                    <b>Note:</b> An empty value, or a value of 0 will use the default value: \(dependencies.defaultValue(feature: .communityPollLimit).map { "\($0)"} ?? "N/A").
+                    """,
+                    trailingAccessory: .custom(info: PollLimitInputView.Info(
+                        limit: dependencies[feature: .communityPollLimit],
+                        onChange: { [dependencies] value in
+                            dependencies.set(feature: .communityPollLimit, to: value)
+                        }
+                    )),
+                    onTapView: { view in
+                        view?.subviews
+                            .flatMap { $0.subviews }
+                            .first(where: { $0 is UITextField })?
+                            .becomeFirstResponder()
                     }
                 )
             ]
@@ -922,6 +960,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             logging,
             network,
             disappearingMessages,
+            communities,
             groups,
             sessionPro,
             sessionNetwork,
@@ -986,6 +1025,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
 
+                case .communityPollLimit:
+                    guard dependencies.hasSet(feature: .communityPollLimit) else { return }
+                    
+                    dependencies.set(feature: .communityPollLimit, to: nil)
+                    forceRefresh(type: .databaseQuery)
+                    
                 case .updatedGroupsDisableAutoApprove:
                     guard dependencies.hasSet(feature: .updatedGroupsDisableAutoApprove) else { return }
                     
@@ -1907,6 +1952,96 @@ private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
         self.onResult(nil)
     }
 }
+
+// MARK: - PollLimitInputView
+
+final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accessory.CustomView {
+    struct Info: Equatable, SessionCell.Accessory.CustomViewInfo {
+        typealias View = PollLimitInputView
+        
+        let limit: Int
+        let onChange: (Int?) -> Void
+        
+        public static func ==(lhs: Info, rhs: Info) -> Bool {
+            return lhs.limit == rhs.limit
+        }
+        
+        public func hash(into hasher: inout Hasher) {
+            limit.hash(into: &hasher)
+        }
+    }
+    
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> PollLimitInputView {
+        return PollLimitInputView()
+    }
+    
+    public static let size: SessionCell.Accessory.Size = .fillWidthWrapHeight
+    private var onChange: ((Int?) -> Void)?
+
+    // MARK: - Components
+
+    private lazy var textField: UITextField = {
+        let result = UITextField()
+        result.font = .systemFont(ofSize: Values.mediumFontSize)
+        result.textAlignment = .center
+        result.delegate = self
+
+        return result
+    }()
+
+    // MARK: - Initializtion
+
+    init() {
+        super.init(frame: .zero)
+
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("Use init(color:) instead")
+    }
+
+    // MARK: - Layout
+
+    private func setupUI() {
+        layer.borderWidth = 1
+        layer.cornerRadius = 8
+        themeBackgroundColor = .backgroundPrimary
+        themeBorderColor = .borderSeparator
+        
+        addSubview(textField)
+        textField.pin(to: self, withInset: Values.verySmallSpacing)
+    }
+
+    // MARK: - Content
+
+    func update(with info: Info) {
+        onChange = info.onChange
+        textField.text = "\(info.limit)"
+    }
+    
+    // MARK: - UITextFieldDelegate
+    
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        let currentText: String = (textField.text ?? "")
+        
+        guard let textRange: Range = Range(range, in: currentText) else { return false }
+        
+        let updatedText: String = currentText.replacingCharacters(in: textRange, with: string)
+        
+        // Allow an empty string (revert to the default in this case)
+        guard !updatedText.isEmpty else {
+            onChange?(nil)
+            return true
+        }
+        guard let value: Int = Int(updatedText) else { return false }
+        guard value >= 0 && value < 256 else { return false }
+        
+        onChange?(value)
+        return true
+    }
+}
+
 
 // MARK: - Listable Conformance
 

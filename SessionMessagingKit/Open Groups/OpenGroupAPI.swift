@@ -496,7 +496,8 @@ public enum OpenGroupAPI {
                 endpoint: .roomMessagesRecent(roomToken),
                 queryParameters: [
                     .updateTypes: UpdateTypes.reaction.rawValue,
-                    .reactors: "5"
+                    .reactors: "5",
+                    .limit: "\(dependencies[feature: .communityPollLimit])"
                 ],
                 authMethod: authMethod
             ),
@@ -524,7 +525,8 @@ public enum OpenGroupAPI {
                 endpoint: .roomMessagesBefore(roomToken, id: messageId),
                 queryParameters: [
                     .updateTypes: UpdateTypes.reaction.rawValue,
-                    .reactors: "5"
+                    .reactors: "5",
+                    .limit: "\(dependencies[feature: .communityPollLimit])"
                 ],
                 authMethod: authMethod
             ),
@@ -552,7 +554,8 @@ public enum OpenGroupAPI {
                 endpoint: .roomMessagesSince(roomToken, seqNo: seqNo),
                 queryParameters: [
                     .updateTypes: UpdateTypes.reaction.rawValue,
-                    .reactors: "5"
+                    .reactors: "5",
+                    .limit: "\(dependencies[feature: .communityPollLimit])"
                 ],
                 authMethod: authMethod
             ),
