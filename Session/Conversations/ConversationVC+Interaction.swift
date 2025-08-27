@@ -2991,10 +2991,11 @@ extension ConversationVC {
                     .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                         /// duplicate one from inside the group history)
-                        _ = try Interaction
-                            .filter(Interaction.Columns.threadId == group.id)
+                        try Interaction.deleteWhere(
+                            db,
+                            .filter(Interaction.Columns.threadId == group.id),
                             .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-                            .deleteAll(db)
+                        )
                         
                         /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
                         /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`

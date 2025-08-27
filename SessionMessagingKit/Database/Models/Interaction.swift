@@ -893,7 +893,7 @@ public extension Interaction {
         }
     }
     
-    struct ThreadInfo: FetchableRecord, Codable {
+    struct ThreadInfo: FetchableRecord, Codable, Hashable {
         public let id: Int64
         public let threadId: String
         
@@ -1295,6 +1295,19 @@ public extension Interaction.Variant {
 // MARK: - Deletion
 
 public extension Interaction {
+    enum Filter {
+        case filter(SQLSpecificExpressible)
+        case hasAttachments(Bool)
+        case deleteAll
+        
+        var isDeleteAll: Bool {
+            switch self {
+                case .deleteAll: return true
+                default: return false
+            }
+        }
+    }
+    
     private struct InteractionVariantInfo: Codable, FetchableRecord {
         public typealias Columns = CodingKeys
         public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -1448,7 +1461,9 @@ public extension Interaction {
             .filter { $0.variant.isInfoMessage }
             .compactMap { $0.id }
             .asSet()
-        _ = try Interaction.deleteAll(db, ids: infoMessageIds)
+        try LoggingDatabaseRecordContext.$suppressLogs.withValue(true) {
+            try Interaction.deleteAll(db, ids: infoMessageIds)
+        }
         
         let localOnly: Bool = (options.contains(.local) && !options.contains(.network))
         
@@ -1470,9 +1485,11 @@ public extension Interaction {
                 }()
                 
                 if options.contains(.noArtifacts) {
-                    try Interaction
-                        .filter(ids: info.map { $0.id })
-                        .deleteAll(db)
+                    try LoggingDatabaseRecordContext.$suppressLogs.withValue(true) {
+                        try Interaction
+                            .filter(ids: info.map { $0.id })
+                            .deleteAll(db)
+                    }
                 } else {
                     try Interaction
                         .filter(ids: info.map { $0.id })
@@ -1505,5 +1522,67 @@ public extension Interaction {
                 attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }
             }
         }
+    }
+    
+    /// Whenever a message gets deleted we need to send an event to ensure the home screen updates correctly, this function manages
+    /// that logic so should be used instead of `delete(db)`/`deleteAll(db)`
+    @discardableResult static func deleteWhere(
+        _ db: ObservingDatabase,
+        _ filters: Filter...
+    ) throws -> Int {
+        var query: QueryInterfaceRequest<Interaction> = Interaction.select(.id, .threadId)
+        let shouldDeleteAll: Bool = filters.contains(where: { $0.isDeleteAll })
+        var hasAttachmentsFilter: Bool? = nil
+        
+        /// Apply each of the filters to the query (unless the filters contains `deleteAll`, in which case ignore all filters)
+        if !shouldDeleteAll {
+            for filter in filters {
+                switch filter {
+                    case .deleteAll: break
+                    case .filter(let expressible): query = query.filter(expressible)
+                    case .hasAttachments(let value): hasAttachmentsFilter = value
+                }
+            }
+        }
+        
+        /// Get the `id`/`threadId` combination
+        var info: Set<ThreadInfo> = try query.asRequest(of: ThreadInfo.self).fetchSet(db)
+        
+        /// Since the `hasAttachments` filter is based on another table, we need custom logic for it so fetch all ids with attachments
+        /// and filter the above result based on the `hasAttachments` value
+        switch (shouldDeleteAll, hasAttachmentsFilter) {
+            case (true, _), (_, .none): break
+            case (_, .some(let requireAttachments)):
+                let interactionIdsWithAttachments: Set<Int64> = try InteractionAttachment
+                    .filter(info.map { $0.id }.contains(InteractionAttachment.Columns.interactionId))
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                
+                info = info.filter { interactionIdsWithAttachments.contains($0.id) == requireAttachments }
+        }
+        
+        /// Actually delete the messages
+        let numDeleted: Int = try LoggingDatabaseRecordContext.$suppressLogs.withValue(true) {
+            try Interaction
+                .filter(info.map { $0.id }.contains(Interaction.Columns.id))
+                .deleteAll(db)
+        }
+        
+        /// Notify any observers of message deletion
+        info.forEach { info in
+            db.addMessageEvent(id: info.id, threadId: info.threadId, type: .deleted)
+        }
+        
+        return numDeleted
+    }
+}
+
+extension Interaction: LoggingDatabaseRecord {
+    public func logDeletion() { Interaction.logDeletion() }
+    public static func logDeletion() {
+        Log.critical("Incorrectly deleted interaction directly instead of via `deleteWhere` or `markAsDeleted`.")
+        #if DEBUG
+        fatalError("Incorrectly deleted interaction directly instead of via `deleteWhere` or `markAsDeleted`.")
+        #endif
     }
 }
