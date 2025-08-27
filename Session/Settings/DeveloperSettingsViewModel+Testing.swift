@@ -60,6 +60,11 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** `true`/`false` (default: `false`)
             case debugDisappearingMessageDurations
+            
+            /// Controls the number of messages that the CommunityPoller should try to retrieve every time it polls
+            ///
+            /// **Value:** `1-256` (default: `100`, a value of `0` will use the default)
+            case communityPollLimit
         }
         
         for (key, value) in ProcessInfo.processInfo.environment {
@@ -94,6 +99,14 @@ extension DeveloperSettingsViewModel {
                     
                 case .debugDisappearingMessageDurations:
                     dependencies.set(feature: .debugDisappearingMessageDurations, to: (value == "true"))
+                    
+                case .communityPollLimit:
+                    guard
+                        let intValue: Int = Int(value),
+                        intValue >= 1 && intValue < 256
+                    else { return }
+                    
+                    dependencies.set(feature: .communityPollLimit, to: intValue)
             }
         }
 #endif
