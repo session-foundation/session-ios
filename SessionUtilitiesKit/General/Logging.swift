@@ -858,7 +858,6 @@ extension Log.Level: FeatureOption {
 // MARK: - AllLoggingCategories
 
 public struct AllLoggingCategories: FeatureOption {
-    public static let allCases: [AllLoggingCategories] = []
     @ThreadSafeObject private static var registeredCategoryDefaults: Set<Log.Category> = []
     
     // MARK: - Initialization

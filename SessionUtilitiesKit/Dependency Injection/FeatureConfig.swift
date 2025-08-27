@@ -25,7 +25,6 @@ public class FeatureConfig<T: FeatureOption>: FeatureStorage {
         self.createInstance = { _ in
             Feature<T>(
                 identifier: identifier,
-                options: Array(T.allCases),
                 defaultOption: defaultOption,
                 automaticChangeBehaviour: automaticChangeBehaviour
             )
