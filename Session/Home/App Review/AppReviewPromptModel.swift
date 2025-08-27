@@ -42,7 +42,7 @@ extension AppReviewPromptState {
                     .localized(),
                 message: "rateSessionModalDescription"
                     .put(key: "app_name", value: Constants.app_name)
-                    .put(key: "storevariant", value: "App Store")
+                    .put(key: "storevariant", value: Constants.store_name)
                     .localized(),
                 primaryButtonTitle: "rateSessionApp".localized(),
                 secondaryButtonTitle: "notNow".localized()
