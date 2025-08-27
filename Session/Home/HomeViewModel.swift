@@ -541,7 +541,8 @@ public class HomeViewModel: NavigatableStateHolder {
         guard state.pendingAppReviewPromptState != nil else { return }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
-            self.didShowAppReviewPrompt()
+            // Set flag that review prompt was already presented
+            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
             
             dependencies.notifyAsync(
                 priority: .immediate,
@@ -558,10 +559,6 @@ public class HomeViewModel: NavigatableStateHolder {
         /// Wait 2 weeks before trying again
         dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
-    }
-    
-    func didShowAppReviewPrompt() {
-        dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
@@ -589,7 +586,7 @@ public class HomeViewModel: NavigatableStateHolder {
     func submitFeedbackSurvery() {
         guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
         
-        var surveyUrl: URL = url.appending(queryItems: [
+        let surveyUrl: URL = url.appending(queryItems: [
             .init(name: "platform", value: "iOS"),
             .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
         ])
