@@ -33,7 +33,7 @@ final class DeletedMessageView: UIView {
         let imageContainerView: UIView = UIView()
         imageContainerView.set(.width, to: DeletedMessageView.iconImageViewSize)
         imageContainerView.set(.height, to: DeletedMessageView.iconImageViewSize)
-        
+
         let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
         imageView.themeTintColor = textColor
         imageView.contentMode = .scaleAspectFit
@@ -45,7 +45,6 @@ final class DeletedMessageView: UIView {
         // Body label
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
-        titleLabel.preferredMaxLayoutWidth = maxWidth - 6   // `6` for the `stackView.layoutMargins`
         titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
         titleLabel.text = {
             switch variant {
@@ -69,6 +68,6 @@ final class DeletedMessageView: UIView {
         
         let calculatedSize: CGSize = stackView.systemLayoutSizeFitting(CGSize(width: maxWidth, height: 999))
         stackView.pin(to: self, withInset: Values.smallSpacing)
-        stackView.set(.height, to: calculatedSize.height)
+        stackView.set(.height, greaterThanOrEqualTo: calculatedSize.height)
     }
 }
