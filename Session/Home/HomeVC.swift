@@ -471,10 +471,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             displayPictureUrl: nil,
             profile: userProfile,
             profileIcon: {
-                switch (serviceNetwork, forceOffline) {
-                    case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                    case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                    default: return .none
+                switch (serviceNetwork, serviceNetwork.title.first) {
+                    case (.mainnet, _), (_, .none): return .none
+                    case (_, .some(let letter)): return .letter(letter, forceOffline)
                 }
             }(),
             additionalProfile: nil,

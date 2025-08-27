@@ -88,10 +88,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case advancedLogging
         case loggingCategory(String)
         
-        case serviceNetwork
-        case forceOffline
+        case networkConfig
         case resetSnodeCache
-        case pushNotificationService
         
         case debugDisappearingMessageDurations
         
@@ -129,10 +127,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .advancedLogging: return "advancedLogging"
                 case .loggingCategory(let categoryIdentifier): return "loggingCategory-\(categoryIdentifier)"
                 
-                case .serviceNetwork: return "serviceNetwork"
-                case .forceOffline: return "forceOffline"
+                case .networkConfig: return "networkConfig"
                 case .resetSnodeCache: return "resetSnodeCache"
-                case .pushNotificationService: return "pushNotificationService"
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                     
@@ -180,10 +176,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
                 case .loggingCategory: result.append(.loggingCategory("")); fallthrough
                 
-                case .serviceNetwork: result.append(.serviceNetwork); fallthrough
-                case .forceOffline: result.append(.forceOffline); fallthrough
+                case .networkConfig: result.append(.networkConfig); fallthrough
                 case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
-                case .pushNotificationService: result.append(.pushNotificationService); fallthrough
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
@@ -230,10 +224,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let defaultLogLevel: Log.Level
         let advancedLogging: Bool
         let loggingCategories: [Log.Category: Log.Level]
-        
-        let serviceNetwork: ServiceNetwork
-        let forceOffline: Bool
-        let pushNotificationService: PushNotificationAPI.Service
         
         let debugDisappearingMessageDurations: Bool
         
@@ -285,10 +275,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
                 advancedLogging: (self?.showAdvancedLogging == true),
                 loggingCategories: dependencies[feature: .allLogLevels].currentValues(using: dependencies),
-                
-                serviceNetwork: dependencies[feature: .serviceNetwork],
-                forceOffline: dependencies[feature: .forceOffline],
-                pushNotificationService: dependencies[feature: .pushNotificationService],
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 
@@ -498,42 +484,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .network,
             elements: [
                 SessionCell.Info(
-                    id: .serviceNetwork,
-                    title: "Environment",
+                    id: .networkConfig,
+                    title: "Network Configuration",
                     subtitle: """
-                    The environment used for sending requests and storing messages.
+                    Configure settings related to how and where network requests are sent.
                     
-                    <b>Warning:</b>
-                    Changing between some of these options can result in all conversation and snode data being cleared and any pending network requests being cancelled.
+                    <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
+                    <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
                     """,
-                    trailingAccessory: .dropDown { current.serviceNetwork.title },
+                    trailingAccessory: .icon(.chevronRight),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
                             SessionTableViewController(
-                                viewModel: SessionListViewModel<ServiceNetwork>(
-                                    title: "Environment",
-                                    options: ServiceNetwork.allCases,
-                                    behaviour: .autoDismiss(
-                                        initialSelection: current.serviceNetwork,
-                                        onOptionSelected: self?.updateServiceNetwork
-                                    ),
-                                    using: dependencies
-                                )
+                                viewModel: DeveloperNetworkSettingsViewModel(using: dependencies)
                             )
                         )
                     }
-                ),
-                SessionCell.Info(
-                    id: .forceOffline,
-                    title: "Force Offline",
-                    subtitle: """
-                    Shut down the current network and cause all future network requests to fail after a 1 second delay with a 'serviceUnavailable' error.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.forceOffline,
-                        oldValue: previous?.forceOffline
-                    ),
-                    onTap: { [weak self] in self?.updateForceOffline(current: current.forceOffline) }
                 ),
                 SessionCell.Info(
                     id: .resetSnodeCache,
@@ -543,32 +509,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
                     onTap: { [weak self] in self?.resetServiceNodeCache() }
-                ),
-                SessionCell.Info(
-                    id: .pushNotificationService,
-                    title: "Push Notification Service",
-                    subtitle: """
-                    The service used for subscribing for push notifications. The production service only works for production builds and neither service work in the Simulator. 
-                    
-                    <b>Warning:</b>
-                    Changing this option will result in unsubscribing from the current service and subscribing to the new service which may take a few minutes.
-                    """,
-                    trailingAccessory: .dropDown { current.pushNotificationService.title },
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: SessionListViewModel<PushNotificationAPI.Service>(
-                                    title: "Push Notification Service",
-                                    options: PushNotificationAPI.Service.allCases,
-                                    behaviour: .autoDismiss(
-                                        initialSelection: current.pushNotificationService,
-                                        onOptionSelected: self?.updatePushNotificationService
-                                    ),
-                                    using: dependencies
-                                )
-                            )
-                        )
-                    }
                 )
             ]
         )
@@ -994,32 +934,18 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .truncatePubkeysInLogs, to: nil)
                     
-                case .copyDocumentsPath: break   // Not a feature
+                case .copyDocumentsPath: break  // Not a feature
                 case .copyAppGroupPath: break   // Not a feature
-                case .resetSnodeCache: break    // Not a feature
                 case .createMockContacts: break // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .importDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
+                case .networkConfig: break      // Not a feature
+                case .resetSnodeCache: break    // Not a feature
                     
                 case .defaultLogLevel: updateDefaulLogLevel(to: nil)    // Always reset
                 case .loggingCategory: resetLoggingCategories()         // Always reset
                 
-                case .serviceNetwork:
-                    guard dependencies.hasSet(feature: .serviceNetwork) else { return }
-                    
-                    updateServiceNetwork(to: nil)
-                    
-                case .forceOffline:
-                    guard dependencies.hasSet(feature: .forceOffline) else { return }
-                    
-                    updateFlag(for: .forceOffline, to: nil)
-                    
-                case .pushNotificationService:
-                    guard dependencies.hasSet(feature: .pushNotificationService) else { return }
-                    
-                    updatePushNotificationService(to: nil)
-                    
                 case .debugDisappearingMessageDurations:
                     guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
                     
@@ -1134,171 +1060,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         forceRefresh(type: .databaseQuery)
     }
     
-    private func updateServiceNetwork(to updatedNetwork: ServiceNetwork?) {
-        Task {
-            await DeveloperSettingsViewModel.updateServiceNetwork(to: updatedNetwork, using: dependencies)
-            await MainActor.run { forceRefresh(type: .databaseQuery) }
-        }
-    }
-    
-    private func updatePushNotificationService(to updatedService: PushNotificationAPI.Service?) {
-        guard
-            dependencies[defaults: .standard, key: .isUsingFullAPNs],
-            updatedService != dependencies[feature: .pushNotificationService]
-        else {
-            forceRefresh(type: .databaseQuery)
-            return
-        }
-        
-        /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
-        dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
-        
-        SyncPushTokensJob
-            .run(uploadOnlyIfStale: false, using: dependencies)
-            .handleEvents(
-                receiveOutput: { [weak self, dependencies] _ in
-                    dependencies.set(feature: .pushNotificationService, to: updatedService)
-                    dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
-                    
-                    self?.forceRefresh(type: .databaseQuery)
-                }
-            )
-            .flatMap { [dependencies] _ in SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies) }
-            .sinkUntilComplete()
-    }
-    
-    internal static func updateServiceNetwork(
-        to updatedNetwork: ServiceNetwork?,
-        using dependencies: Dependencies
-    ) async {
-        struct IdentityData {
-            let ed25519KeyPair: KeyPair
-            let x25519KeyPair: KeyPair
-        }
-        
-        /// Make sure we are actually changing the network before clearing all of the data
-        guard
-            updatedNetwork != dependencies[feature: .serviceNetwork],
-            let identityData: IdentityData = try? await dependencies[singleton: .storage].readAsync(value: { db in
-                IdentityData(
-                    ed25519KeyPair: KeyPair(
-                        publicKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data),
-                        secretKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data)
-                    ),
-                    x25519KeyPair: KeyPair(
-                        publicKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data),
-                        secretKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data)
-                    )
-                )
-            })
-        else { return }
-        
-        Log.info("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
-        
-        /// Stop all pollers
-        dependencies.remove(singleton: .currentUserPoller)
-        dependencies.remove(singleton: .groupPollerManager)
-        dependencies.remove(singleton: .communityPollerManager)
-        
-        /// Reset the network
-        ///
-        /// **Note:** We need to set this to a `NoopNetwork` because a number of objects observe the `networkStatus` which
-        /// would result in automatic re-creation of the network with it's current config (since the `serviceNetwork` hasn't been updated
-        /// yet)
-        await dependencies[singleton: .network].suspendNetworkAccess()
-        await dependencies[singleton: .network].finishCurrentObservations()
-        await dependencies[singleton: .network].clearCache()
-        dependencies.set(singleton: .network, to: LibSession.NoopNetwork())
-        
-        /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
-        /// layer and we don't want these to be cancelled)
-        if let existingToken: String = try? await dependencies[singleton: .storage].readAsync(value: { db in db[.lastRecordedPushToken] }) {
-            Task.detached(priority: .userInitiated) {
-                try? await PushNotificationAPI.unsubscribeAll(
-                    token: Data(hex: existingToken),
-                    using: dependencies
-                )
-            }
-        }
-        
-        /// Clear the snodeAPI  caches
-        dependencies.remove(cache: .snodeAPI)
-        
-        /// Remove the libSession state (store the profile locally to maintain the name between environments)
-        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-        dependencies.remove(cache: .libSession)
-        
-        /// Remove any network-specific data
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            _ = try SnodeReceivedMessageInfo.deleteAll(db)
-            _ = try SessionThread.deleteAll(db)
-            _ = try MessageDeduplication.deleteAll(db)
-            _ = try ClosedGroup.deleteAll(db)
-            _ = try OpenGroup.deleteAll(db)
-            _ = try Capability.deleteAll(db)
-            _ = try GroupMember.deleteAll(db)
-            _ = try Contact
-                .filter(Contact.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try Profile
-                .filter(Profile.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try BlindedIdLookup.deleteAll(db)
-            _ = try ConfigDump.deleteAll(db)
-        }
-        
-        /// Remove the `ExtensionHelper` cache
-        dependencies[singleton: .extensionHelper].deleteCache()
-        
-        Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
-        
-        /// Update to the new `ServiceNetwork`
-        dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
-        
-        /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
-        dependencies.remove(singleton: .network)
-        dependencies.warm(singleton: .network)
-        
-        /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
-        let updatedOnboarding: Onboarding.Manager = Onboarding.Manager(
-            ed25519KeyPair: identityData.ed25519KeyPair,
-            x25519KeyPair: identityData.x25519KeyPair,
-            displayName: existingProfile.name
-                .nullIfEmpty
-                .defaulting(to: "Anonymous"),
-            using: dependencies
-        )
-        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
-        await updatedOnboarding.completeRegistration()
-        
-        /// Re-enable developer mode
-        dependencies.setAsync(.developerModeEnabled, true)
-        
-        /// Restart the current user poller (there won't be any other pollers though)
-        Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
-            await poller.startIfNeeded()
-        }
-        
-        /// Re-sync the push tokens (if there are any)
-        SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
-        
-        Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
-    }
-    
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
@@ -1312,16 +1073,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
             updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
-        }
-    }
-    
-    private func updateForceOffline(current: Bool) {
-        updateFlag(for: .forceOffline, to: !current)
-        
-        // Reset the network cache
-        Task {
-            await dependencies[singleton: .network].setNetworkStatus(status: current ? .unknown : .disconnected)
-            dependencies.remove(singleton: .network)
         }
     }
     
@@ -2048,12 +1799,6 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
 
 // MARK: - Listable Conformance
 
-extension ServiceNetwork: @retroactive ContentIdentifiable {}
-extension ServiceNetwork: @retroactive ContentEquatable {}
-extension ServiceNetwork: Listable {}
-extension PushNotificationAPI.Service: @retroactive ContentIdentifiable {}
-extension PushNotificationAPI.Service: @retroactive ContentEquatable {}
-extension PushNotificationAPI.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}

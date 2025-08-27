@@ -472,12 +472,20 @@ actor LibSessionNetwork: NetworkType {
                 
                 var error: [CChar] = [CChar](repeating: 0, count: 256)
                 var network: UnsafeMutablePointer<network_object_v2>?
+                var cDevnetNodes: [network_service_node] = []
                 var config: session_network_config = session_network_config_default()
                 config.cache_refresh_using_legacy_endpoint = true
                 
-                if dependencies[feature: .serviceNetwork] == .testnet {
-                    config.netid = SESSION_NETWORK_TESTNET
-                    config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
+                switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
+                    case (.mainnet, _, _): break
+                    case (.testnet, _, _), (_, _, false):
+                        config.netid = SESSION_NETWORK_TESTNET
+                        config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
+                        
+                    case (.devnet, let devnetConfig, true):
+                        config.netid = SESSION_NETWORK_DEVNET
+                        config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
+                        cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
                 }
                 
                 /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)
@@ -486,11 +494,19 @@ actor LibSessionNetwork: NetworkType {
                 }
                 
                 try cCachePath.withUnsafeBufferPointer { cachePtr in
-                    config.cache_dir = cachePtr.baseAddress
-                    
-                    guard session_network_init(&network, &config, &error) else {
-                        Log.error(.network, "Unable to create network object: \(String(cString: error))")
-                        throw NetworkError.invalidState
+                    try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
+                        config.cache_dir = cachePtr.baseAddress
+                        
+                        /// Only set the devnet pointers if we are in devnet mode
+                        if config.netid == SESSION_NETWORK_DEVNET {
+                            config.devnet_seed_nodes = devnetNodesPtr.baseAddress
+                            config.devnet_seed_nodes_size = devnetNodesPtr.count
+                        }
+                        
+                        guard session_network_init(&network, &config, &error) else {
+                            Log.error(.network, "Unable to create network object: \(String(cString: error))")
+                            throw NetworkError.invalidState
+                        }
                     }
                 }
                 
@@ -810,6 +826,15 @@ extension LibSession {
             omqPort = cSnode.get(\.omq_port)
             version = cSnode.versionString
             swarmId = cSnode.get(\.swarm_id)
+        }
+        
+        internal init(_ config: ServiceNetwork.DevnetConfiguration) {
+            self.ed25519PubkeyHex = config.pubkey
+            self.ip = config.ip
+            self.httpsPort = config.httpPort
+            self.omqPort = config.omqPort
+            self.version = ""
+            self.swarmId = 0
         }
         
         internal init(

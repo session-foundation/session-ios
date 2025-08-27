@@ -196,11 +196,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
         Task {
             dependencies[singleton: .storage].resumeDatabaseAccess()
-            await dependencies[singleton: .network].resumeNetworkAccess()
             await ensureRootViewController(calledFrom: .didBecomeActive)
         }
 
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self] in
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self, dependencies] in
+            /// Wait for the app to be ready before resuming network access (this is mostly for initial launch which also calls
+            /// `applicationDidBecomeActive` (and if we don't want then the network can be started before any env variables
+            /// have been processed which could be inefficient if we immediately tear down and change the network)
+            Task { await dependencies[singleton: .network].resumeNetworkAccess() }
+            
             self?.handleActivation()
             
             /// Clear all notifications whenever we become active once the app is ready
@@ -363,8 +367,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         
         Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
-        LibSession.setupLogger(using: dependencies)
         Log.info(.cat, "Setting up environment.")
+        LibSession.setupLogger(using: dependencies)
         
         /// If we are running automated tests we should process environment variables before we do anything else
         await DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded(using: dependencies)
@@ -436,6 +440,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             
             /// Now that the theme settings have been applied we can complete the migrations
+            Log.info(.cat, "Environment setup complete.")
             await self.completePostMigrationSetup(calledFrom: .finishLaunching)
         }
         catch {

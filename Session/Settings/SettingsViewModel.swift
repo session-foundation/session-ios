@@ -260,10 +260,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         size: .hero,
                         profile: state.profile,
                         profileIcon: {
-                            switch (state.serviceNetwork, state.forceOffline) {
-                                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
+                            switch (state.serviceNetwork, state.serviceNetwork.title.first) {
+                                case (.mainnet, _), (_, .none): return .none
+                                case (_, .some(let letter)): return .letter(letter, state.forceOffline)
                             }
                         }()
                     ),

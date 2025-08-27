@@ -1,0 +1,1011 @@
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
+
+import Foundation
+import Combine
+import GRDB
+import DifferenceKit
+import SessionUIKit
+import SessionNetworkingKit
+import SessionMessagingKit
+import SessionUtilitiesKit
+
+class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    
+    private var updatedDevnetPubkey: String?
+    private var updatedDevnetIp: String?
+    private var updatedDevnetHttpPort: String?
+    private var updatedDevnetOmqPort: String?
+    
+    /// This value is the current state of the view
+    @MainActor @Published private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
+    
+    // MARK: - Initialization
+    
+    @MainActor init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        self.internalState = State.initialState(using: dependencies)
+        
+        /// Bind the state
+        self.observationTask = ObservationBuilder
+            .initialValue(self.internalState)
+            .debounce(for: .never)
+            .using(dependencies: dependencies)
+            .query(DeveloperNetworkSettingsViewModel.queryState)
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                let oldState: State = self.internalState
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+            }
+    }
+    
+    // MARK: - Config
+    
+    public enum Section: SessionTableSection {
+        case general
+        case devnetConfig
+        
+        var title: String? {
+            switch self {
+                case .general: return nil
+                case .devnetConfig: return "Devnet Configuration"
+            }
+        }
+        
+        var style: SessionTableSectionStyle {
+            switch self {
+                case .general: return .padding
+                default: return .titleRoundedContent
+            }
+        }
+    }
+    
+    public enum TableItem: Hashable, Differentiable, CaseIterable {
+        case environment
+        case pushNotificationService
+        case forceOffline
+        
+        case devnetPubkey
+        case devnetIp
+        case devnetHttpPort
+        case devnetOmqPort
+        
+        // MARK: - Conformance
+        
+        public typealias DifferenceIdentifier = String
+        
+        public var differenceIdentifier: String {
+            switch self {
+                case .environment: return "environment"
+                case .pushNotificationService: return "pushNotificationService"
+                case .forceOffline: return "forceOffline"
+                    
+                case .devnetPubkey: return "devnetPubkey"
+                case .devnetIp: return "devnetIp"
+                case .devnetHttpPort: return "devnetHttpPort"
+                case .devnetOmqPort: return "devnetOmqPort"
+            }
+        }
+        
+        public func isContentEqual(to source: TableItem) -> Bool {
+            self.differenceIdentifier == source.differenceIdentifier
+        }
+        
+        public static var allCases: [TableItem] {
+            var result: [TableItem] = []
+            switch TableItem.environment {
+                case .environment: result.append(.environment); fallthrough
+                case .pushNotificationService: result.append(.pushNotificationService); fallthrough
+                case .forceOffline: result.append(.forceOffline); fallthrough
+                    
+                case .devnetPubkey: result.append(.devnetPubkey); fallthrough
+                case .devnetIp: result.append(.devnetIp); fallthrough
+                case .devnetHttpPort: result.append(.devnetHttpPort); fallthrough
+                case .devnetOmqPort: result.append(.devnetOmqPort)
+            }
+            
+            return result
+        }
+    }
+    
+    // MARK: - Content
+    
+    public struct State: Equatable, ObservableKeyProvider {
+        struct NetworkState: Equatable, Hashable {
+            let environment: ServiceNetwork
+            let pushNotificationService: PushNotificationAPI.Service
+            let forceOffline: Bool
+            
+            let devnetConfig: ServiceNetwork.DevnetConfiguration
+            
+            public func with(
+                environment: ServiceNetwork? = nil,
+                pushNotificationService: PushNotificationAPI.Service? = nil,
+                forceOffline: Bool? = nil,
+                devnetConfig: ServiceNetwork.DevnetConfiguration? = nil
+            ) -> NetworkState {
+                return NetworkState(
+                    environment: (environment ?? self.environment),
+                    pushNotificationService: (pushNotificationService ?? self.pushNotificationService),
+                    forceOffline: (forceOffline ?? self.forceOffline),
+                    devnetConfig: (devnetConfig ?? self.devnetConfig)
+                )
+            }
+        }
+        
+        let initialState: NetworkState
+        let pendingState: NetworkState
+        
+        @MainActor public func sections(viewModel: DeveloperNetworkSettingsViewModel, previousState: State) -> [SectionModel] {
+            DeveloperNetworkSettingsViewModel.sections(
+                state: self,
+                previousState: previousState,
+                viewModel: viewModel
+            )
+        }
+        
+        public let observedKeys: Set<ObservableKey> = [
+            .updateScreen(DeveloperNetworkSettingsViewModel.self)
+        ]
+        
+        static func initialState(using dependencies: Dependencies) -> State {
+            let initialState: NetworkState = NetworkState(
+                environment: dependencies[feature: .serviceNetwork],
+                pushNotificationService: dependencies[feature: .pushNotificationService],
+                forceOffline: dependencies[feature: .forceOffline],
+                devnetConfig: dependencies[feature: .devnetConfig]
+            )
+            
+            return State(
+                initialState: initialState,
+                pendingState: initialState
+            )
+        }
+    }
+    
+    let title: String = "Developer Network Settings"
+    
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = $internalState
+        .map { [weak self] state -> SessionButton.Info? in
+            return SessionButton.Info(
+                style: .bordered,
+                title: "set".localized(),
+                isEnabled: {
+                    guard state.initialState != state.pendingState else { return false }
+                    
+                    return (
+                        state.pendingState.environment != .devnet ||
+                        state.pendingState.devnetConfig.isValid
+                    )
+                }(),
+                accessibility: Accessibility(
+                    identifier: "Set button",
+                    label: "Set button"
+                ),
+                minWidth: 110,
+                onTap: { [weak self] in
+                    Task { [weak self] in
+                        await self?.saveChanges()
+                    }
+                }
+            )
+        }
+        .eraseToAnyPublisher()
+    
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        return State(
+            initialState: previousState.initialState,
+            pendingState: (events.first?.value as? State.NetworkState ?? previousState.pendingState)
+        )
+    }
+    
+    private static func sections(
+        state: State,
+        previousState: State,
+        viewModel: DeveloperNetworkSettingsViewModel
+    ) -> [SectionModel] {
+        let general: SectionModel = SectionModel(
+            model: .general,
+            elements: [
+                SessionCell.Info(
+                    id: .environment,
+                    title: "Environment",
+                    subtitle: """
+                    The environment used for sending requests and storing messages.
+                    
+                    <b>Current:</b> <span>\(state.pendingState.environment.title)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showEnvironmentModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .pushNotificationService,
+                    title: "Push Notification Service",
+                    subtitle: """
+                    The service used for subscribing for push notifications.
+                    
+                    The production service only works for production builds and neither option works in the Simulator.
+
+                    <b>Current:</b> <span>\(state.pendingState.pushNotificationService.title)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showPushServiceModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceOffline,
+                    title: "Force Offline",
+                    subtitle: """
+                    Shut down the current network and cause all future network requests to fail after a 1 second delay with a 'serviceUnavailable' error.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.pendingState.forceOffline,
+                        oldValue: previousState.pendingState.forceOffline
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: state.pendingState.with(forceOffline: !state.pendingState.forceOffline)
+                        )
+                    }
+                )
+            ]
+        )
+        
+        /// Only show the `devnetConfig` section if the environment is set to `devnet`
+        guard state.pendingState.environment == .devnet else {
+            return [general]
+        }
+        
+        let devnetConfig: SectionModel = SectionModel(
+            model: .devnetConfig,
+            elements: [
+                SessionCell.Info(
+                    id: .devnetPubkey,
+                    title: "Public Key",
+                    subtitle: """
+                    The public key for the devnet seed node.
+                    
+                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.pubkey.isEmpty ? "None" : state.pendingState.devnetConfig.pubkey)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showDevnetPubkeyModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .devnetIp,
+                    title: "IP Address",
+                    subtitle: """
+                    The IP address for the devnet seed node.
+                    
+                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.ip.isEmpty ? "None" : state.pendingState.devnetConfig.ip)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showDevnetIpModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .devnetIp,
+                    title: "HTTP Port",
+                    subtitle: """
+                    The HTTP port for the devnet seed node.
+                    
+                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.httpPort)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showDevnetHttpPortModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .devnetIp,
+                    title: "QUIC Port",
+                    subtitle: """
+                    The QUIC port for the devnet seed node.
+                    
+                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.omqPort)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showDevnetOmqPortModal(pendingState: state.pendingState)
+                    }
+                )
+            ]
+        )
+        
+        return [general, devnetConfig]
+    }
+    
+    // MARK: - Functions
+    
+    private func showEnvironmentModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Environment",
+                    body: .radio(
+                        explanation: ThemedAttributedString(
+                            string: "The environment used for sending requests and storing messages."
+                        ),
+                        warning: nil,
+                        options: ServiceNetwork.allCases.map { network in
+                            ConfirmationModal.Info.Body.RadioOptionInfo(
+                                title: network.title,
+                                enabled: true,
+                                selected: pendingState.environment == network
+                            )
+                        }
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selected: ServiceNetwork = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            guard index < ServiceNetwork.allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return ServiceNetwork.allCases[index]
+                                        }
+                                        .defaulting(to: .mainnet)
+                                
+                                default: return .mainnet
+                            }
+                        }()
+                        
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(environment: selected)
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func showPushServiceModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Push Notification Service",
+                    body: .radio(
+                        explanation: ThemedAttributedString(
+                            string: "The service used for subscribing for push notifications."
+                        ),
+                        warning: ThemedAttributedString(
+                            string: "The production service only works for production builds and neither option works in the Simulator."
+                        ),
+                        options: PushNotificationAPI.Service.allCases.map { network in
+                            ConfirmationModal.Info.Body.RadioOptionInfo(
+                                title: network.title,
+                                enabled: true,
+                                selected: pendingState.pushNotificationService == network
+                            )
+                        }
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selected: PushNotificationAPI.Service = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            guard index < PushNotificationAPI.Service.allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return PushNotificationAPI.Service.allCases[index]
+                                        }
+                                        .defaulting(to: .apns)
+                                
+                                default: return .apns
+                            }
+                        }()
+                        
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(pushNotificationService: selected)
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func showDevnetPubkeyModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Devnet Pubkey",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: """
+                            The public key for the devnet seed node.
+                            
+                            This is 64 character hexadecimal value.
+                            """
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter Pubkey",
+                            initialValue: pendingState.devnetConfig.pubkey,
+                            inputChecker: { text in
+                                guard text.count <= 64 else {
+                                    return "Value must be a 64 character hexadecimal string."
+                                }
+                                
+                                return nil
+                            }
+                        ),
+                        onChange: { [weak self] value in
+                            self?.updatedDevnetPubkey = value
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.updatedDevnetPubkey else {
+                            return false
+                        }
+                        
+                        return (
+                            Hex.isValid(value) &&
+                            value.trimmingCharacters(in: .whitespacesAndNewlines).count == 64
+                        )
+                    },
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies] modal in
+                        guard
+                            let value: String = self?.updatedDevnetPubkey,
+                            Hex.isValid(value),
+                            value.trimmingCharacters(in: .whitespacesAndNewlines).count == 64
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be a 64 character hexadecimal string."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(
+                                devnetConfig: pendingState.devnetConfig.with(
+                                    pubkey: value
+                                )
+                            )
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func showDevnetIpModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Devnet IP",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: """
+                            The IP address for the devnet seed node.
+                            
+                            This must be in the format: '255.255.255.255'
+                            """
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter IP",
+                            initialValue: pendingState.devnetConfig.ip
+                        ),
+                        onChange: { [weak self] value in self?.updatedDevnetIp = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.updatedDevnetIp else {
+                            return false
+                        }
+                        
+                        return (
+                            value.split(separator: ".").count == 4 &&
+                            value.split(separator: ".").allSatisfy({ part in
+                                UInt8(part, radix: 10) != nil
+                            })
+                        )
+                    },
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies] modal in
+                        guard
+                            let value: String = self?.updatedDevnetIp,
+                            value.split(separator: ".").count == 4,
+                            value.split(separator: ".").allSatisfy({ part in
+                                UInt8(part, radix: 10) != nil
+                            })
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be a valid IP address in the format: '255.255.255.255'."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(
+                                devnetConfig: pendingState.devnetConfig.with(
+                                    ip: value
+                                )
+                            )
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func showDevnetHttpPortModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Devnet HTTP Port",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: """
+                            The HTTP port for the devnet seed node.
+                            
+                            Value must be a number between 0 and 65,535.
+                            """
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter HTTP port",
+                            initialValue: "\(pendingState.devnetConfig.httpPort)"
+                        ),
+                        onChange: { [weak self] value in self?.updatedDevnetHttpPort = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.updatedDevnetHttpPort else {
+                            return false
+                        }
+                        
+                        return (UInt16(value, radix: 10) != nil)
+                    },
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies] modal in
+                        guard
+                            let value: String = self?.updatedDevnetHttpPort,
+                            let httpPort: UInt16 = UInt16(value, radix: 10)
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be a number between 0 and 65,535."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(
+                                devnetConfig: pendingState.devnetConfig.with(
+                                    httpPort: httpPort
+                                )
+                            )
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func showDevnetOmqPortModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Devnet QUIC Port",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: """
+                            The QUIC port for the devnet seed node.
+                            
+                            Value must be a number between 0 and 65,535.
+                            """
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter QUIC port",
+                            initialValue: "\(pendingState.devnetConfig.omqPort)"
+                        ),
+                        onChange: { [weak self] value in self?.updatedDevnetOmqPort = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.updatedDevnetOmqPort else {
+                            return false
+                        }
+                        
+                        return (UInt16(value, radix: 10) != nil)
+                    },
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies] modal in
+                        guard
+                            let value: String = self?.updatedDevnetOmqPort,
+                            let omqPort: UInt16 = UInt16(value, radix: 10)
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be a number between 0 and 65,535."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(
+                                devnetConfig: pendingState.devnetConfig.with(
+                                    omqPort: omqPort
+                                )
+                            )
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    // MARK: - Saving
+    
+    @MainActor private func saveChanges(hasConfirmed: Bool = false) async {
+        guard internalState.initialState != internalState.pendingState else { return }
+        
+        let networkEnvironmentChanged: Bool = (
+            internalState.initialState.environment != internalState.pendingState.environment || (
+                internalState.initialState.environment == .devnet &&
+                internalState.initialState.devnetConfig.isValid &&
+                internalState.initialState.devnetConfig != internalState.pendingState.devnetConfig
+            )
+        )
+        let pushServiceChanged: Bool = (
+            internalState.initialState.pushNotificationService != internalState.pendingState.pushNotificationService
+        )
+        
+        /// Changing the network settings can result in data being cleared from the database so we should confirm that is desired before
+        /// we make the changes
+        guard hasConfirmed && (networkEnvironmentChanged || pushServiceChanged) else {
+            switch (networkEnvironmentChanged, pushServiceChanged) {
+                case (false, false): break  /// Most likely just the `forceOffline` (or some new) change
+                case (false, true):
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "Change Push Notification Service",
+                                body: .attributedText(
+                                    ThemedAttributedString(
+                                        stringWithHTMLTags: """
+                                        Are you sure you want to update the Push Notification Service to <b><span>\(internalState.pendingState.pushNotificationService.title)</span></b>?
+                                        
+                                        <b>Warning:</b>
+                                        This will unsubscribe from the current service and subscribe to the new service which may take a few minutes.
+                                        """,
+                                        font: ConfirmationModal.explanationFont
+                                    ),
+                                    scrollMode: .never
+                                ),
+                                confirmTitle: "confirm".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
+                                onConfirm: { [weak self] _ in
+                                    Task { [weak self] in
+                                        await self?.saveChanges(hasConfirmed: true)
+                                    }
+                                }
+                            )
+                        ),
+                        transitionType: .present
+                    )
+                    
+                case (true, false):
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "Change Environment",
+                                body: .attributedText(
+                                    ThemedAttributedString(
+                                        stringWithHTMLTags: """
+                                        Are you sure you want to change the environment to <b><span>\(internalState.pendingState.environment.title)</span></b>?
+                                        
+                                        <b>Warning:</b>
+                                        This will result in all conversation and snode data being cleared and any pending network requests being cancelled.
+                                        """,
+                                        font: ConfirmationModal.explanationFont
+                                    ),
+                                    scrollMode: .never
+                                ),
+                                confirmTitle: "confirm".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
+                                onConfirm: { [weak self] _ in
+                                    Task { [weak self] in
+                                        await self?.saveChanges(hasConfirmed: true)
+                                    }
+                                }
+                            )
+                        ),
+                        transitionType: .present
+                    )
+                    
+                case (true, true):
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "Change Environment",
+                                body: .attributedText(
+                                    ThemedAttributedString(
+                                        stringWithHTMLTags: """
+                                        Are you sure you want to change the environment to <b><span>\(internalState.pendingState.environment.title)</span></b> and the Push Notification Service to <b><span>\(internalState.pendingState.pushNotificationService.title)</span></b>?
+                                        
+                                        <b>Warning:</b>
+                                        This will result in all conversation and snode data being cleared and any pending network requests being cancelled. The device will unsubscribe from the current PN service and subscribe to the new service which may take a few minutes.
+                                        """,
+                                        font: ConfirmationModal.explanationFont
+                                    ),
+                                    scrollMode: .never
+                                ),
+                                confirmTitle: "confirm".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
+                                onConfirm: { [weak self] _ in
+                                    Task { [weak self] in
+                                        await self?.saveChanges(hasConfirmed: true)
+                                    }
+                                }
+                            )
+                        ),
+                        transitionType: .present
+                    )
+            }
+            return
+        }
+        
+        /// If the `forceOffline` value changed then apply the change
+        if internalState.initialState.forceOffline != internalState.pendingState.forceOffline {
+            dependencies.set(feature: .forceOffline, to: internalState.pendingState.forceOffline)
+            await dependencies[singleton: .network].setNetworkStatus(
+                status: internalState.pendingState.forceOffline ? .unknown : .disconnected
+            )
+        }
+        
+        /// If the network environment changed then we should make those changes first (since they result in the database being cleared)
+        if networkEnvironmentChanged {
+            let state: State.NetworkState = internalState.pendingState
+            
+            await DeveloperNetworkSettingsViewModel.updateEnvironment(
+                serviceNetwork: state.environment,
+                devnetConfig: (state.environment == .devnet && state.devnetConfig.isValid ?
+                    state.devnetConfig :
+                    nil
+                ),
+                using: dependencies
+            )
+        }
+        
+        /// Now that any environment changes have been made (which may result in rebuilding the network state, and likely clearing the
+        /// database) we can trigger the push service change
+        if pushServiceChanged && dependencies[defaults: .standard, key: .isUsingFullAPNs] {
+            /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
+            dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
+            
+            SyncPushTokensJob
+                .run(uploadOnlyIfStale: false, using: dependencies)
+                .handleEvents(
+                    receiveOutput: { [state = internalState.pendingState, dependencies] _ in
+                        dependencies.set(
+                            feature: .pushNotificationService,
+                            to: state.pushNotificationService
+                        )
+                        dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+                    }
+                )
+                .flatMap { [dependencies] _ in
+                    SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                }
+                .sinkUntilComplete()
+        }
+        
+        /// Changes have been saved so we can dismiss the screen
+        self.dismissScreen()
+    }
+    
+    // MARK: - Environment Changing
+    
+    internal static func updateEnvironment(
+        serviceNetwork: ServiceNetwork,
+        devnetConfig: ServiceNetwork.DevnetConfiguration?,
+        using dependencies: Dependencies
+    ) async {
+        struct IdentityData {
+            let ed25519KeyPair: KeyPair
+            let x25519KeyPair: KeyPair
+        }
+        
+        /// Make sure we are actually changing the network before clearing all of the data
+        guard
+            serviceNetwork != dependencies[feature: .serviceNetwork] || (
+            serviceNetwork == .devnet &&
+                devnetConfig?.isValid == true &&
+                devnetConfig != dependencies[feature: .devnetConfig]
+            )
+        else { return }
+        
+        /// Need to ensure we can retrieve the identity data before resetting everything (otherwise it'll wipe everything which we don't want)
+        let identityData: IdentityData
+        
+        do {
+            identityData = try await dependencies[singleton: .storage].readAsync(value: { db in
+                IdentityData(
+                    ed25519KeyPair: KeyPair(
+                        publicKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data),
+                        secretKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data)
+                    ),
+                    x25519KeyPair: KeyPair(
+                        publicKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data),
+                        secretKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data)
+                    )
+                )
+            })
+        }
+        catch { return Log.warn("[DevSettings] Environment change ignored due to error fetching identity data: \(error)") }
+        
+        Log.info("[DevSettings] Swapping to \(String(describing: serviceNetwork)), clearing data")
+        
+        /// Stop all pollers
+        dependencies.remove(singleton: .currentUserPoller)
+        dependencies.remove(singleton: .groupPollerManager)
+        dependencies.remove(singleton: .communityPollerManager)
+        
+        /// Reset the network (only if it's already been created - don't want to initialise the network if it hasn't already been started)
+        ///
+        /// **Note:** We need to set this to a `NoopNetwork` because a number of objects observe the `networkStatus` which
+        /// would result in automatic re-creation of the network with it's current config (since the `serviceNetwork` hasn't been updated
+        /// yet)
+        if dependencies.has(singleton: .network) {
+            await dependencies[singleton: .network].suspendNetworkAccess()
+            await dependencies[singleton: .network].finishCurrentObservations()
+            await dependencies[singleton: .network].clearCache()
+        }
+        
+        dependencies.set(singleton: .network, to: LibSession.NoopNetwork())
+        
+        /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
+        /// layer and we don't want these to be cancelled)
+        if let existingToken: String = try? await dependencies[singleton: .storage].readAsync(value: { db in db[.lastRecordedPushToken] }) {
+            Task.detached(priority: .userInitiated) {
+                try? await PushNotificationAPI.unsubscribeAll(
+                    token: Data(hex: existingToken),
+                    using: dependencies
+                )
+            }
+        }
+        
+        /// Clear the snodeAPI  caches
+        dependencies.remove(cache: .snodeAPI)
+        
+        /// Remove the libSession state (store the profile locally to maintain the name between environments)
+        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+        dependencies.remove(cache: .libSession)
+        
+        /// Remove any network-specific data
+        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            
+            _ = try SnodeReceivedMessageInfo.deleteAll(db)
+            _ = try SessionThread.deleteAll(db)
+            _ = try MessageDeduplication.deleteAll(db)
+            _ = try ClosedGroup.deleteAll(db)
+            _ = try OpenGroup.deleteAll(db)
+            _ = try Capability.deleteAll(db)
+            _ = try GroupMember.deleteAll(db)
+            _ = try Contact
+                .filter(Contact.Columns.id != userSessionId.hexString)
+                .deleteAll(db)
+            _ = try Profile
+                .filter(Profile.Columns.id != userSessionId.hexString)
+                .deleteAll(db)
+            _ = try BlindedIdLookup.deleteAll(db)
+            _ = try ConfigDump.deleteAll(db)
+        }
+        
+        /// Remove the `ExtensionHelper` cache
+        dependencies[singleton: .extensionHelper].deleteCache()
+        
+        Log.info("[DevSettings] Reloading state for \(String(describing: serviceNetwork))")
+        
+        /// Update to the new `ServiceNetwork`
+        dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+        
+        if let devnetConfig: ServiceNetwork.DevnetConfiguration = devnetConfig {
+            dependencies.set(feature: .devnetConfig, to: devnetConfig)
+        }
+        
+        /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
+        dependencies.remove(singleton: .network)
+        dependencies.warm(singleton: .network)
+        
+        /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
+        let updatedOnboarding: Onboarding.Manager = Onboarding.Manager(
+            ed25519KeyPair: identityData.ed25519KeyPair,
+            x25519KeyPair: identityData.x25519KeyPair,
+            displayName: existingProfile.name
+                .nullIfEmpty
+                .defaulting(to: "Anonymous"),
+            using: dependencies
+        )
+        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+        await updatedOnboarding.completeRegistration()
+        
+        /// Re-enable developer mode
+        dependencies.setAsync(.developerModeEnabled, true)
+        
+        /// Restart the current user poller (there won't be any other pollers though)
+        Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
+            await poller.startIfNeeded()
+        }
+        
+        /// Re-sync the push tokens (if there are any)
+        SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
+        
+        Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")
+    }
+}

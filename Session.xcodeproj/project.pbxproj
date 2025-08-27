@@ -988,6 +988,7 @@
 		FDCC22D42E5C0D9900C77B1A /* AppSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272DC2C34EFFA004D8A6C /* AppSetup.swift */; };
 		FDCC22D62E5D2ADC00C77B1A /* CancellationAwareAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D52E5D2AD700C77B1A /* CancellationAwareAsyncStream.swift */; };
 		FDCC22D82E5D3C1400C77B1A /* AsyncStream+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D72E5D3C1000C77B1A /* AsyncStream+Utilities.swift */; };
+		FDCC22DB2E5E897800C77B1A /* DeveloperNetworkSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22DA2E5E897200C77B1A /* DeveloperNetworkSettingsViewModel.swift */; };
 		FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */; };
 		FDCDB8E02811007F00352A0C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */; };
 		FDD20C162A09E64A003898FB /* GetExpiriesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD20C152A09E64A003898FB /* GetExpiriesRequest.swift */; };
@@ -2269,6 +2270,7 @@
 		FDCC22D12E56E0B600C77B1A /* StreamLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamLifecycleManager.swift; sourceTree = "<group>"; };
 		FDCC22D52E5D2AD700C77B1A /* CancellationAwareAsyncStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationAwareAsyncStream.swift; sourceTree = "<group>"; };
 		FDCC22D72E5D3C1000C77B1A /* AsyncStream+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AsyncStream+Utilities.swift"; sourceTree = "<group>"; };
+		FDCC22DA2E5E897200C77B1A /* DeveloperNetworkSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperNetworkSettingsViewModel.swift; sourceTree = "<group>"; };
 		FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiGenerator.swift; sourceTree = "<group>"; };
 		FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupOnlyRequest.swift; sourceTree = "<group>"; };
 		FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -3443,6 +3445,7 @@
 		C360969125AD1765008B62B2 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				FDCC22D92E5E896200C77B1A /* DeveloperSettings */,
 				FD8A5B002DBEFBF9004C689B /* SessionNetworkScreen */,
 				FD37E9CD28A1E682003AE748 /* Views */,
 				9422569A2C23F8F000C0FDBF /* QRCodeScreen.swift */,
@@ -3458,8 +3461,6 @@
 				FD860CB72D66BC9500BBE29C /* AppIconViewModel.swift */,
 				FD37EA0228A9FDCC003AE748 /* HelpViewModel.swift */,
 				B86BD08523399CEF000F5AE3 /* SeedModal.swift */,
-				FDC1BD672CFE6EEA002CDC71 /* DeveloperSettingsViewModel.swift */,
-				FD860CBD2D6E7DA000BBE29C /* DeveloperSettingsViewModel+Testing.swift */,
 				B894D0742339EDCF00B4D94D /* NukeDataModal.swift */,
 				FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */,
 			);
@@ -4895,6 +4896,16 @@
 				FDC498B82AC15FE300EDD897 /* AppNotificationAction.swift */,
 			);
 			path = Types;
+			sourceTree = "<group>";
+		};
+		FDCC22D92E5E896200C77B1A /* DeveloperSettings */ = {
+			isa = PBXGroup;
+			children = (
+				FDC1BD672CFE6EEA002CDC71 /* DeveloperSettingsViewModel.swift */,
+				FD860CBD2D6E7DA000BBE29C /* DeveloperSettingsViewModel+Testing.swift */,
+				FDCC22DA2E5E897200C77B1A /* DeveloperNetworkSettingsViewModel.swift */,
+			);
+			path = DeveloperSettings;
 			sourceTree = "<group>";
 		};
 		FDDC08F029A300D500BF9681 /* Utilities */ = {
@@ -6810,6 +6821,7 @@
 				7B3A3934298882D6002FE4AC /* SessionCarouselViewDelegate.swift in Sources */,
 				45B5360E206DD8BB00D61655 /* UIResponder+OWS.swift in Sources */,
 				942256802C23F8BB00C0FDBF /* StartConversationScreen.swift in Sources */,
+				FDCC22DB2E5E897800C77B1A /* DeveloperNetworkSettingsViewModel.swift in Sources */,
 				7B9F71C928470667006DFE7B /* ReactionListSheet.swift in Sources */,
 				FD12A8412AD63BEA00EEBA0D /* NavigatableState.swift in Sources */,
 				7B7037452834BCC0000DCF35 /* ReactionView.swift in Sources */,

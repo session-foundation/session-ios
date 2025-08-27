@@ -549,7 +549,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         explanationLabel.isAccessibilityElement = true
         explanationLabel.accessibilityIdentifier = "Modal description"
-        explanationLabel.accessibilityLabel = explanationLabel.text
+        explanationLabel.accessibilityLabel = explanationLabel.text?.deformatted()
     }
     
     // MARK: - Error Handling
