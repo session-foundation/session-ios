@@ -61,9 +61,29 @@ public class HomeViewModel: NavigatableStateHolder {
             promptState = .rateSession
         }
         
+        // Checks if new version of app is from install or update
+        var didInstallAppReviewPromptVersion: Bool {
+            let availabilityVersion = Constants.review_prompt_availability_version
+            
+            guard let firstAppVersion = dependencies[cache: .appVersion].firstAppVersion else {
+                return true
+            }
+            
+            let comparisonResult = firstAppVersion.compare(availabilityVersion, options: .numeric)
+
+            if comparisonResult == .orderedAscending {
+                // App was updated to the latest version with app review prompt
+                return false
+            } else {
+                // App was installed not updated to new version
+                return true
+            }
+        }
+
         self.state = State.initialState(
             using: dependencies,
-            appReviewPromptState: promptState
+            appReviewPromptState: promptState,
+            didInstallAppReviewPromptVersion: didInstallAppReviewPromptVersion
         )
         
         /// Bind the state
@@ -102,6 +122,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let itemCache: [String: SessionThreadViewModel]
         let appReviewPromptState: AppReviewPromptState?
         let pendingAppReviewPromptState: AppReviewPromptState?
+        let didInstallAppReviewPromptVersion: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -154,7 +175,7 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?) -> State {
+        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, didInstallAppReviewPromptVersion: Bool) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -180,7 +201,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 ),
                 itemCache: [:],
                 appReviewPromptState: nil,
-                pendingAppReviewPromptState: appReviewPromptState
+                pendingAppReviewPromptState: appReviewPromptState,
+                didInstallAppReviewPromptVersion: didInstallAppReviewPromptVersion
             )
         }
     }
@@ -204,6 +226,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
         var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
+        var didInstallAppReviewPromptVersion: Bool = previousState.didInstallAppReviewPromptVersion
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -402,13 +425,13 @@ public class HomeViewModel: NavigatableStateHolder {
             groupedOtherEvents?[.userDefault]?.forEach { event in
                 switch (event.key, event.value) {
                     case (.userDefault(.hasVisitedPathScreen), let value as Bool) where value == true:
-                        pendingAppReviewPromptState = .enjoyingSession
+                        if didInstallAppReviewPromptVersion { pendingAppReviewPromptState = .enjoyingSession }
                         
                     case (.userDefault(.hasPressedDonateButton), let value as Bool) where value == true:
                         pendingAppReviewPromptState = .enjoyingSession
                         
                     case (.userDefault(.hasChangedTheme), let value as Bool) where value == true:
-                        pendingAppReviewPromptState = .enjoyingSession
+                        if didInstallAppReviewPromptVersion { pendingAppReviewPromptState = .enjoyingSession }
                         
                     default: break
                 }
@@ -437,7 +460,8 @@ public class HomeViewModel: NavigatableStateHolder {
             loadedPageInfo: loadResult.info,
             itemCache: itemCache,
             appReviewPromptState: appReviewPromptState,
-            pendingAppReviewPromptState: pendingAppReviewPromptState
+            pendingAppReviewPromptState: pendingAppReviewPromptState,
+            didInstallAppReviewPromptVersion: didInstallAppReviewPromptVersion
         )
     }
     
