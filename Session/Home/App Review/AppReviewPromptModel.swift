@@ -8,7 +8,10 @@ struct AppReviewPromptModel {
     let message: String
     
     let primaryButtonTitle: String
+    let primaryButtonAccessibilityIdentifier: String
+    
     let secondaryButtonTitle: String
+    let secondaryButtonAccessibilityIdentifier: String
 }
 
 enum AppReviewPromptState {
@@ -31,9 +34,11 @@ extension AppReviewPromptState {
                 primaryButtonTitle: "enjoyingSessionButtonPositive"
                     .put(key: "emoji", value: "❤️")
                     .localized(),
+                primaryButtonAccessibilityIdentifier: "enjoy-session-positive-button",
                 secondaryButtonTitle: "enjoyingSessionButtonNegative"
                     .put(key: "emoji", value: "😕")
-                    .localized()
+                    .localized(),
+                secondaryButtonAccessibilityIdentifier: "enjoy-session-negative-button"
             )
         case .rateSession:
             return .init(
@@ -45,7 +50,9 @@ extension AppReviewPromptState {
                     .put(key: "storevariant", value: Constants.store_name)
                     .localized(),
                 primaryButtonTitle: "rateSessionApp".localized(),
-                secondaryButtonTitle: "notNow".localized()
+                primaryButtonAccessibilityIdentifier: "rate-app-button",
+                secondaryButtonTitle: "notNow".localized(),
+                secondaryButtonAccessibilityIdentifier: "not-now-button"
             )
         case .feedback:
             return .init(
@@ -54,7 +61,9 @@ extension AppReviewPromptState {
                     .put(key: "app_name", value: Constants.app_name)
                     .localized(),
                 primaryButtonTitle: "openSurvey".localized(),
-                secondaryButtonTitle: "notNow".localized()
+                primaryButtonAccessibilityIdentifier: "open-survey-button",
+                secondaryButtonTitle: "notNow".localized(),
+                secondaryButtonAccessibilityIdentifier: "not-now-button"
             )
         }
     }
