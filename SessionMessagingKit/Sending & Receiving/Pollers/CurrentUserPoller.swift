@@ -69,7 +69,6 @@ public final actor CurrentUserPoller: SwarmPollerType {
         customAuthMethod: AuthenticationMethod?,
         using dependencies: Dependencies
     ) {
-        let (stream, continuation) = AsyncStream<PollResponse>.makeStream()
         self.dependencies = dependencies
         self.pollerName = pollerName
         self.destination = destination

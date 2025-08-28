@@ -116,6 +116,7 @@ public extension PollerType {
     
     func stop() {
         pollTask?.cancel()
+        pollTask = nil
         
         if logStartAndStopCalls {
             Log.info(.poller, "Stopped \(pollerName).")

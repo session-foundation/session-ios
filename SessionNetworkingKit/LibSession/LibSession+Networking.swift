@@ -30,6 +30,7 @@ actor LibSessionNetwork: NetworkType {
     private let dependenciesPtr: UnsafeMutableRawPointer
     private var network: UnsafeMutablePointer<network_object_v2>? = nil
     nonisolated private let internalNetworkStatus: CurrentValueAsyncStream<NetworkStatus> = CurrentValueAsyncStream(.unknown)
+    private let singlePathMode: Bool
     
     public private(set) var isSuspended: Bool = false
     nonisolated public var networkStatus: AsyncStream<NetworkStatus> { internalNetworkStatus.stream }
@@ -43,9 +44,10 @@ actor LibSessionNetwork: NetworkType {
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    init(singlePathMode: Bool, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.dependenciesPtr = Unmanaged.passRetained(dependencies).toOpaque()
+        self.singlePathMode = singlePathMode
         self.syncDependencies = dependencies
         
         /// Create the network object
@@ -427,14 +429,14 @@ actor LibSessionNetwork: NetworkType {
         }
     }
     
-    public func resumeNetworkAccess() async {
+    public func resumeNetworkAccess(autoReconnect: Bool) async {
         isSuspended = false
         syncState.update(isSuspended: false)
         Log.info(.network, "Network access resumed.")
         
         switch network {
             case .none: break
-            case .some(let network): session_network_resume(network)
+            case .some(let network): session_network_resume(network, autoReconnect)
         }
     }
     
@@ -475,6 +477,7 @@ actor LibSessionNetwork: NetworkType {
                 var cDevnetNodes: [network_service_node] = []
                 var config: session_network_config = session_network_config_default()
                 config.cache_refresh_using_legacy_endpoint = true
+                config.onionreq_single_path_mode = singlePathMode
                 
                 switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
                     case (.mainnet, _, _): break
@@ -1124,7 +1127,7 @@ public extension LibSession {
         
         public func setNetworkStatus(status: NetworkStatus) async {}
         public func suspendNetworkAccess() async {}
-        public func resumeNetworkAccess() async {}
+        public func resumeNetworkAccess(autoReconnect: Bool) async {}
         public func finishCurrentObservations() async {}
         public func clearCache() async {}
     }

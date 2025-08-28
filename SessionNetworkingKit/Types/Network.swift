@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let network: SingletonConfig<NetworkType> = Dependencies.create(
         identifier: "network",
-        createInstance: { dependencies in LibSessionNetwork(using: dependencies) }
+        createInstance: { dependencies in LibSessionNetwork(singlePathMode: false, using: dependencies) }
     )
 }
 
@@ -50,12 +50,16 @@ public protocol NetworkType {
     
     func setNetworkStatus(status: NetworkStatus) async
     func suspendNetworkAccess() async
-    func resumeNetworkAccess() async
+    func resumeNetworkAccess(autoReconnect: Bool) async
     func finishCurrentObservations() async
     func clearCache() async
 }
 
 public extension NetworkType {
+    func resumeNetworkAccess() async {
+        await resumeNetworkAccess(autoReconnect: true)
+    }
+    
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> AppVersionResponse {
         return try await checkClientVersion(ed25519SecretKey: ed25519SecretKey).value
     }

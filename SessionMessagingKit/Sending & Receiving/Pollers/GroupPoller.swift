@@ -66,7 +66,6 @@ public actor GroupPoller: SwarmPollerType {
         customAuthMethod: AuthenticationMethod?,
         using dependencies: Dependencies
     ) {
-        let (stream, continuation) = AsyncStream<PollResponse>.makeStream()
         self.dependencies = dependencies
         self.pollerName = pollerName
         self.destination = destination
@@ -78,9 +77,9 @@ public actor GroupPoller: SwarmPollerType {
         )
         self.namespaces = namespaces
         self.failureCount = failureCount
-        self.customAuthMethod = customAuthMethod
         self.shouldStoreMessages = shouldStoreMessages
         self.logStartAndStopCalls = logStartAndStopCalls
+        self.customAuthMethod = customAuthMethod
     }
 
     deinit {

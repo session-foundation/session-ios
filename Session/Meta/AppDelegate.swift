@@ -166,7 +166,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Task {
                     await dependencies[singleton: .network].suspendNetworkAccess()
                     dependencies[singleton: .storage].suspendDatabaseAccess()
-                    Log.info(.cat, "completed network and database shutdowns.")
+                    Log.info(.cat, "Completed network and database shutdowns.")
                     Log.flush()
                 }
             }
@@ -274,7 +274,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info(.backgroundPoller, "Starting background fetch.")
         Task {
             dependencies[singleton: .storage].resumeDatabaseAccess()
-            await dependencies[singleton: .network].resumeNetworkAccess()
+            await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
         }
         
         let queue: DispatchQueue = DispatchQueue(label: "com.session.backgroundPoll")

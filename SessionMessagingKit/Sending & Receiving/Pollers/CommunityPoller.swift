@@ -92,10 +92,9 @@ public actor CommunityPoller: PollerType {
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
-        customAuthMethod: AuthenticationMethod? = nil,
+        customAuthMethod: AuthenticationMethod?,
         using dependencies: Dependencies
     ) {
-        let (stream, continuation) = AsyncStream<PollResponse>.makeStream()
         self.dependencies = dependencies
         self.pollerName = pollerName
         self.destination = destination
