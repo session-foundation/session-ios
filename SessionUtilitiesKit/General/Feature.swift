@@ -88,6 +88,10 @@ public extension FeatureStorage {
     static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
         identifier: "treatAllIncomingMessagesAsProMessages"
     )
+    
+    static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "simulateAppReviewLimit"
+    )
 }
 
 // MARK: - FeatureOption

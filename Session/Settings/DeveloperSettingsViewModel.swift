@@ -82,6 +82,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case copyDocumentsPath
         case copyAppGroupPath
         case resetAppReviewPrompt
+        case simulateAppReviewLimit
         
         case defaultLogLevel
         case advancedLogging
@@ -122,6 +123,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyDocumentsPath: return "copyDocumentsPath"
                 case .copyAppGroupPath: return "copyAppGroupPath"
                 case .resetAppReviewPrompt: return "resetAppReviewPrompt"
+                case .simulateAppReviewLimit: return "simulateAppReviewLimit"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -172,6 +174,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
                 case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
+                case .simulateAppReviewLimit: result.append(.simulateAppReviewLimit); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -247,6 +250,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let treatAllIncomingMessagesAsProMessages: Bool
         
         let forceSlowDatabaseQueries: Bool
+        
+        let updateSimulateAppReviewLimit: Bool
     }
     
     let title: String = "Developer Settings"
@@ -299,7 +304,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
                 treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
                 
-                forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries]
+                forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
+                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -422,7 +428,24 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     onTap: { [weak self] in
                         self?.resetAppReviewPrompt()
                     }
-                )
+                ),
+                SessionCell.Info(
+                    id: .simulateAppReviewLimit,
+                    title: "Simulate App Review Limit",
+                    subtitle: """
+                    Controls whether the in-app rating prompt is displayed. This can will simulate a rate limit, preventing the prompt from appearing.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.updateSimulateAppReviewLimit,
+                        oldValue: previous?.updateSimulateAppReviewLimit
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .simulateAppReviewLimit,
+                            to: !current.updateSimulateAppReviewLimit
+                        )
+                    }
+                ),
             ]
         )
         let logging: SectionModel = SectionModel(
@@ -972,6 +995,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyDocumentsPath: break   // Not a feature
                 case .copyAppGroupPath: break   // Not a feature
                 case .resetAppReviewPrompt: break
+                case .simulateAppReviewLimit:
+                    guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
+                    
+                    updateFlag(for: .simulateAppReviewLimit, to: nil)
                 case .resetSnodeCache: break    // Not a feature
                 case .createMockContacts: break // Not a feature
                 case .exportDatabase: break     // Not a feature

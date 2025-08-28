@@ -142,9 +142,11 @@ class AppReviewPromptDialog: UIView {
         messageLabel.accessibilityIdentifier = "Modal description"
         messageLabel.accessibilityLabel = messageLabel.text
         
+        primaryButton.isHidden = prompt?.promptContent.primaryButtonTitle == nil
         primaryButton.setTitle(prompt?.promptContent.primaryButtonTitle, for: .normal)
         primaryButton.accessibilityIdentifier = prompt?.promptContent.primaryButtonAccessibilityIdentifier
         
+        secondaryButton.isHidden = prompt?.promptContent.secondaryButtonTitle == nil
         secondaryButton.setTitle(prompt?.promptContent.secondaryButtonTitle, for: .normal)
         secondaryButton.accessibilityIdentifier = prompt?.promptContent.secondaryButtonAccessibilityIdentifier
     }

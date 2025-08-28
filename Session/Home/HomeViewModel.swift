@@ -37,6 +37,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     public let dependencies: Dependencies
     private let userSessionId: SessionId
+    private var didPresentAppReviewPrompt: Bool = false
 
     /// This value is the current state of the view
     @MainActor @Published private(set) var state: State
@@ -598,7 +599,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
         // Prompt closed
-        if state == nil { dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false }
+        if state == nil || state == .rateLimit { dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false }
         
         dependencies.notifyAsync(
             priority: .immediate,
@@ -616,8 +617,35 @@ public class HomeViewModel: NavigatableStateHolder {
         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
         
         if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            SKStoreReviewController.requestReview(in: scene)
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(self.systemHasPresentedNewWindow(notification:)),
+                name: UIWindow.didBecomeVisibleNotification, object: nil
+            )
+            
+            if !dependencies[feature: .simulateAppReviewLimit] {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+
+            // Added 2 sec delay to give time for requet review to proc
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [self] in
+                NotificationCenter.default.removeObserver(self, name: UIWindow.didBecomeVisibleNotification, object: nil)
+                
+                guard didPresentAppReviewPrompt else {
+                    // Show rate limit prompt
+                    handlePromptChangeState(.rateLimit)
+                    return
+                }
+                
+                // Reset flag just in case it will be triggered again
+                didPresentAppReviewPrompt = false
+            }
         }
+    }
+    
+    @objc
+    func systemHasPresentedNewWindow(notification: Notification) {
+        didPresentAppReviewPrompt = true
     }
     
     @MainActor
@@ -674,6 +702,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 // Close prompt before showing app review
                 handlePromptChangeState(nil)
                 submitAppStoreReview()
+            default: break
         }
     }
     
@@ -683,6 +712,7 @@ public class HomeViewModel: NavigatableStateHolder {
         switch state {
             case .feedback, .rateSession: handlePromptChangeState(nil)
             case .enjoyingSession: handlePromptChangeState(.feedback)
+            default: break
         }
     }
 
