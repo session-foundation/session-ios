@@ -52,8 +52,14 @@ public class HomeViewModel: NavigatableStateHolder {
         let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
         
         var promptState: AppReviewPromptState?
+        
+        // A buffer of 24 hours
+        let buffer: TimeInterval = 24 * 60 * 60
 
-        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow >= retryDate {
+        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow.timeIntervalSince(retryDate) >= -buffer {
+            // This block will execute if the current time is within 24 hours of the retryDate
+            // or if the current time is past the retryDate.
+            
             dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
             dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
