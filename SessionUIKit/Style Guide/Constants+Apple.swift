@@ -11,4 +11,5 @@ public extension Constants {
     
     // MARK: - Names
     static let store_name = "App Store"
+    static let platform_name = "iOS"
 }

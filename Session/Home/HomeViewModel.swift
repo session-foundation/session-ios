@@ -586,8 +586,9 @@ public class HomeViewModel: NavigatableStateHolder {
     func submitFeedbackSurvery() {
         guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
         
+        // stringlint:disable
         let surveyUrl: URL = url.appending(queryItems: [
-            .init(name: "platform", value: "iOS"),
+            .init(name: "platform", value: Constants.platform_name),
             .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
         ])
         
@@ -596,7 +597,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 title: "urlOpen".localized(),
                 body: .attributedText(
                     "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
+                        .put(key: "url", value: surveyUrl.absoluteString)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "open".localized(),
