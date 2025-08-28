@@ -65,6 +65,10 @@ public class HomeViewModel: NavigatableStateHolder {
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
             
             promptState = .rateSession
+        } else if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] && dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] {
+            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+            
+            promptState = .enjoyingSession
         }
         
         // Checks if new version of app is from install or update
@@ -573,6 +577,7 @@ public class HomeViewModel: NavigatableStateHolder {
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
             // Set flag that review prompt was already presented
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
+            dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = true
             
             dependencies.notifyAsync(
                 priority: .immediate,
@@ -592,6 +597,9 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
+        // Prompt closed
+        if state == nil { dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false }
+        
         dependencies.notifyAsync(
             priority: .immediate,
             key: .updateScreen(HomeViewModel.self),
@@ -652,6 +660,8 @@ public class HomeViewModel: NavigatableStateHolder {
     
     @MainActor
     func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
+        dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false
+        
         switch state {
             case .enjoyingSession:
                 handlePromptChangeState(.rateSession)
@@ -668,6 +678,8 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func handleSecondayTappedForState(_ state: AppReviewPromptState) {
+        dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false
+        
         switch state {
             case .feedback, .rateSession: handlePromptChangeState(nil)
             case .enjoyingSession: handlePromptChangeState(.feedback)
