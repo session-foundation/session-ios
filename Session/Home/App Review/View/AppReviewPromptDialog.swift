@@ -35,7 +35,7 @@ class AppReviewPromptDialog: UIView {
         let result = UILabel()
         result.textAlignment = .center
         result.numberOfLines = 0
-        result.themeTextColor = .textPrimary
+        result.themeTextColor = .alert_text
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         
         return result
@@ -45,7 +45,7 @@ class AppReviewPromptDialog: UIView {
         let result = UILabel()
         result.textAlignment = .center
         result.numberOfLines = 0
-        result.themeTextColor = .textSecondary
+        result.themeTextColor = .alert_text
         result.font = ConfirmationModal.explanationFont
         
         return result

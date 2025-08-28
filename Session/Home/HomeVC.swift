@@ -86,10 +86,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let result = AppReviewPromptDialog()
         
         // Layers
-        result.themeBorderColor = .borderSeparator
         result.layer.borderWidth = 1
         result.layer.cornerRadius = 12
-        result.themeBackgroundColor = .backgroundSecondary
+        result.themeBorderColor = .borderSeparator
+        result.themeBackgroundColor = .alert_background
+        result.themeShadowColor = .black
         result.onPrimaryTapped = { [viewModel = self.viewModel] state in viewModel.handlePrimaryTappedForState(state) }
         result.onSecondaryTapped = { [viewModel = self.viewModel] in viewModel.handleSecondayTappedForState($0) }
         result.onCloseTapped = { [viewModel = self.viewModel] in viewModel.handlePromptChangeState(nil) }
