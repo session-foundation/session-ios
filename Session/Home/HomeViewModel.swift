@@ -44,57 +44,19 @@ public class HomeViewModel: NavigatableStateHolder {
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
-    
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
         
-        /// Check if incomplete app review can be shown again to user on next app launch
-        let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
-        
-        var promptState: AppReviewPromptState?
-        
-        // A buffer of 24 hours
-        let buffer: TimeInterval = 24 * 60 * 60
-
-        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow.timeIntervalSince(retryDate) >= -buffer {
-            // This block will execute if the current time is within 24 hours of the retryDate
-            // or if the current time is past the retryDate.
-            
-            dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-            dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
-            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-            
-            promptState = .rateSession
-        } else if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] && dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] {
-            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-            
-            promptState = .enjoyingSession
-        }
-        
-        // Checks if new version of app is from install or update
-        var didInstallAppReviewPromptVersion: Bool {
-            let availabilityVersion = Constants.review_prompt_availability_version
-            
-            guard let firstAppVersion = dependencies[cache: .appVersion].firstAppVersion else {
-                return true
-            }
-            
-            let comparisonResult = firstAppVersion.compare(availabilityVersion, options: .numeric)
-
-            if comparisonResult == .orderedAscending {
-                // App was updated to the latest version with app review prompt
-                return false
-            } else {
-                // App was installed not updated to new version
-                return true
-            }
-        }
+        // The `appReview` variable is a tuple with the following elements:
+        // .promptState: AppReviewPromptState?
+        // .wasInstalledPriorToAppReviewRelease: Bool
+        let appReview = AppReviewPromptModel.loadInitialAppReviewPromptState(dependencies)
 
         self.state = State.initialState(
             using: dependencies,
-            appReviewPromptState: promptState,
-            didInstallAppReviewPromptVersion: didInstallAppReviewPromptVersion
+            appReviewPromptState: appReview.promptState,
+            appWasInstalledPriorToAppReviewRelease: appReview.wasInstalledPriorToAppReviewRelease
         )
         
         /// Bind the state
@@ -104,6 +66,10 @@ public class HomeViewModel: NavigatableStateHolder {
             .using(dependencies: dependencies)
             .query(HomeViewModel.queryState)
             .assign { [weak self] updatedState in self?.state = updatedState }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     public struct HomeViewModelEvent: Hashable {
@@ -133,7 +99,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let itemCache: [String: SessionThreadViewModel]
         let appReviewPromptState: AppReviewPromptState?
         let pendingAppReviewPromptState: AppReviewPromptState?
-        let didInstallAppReviewPromptVersion: Bool
+        let appWasInstalledPriorToAppReviewRelease: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -186,7 +152,7 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, didInstallAppReviewPromptVersion: Bool) -> State {
+        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, appWasInstalledPriorToAppReviewRelease: Bool) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -213,7 +179,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 itemCache: [:],
                 appReviewPromptState: nil,
                 pendingAppReviewPromptState: appReviewPromptState,
-                didInstallAppReviewPromptVersion: didInstallAppReviewPromptVersion
+                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
             )
         }
     }
@@ -237,7 +203,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
         var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
-        var didInstallAppReviewPromptVersion: Bool = previousState.didInstallAppReviewPromptVersion
+        let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -436,13 +402,13 @@ public class HomeViewModel: NavigatableStateHolder {
             groupedOtherEvents?[.userDefault]?.forEach { event in
                 switch (event.key, event.value) {
                     case (.userDefault(.hasVisitedPathScreen), let value as Bool) where value == true:
-                        if didInstallAppReviewPromptVersion { pendingAppReviewPromptState = .enjoyingSession }
+                        if appWasInstalledPriorToAppReviewRelease { pendingAppReviewPromptState = .enjoyingSession }
                         
                     case (.userDefault(.hasPressedDonateButton), let value as Bool) where value == true:
                         pendingAppReviewPromptState = .enjoyingSession
                         
                     case (.userDefault(.hasChangedTheme), let value as Bool) where value == true:
-                        if didInstallAppReviewPromptVersion { pendingAppReviewPromptState = .enjoyingSession }
+                        if appWasInstalledPriorToAppReviewRelease { pendingAppReviewPromptState = .enjoyingSession }
                         
                     default: break
                 }
@@ -472,7 +438,7 @@ public class HomeViewModel: NavigatableStateHolder {
             itemCache: itemCache,
             appReviewPromptState: appReviewPromptState,
             pendingAppReviewPromptState: pendingAppReviewPromptState,
-            didInstallAppReviewPromptVersion: didInstallAppReviewPromptVersion
+            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
         )
     }
     
@@ -578,7 +544,7 @@ public class HomeViewModel: NavigatableStateHolder {
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
             // Set flag that review prompt was already presented
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
-            dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = true
+            dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
             
             dependencies.notifyAsync(
                 priority: .immediate,
@@ -598,8 +564,8 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
-        // Prompt closed
-        if state == nil || state == .rateLimit { dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false }
+        // Prompt closed from `x` button of prompt
+        if state == nil || state == .rateLimit { dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true }
         
         dependencies.notifyAsync(
             priority: .immediate,
@@ -616,35 +582,48 @@ public class HomeViewModel: NavigatableStateHolder {
         dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
         dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
         
-        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(self.systemHasPresentedNewWindow(notification:)),
-                name: UIWindow.didBecomeVisibleNotification, object: nil
-            )
-            
-            if !dependencies[feature: .simulateAppReviewLimit] {
-                SKStoreReviewController.requestReview(in: scene)
-            }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.windowBecameVisibleAfterTriggeringAppStoreReview(notification:)),
+            name: UIWindow.didBecomeVisibleNotification, object: nil
+        )
+        
+        if !dependencies[feature: .simulateAppReviewLimit] {
+            requestAppReview()
+        }
 
-            // Added 2 sec delay to give time for requet review to proc
-            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [self] in
-                NotificationCenter.default.removeObserver(self, name: UIWindow.didBecomeVisibleNotification, object: nil)
-                
-                guard didPresentAppReviewPrompt else {
-                    // Show rate limit prompt
-                    handlePromptChangeState(.rateLimit)
-                    return
-                }
-                
-                // Reset flag just in case it will be triggered again
-                didPresentAppReviewPrompt = false
+        // Added 2 sec delay to give time for requet review to proc
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
+            guard let this = self else { return }
+            
+            NotificationCenter.default.removeObserver(this, name: UIWindow.didBecomeVisibleNotification, object: nil)
+            
+            guard this.didPresentAppReviewPrompt else {
+                // Show rate limit prompt
+                this.handlePromptChangeState(.rateLimit)
+                return
             }
+            
+            // Reset flag just in case it will be triggered again
+            this.didPresentAppReviewPrompt = false
+        }
+    }
+    
+    @MainActor
+    private func requestAppReview() {
+        guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else {
+            return
+        }
+        
+        if #available(iOS 16.0, *) {
+            AppStore.requestReview(in: scene)
+        } else {
+            SKStoreReviewController.requestReview(in: scene)
         }
     }
     
     @objc
-    func systemHasPresentedNewWindow(notification: Notification) {
+    private func windowBecameVisibleAfterTriggeringAppStoreReview(notification: Notification) {
         didPresentAppReviewPrompt = true
     }
     
@@ -688,7 +667,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     @MainActor
     func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
-        dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false
+        dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
         
         switch state {
             case .enjoyingSession:
@@ -707,7 +686,7 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func handleSecondayTappedForState(_ state: AppReviewPromptState) {
-        dependencies[defaults: .standard, key: .didIgnoreAppReviewPrompt] = false
+        dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
         
         switch state {
             case .feedback, .rateSession: handlePromptChangeState(nil)

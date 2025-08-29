@@ -179,7 +179,7 @@ public extension UserDefaults.BoolKey {
     static let didShowAppReviewPrompt: UserDefaults.BoolKey = "didShowAppReviewPrompt"
     
     /// Idicates whether app review prompt was ignored or no iteraction was done to dismiss it (closed app)
-    static let didIgnoreAppReviewPrompt: UserDefaults.BoolKey = "didIgnoreAppReviewPrompt"
+    static let didActionAppReviewPrompt: UserDefaults.BoolKey = "didActionAppReviewPrompt"
 }
 
 public extension UserDefaults.DateKey {
