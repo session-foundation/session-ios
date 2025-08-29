@@ -29,6 +29,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
+        // TODO: Make the 'shouldBeUnique' part of this job instead
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
