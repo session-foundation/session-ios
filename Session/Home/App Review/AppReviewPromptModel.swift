@@ -16,8 +16,12 @@ struct AppReviewPromptModel {
 }
 
 extension AppReviewPromptModel {
+    // Base version where app review prompt became available
+    // TODO: Update this once a version to include app review prompt is decided
+    static private let reviewPromptAvailabilityVersion = "2.14.1" // stringlint:ignore
+    
     /// Determines the initial state of the app review prompt.
-    static func loadInitialAppReviewPromptState(_ dependencies: Dependencies) -> (promptState: AppReviewPromptState?, wasInstalledPriorToAppReviewRelease: Bool)  {
+    static func loadInitialAppReviewPromptState(using dependencies: Dependencies) -> AppReviewPromptState?  {
         /// Check if incomplete app review can be shown again to user on next app launch
         let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
         
@@ -41,30 +45,22 @@ extension AppReviewPromptModel {
             promptState = .enjoyingSession
         }
         
-        let wasInstalledPriorToAppReviewRelease = checkIfAppWasInstalledPriorToAppReviewRelease(dependencies)
-        
-        return (promptState: promptState, wasInstalledPriorToAppReviewRelease: wasInstalledPriorToAppReviewRelease)
+        return promptState
     }
     
     /// Checks if version was from install or from update
-    static private func checkIfAppWasInstalledPriorToAppReviewRelease(_ dependencies: Dependencies) -> Bool {
-        // Base version where app review prompt became available
-        // TODO: Update this once a version to include app review prompt is decided
-        let reviewPromptAvailabilityVersion = "2.14.1" // stringlint:ignore
-        
+    static func checkIfAppWasInstalledPriorToAppReviewRelease(using dependencies: Dependencies) -> Bool {
         guard let firstAppVersion = dependencies[cache: .appVersion].firstAppVersion else {
-            return true
+            return false
         }
         
-        let comparisonResult = firstAppVersion.compare(reviewPromptAvailabilityVersion, options: .numeric)
-
-        if comparisonResult == .orderedAscending {
-            // App was updated to the latest version with app review prompt
-            return false
-        } else {
-            // App was installed not updated to new version
-            return true
-        }
+        let comparisonResult = firstAppVersion.compare(
+            reviewPromptAvailabilityVersion,
+            options: .numeric
+        )
+        
+        // App was updated to the latest version with app review prompt
+        return comparisonResult == .orderedAscending
     }
 }
 

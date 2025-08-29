@@ -48,15 +48,12 @@ public class HomeViewModel: NavigatableStateHolder {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
         
-        // The `appReview` variable is a tuple with the following elements:
-        // .promptState: AppReviewPromptState?
-        // .wasInstalledPriorToAppReviewRelease: Bool
-        let appReview = AppReviewPromptModel.loadInitialAppReviewPromptState(dependencies)
-
         self.state = State.initialState(
             using: dependencies,
-            appReviewPromptState: appReview.promptState,
-            appWasInstalledPriorToAppReviewRelease: appReview.wasInstalledPriorToAppReviewRelease
+            appReviewPromptState: AppReviewPromptModel
+                .loadInitialAppReviewPromptState(using: dependencies),
+            appWasInstalledPriorToAppReviewRelease: AppReviewPromptModel
+                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies)
         )
         
         /// Bind the state
@@ -400,15 +397,17 @@ public class HomeViewModel: NavigatableStateHolder {
             pendingAppReviewPromptState = nil
         } else {
             groupedOtherEvents?[.userDefault]?.forEach { event in
-                switch (event.key, event.value) {
-                    case (.userDefault(.hasVisitedPathScreen), let value as Bool) where value == true:
-                        if appWasInstalledPriorToAppReviewRelease { pendingAppReviewPromptState = .enjoyingSession }
-                        
-                    case (.userDefault(.hasPressedDonateButton), let value as Bool) where value == true:
+                guard let value: Bool = event.value as? Bool else { return }
+                
+                switch (event.key, value, appWasInstalledPriorToAppReviewRelease) {
+                    case (.userDefault(.hasVisitedPathScreen), true, false):
                         pendingAppReviewPromptState = .enjoyingSession
                         
-                    case (.userDefault(.hasChangedTheme), let value as Bool) where value == true:
-                        if appWasInstalledPriorToAppReviewRelease { pendingAppReviewPromptState = .enjoyingSession }
+                    case (.userDefault(.hasPressedDonateButton), true, _):
+                        pendingAppReviewPromptState = .enjoyingSession
+                        
+                    case (.userDefault(.hasChangedTheme), true, false):
+                        pendingAppReviewPromptState = .enjoyingSession
                         
                     default: break
                 }
