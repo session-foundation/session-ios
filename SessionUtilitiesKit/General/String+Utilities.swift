@@ -144,10 +144,10 @@ public extension String {
                 dateComponentsFormatter.unitsStyle = .full
                 return dateComponentsFormatter.string(from: duration) ?? ""
             
-            case .twoUnits: // 2 units, no localization, short version e.g 1w 1d
+            case .twoUnits: // 2 units, no localization, short version e.g 1w 1d, remove trailing 0's e.g 12h 0m -> 12h
                 dateComponentsFormatter.maximumUnitCount = 2
                 dateComponentsFormatter.unitsStyle = .abbreviated
-                dateComponentsFormatter.zeroFormattingBehavior = .dropLeading
+                dateComponentsFormatter.zeroFormattingBehavior = .dropAll
                 calendar.locale = Locale(identifier: "en-US")
                 dateComponentsFormatter.calendar = calendar
                 return dateComponentsFormatter.string(from: duration) ?? ""
