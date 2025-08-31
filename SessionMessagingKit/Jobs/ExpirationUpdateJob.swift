@@ -11,20 +11,14 @@ public enum ExpirationUpdateJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        dependencies[singleton: .storage]
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .storage]
             .readPublisher { db in
                 try SnodeAPI
                     .preparedUpdateExpiry(
@@ -40,8 +34,6 @@ public enum ExpirationUpdateJob: JobExecutor {
                     )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
             .map { _, response -> [UInt64: [String]] in
                 guard
                     let results: [UpdateExpiryResponseResult] = response
@@ -55,43 +47,43 @@ public enum ExpirationUpdateJob: JobExecutor {
                 
                 return unchangedMessages
             }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: success(job, false)
-                        case .failure(let error): failure(job, error, true)
-                    }
-                },
-                receiveValue: { unchangedMessages in
-                    guard !unchangedMessages.isEmpty else { return }
-                    
-                    dependencies[singleton: .storage].writeAsync { db in
-                        unchangedMessages.forEach { updatedExpiry, hashes in
-                            hashes.forEach { hash in
-                                guard
-                                    let interaction: Interaction = try? Interaction
-                                        .filter(Interaction.Columns.serverHash == hash)
-                                        .fetchOne(db),
-                                    let expiresInSeconds: TimeInterval = interaction.expiresInSeconds
-                                else { return }
-                                
-                                let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
-                                
-                                dependencies[singleton: .jobRunner].upsert(
+        
+        do {
+            let unchangedMessages = try await publisher.values.first(where: { _ in true })
+            
+            if unchangedMessages?.isEmpty == false {
+                try? await dependencies[singleton: .storage].writeAsync { db in
+                    unchangedMessages?.forEach { updatedExpiry, hashes in
+                        hashes.forEach { hash in
+                            guard
+                                let interaction: Interaction = try? Interaction
+                                    .filter(Interaction.Columns.serverHash == hash)
+                                    .fetchOne(db),
+                                let expiresInSeconds: TimeInterval = interaction.expiresInSeconds
+                            else { return }
+                            
+                            let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
+                            
+                            dependencies[singleton: .jobRunner].upsert(
+                                db,
+                                job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                     db,
-                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                        db,
-                                        interaction: interaction,
-                                        startedAtMs: expiresStartedAtMs,
-                                        using: dependencies
-                                    ),
-                                    canStartJob: true
-                                )
-                            }
+                                    interaction: interaction,
+                                    startedAtMs: expiresStartedAtMs,
+                                    using: dependencies
+                                ),
+                                canStartJob: true
+                            )
                         }
                     }
                 }
-            )
+            }
+            
+            return .success(job, stop: false)
+        }
+        catch {
+            throw JobRunnerError.permanentFailure(error)
+        }
     }
 }
 

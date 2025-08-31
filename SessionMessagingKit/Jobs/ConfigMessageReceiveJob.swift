@@ -19,23 +19,16 @@ public enum ConfigMessageReceiveJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// When the `configMessageReceive` job fails we want to unblock any `messageReceive` jobs it was blocking
         /// to ensure the user isn't losing any messages - this generally _shouldn't_ happen but if it does then having a temporary
         /// "outdated" state due to standard messages which would have been invalidated by a config change incorrectly being
         /// processed is less severe then dropping a bunch on messages just because they were processed in the same poll as
         /// invalid config messages
-        let removeDependencyOnMessageReceiveJobs: () -> () = {
+        let removeDependencyOnMessageReceiveJobs: () async -> () = {
             guard let jobId: Int64 = job.id else { return }
             
-            dependencies[singleton: .storage].write { db in
+            _ = try? await dependencies[singleton: .storage].writeAsync { db in
                 try JobDependencies
                     .filter(JobDependencies.Columns.dependantId == jobId)
                     .joining(
@@ -51,12 +44,12 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
-            removeDependencyOnMessageReceiveJobs()
-            return failure(job, JobRunnerError.missingRequiredDetails, true)
+            await removeDependencyOnMessageReceiveJobs()
+            throw JobRunnerError.missingRequiredDetails
         }
         
-        dependencies[singleton: .storage].writeAsync(
-            updates: { db in
+        do {
+            try await dependencies[singleton: .storage].writeAsync { db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.handleConfigMessages(
                         db,
@@ -64,19 +57,15 @@ public enum ConfigMessageReceiveJob: JobExecutor {
                         messages: details.messages
                     )
                 }
-            },
-            completion: { result in
-                // Handle the result
-                switch result {
-                    case .failure(let error):
-                        Log.error(.cat, "Couldn't receive config message due to error: \(error)")
-                        removeDependencyOnMessageReceiveJobs()
-                        failure(job, error, true)
-
-                    case .success: success(job, false)
-                }
             }
-        )
+            
+            return .success(job, stop: false)
+        }
+        catch {
+            Log.error(.cat, "Couldn't receive config message due to error: \(error)")
+            await removeDependencyOnMessageReceiveJobs()
+            throw JobRunnerError.permanentFailure(error)
+        }
     }
 }
 

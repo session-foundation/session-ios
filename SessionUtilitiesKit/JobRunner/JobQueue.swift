@@ -63,10 +63,10 @@ public actor JobQueue: Hashable {
     }
     
     func infoForAllPendingJobs() -> [Int64: JobRunner.JobInfo] {
-        pendingJobsQueue.reduce(into: [:]) { result, job in
-            guard let jobId: Int64 = job.id else { return }
+        pendingJobsQueue.enumerated().reduce(into: [:]) { result, jobInfo in
+            guard let jobId: Int64 = jobInfo.element.id else { return }
             
-            result[jobId] = JobRunner.JobInfo(job: job)
+            result[jobId] = JobRunner.JobInfo(job: jobInfo.element, queueIndex: jobInfo.offset)
         }
     }
     
@@ -220,6 +220,7 @@ public actor JobQueue: Hashable {
                 variant: variant,
                 threadId: nil,
                 interactionId: nil,
+                queueIndex: nil,
                 detailsData: nil
             )
             
@@ -295,7 +296,7 @@ public actor JobQueue: Hashable {
         }
         
         /// Track the running job
-        currentlyRunningJobs[jobId] = (info: JobRunner.JobInfo(job: job), task: jobTask)
+        currentlyRunningJobs[jobId] = (info: JobRunner.JobInfo(job: job, queueIndex: 0), task: jobTask)
         Log.info(.jobRunner, "JobQueue-\(type.name) started \(job)")
         
         /// Wait for the task to complete
@@ -390,7 +391,8 @@ public actor JobQueue: Hashable {
                                 Job.Columns.nextRunTimestamp.set(to: 0)
                             )
                         
-                    default: break
+                    /// Otherwise just save the updated job (just in case it was modified and hasn't been saved yet)
+                    case .recurring: _ = try job.upserted(db)
                 }
                 
                 return dependantJobs

@@ -10,22 +10,16 @@ public enum AttachmentDownloadJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             dependencies[singleton: .appContext].isValid,
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        dependencies[singleton: .storage]
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .storage]
             .writePublisher { db -> Attachment in
                 guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
                     throw JobRunnerError.missingRequiredDetails
@@ -43,8 +37,13 @@ public enum AttachmentDownloadJob: JobExecutor {
                 // if an attachment ends up stuck in a "downloading" state incorrectly
                 guard attachment.state != .downloading else {
                     let otherCurrentJobAttachmentIds: Set<String> = dependencies[singleton: .jobRunner]
-                        .jobInfoFor(state: .running, variant: .attachmentDownload)
-                        .filter { key, _ in key != job.id }
+                        .jobInfoFor(
+                            state: .running,
+                            filters: JobRunner.Filters(
+                                include: [.variant(.attachmentDownload)],
+                                exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
+                            )
+                        )
                         .values
                         .compactMap { info -> String? in
                             guard let data: Data = info.detailsData else { return nil }
@@ -140,8 +139,6 @@ public enum AttachmentDownloadJob: JobExecutor {
                     (response.attachment, response.temporaryFileUrl, response.data)
                 }
             }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
             .tryMap { attachment, temporaryFileUrl, data -> Attachment in
                 // Store the encrypted data temporarily
                 try data.write(to: temporaryFileUrl, options: .atomic)
@@ -195,69 +192,68 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 return updatedAttachment
             }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch (result, result.errorOrNull, result.errorOrNull as? JobRunnerError) {
-                        case (.finished, _, _): success(job, false)
-                        case (_, let error as AttachmentDownloadError, _) where error == .alreadyDownloaded:
-                            success(job, false)
+        
+        do {
+            _ = try await publisher.values.first(where: { _ in true })
+            return .success(job, stop: false)
+        }
+        catch {
+            switch error {
+                case AttachmentDownloadError.alreadyDownloaded: return .success(job, stop: false)
+                case JobRunnerError.missingRequiredDetails: throw error
+                    
+                case JobRunnerError.possibleDuplicateJob(let permanentFailure):
+                    throw JobRunnerError.possibleDuplicateJob(permanentFailure: permanentFailure)
+                    
+                default:
+                    let targetState: Attachment.State
+                    let permanentFailure: Bool
+                    
+                    switch error {
+                        /// If we get a 404 then we got a successful response from the server but the attachment doesn't
+                        /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
+                        /// a retry download loop
+                        case NetworkError.notFound:
+                            targetState = .invalid
+                            permanentFailure = true
                             
-                        case (_, _, .missingRequiredDetails):
-                            failure(job, JobRunnerError.missingRequiredDetails, true)
-                            
-                        case (_, _, .possibleDuplicateJob(let permanentFailure)):
-                                failure(job, JobRunnerError.possibleDuplicateJob(permanentFailure: permanentFailure), permanentFailure)
-                            
-                        case (.failure(let error), _, _):
-                            let targetState: Attachment.State
-                            let permanentFailure: Bool
-                            
-                            switch error {
-                                /// If we get a 404 then we got a successful response from the server but the attachment doesn't
-                                /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
-                                /// a retry download loop
-                                case NetworkError.notFound:
-                                    targetState = .invalid
-                                    permanentFailure = true
-                                    
-                                /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
-                                /// likely something else is going on that caused the failure
-                                case NetworkError.badRequest, NetworkError.unauthorised,
-                                    SnodeAPIError.signatureVerificationFailed:
-                                    targetState = .failedDownload
-                                    permanentFailure = true
-                                
-                                /// For any other error it's likely either the server is down or something weird just happened with the request
-                                /// so we want to automatically retry
-                                default:
-                                    targetState = .failedDownload
-                                    permanentFailure = false
-                            }
-                            
-                            /// To prevent the attachment from showing a state of downloading forever, we need to update the attachment
-                            /// state here based on the type of error that occurred
-                            ///
-                            /// **Note:** We **MUST** use the `'with()` function here as it will update the
-                            /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies[singleton: .storage].writeAsync(
-                                updates: { db in
-                                    _ = try Attachment
-                                        .filter(id: details.attachmentId)
-                                        .updateAll(db, Attachment.Columns.state.set(to: targetState))
-                                    db.addAttachmentEvent(
-                                        id: details.attachmentId,
-                                        messageId: job.interactionId,
-                                        type: .updated(.state(targetState))
-                                    )
-                                },
-                                completion: { _ in
-                                    /// Trigger the failure and provide the `permanentFailure` value defined above
-                                    failure(job, error, permanentFailure)
-                                }
-                            )
+                        /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
+                        /// likely something else is going on that caused the failure
+                        case NetworkError.badRequest, NetworkError.unauthorised,
+                            SnodeAPIError.signatureVerificationFailed:
+                            targetState = .failedDownload
+                            permanentFailure = true
+                        
+                        /// For any other error it's likely either the server is down or something weird just happened with the request
+                        /// so we want to automatically retry
+                        default:
+                            targetState = .failedDownload
+                            permanentFailure = false
                     }
-                }
-            )
+                    
+                    /// To prevent the attachment from showing a state of downloading forever, we need to update the attachment
+                    /// state here based on the type of error that occurred
+                    ///
+                    /// **Note:** We **MUST** use the `'with()` function here as it will update the
+                    /// `isValid` and `duration` values based on the downloaded data and the state
+                    try? await dependencies[singleton: .storage].writeAsync { db in
+                        _ = try Attachment
+                            .filter(id: details.attachmentId)
+                            .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                        db.addAttachmentEvent(
+                            id: details.attachmentId,
+                            messageId: job.interactionId,
+                            type: .updated(.state(targetState))
+                        )
+                    }
+                    
+                    /// Trigger the failure, but force to a `permanentFailure` if desired
+                    switch permanentFailure {
+                        case true: throw JobRunnerError.permanentFailure(error)
+                        case false: throw error
+                    }
+            }
+        }
     }
 }
 

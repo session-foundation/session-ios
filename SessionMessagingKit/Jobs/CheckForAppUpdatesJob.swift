@@ -19,15 +19,8 @@ public enum CheckForAppUpdatesJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
-        // Just defer the update check when running tests or in the simulator
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        /// Just defer the update check when running tests or in the simulator
 #if targetEnvironment(simulator)
         let shouldCheckForUpdates: Bool = false
 #else
@@ -39,40 +32,33 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 failureCount: 0,
                 nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
             )
-            dependencies[singleton: .storage].write { db in
+            try? await dependencies[singleton: .storage].writeAsync { db in
                 try updatedJob.save(db)
             }
             
             Log.info(.cat, "Deferred due to test/simulator build.")
-            return deferred(updatedJob)
+            return .deferred(updatedJob)
         }
         
-        dependencies[singleton: .network]
-            .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { _ in
-                    var updatedJob: Job = job.with(
-                        failureCount: 0,
-                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
-                    )
-                    
-                    dependencies[singleton: .storage].write { db in
-                        try updatedJob.save(db)
-                    }
-                    
-                    success(updatedJob, false)
-                },
-                receiveValue: { _, versionInfo in
-                    switch versionInfo.prerelease {
-                        case .none:
-                            Log.info(.cat, "Latest version: \(versionInfo.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
-                            
-                        case .some(let prerelease):
-                            Log.info(.cat, "Latest version: \(versionInfo.version), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
-                    }
-                }
-            )
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .network].checkClientVersion(
+            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+        )
+        
+        let versionInfo = try? await publisher.values.first(where: { _ in true })
+        
+        switch versionInfo?.1.prerelease {
+            case .none:
+                Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)") (Current: \(dependencies[cache: .appVersion].versionInfo))")
+                
+            case .some(let prerelease):
+                Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)"), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
+        }
+        
+        let updatedJob: Job = job.with(
+            failureCount: 0,
+            nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
+        )
+        return .success(updatedJob, stop: false)
     }
 }

@@ -63,7 +63,7 @@ public protocol JobRunnerType: Actor {
     
     func awaitBlockingQueueCompletion() async
     func didCompleteJob(id: Int64, result: JobRunner.JobResult)
-    func awaitResult(for job: Job, in state: JobRunner.JobState) async -> JobRunner.JobResult
+    func awaitResult(forFirstJobMatching filters: JobRunner.Filters, in state: JobRunner.JobState) async -> JobRunner.JobResult
     
     // MARK: - Recurring Jobs
     
@@ -110,8 +110,14 @@ public extension JobRunnerType {
         return add(db, job: job, dependantJob: nil, canStartJob: canStartJob)
     }
     
+    func awaitResult(forFirstJobMatching filters: JobRunner.Filters) async -> JobRunner.JobResult {
+        return await awaitResult(forFirstJobMatching: filters, in: .any)
+    }
+    
     func awaitResult(for job: Job) async -> JobRunner.JobResult {
-        return await awaitResult(for: job, in: .any)
+        guard let jobId: Int64 = job.id else { return .notFound }
+        
+        return await awaitResult(forFirstJobMatching: JobRunner.Filters(include: [.jobId(jobId)]), in: .any)
     }
 }
 
@@ -638,20 +644,23 @@ public actor JobRunner: JobRunnerType {
         }
     }
     
-    public func awaitResult(for job: Job, in state: JobRunner.JobState) async -> JobRunner.JobResult {
-        guard let jobId: Int64 = job.id else { return .notFound }
-        
+    public func awaitResult(forFirstJobMatching filters: JobRunner.Filters, in state: JobRunner.JobState) async -> JobRunner.JobResult {
         /// Ensure we know about the job
-        let info: [Int64: JobInfo] = await jobInfoFor(state: .any, filters: Filters(include: [.jobId(jobId)]))
+        let info: [Int64: JobInfo] = await jobInfoFor(state: state, filters: filters)
         
-        guard !info.isEmpty else { return .notFound }
+        guard
+            let targetJobId: Int64 = info
+                .sorted(by: { lhs, rhs in (lhs.value.queueIndex ?? 0) < (rhs.value.queueIndex ?? 0) })
+                .first?
+                .key
+        else { return .notFound }
         
         /// Get or create a stream for the job
         let stream: CancellationAwareAsyncStream<JobRunner.JobResult> = resultStreams[
-            jobId,
+            targetJobId,
             default: CancellationAwareAsyncStream()
         ]
-        resultStreams[jobId] = stream
+        resultStreams[targetJobId] = stream
         
         /// Await the first result from the stream
         for await result in stream.stream {
@@ -758,6 +767,7 @@ public extension JobRunner {
         public let variant: Job.Variant
         public let threadId: String?
         public let interactionId: Int64?
+        public let queueIndex: Int?
         public let detailsData: Data?
         
         public var debugDescription: String {
@@ -771,6 +781,7 @@ public extension JobRunner {
               variant: \(variant),
               threadId: \(threadId ?? "nil"),
               interactionId: \(interactionId.map { "\($0)" } ?? "nil"),
+              queueIndex: \(queueIndex.map { "\($0)" } ?? "nil"),
               detailsData: \(dataDescription)
             )
             """
@@ -779,11 +790,12 @@ public extension JobRunner {
 }
 
 public extension JobRunner.JobInfo {
-    init(job: Job) {
+    init(job: Job, queueIndex: Int) {
         self.id = job.id
         self.variant = job.variant
         self.threadId = job.threadId
         self.interactionId = job.interactionId
+        self.queueIndex = queueIndex
         self.detailsData = job.details
     }
 }

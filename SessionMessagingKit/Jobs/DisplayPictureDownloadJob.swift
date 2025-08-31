@@ -21,21 +21,15 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static var requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
-        // TODO: Make the 'shouldBeUnique' part of this job instead
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        // TODO: Make the 'shouldBeUnique' part of this job instead.
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        dependencies[singleton: .storage]
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<Data> in
                 switch details.target {
                     case .profile(_, let url, _), .group(_, let url, _):
@@ -81,8 +75,6 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }
             .flatMap { $0.send(using: dependencies) }
             .map { _, result in result }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
             .flatMapStorageReadPublisher(using: dependencies) { (db: ObservingDatabase, result: (Data, String, URL?)) -> (Data, String, URL?) in
                 /// Check to make sure this download is still a valid update
                 guard details.isValidUpdate(db, using: dependencies) else {
@@ -131,49 +123,48 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     using: dependencies
                 )
             }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch (result, result.errorOrNull, result.errorOrNull as? DisplayPictureError) {
-                        case (.finished, _, _): success(job, false)
-                        case (_, _, .updateNoLongerValid): success(job, false)
-                        case (_, _, .alreadyDownloaded(let downloadUrl)):
-                            /// If the file already exists then write the changes to the database
-                            dependencies[singleton: .storage].writeAsync(
-                                updates: { db in
-                                    try writeChanges(
-                                        db,
-                                        details: details,
-                                        downloadUrl: downloadUrl,
-                                        using: dependencies
-                                    )
-                                },
-                                completion: { result in
-                                    switch result {
-                                        case .success: success(job, false)
-                                        case .failure(let error): failure(job, error, true)
-                                    }
-                                }
+        
+        do {
+            try await publisher.values.first(where: { _ in true })
+            return .success(job, stop: false)
+        }
+        catch {
+            switch error {
+                case DisplayPictureError.updateNoLongerValid: return .success(job, stop: false)
+                case DisplayPictureError.alreadyDownloaded(let downloadUrl):
+                    /// If the file already exists then write the changes to the database
+                    do {
+                        try await dependencies[singleton: .storage].writeAsync { db in
+                            try writeChanges(
+                                db,
+                                details: details,
+                                downloadUrl: downloadUrl,
+                                using: dependencies
                             )
-                            
-                        case (_, let error as JobRunnerError, _) where error == .missingRequiredDetails:
-                            failure(job, error, true)
-                            
-                        case (_, _, .invalidPath):
-                            Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
-                            failure(job, DisplayPictureError.invalidPath, true)
-                            
-                        case (_, _, .writeFailed):
-                            Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
-                            failure(job, DisplayPictureError.writeFailed, true)
-                            
-                        case (_, _, .loadFailed):
-                            Log.error(.cat, "Failed to load display picture for \(details.target)")
-                            failure(job, DisplayPictureError.loadFailed, true)
-                            
-                        case (.failure(let error), _, _): failure(job, error, true)
+                        }
+                        
+                        return .success(job, stop: false)
                     }
-                }
-            )
+                    catch {
+                        throw JobRunnerError.permanentFailure(error)
+                    }
+                    
+                case JobRunnerError.missingRequiredDetails: throw error
+                case DisplayPictureError.invalidPath:
+                    Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
+                    throw error
+                    
+                case DisplayPictureError.writeFailed:
+                    Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
+                    throw error
+                    
+                case DisplayPictureError.loadFailed:
+                    Log.error(.cat, "Failed to load display picture for \(details.target)")
+                    throw error
+                    
+                default: throw JobRunnerError.permanentFailure(error)
+            }
+        }
     }
 
     private static func writeChanges(
@@ -370,6 +361,19 @@ extension DisplayPictureDownloadJob {
                     
                     return (imageId == latestImageId)
             }
+        }
+    }
+}
+
+// MARK: - JobError
+
+extension DisplayPictureError: JobError {
+    public var isPermanent: Bool {
+        switch self {
+            case .writeFailed: return true
+            case .loadFailed: return true
+            case .invalidPath: return true
+            default: return false
         }
     }
 }
