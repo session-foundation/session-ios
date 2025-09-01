@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum JobRunnerError: Error, Equatable, CustomStringConvertible {
+public enum JobRunnerError: Error, CustomStringConvertible {
     case executorMissing
     case jobIdMissing
     case requiredThreadIdMissing
@@ -15,6 +15,8 @@ public enum JobRunnerError: Error, Equatable, CustomStringConvertible {
     
     case possibleDuplicateJob(permanentFailure: Bool)
     case possibleDeferralLoop
+    
+    case permanentFailure(Error)
     
     var wasPossibleDeferralLoop: Bool {
         switch self {
@@ -35,6 +37,24 @@ public enum JobRunnerError: Error, Equatable, CustomStringConvertible {
             
             case .possibleDuplicateJob: return "This job might be the duplicate of another running job."
             case .possibleDeferralLoop: return "The job might have been stuck in a deferral loop."
+                
+            case .permanentFailure(let underlyingError): return "A permanent failure occurred: \(underlyingError)"
+        }
+    }
+}
+
+extension JobRunnerError: JobError {
+    public var isPermanent: Bool {
+        switch self {
+            case .executorMissing: return true
+            case .jobIdMissing: return true
+            case .requiredThreadIdMissing: return true
+            case .requiredInteractionIdMissing: return true
+            case .missingRequiredDetails: return true
+            case .missingDependencies: return true
+            case .possibleDuplicateJob(let permanentFailure): return permanentFailure
+            case .possibleDeferralLoop: return false
+            case .permanentFailure: return true
         }
     }
 }

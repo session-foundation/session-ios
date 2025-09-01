@@ -2,34 +2,34 @@
 
 import Foundation
 
-public actor CurrentValueAsyncStream<Element: Sendable> {
-    private var _currentValue: Element
-    private let continuation: AsyncStream<Element>.Continuation
-    public let stream: AsyncStream<Element>
-
-    public var currentValue: Element { _currentValue }
+public actor CurrentValueAsyncStream<Element: Sendable>: CancellationAwareStreamType {
+    private let lifecycleManager: StreamLifecycleManager<Element> = StreamLifecycleManager()
+    
+    /// This is the most recently emitted value
+    public private(set) var currentValue: Element
     
     // MARK: - Initialization
 
     public init(_ initialValue: Element) {
-        self._currentValue = initialValue
-
-        /// We use `.bufferingNewest(1)` to ensure that the stream always holds the most recent value. When a new iterator is
-        /// created for the stream, it will receive this buffered value first.
-        let (stream, continuation) = AsyncStream.makeStream(of: Element.self, bufferingPolicy: .bufferingNewest(1))
-        self.stream = stream
-        self.continuation = continuation
-        self.continuation.yield(initialValue)
+        self.currentValue = initialValue
     }
     
     // MARK: - Functions
 
-    public func send(_ newValue: Element) {
-        _currentValue = newValue
-        continuation.yield(newValue)
+    public func send(_ newValue: Element) async {
+        currentValue = newValue
+        lifecycleManager.send(newValue)
     }
 
-    public func finish() {
-        continuation.finish()
+    public func finishCurrentStreams() async {
+        lifecycleManager.finishCurrentStreams()
+    }
+    
+    public func beforeYield(to continuation: AsyncStream<Element>.Continuation) async {
+        continuation.yield(currentValue)
+    }
+    
+    public func makeTrackedStream() -> AsyncStream<Element> {
+        lifecycleManager.makeTrackedStream().stream
     }
 }

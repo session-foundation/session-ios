@@ -124,9 +124,7 @@ final class ShareNavController: UINavigationController {
         ///
         /// **Note:** We only want to do this if the app is active and ready for app extensions to run
         if dependencies[singleton: .appContext].isAppForegroundAndActive && userMetadata != nil {
-            dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushes(db) }
-            }
+            dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
         }
 
         checkIsAppReady(migrationsCompleted: true, userMetadata: userMetadata)

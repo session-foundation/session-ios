@@ -850,18 +850,17 @@ public extension Interaction {
         /// If we want to send read receipts and it's a contact thread then try to add the `SendReadReceiptsJob` for and unread
         /// messages that weren't outgoing
         if trySendReadReceipt && threadVariant == .contact {
-            dependencies[singleton: .jobRunner].upsert(
-                db,
-                job: SendReadReceiptsJob.createOrUpdateIfNeeded(
-                    db,
-                    threadId: threadId,
-                    interactionIds: interactionInfo
-                        .filter { !$0.wasRead && $0.variant != .standardOutgoing }
-                        .map { $0.id },
-                    using: dependencies
-                ),
-                canStartJob: true
-            )
+            db.afterCommit { [dependencies] in
+                Task { [dependencies] in
+                    await SendReadReceiptsJob.createOrUpdateIfNeeded(
+                        threadId: threadId,
+                        interactionIds: interactionInfo
+                            .filter { !$0.wasRead && $0.variant != .standardOutgoing }
+                            .map { $0.id },
+                        using: dependencies
+                    )
+                }
+            }
         }
     }
 }

@@ -18,36 +18,21 @@ public enum UpdateProfilePictureJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
-        // Don't run when inactive or not in main app
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        /// Don't run when inactive or not in main app
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            return deferred(job) // Don't need to do anything if it's not the main app
+            return .deferred(job) /// Don't need to do anything if it's not the main app
         }
         
-        // Only re-upload the profile picture if enough time has passed since the last upload
+        /// Only re-upload the profile picture if enough time has passed since the last upload
         guard
             let lastProfilePictureUpload: Date = dependencies[defaults: .standard, key: .lastProfilePictureUpload],
             dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
         else {
-            // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
-            // in a loop endlessly deferring the job
-            if let jobId: Int64 = job.id {
-                dependencies[singleton: .storage].write { db in
-                    try Job
-                        .filter(id: jobId)
-                        .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
-                }
-            }
-
+            /// Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck in a loop endlessly
+            /// deferring the job
             Log.info(.cat, "Deferred as not enough time has passed since the last update")
-            return deferred(job)
+            return .deferred(job.with(nextRunTimestamp: 0))
         }
         
         /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
@@ -58,22 +43,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
             .map { .currentUserUploadImageData($0) }
             .defaulting(to: .none)
         
-        Profile
-            .updateLocal(
-                displayPictureUpdate: displayPictureUpdate,
-                using: dependencies
-            )
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure(let error): failure(job, error, false)
-                        case .finished:
-                            Log.info(.cat, "Profile successfully updated")
-                            success(job, false)
-                    }
-                }
-            )
+        // FIXME: Refactor this to use async/await
+        let publisher = Profile.updateLocal(
+            displayPictureUpdate: displayPictureUpdate,
+            using: dependencies
+        )
+        
+        _ = try await publisher.values.first(where: { _ in true })
+        Log.info(.cat, "Profile successfully updated")
+        return .success(job, stop: false)
     }
 }

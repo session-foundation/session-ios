@@ -156,16 +156,15 @@ final class NukeDataModal: Modal {
     
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self, dependencies] _ in
-            ConfigurationSyncJob
-                .run(swarmPublicKey: dependencies[cache: .general].sessionId.hexString, using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main)
-                .sinkUntilComplete(
-                    receiveCompletion: { _ in
-                        NukeDataModal.deleteAllLocalData(using: dependencies)
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    }
+            Task(priority: .userInitiated) { [weak self, dependencies] in
+                try? await ConfigurationSyncJob.run(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                    using: dependencies
                 )
+                
+                NukeDataModal.deleteAllLocalData(using: dependencies)
+                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+            }
         }
     }
     

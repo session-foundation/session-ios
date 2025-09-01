@@ -19,22 +19,16 @@ public enum AttachmentUploadJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        dependencies[singleton: .storage]
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .storage]
             .readPublisher { db -> Attachment in
                 guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
                     throw JobRunnerError.missingRequiredDetails
@@ -86,8 +80,6 @@ public enum AttachmentUploadJob: JobExecutor {
                 
                 return (attachment, authMethod)
             }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
             .tryMap { attachment, authMethod -> Network.PreparedRequest<(attachment: Attachment, fileId: String)> in
                 try AttachmentUploader.preparedUpload(
                     attachment: attachment,
@@ -141,68 +133,68 @@ public enum AttachmentUploadJob: JobExecutor {
                 
                 return updatedAttachment
             }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch (result, result.errorOrNull) {
-                        case (.finished, _): success(job, false)
-                            
-                        case (_, let error as JobRunnerError) where error == .missingRequiredDetails:
-                            failure(job, error, true)
+        
+        do {
+            guard let result: Attachment = try await publisher.values.first(where: { _ in true }) else {
+                throw JobRunnerError.permanentFailure(StorageError.objectNotSaved)
+            }
+            
+            return .success(job, stop: false)
+        }
+        catch {
+            switch error {
+                case JobRunnerError.missingRequiredDetails: throw error
+                
+                case StorageError.objectNotFound:
+                    Log.info(.cat, "Failed due to missing interaction")
+                    throw JobRunnerError.permanentFailure(error)
+                    
+                case AttachmentError.uploadIsStillPendingDownload:
+                    Log.info(.cat, "Deferred as attachment is still being downloaded")
+                    return .deferred(job)
+                    
+                default:
+                    let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].writeAsync { db -> Bool in
+                        /// Update the attachment state
+                        try Attachment
+                            .filter(id: details.attachmentId)
+                            .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
+                        db.addAttachmentEvent(
+                            id: details.attachmentId,
+                            messageId: job.interactionId,
+                            type: .updated(.state(.failedUpload))
+                        )
                         
-                        case (_, let error as StorageError) where error == .objectNotFound:
-                            Log.info(.cat, "Failed due to missing interaction")
-                            failure(job, error, true)
-                            
-                        case (_, let error as AttachmentError) where error == .uploadIsStillPendingDownload:
-                            Log.info(.cat, "Deferred as attachment is still being downloaded")
-                            return deferred(job)
-                            
-                        case (.failure(let error), _):
-                            dependencies[singleton: .storage].writeAsync(
-                                updates: { db in
-                                    /// Update the attachment state
-                                    try Attachment
-                                        .filter(id: details.attachmentId)
-                                        .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
-                                    db.addAttachmentEvent(
-                                        id: details.attachmentId,
-                                        messageId: job.interactionId,
-                                        type: .updated(.state(.failedUpload))
-                                    )
-                                    
-                                    /// If this upload is related to sending a message then trigger the `handleFailedMessageSend` logic
-                                    /// as we want to ensure the message has the correct delivery status
-                                    guard
-                                        let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
-                                        let sendJobDetails: Data = sendJob.details,
-                                        let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
-                                            .decode(MessageSendJob.Details.self, from: sendJobDetails)
-                                    else { return false }
-                                    
-                                    MessageSender.handleFailedMessageSend(
-                                        db,
-                                        threadId: threadId,
-                                        message: details.message,
-                                        destination: nil,
-                                        error: .other(.cat, "Failed", error),
-                                        interactionId: interactionId,
-                                        using: dependencies
-                                    )
-                                    return true
-                                },
-                                completion: { result in
-                                    /// If we didn't log an error above then log it now
-                                    switch result {
-                                        case .failure, .success(true): break
-                                        case .success(false): Log.error(.cat, "Failed due to error: \(error)")
-                                    }
-                                    
-                                    failure(job, error, false)
-                                }
-                            )
+                        /// If this upload is related to sending a message then trigger the `handleFailedMessageSend` logic
+                        /// as we want to ensure the message has the correct delivery status
+                        guard
+                            let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                            let sendJobDetails: Data = sendJob.details,
+                            let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
+                                .decode(MessageSendJob.Details.self, from: sendJobDetails)
+                        else { return false }
+                        
+                        MessageSender.handleFailedMessageSend(
+                            db,
+                            threadId: threadId,
+                            message: details.message,
+                            destination: nil,
+                            error: .other(.cat, "Failed", error),
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
+                        return true
                     }
-                }
-            )
+                    
+                    /// If we didn't log an error above then log it now
+                    switch alreadyLoggedError {
+                        case .some(true): break
+                        case .none, .some(false): Log.error(.cat, "Failed due to error: \(error)")
+                    }
+                    
+                    throw error
+            }
+        }
     }
 }
 

@@ -427,3 +427,9 @@ extension MessageSendJob {
         }
     }
 }
+
+// MARK: - JobError conformance
+
+extension MessageSenderError: JobError {
+    public var isPermanent: Bool { !isRetryable }
+}

@@ -20,14 +20,7 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
@@ -39,13 +32,14 @@ public enum GroupInviteMemberJob: JobExecutor {
                     .fetchOne(db)
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
         let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         /// Perform the actual message sending
-        dependencies[singleton: .storage]
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .storage]
             .writePublisher { db -> (AuthenticationMethod, AuthenticationMethod) in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
@@ -91,71 +85,60 @@ public enum GroupInviteMemberJob: JobExecutor {
                     using: dependencies
                 ).send(using: dependencies)
             }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished:
-                            dependencies[singleton: .storage].write { db in
-                                try GroupMember
-                                    .filter(
-                                        GroupMember.Columns.groupId == threadId &&
-                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
-                                        GroupMember.Columns.role == GroupMember.Role.standard &&
-                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
-                                    )
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            success(job, false)
-                            
-                        case .failure(let error):
-                            Log.error(.cat, "Couldn't send message due to error: \(error).")
-                            
-                            // Update the invite status of the group member (only if the role is 'standard' and
-                            // the role status isn't already 'accepted')
-                            dependencies[singleton: .storage].write { db in
-                                try GroupMember
-                                    .filter(
-                                        GroupMember.Columns.groupId == threadId &&
-                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
-                                        GroupMember.Columns.role == GroupMember.Role.standard &&
-                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
-                                    )
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            // Notify about the failure
-                            dependencies.mutate(cache: .groupInviteMemberJob) { cache in
-                                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
-                            }
-                            
-                            // Register the failure
-                            switch error {
-                                case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.rateLimited:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.clockOutOfSync:
-                                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
-                                    failure(job, error, true)
-                                    
-                                default: failure(job, error, false)
-                            }
-                    }
-                }
-            )
+        
+        do {
+            _ = try await publisher.values.first(where: { _ in true })
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try GroupMember
+                    .filter(
+                        GroupMember.Columns.groupId == threadId &&
+                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                        GroupMember.Columns.role == GroupMember.Role.standard &&
+                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                    )
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
+                        using: dependencies
+                    )
+            }
+            
+            return .success(job, stop: false)
+        }
+        catch {
+            Log.error(.cat, "Couldn't send message due to error: \(error).")
+            
+            /// Update the invite status of the group member (only if the role is 'standard' and the role status isn't already 'accepted')
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try GroupMember
+                    .filter(
+                        GroupMember.Columns.groupId == threadId &&
+                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                        GroupMember.Columns.role == GroupMember.Role.standard &&
+                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                    )
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                        using: dependencies
+                    )
+            }
+            
+            /// Notify about the failure
+            dependencies.mutate(cache: .groupInviteMemberJob) { cache in
+                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
+            }
+            
+            /// Throw the error
+            switch error {
+                case is MessageSenderError: throw error
+                case SnodeAPIError.rateLimited: throw JobRunnerError.permanentFailure(error)
+                case SnodeAPIError.clockOutOfSync:
+                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
+                    throw JobRunnerError.permanentFailure(error)
+                    
+                default: throw error
+            }
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {

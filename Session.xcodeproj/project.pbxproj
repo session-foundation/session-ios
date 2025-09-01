@@ -494,6 +494,11 @@
 		FD1A55412E161AF6003761E4 /* Combine+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A55402E161AF3003761E4 /* Combine+Utilities.swift */; };
 		FD1A55432E179AED003761E4 /* ObservableKeyEvent+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A55422E179AE6003761E4 /* ObservableKeyEvent+Utilities.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
+		FD1BDB972E612315008EF998 /* JobExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDB962E612314008EF998 /* JobExecutor.swift */; };
+		FD1BDB992E612372008EF998 /* JobError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDB982E61236E008EF998 /* JobError.swift */; };
+		FD1BDB9B2E6123D8008EF998 /* JobQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDB9A2E6123D6008EF998 /* JobQueue.swift */; };
+		FD1BDBA92E617C37008EF998 /* StreamLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDBA82E617C35008EF998 /* StreamLifecycleManager.swift */; };
+		FD1BDBAB2E617C62008EF998 /* CancellationAwareAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDBAA2E617C61008EF998 /* CancellationAwareAsyncStream.swift */; };
 		FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */; };
 		FD1D732E2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */; };
 		FD22726B2C32911C004D8A6C /* SendReadReceiptsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272532C32911A004D8A6C /* SendReadReceiptsJob.swift */; };
@@ -1864,6 +1869,11 @@
 		FD1A55402E161AF3003761E4 /* Combine+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Combine+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A55422E179AE6003761E4 /* ObservableKeyEvent+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKeyEvent+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
+		FD1BDB962E612314008EF998 /* JobExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobExecutor.swift; sourceTree = "<group>"; };
+		FD1BDB982E61236E008EF998 /* JobError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobError.swift; sourceTree = "<group>"; };
+		FD1BDB9A2E6123D6008EF998 /* JobQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobQueue.swift; sourceTree = "<group>"; };
+		FD1BDBA82E617C35008EF998 /* StreamLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamLifecycleManager.swift; sourceTree = "<group>"; };
+		FD1BDBAA2E617C61008EF998 /* CancellationAwareAsyncStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationAwareAsyncStream.swift; sourceTree = "<group>"; };
 		FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Utilities.swift"; sourceTree = "<group>"; };
 		FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _015_BlockCommunityMessageRequests.swift; sourceTree = "<group>"; };
 		FD2272532C32911A004D8A6C /* SendReadReceiptsJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendReadReceiptsJob.swift; sourceTree = "<group>"; };
@@ -4181,10 +4191,12 @@
 				FDE755042C9BB4ED002A2623 /* Bencode.swift */,
 				FDE755032C9BB4ED002A2623 /* BencodeDecoder.swift */,
 				FD2272D32C34ECE1004D8A6C /* BencodeEncoder.swift */,
+				FD1BDBAA2E617C61008EF998 /* CancellationAwareAsyncStream.swift */,
 				FDB11A5A2DD1900B00BEF49F /* CurrentValueAsyncStream.swift */,
 				FD3FAB682AF1ADCA00DC5421 /* FileManager.swift */,
 				FD6A38F02C2A66B100762359 /* KeychainStorage.swift */,
 				FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */,
+				FD1BDBA82E617C35008EF998 /* StreamLifecycleManager.swift */,
 				FD2272E92C351CA7004D8A6C /* Threading.swift */,
 				FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */,
 			);
@@ -4693,7 +4705,10 @@
 		FD9004102818ABB000ABAAF6 /* JobRunner */ = {
 			isa = PBXGroup;
 			children = (
+				FD1BDB982E61236E008EF998 /* JobError.swift */,
+				FD1BDB962E612314008EF998 /* JobExecutor.swift */,
 				FDF0B7432804EF1B004C14C5 /* JobRunner.swift */,
+				FD1BDB9A2E6123D6008EF998 /* JobQueue.swift */,
 				FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */,
 			);
 			path = JobRunner;
@@ -6296,6 +6311,7 @@
 				945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */,
 				FDB3486E2BE8457F00B716C2 /* BackgroundTaskManager.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
+				FD1BDB9B2E6123D8008EF998 /* JobQueue.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */,
 				FDE755052C9BB4EE002A2623 /* BencodeDecoder.swift in Sources */,
@@ -6339,6 +6355,7 @@
 				FDE755192C9BC169002A2623 /* UIImage+Utilities.swift in Sources */,
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
 				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
+				FD1BDBA92E617C37008EF998 /* StreamLifecycleManager.swift in Sources */,
 				FD5931AB2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift in Sources */,
 				FD78E9FD2DDD97F200D55B50 /* Setting.swift in Sources */,
 				FD4BB22B2D63F20700D0DC3D /* MigrationHelper.swift in Sources */,
@@ -6375,6 +6392,7 @@
 				FDB11A5B2DD1901000BEF49F /* CurrentValueAsyncStream.swift in Sources */,
 				FDB3DA862E1E1F0E00148F8D /* TaskCancellation.swift in Sources */,
 				FDE754CC2C9BAF37002A2623 /* MediaUtils.swift in Sources */,
+				FD1BDB972E612315008EF998 /* JobExecutor.swift in Sources */,
 				FDE754DE2C9BAF8A002A2623 /* Crypto+SessionUtilitiesKit.swift in Sources */,
 				FDF2220F281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift in Sources */,
 				FD848B9A28442CE6000E298B /* StorageError.swift in Sources */,
@@ -6402,6 +6420,7 @@
 				FD71160028C8253500B47552 /* UIView+Combine.swift in Sources */,
 				B8856D23256F116B001CE70E /* Weak.swift in Sources */,
 				FDE754D42C9BAF6B002A2623 /* UICollectionView+ReusableView.swift in Sources */,
+				FD1BDBAB2E617C62008EF998 /* CancellationAwareAsyncStream.swift in Sources */,
 				FDE754C02C9BAEF6002A2623 /* Array+Utilities.swift in Sources */,
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,
 				FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */,
@@ -6415,6 +6434,7 @@
 				FD52CB632E13B61700A4DA70 /* ObservableKey.swift in Sources */,
 				FD74434C2D07CA9F00862443 /* CGSize+Utilities.swift in Sources */,
 				FD74434D2D07CA9F00862443 /* CGPoint+Utilities.swift in Sources */,
+				FD1BDB992E612372008EF998 /* JobError.swift in Sources */,
 				FD74434E2D07CA9F00862443 /* CGRect+Utilities.swift in Sources */,
 				FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */,
 				C300A60D2554B31900555489 /* Logging.swift in Sources */,

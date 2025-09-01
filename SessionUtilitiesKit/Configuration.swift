@@ -49,11 +49,14 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
         self.maxValidImageDimension = maxValidImageDimention
         
         // Register any recurring jobs to ensure they are actually scheduled
-        dependencies[singleton: .jobRunner].registerRecurringJobs(
-            scheduleInfo: [
-                (.syncPushTokens, .recurringOnLaunch, false, false),
-                (.syncPushTokens, .recurringOnActive, false, true)
-            ]
-        )
+        // FIXME: make async in network refactor
+        Task {
+            await dependencies[singleton: .jobRunner].registerRecurringJobs(
+                scheduleInfo: [
+                    (.syncPushTokens, .recurringOnLaunch, false, false),
+                    (.syncPushTokens, .recurringOnActive, false, true)
+                ]
+            )
+        }
     }
 }
