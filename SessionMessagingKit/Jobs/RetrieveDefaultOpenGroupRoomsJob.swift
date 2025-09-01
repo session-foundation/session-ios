@@ -72,7 +72,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, OpenGroupAPI.CapabilitiesAndRoomsResponse), Error> in
                 try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     authMethod: authMethod,
-                    using: dependencies
+                    using: dependencies,
+                    skipAuthentication: true
                 ).send(using: dependencies)
             }
             .subscribe(on: scheduler, using: dependencies)
@@ -157,7 +158,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                         target: .community(
                                             imageId: imageId,
                                             roomToken: room.token,
-                                            server: OpenGroupAPI.defaultServer
+                                            server: OpenGroupAPI.defaultServer,
+                                            skipAuthentication: true
                                         ),
                                         timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                                     )
