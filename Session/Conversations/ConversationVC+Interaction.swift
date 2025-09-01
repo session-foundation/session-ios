@@ -26,14 +26,14 @@ extension ConversationVC:
 {
     // MARK: - Open Settings
     
-    @objc func handleTitleViewTapped() {
+    @MainActor @objc func handleTitleViewTapped() {
         // Don't take the user to settings for unapproved threads
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
     }
     
-    func openSettingsFromTitleView() {
+    @MainActor func openSettingsFromTitleView() {
         // If we shouldn't be able to access settings then disable the title view shortcuts
         guard viewModel.threadData.canAccessSettings(using: viewModel.dependencies) else { return }
         
