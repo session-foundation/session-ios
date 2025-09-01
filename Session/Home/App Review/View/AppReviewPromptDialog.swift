@@ -149,6 +149,15 @@ class AppReviewPromptDialog: UIView {
         secondaryButton.isHidden = prompt?.promptContent.secondaryButtonTitle == nil
         secondaryButton.setTitle(prompt?.promptContent.secondaryButtonTitle, for: .normal)
         secondaryButton.accessibilityIdentifier = prompt?.promptContent.secondaryButtonAccessibilityIdentifier
+        
+        let isButtonsHidden = primaryButton.isHidden && secondaryButton.isHidden
+        
+        buttonStack.layoutMargins = .init(
+            top: isButtonsHidden ? 0: Values.mediumSpacing,
+            left: 0,
+            bottom: Values.mediumSpacing,
+            right: 0
+        )
     }
     
     @objc
