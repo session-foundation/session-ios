@@ -361,6 +361,14 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         bindViewModel()
         
         viewModel.navigatableState.setupBindings(viewController: self, disposables: &disposables)
+        
+        // Notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive(_:)),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
     
     public override func viewDidAppear(_ animated: Bool) {
@@ -369,6 +377,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         viewModel.dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: false)
         
         viewModel.viewDidAppear()
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - Updating
@@ -803,6 +815,12 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     @objc private func createNewConversation() {
         viewModel.dependencies[singleton: .app].createNewConversation()
+    }
+    
+    @objc func applicationDidBecomeActive(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            self?.viewModel.didReturnFromBackground()
+        }
     }
     
     func createNewDMFromDeepLink(sessionId: String) {

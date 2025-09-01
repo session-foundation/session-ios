@@ -22,23 +22,11 @@ extension AppReviewPromptModel {
     
     /// Determines the initial state of the app review prompt.
     static func loadInitialAppReviewPromptState(using dependencies: Dependencies) -> AppReviewPromptState?  {
-        /// Check if incomplete app review can be shown again to user on next app launch
-        let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
-        
         var promptState: AppReviewPromptState?
         
-        // A buffer of 24 hours
-        let buffer: TimeInterval = 24 * 60 * 60
-
-        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow.timeIntervalSince(retryDate) >= -buffer {
-            // This block will execute if the current time is within 24 hours of the retryDate
-            // or if the current time is past the retryDate.
-            
-            dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-            dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
-            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-            
+        if shouldShowAppReviewAgain(using: dependencies) {
             promptState = .rateSession
+            
         } else if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] && !dependencies[defaults: .standard, key: .didActionAppReviewPrompt] {
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
             
@@ -46,6 +34,26 @@ extension AppReviewPromptModel {
         }
         
         return promptState
+    }
+    
+    static func shouldShowAppReviewAgain(using dependencies: Dependencies) -> Bool {
+        /// Check if incomplete app review can be shown again to user on next app launch
+        let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
+
+        // A buffer of 24 hours
+        let buffer: TimeInterval = 24 * 60 * 60
+
+        if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow.timeIntervalSince(retryDate) >= -buffer {
+            // This block will execute if the current time is within 24 hours of the retryDate
+            // or if the current time is past the retryDate.
+            dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+            dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1
+            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
+            
+            return true
+        }
+        
+        return false
     }
     
     /// Checks if version was from install or from update

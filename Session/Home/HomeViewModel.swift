@@ -47,7 +47,7 @@ public class HomeViewModel: NavigatableStateHolder {
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
-        
+
         self.state = State.initialState(
             using: dependencies,
             appReviewPromptState: AppReviewPromptModel
@@ -537,13 +537,17 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     // MARK: - Handle App review
-    @MainActor func viewDidAppear() {
+    @MainActor
+    func viewDidAppear() {
         guard state.pendingAppReviewPromptState != nil else { return }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
             // Set flag that review prompt was already presented
             dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
-            dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
+            
+            if state.appReviewPromptState != .rateSession {
+                dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
+            }
             
             dependencies.notifyAsync(
                 priority: .immediate,
@@ -555,7 +559,7 @@ public class HomeViewModel: NavigatableStateHolder {
             )
         }
     }
-    
+
     func scheduleAppReviewRetry() {
         /// Wait 2 weeks before trying again
         dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
@@ -691,6 +695,19 @@ public class HomeViewModel: NavigatableStateHolder {
             case .feedback, .rateSession: handlePromptChangeState(nil)
             case .enjoyingSession: handlePromptChangeState(.feedback)
             default: break
+        }
+    }
+    
+    @MainActor
+    @objc func didReturnFromBackground() {
+        // Observe changes to app state retry and flags when app goes to bg to fg
+        if AppReviewPromptModel.shouldShowAppReviewAgain(using: dependencies) {
+            // Handles scenario where app is in background -> foreground when the retry date is hit
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+                // Set flag that review prompt was already presented
+                dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
+                self?.handlePromptChangeState(.rateSession)
+            }
         }
     }
 
