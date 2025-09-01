@@ -323,6 +323,7 @@ public final class OpenGroupManager {
         }
         
         // Remove all the data (everything should cascade delete)
+        _ = try? Interaction.deleteWhere(db, .filter(Interaction.Columns.threadId == openGroupId))
         _ = try? SessionThread
             .filter(id: openGroupId)
             .deleteAll(db)
@@ -656,10 +657,11 @@ public final class OpenGroupManager {
         // Handle any deletions that are needed
         if !messageServerInfoToRemove.isEmpty {
             let messageServerIdsToRemove: [Int64] = messageServerInfoToRemove.map { $0.id }
-            _ = try? Interaction
-                .filter(Interaction.Columns.threadId == openGroup.threadId)
+            _ = try? Interaction.deleteWhere(
+                db,
+                .filter(Interaction.Columns.threadId == openGroup.threadId),
                 .filter(messageServerIdsToRemove.contains(Interaction.Columns.openGroupServerMessageId))
-                .deleteAll(db)
+            )
             
             // Update the seqNo for deletions
             largestValidSeqNo = max(largestValidSeqNo, (messageServerInfoToRemove.map({ $0.seqNo }).max() ?? 0))

@@ -47,9 +47,23 @@ public extension ObservingDatabase {
         addEvent(ObservedEvent(key: key, value: nil))
     }
     
-    func addEvent(_ value: AnyHashable?, forKey key: ObservableKey) {
+    func addEvent<T: Hashable & Sendable>(_ value: T?, forKey key: ObservableKey) {
         addEvent(ObservedEvent(key: key, value: value))
     }
+}
+
+// MARK: - LoggingDatabaseRecord
+
+public enum LoggingDatabaseRecordContext {
+    /// This `TaskLocal` variable is set and accessible within the context of a single `Task` and allows any code running within
+    /// the task to access the isntance without running into threading issues or needing to manage multiple instances
+    @TaskLocal
+    public static var suppressLogs: Bool?
+}
+
+public protocol LoggingDatabaseRecord {
+    func logDeletion()
+    static func logDeletion()
 }
 
 // MARK: - ObservationContext
@@ -192,6 +206,10 @@ public extension MutablePersistableRecord {
     
     @discardableResult
     func delete(_ db: ObservingDatabase) throws -> Bool {
+        if LoggingDatabaseRecordContext.suppressLogs != true {
+            (self as? LoggingDatabaseRecord)?.logDeletion()
+        }
+        
         return try self.delete(db.originalDb)
     }
 }
@@ -239,6 +257,10 @@ public extension QueryInterfaceRequest {
     
     @discardableResult
     func deleteAll(_ db: ObservingDatabase) throws -> Int {
+        if LoggingDatabaseRecordContext.suppressLogs != true {
+            (RowDecoder.self as? LoggingDatabaseRecord.Type)?.logDeletion()
+        }
+        
         return try self.deleteAll(db.originalDb)
     }
 }
@@ -306,6 +328,10 @@ public extension TableRecord {
     
     @discardableResult
     static func deleteAll(_ db: ObservingDatabase) throws -> Int {
+        if LoggingDatabaseRecordContext.suppressLogs != true {
+            (self as? LoggingDatabaseRecord.Type)?.logDeletion()
+        }
+        
         return try self.deleteAll(db.originalDb)
     }
 }
@@ -317,11 +343,19 @@ public extension TableRecord where Self: Identifiable, Self.ID: DatabaseValueCon
     
     @discardableResult
     static func deleteAll(_ db: ObservingDatabase, ids: some Collection<Self.ID>) throws -> Int {
+        if LoggingDatabaseRecordContext.suppressLogs != true {
+            (self as? LoggingDatabaseRecord.Type)?.logDeletion()
+        }
+        
         return try self.deleteAll(db.originalDb, ids: ids)
     }
     
     @discardableResult
     static func deleteOne(_ db: ObservingDatabase, id: Self.ID) throws -> Bool {
+        if LoggingDatabaseRecordContext.suppressLogs != true {
+            (self as? LoggingDatabaseRecord.Type)?.logDeletion()
+        }
+        
         return try self.deleteOne(db.originalDb, id: id)
     }
 }
