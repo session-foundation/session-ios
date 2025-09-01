@@ -491,9 +491,14 @@ public extension LibSession {
         
         // MARK: - Pushes
         
-        public func syncAllPendingPushes(_ db: ObservingDatabase) {
-            configStore.allIds.forEach { sessionId in
-                ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
+        public func syncAllPendingPushesAsync() {
+            Task { [dependencies] in
+                for sessionId in configStore.allIds {
+                    await ConfigurationSyncJob.enqueue(
+                        swarmPublicKey: sessionId.hexString,
+                        using: dependencies
+                    )
+                }
             }
         }
         
@@ -977,7 +982,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase)
+    func syncAllPendingPushesAsync()
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
@@ -1243,7 +1248,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase) {}
+    func syncAllPendingPushesAsync() {}
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,

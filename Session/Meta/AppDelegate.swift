@@ -516,14 +516,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// Increment the launch count (guaranteed to change which results in the write actually doing something and
                 /// outputting and error if the DB is suspended)
                 db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
-                
-                /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
-                /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
-                ///
-                /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
-                if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[cache: .onboarding].state == .completed {
-                    dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushes(db) }
-                }
+            }
+            
+            /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
+            /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
+            ///
+            /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
+            if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[cache: .onboarding].state == .completed {
+                dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
             }
             
             // Add a log to track the proper startup time of the app so we know whether we need to

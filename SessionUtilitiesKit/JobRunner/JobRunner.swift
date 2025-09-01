@@ -767,6 +767,7 @@ public extension JobRunner {
         public let variant: Job.Variant
         public let threadId: String?
         public let interactionId: Int64?
+        public let nextRunTimestamp: TimeInterval
         public let queueIndex: Int?
         public let detailsData: Data?
         
@@ -781,6 +782,7 @@ public extension JobRunner {
               variant: \(variant),
               threadId: \(threadId ?? "nil"),
               interactionId: \(interactionId.map { "\($0)" } ?? "nil"),
+              nextRunTimestamp: \(nextRunTimestamp),
               queueIndex: \(queueIndex.map { "\($0)" } ?? "nil"),
               detailsData: \(dataDescription)
             )
@@ -795,6 +797,7 @@ public extension JobRunner.JobInfo {
         self.variant = job.variant
         self.threadId = job.threadId
         self.interactionId = job.interactionId
+        self.nextRunTimestamp = job.nextRunTimestamp
         self.queueIndex = queueIndex
         self.detailsData = job.details
     }

@@ -65,8 +65,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase) {
-        mockNoReturn(untrackedArgs: [db])
+    func syncAllPendingPushesAsync() {
+        mockNoReturn()
     }
     
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, variant: ConfigDump.Variant?, change: @escaping () throws -> ()) throws {

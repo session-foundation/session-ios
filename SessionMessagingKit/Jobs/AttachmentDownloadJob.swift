@@ -18,6 +18,23 @@ public enum AttachmentDownloadJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
         
+        let otherCurrentJobAttachmentIds: Set<String> = await dependencies[singleton: .jobRunner]
+            .jobInfoFor(
+                state: .running,
+                filters: JobRunner.Filters(
+                    include: [.variant(.attachmentDownload)],
+                    exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
+                )
+            )
+            .values
+            .compactMap { info -> String? in
+                guard let data: Data = info.detailsData else { return nil }
+                
+                return (try? JSONDecoder(using: dependencies).decode(Details.self, from: data))?
+                    .attachmentId
+            }
+            .asSet()
+        
         // FIXME: Refactor this to use async/await
         let publisher = dependencies[singleton: .storage]
             .writePublisher { db -> Attachment in
@@ -36,23 +53,6 @@ public enum AttachmentDownloadJob: JobExecutor {
                 // the same attachment multiple times at the same time (it also adds a "clean up" mechanism
                 // if an attachment ends up stuck in a "downloading" state incorrectly
                 guard attachment.state != .downloading else {
-                    let otherCurrentJobAttachmentIds: Set<String> = dependencies[singleton: .jobRunner]
-                        .jobInfoFor(
-                            state: .running,
-                            filters: JobRunner.Filters(
-                                include: [.variant(.attachmentDownload)],
-                                exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
-                            )
-                        )
-                        .values
-                        .compactMap { info -> String? in
-                            guard let data: Data = info.detailsData else { return nil }
-                            
-                            return (try? JSONDecoder(using: dependencies).decode(Details.self, from: data))?
-                                .attachmentId
-                        }
-                        .asSet()
-                    
                     // If there isn't another currently running attachmentDownload job downloading this
                     // attachment then we should update the state of the attachment to be failed to
                     // avoid having attachments appear in an endlessly downloading state
