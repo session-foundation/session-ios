@@ -151,6 +151,9 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */; };
 		940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433F2C7ED62300D9D2E0 /* StartupError.swift */; };
+		940978612E655C2F00925B36 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 940978602E655C2F00925B36 /* CocoaLumberjackSwift */; };
+		940978632E65673A00925B36 /* SessionListScreen+SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */; };
+		940978652E656CED00925B36 /* SessionListScreen+ListItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */; };
 		941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */; };
 		941375BD2D5195F30058F244 /* KeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BC2D5195F30058F244 /* KeyValueStore.swift */; };
 		9420CAC62E584B5800F738F6 /* GroupAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */; };
@@ -183,6 +186,13 @@
 		942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */; };
 		94363E552E5D84010004EE43 /* TappableLabel+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */; };
+		94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E5A2E60026F0004EE43 /* SessionListScreen.swift */; };
+		94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */; };
+		94363E622E60148A0004EE43 /* SessionProSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */; };
+		94363E642E6017F50004EE43 /* SessionListScreen+ListItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */; };
+		94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */; };
+		94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */; };
+		94363E6A2E613AF80004EE43 /* SessionProSettingsViewModel+Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1531,6 +1541,8 @@
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
 		9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+Constants.swift"; sourceTree = "<group>"; };
 		9409433F2C7ED62300D9D2E0 /* StartupError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupError.swift; sourceTree = "<group>"; };
+		940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+SectionHeader.swift"; sourceTree = "<group>"; };
+		940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemView.swift"; sourceTree = "<group>"; };
 		941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SessionNetwork.swift"; sourceTree = "<group>"; };
 		941375BC2D5195F30058F244 /* KeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueStore.swift; sourceTree = "<group>"; };
 		941375BE2D5196D10058F244 /* Number+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Number+Utilities.swift"; sourceTree = "<group>"; };
@@ -1561,6 +1573,13 @@
 		942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLabelWithProBadge.swift; sourceTree = "<group>"; };
 		942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UILabel+Utilities.swift"; sourceTree = "<group>"; };
 		94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TappableLabel+SwiftUI.swift"; sourceTree = "<group>"; };
+		94363E5A2E60026F0004EE43 /* SessionListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListScreen.swift; sourceTree = "<group>"; };
+		94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+Models.swift"; sourceTree = "<group>"; };
+		94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProSettingsViewModel.swift; sourceTree = "<group>"; };
+		94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItem.swift"; sourceTree = "<group>"; };
+		94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+Section.swift"; sourceTree = "<group>"; };
+		94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+AccessoryViews.swift"; sourceTree = "<group>"; };
+		94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProSettingsViewModel+Database.swift"; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
@@ -2484,6 +2503,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD756BF22D06687800BD7199 /* Lucide in Frameworks */,
+				940978612E655C2F00925B36 /* CocoaLumberjackSwift in Frameworks */,
 				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2872,6 +2892,29 @@
 				FDE5219B2E08E76600061B8E /* SessionAsyncImage.swift */,
 			);
 			path = SwiftUI;
+			sourceTree = "<group>";
+		};
+		94363E5C2E60027D0004EE43 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				94363E5A2E60026F0004EE43 /* SessionListScreen.swift */,
+				940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */,
+				940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */,
+				94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */,
+				94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */,
+				94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */,
+				94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		94363E602E6014630004EE43 /* SessionProSettings */ = {
+			isa = PBXGroup;
+			children = (
+				94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */,
+				94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */,
+			);
+			path = SessionProSettings;
 			sourceTree = "<group>";
 		};
 		947D7FD32D509FC900E8E413 /* SessionNetworkAPI */ = {
@@ -3472,6 +3515,7 @@
 		C360969125AD1765008B62B2 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				94363E602E6014630004EE43 /* SessionProSettings */,
 				FD8A5B002DBEFBF9004C689B /* SessionNetworkScreen */,
 				FD37E9CD28A1E682003AE748 /* Views */,
 				9422569A2C23F8F000C0FDBF /* QRCodeScreen.swift */,
@@ -4651,6 +4695,7 @@
 		FD8A5AFE2DBEFB19004C689B /* Screens */ = {
 			isa = PBXGroup;
 			children = (
+				94363E5C2E60027D0004EE43 /* Shared */,
 				FD8A5AFF2DBEFB21004C689B /* Settings */,
 			);
 			path = Screens;
@@ -5273,6 +5318,7 @@
 			packageProductDependencies = (
 				FD2286702C38D43000BC06F7 /* DifferenceKit */,
 				FD756BF12D06687800BD7199 /* Lucide */,
+				940978602E655C2F00925B36 /* CocoaLumberjackSwift */,
 			);
 			productName = SessionUIKit;
 			productReference = C331FF1B2558F9D300070591 /* SessionUIKit.framework */;
@@ -6122,7 +6168,9 @@
 				FDF848F129406A30007DCAE5 /* Format.swift in Sources */,
 				942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */,
 				FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */,
+				940978632E65673A00925B36 /* SessionListScreen+SectionHeader.swift in Sources */,
 				FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */,
+				94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */,
 				FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */,
 				FD8A5B0E2DBF2DB1004C689B /* SessionHostingViewController.swift in Sources */,
 				94CD962D2E1B85920097754D /* InputViewButton.swift in Sources */,
@@ -6138,6 +6186,7 @@
 				9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */,
 				94AAB14D2E1F39B500A6FA18 /* ProCTAModal.swift in Sources */,
 				FDE754BA2C9B97B8002A2623 /* UIDevice+Utilities.swift in Sources */,
+				940978652E656CED00925B36 /* SessionListScreen+ListItemView.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */,
@@ -6150,6 +6199,7 @@
 				942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */,
 				FD2272E62C351378004D8A6C /* SUIKImageFormat.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
+				94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */,
 				FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */,
 				FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */,
 				94B6BB042E3B208C00E718BB /* Seperator+SwiftUI.swift in Sources */,
@@ -6157,6 +6207,7 @@
 				FD42ECD02E289261002D03EA /* ThemeLinearGradient.swift in Sources */,
 				FDE754BE2C9BA16C002A2623 /* UIButtonConfiguration+Utilities.swift in Sources */,
 				FD3F2EF22DF273D900FD6849 /* ThemedAttributedString.swift in Sources */,
+				94363E642E6017F50004EE43 /* SessionListScreen+ListItem.swift in Sources */,
 				FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */,
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
 				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,
@@ -6172,6 +6223,7 @@
 				FD8A5B202DC03337004C689B /* AdaptiveText.swift in Sources */,
 				947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */,
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
+				94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */,
 				94AAB14F2E1F6CC100A6FA18 /* SessionProBadge+SwiftUI.swift in Sources */,
 				94AAB14B2E1E198200A6FA18 /* Modal+SwiftUI.swift in Sources */,
 				94AAB1532E1F8AE200A6FA18 /* ShineButton.swift in Sources */,
@@ -6189,6 +6241,7 @@
 				C33100282559000A00070591 /* UIView+Utilities.swift in Sources */,
 				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
+				94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6760,6 +6813,7 @@
 				C328255225CA64470062D0A7 /* ContextMenuVC+ActionView.swift in Sources */,
 				C3548F0824456AB6009433A8 /* UIView+Wrapping.swift in Sources */,
 				B83524A525C3BA4B0089A44F /* InfoMessageCell.swift in Sources */,
+				94363E6A2E613AF80004EE43 /* SessionProSettingsViewModel+Database.swift in Sources */,
 				7B9F71D82853100A006DFE7B /* EmojiWithSkinTones.swift in Sources */,
 				FD71164E28E3F8CC00B47552 /* SessionCell+Info.swift in Sources */,
 				B84A89BC25DE328A0040017D /* ProfilePictureVC.swift in Sources */,
@@ -6800,6 +6854,7 @@
 				FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */,
 				B8D0A26925E4A2C200C1835E /* Onboarding.swift in Sources */,
 				4CC613362227A00400E21A3A /* ConversationSearch.swift in Sources */,
+				94363E622E60148A0004EE43 /* SessionProSettingsViewModel.swift in Sources */,
 				FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */,
 				FD37E9DD28A384EB003AE748 /* PrimaryColorSelectionView.swift in Sources */,
 				942256812C23F8BB00C0FDBF /* NewMessageScreen.swift in Sources */,
@@ -10394,6 +10449,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		940978602E655C2F00925B36 /* CocoaLumberjackSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */;
+			productName = CocoaLumberjackSwift;
+		};
 		946F5A722D5DA3AC00A5ADCE /* Punycode */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 946F5A712D5DA3AC00A5ADCE /* XCRemoteSwiftPackageReference "PunycodeSwift" */;

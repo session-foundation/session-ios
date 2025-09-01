@@ -119,9 +119,9 @@ struct ArrowCapsule: Shape {
                 )
             case .bottomLeft:
                 return (
-                    CGPoint(x: rect.minX - offset - triangleSideLength, y: rect.maxY),
-                    CGPoint(x: rect.minX - offset - triangleSideLength / 2, y: rect.maxY + arrowLength),
-                    CGPoint(x: rect.minX - offset, y: rect.maxY)
+                    CGPoint(x: rect.minX + offset + triangleSideLength, y: rect.maxY),
+                    CGPoint(x: rect.minX + offset + triangleSideLength / 2, y: rect.maxY + arrowLength),
+                    CGPoint(x: rect.minX + offset, y: rect.maxY)
                 )
             case .bottomRight:
                 return (

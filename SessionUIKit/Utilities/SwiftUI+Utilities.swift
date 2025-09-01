@@ -20,6 +20,12 @@ extension EnvironmentValues {
     }
 }
 
+extension State: Equatable where Value: Equatable {
+    public static func == (lhs: State<Value>, rhs: State<Value>) -> Bool {
+        lhs.wrappedValue == rhs.wrappedValue
+    }
+}
+
 public struct UIView_SwiftUI: UIViewRepresentable {
     public typealias UIViewType = UIView
     
@@ -180,8 +186,8 @@ extension View {
     }
     
     @ViewBuilder
-    public func accessibility(_ accessibility: Accessibility) -> some View {
-        if #available(iOSApplicationExtension 14.0, *) {
+    public func accessibility(_ accessibility: Accessibility?) -> some View {
+        if let accessibility: Accessibility = accessibility {
             switch (accessibility.identifier, accessibility.label) {
                 case (.none, _): self
                 case (.some(let identifier), .none):

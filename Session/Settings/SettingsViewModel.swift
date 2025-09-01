@@ -397,8 +397,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     styling: SessionCell.StyleInfo(
                         tintColor: .sessionButton_border
                     ),
-                    onTap: { [weak viewModel] in
-                        // TODO: Implement
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        let viewController: SessionHostingViewController = SessionHostingViewController(
+                            rootView: SessionListScreen(
+                                viewModel: SessionProSettingsViewModel(using: dependencies)
+                            )
+                        )
+                        viewModel?.transitionToScreen(viewController)
                     }
                 ),
                 SessionCell.Info(
