@@ -541,22 +541,12 @@ public class HomeViewModel: NavigatableStateHolder {
     func viewDidAppear() {
         guard state.pendingAppReviewPromptState != nil else { return }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [self, dependencies] in
-            // Set flag that review prompt was already presented
-            dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+            guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
             
-            if state.appReviewPromptState != .rateSession {
-                dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
-            }
+            dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
             
-            dependencies.notifyAsync(
-                priority: .immediate,
-                key: .updateScreen(HomeViewModel.self),
-                value: HomeViewModelEvent(
-                    pendingAppReviewPromptState: nil,
-                    appReviewPromptState: state.pendingAppReviewPromptState
-                )
-            )
+            self?.handlePromptChangeState(updatedState)
         }
     }
 
@@ -567,8 +557,12 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
-        // Prompt closed from `x` button of prompt
+        // Set`didActionAppReviewPrompt` to true when closed from `x` button of prompt
+        // or in show rate limit prompt so it does not show again on relaunch
         if state == nil || state == .rateLimit { dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true }
+        
+        // Set `didShowAppReviewPrompt` when a new state is presented
+        if state != nil { dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true }
         
         dependencies.notifyAsync(
             priority: .immediate,
@@ -701,12 +695,13 @@ public class HomeViewModel: NavigatableStateHolder {
     @MainActor
     @objc func didReturnFromBackground() {
         // Observe changes to app state retry and flags when app goes to bg to fg
-        if AppReviewPromptModel.shouldShowAppReviewAgain(using: dependencies) {
+        if AppReviewPromptModel.checkAndRefreshAppReviewState(using: dependencies) {
+            // state.appReviewPromptState check so it does not replace existing prompt if there is any
+            let updatedState = state.appReviewPromptState ?? .rateSession
+            
             // Handles scenario where app is in background -> foreground when the retry date is hit
-            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                // Set flag that review prompt was already presented
-                dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true
-                self?.handlePromptChangeState(.rateSession)
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
+                self?.handlePromptChangeState(updatedState)
             }
         }
     }

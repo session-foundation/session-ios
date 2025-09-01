@@ -24,7 +24,7 @@ extension AppReviewPromptModel {
     static func loadInitialAppReviewPromptState(using dependencies: Dependencies) -> AppReviewPromptState?  {
         var promptState: AppReviewPromptState?
         
-        if shouldShowAppReviewAgain(using: dependencies) {
+        if checkAndRefreshAppReviewState(using: dependencies) {
             promptState = .rateSession
             
         } else if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] && !dependencies[defaults: .standard, key: .didActionAppReviewPrompt] {
@@ -36,7 +36,7 @@ extension AppReviewPromptModel {
         return promptState
     }
     
-    static func shouldShowAppReviewAgain(using dependencies: Dependencies) -> Bool {
+    static func checkAndRefreshAppReviewState(using dependencies: Dependencies) -> Bool {
         /// Check if incomplete app review can be shown again to user on next app launch
         let retryCount = dependencies[defaults: .standard, key: .rateAppRetryAttemptCount]
 
@@ -44,7 +44,7 @@ extension AppReviewPromptModel {
         let buffer: TimeInterval = 60 * 60
         
         if retryCount == 0, let retryDate = dependencies[defaults: .standard, key: .rateAppRetryDate], dependencies.dateNow.timeIntervalSince(retryDate) >= -buffer {
-            // This block will execute if the current time is within 24 hours of the retryDate
+            // This block will execute if the current time is within 1 hour of the retryDate
             // or if the current time is past the retryDate.
             dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
             dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 1

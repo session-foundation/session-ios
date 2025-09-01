@@ -84,12 +84,6 @@ class AppReviewPromptDialog: UIView {
         result.distribution = .fillEqually
         result.alignment = .fill
         result.isLayoutMarginsRelativeArrangement = true
-        result.layoutMargins = .init(
-            top: Values.mediumSpacing,
-            left: 0,
-            bottom: Values.mediumSpacing,
-            right: 0
-        )
         
         return result
     }()
