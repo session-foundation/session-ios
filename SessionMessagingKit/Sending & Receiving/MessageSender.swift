@@ -300,9 +300,9 @@ public final class MessageSender {
             .map { _, response in
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(response.id)
-                updatedMessage.sentTimestampMs = UInt64(floor(response.posted * 1000))
+                updatedMessage.sentTimestampMs = response.posted.map { UInt64(floor($0 * 1000)) }
                 
-                return (updatedMessage, Int64(floor(response.posted * 1000)), nil)
+                return (updatedMessage, response.posted.map { Int64(floor($0 * 1000)) }, nil)
             }
     }
     
