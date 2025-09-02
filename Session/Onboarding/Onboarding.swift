@@ -133,7 +133,7 @@ extension Onboarding {
         public func loadInitialState() async throws {
             /// Try to load the users `ed25519SecretKey` from the general cache and generate the key pairs from it
             let ed25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            let ed25519KeyPair: KeyPair = {
+            ed25519KeyPair = {
                 guard
                     !ed25519SecretKey.isEmpty,
                     let ed25519Seed: Data = dependencies[singleton: .crypto].generate(
@@ -146,7 +146,7 @@ extension Onboarding {
                 
                 return ed25519KeyPair
             }()
-            let x25519KeyPair: KeyPair = {
+            x25519KeyPair = {
                 guard
                     ed25519KeyPair != .empty,
                     let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(

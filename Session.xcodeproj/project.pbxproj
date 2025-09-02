@@ -249,7 +249,6 @@
 		B8856D72256F1421001CE70E /* OWSWindowManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB3F255A580C00E217F9 /* String+SSK.swift */; };
 		B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */; };
-		B886B4A72398B23E00211ABE /* (null) in Sources */ = {isa = PBXBuildFile; };
 		B886B4A92398BA1500211ABE /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B886B4A82398BA1500211ABE /* QRCode.swift */; };
 		B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */; };
 		B893063F2383961A005EAA8E /* ScanQRCodeWrapperVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */; };
@@ -690,7 +689,6 @@
 		FD49E2492B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4B200D283492210034334B /* InsetLockableTableView.swift */; };
 		FD4BB22B2D63F20700D0DC3D /* MigrationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4BB22A2D63F20600D0DC3D /* MigrationHelper.swift */; };
-		FD4BB22C2D63FA8600D0DC3D /* (null) in Sources */ = {isa = PBXBuildFile; };
 		FD4C4E9C2B02E2A300C72199 /* DisplayPictureError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */; };
 		FD4C53AF2CC1D62E003B10F4 /* _035_ReworkRecipientState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C53AE2CC1D61E003B10F4 /* _035_ReworkRecipientState.swift */; };
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
@@ -986,9 +984,7 @@
 		FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC498B82AC15FE300EDD897 /* AppNotificationAction.swift */; };
 		FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC6D75F2862B3F600B04575 /* Dependencies.swift */; };
 		FDCC22D02E52E46000C77B1A /* GroupAuthData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22CF2E52E45A00C77B1A /* GroupAuthData.swift */; };
-		FDCC22D22E56E0BC00C77B1A /* StreamLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D12E56E0B600C77B1A /* StreamLifecycleManager.swift */; };
 		FDCC22D42E5C0D9900C77B1A /* AppSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272DC2C34EFFA004D8A6C /* AppSetup.swift */; };
-		FDCC22D62E5D2ADC00C77B1A /* CancellationAwareAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D52E5D2AD700C77B1A /* CancellationAwareAsyncStream.swift */; };
 		FDCC22D82E5D3C1400C77B1A /* AsyncStream+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22D72E5D3C1000C77B1A /* AsyncStream+Utilities.swift */; };
 		FDCC22DB2E5E897800C77B1A /* DeveloperNetworkSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCC22DA2E5E897200C77B1A /* DeveloperNetworkSettingsViewModel.swift */; };
 		FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */; };
@@ -1085,12 +1081,6 @@
 		FDE755202C9BC1A6002A2623 /* CacheConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7551F2C9BC1A6002A2623 /* CacheConfig.swift */; };
 		FDE755222C9BC1BA002A2623 /* LibSessionError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE755212C9BC1BA002A2623 /* LibSessionError.swift */; };
 		FDE755242C9BC1D1002A2623 /* Publisher+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE755232C9BC1D1002A2623 /* Publisher+Utilities.swift */; };
-		FDEF57212C3CF03A00131302 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FDEF57222C3CF03D00131302 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FDEF57232C3CF04300131302 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FDEF57242C3CF04700131302 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FDEF57252C3CF04C00131302 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FDEF57262C3CF05F00131302 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		FDEF573E2C40F2A100131302 /* GroupUpdateMemberLeftNotificationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEF573D2C40F2A100131302 /* GroupUpdateMemberLeftNotificationMessage.swift */; };
 		FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */ = {isa = PBXBuildFile; fileRef = FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */; };
 		FDF01FAD2A9ECC4200CAF969 /* SingletonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF01FAC2A9ECC4200CAF969 /* SingletonConfig.swift */; };
@@ -4628,14 +4618,6 @@
 			path = SessionNetworkScreen;
 			sourceTree = "<group>";
 		};
-		FD8A5B232DC05A0E004C689B /* Recovered References */ = {
-			isa = PBXGroup;
-			children = (
-				941375BE2D5196D10058F244 /* Number+Utilities.swift */,
-			);
-			name = "Recovered References";
-			sourceTree = "<group>";
-		};
 		FD8ECF7529340F4800C0D1BB /* LibSession */ = {
 			isa = PBXGroup;
 			children = (
@@ -5491,7 +5473,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				DefaultBuildSystemTypeForWorkspace = Original;
-				LastSwiftUpdateCheck = 1520;
+				LastSwiftUpdateCheck = 1630;
 				LastTestingUpgradeCheck = 0600;
 				LastUpgradeCheck = 1600;
 				ORGANIZATIONNAME = "Rangeproof Pty Ltd";
@@ -6299,7 +6281,6 @@
 				FD2272C72C34EAF5004D8A6C /* ColumnExpressible.swift in Sources */,
 				FDB3486E2BE8457F00B716C2 /* BackgroundTaskManager.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
-				FDCC22D62E5D2ADC00C77B1A /* CancellationAwareAsyncStream.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */,
 				FDE755052C9BB4EE002A2623 /* BencodeDecoder.swift in Sources */,
@@ -6337,7 +6318,6 @@
 				FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */,
 				FDE755202C9BC1A6002A2623 /* CacheConfig.swift in Sources */,
 				FD1A553E2E14BE11003761E4 /* PagedData.swift in Sources */,
-				FD4BB22C2D63FA8600D0DC3D /* (null) in Sources */,
 				FDE755192C9BC169002A2623 /* UIImage+Utilities.swift in Sources */,
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
 				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
@@ -6375,7 +6355,6 @@
 				FDB3DA862E1E1F0E00148F8D /* TaskCancellation.swift in Sources */,
 				FDE754CC2C9BAF37002A2623 /* MediaUtils.swift in Sources */,
 				FDE754DE2C9BAF8A002A2623 /* Crypto+SessionUtilitiesKit.swift in Sources */,
-				FDCC22D22E56E0BC00C77B1A /* StreamLifecycleManager.swift in Sources */,
 				FDF2220F281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift in Sources */,
 				FD848B9A28442CE6000E298B /* StorageError.swift in Sources */,
 				FDE755222C9BC1BA002A2623 /* LibSessionError.swift in Sources */,
@@ -6723,7 +6702,6 @@
 				B877E24626CA13BA0007970A /* CallVC+Camera.swift in Sources */,
 				454A84042059C787008B8C75 /* MediaTileViewController.swift in Sources */,
 				FD3FAB5F2AE9BC2200DC5421 /* EditGroupViewModel.swift in Sources */,
-				FDEF57222C3CF03D00131302 /* (null) in Sources */,
 				7BA37AFB2AEB64CA002438F8 /* DisappearingMessageTimerView.swift in Sources */,
 				FD12A8492AD63C4700EEBA0D /* SessionNavItem.swift in Sources */,
 				FD12A83D2AD63BCC00EEBA0D /* EditableState.swift in Sources */,
@@ -6753,7 +6731,6 @@
 				B886B4A92398BA1500211ABE /* QRCode.swift in Sources */,
 				34A8B3512190A40E00218A25 /* MediaAlbumView.swift in Sources */,
 				FD09C5E828264937000CE219 /* MediaDetailViewController.swift in Sources */,
-				FDEF57262C3CF05F00131302 /* (null) in Sources */,
 				3496955E219B605E00DCFE74 /* PhotoLibrary.swift in Sources */,
 				7BA37AFD2AEF7C3D002438F8 /* VoiceMessageView_SwiftUI.swift in Sources */,
 				7B1B52E028580D51006069F2 /* EmojiSkinTonePicker.swift in Sources */,
@@ -6797,7 +6774,6 @@
 				7BBBDC462875600700747E59 /* DocumentTitleViewController.swift in Sources */,
 				FD71163F28E2C82C00B47552 /* SessionHeaderView.swift in Sources */,
 				B877E24226CA12910007970A /* CallVC.swift in Sources */,
-				FDEF57232C3CF04300131302 /* (null) in Sources */,
 				FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */,
 				FD7443402D07A25C00862443 /* PushRegistrationManager.swift in Sources */,
 				7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */,
@@ -6831,7 +6807,6 @@
 				7BAF54CF27ACCEEC003D12F8 /* GlobalSearchViewController.swift in Sources */,
 				FD37EA1728AC5605003AE748 /* NotificationContentViewModel.swift in Sources */,
 				FD3FAB612AEA194E00DC5421 /* UserListViewModel.swift in Sources */,
-				B886B4A72398B23E00211ABE /* (null) in Sources */,
 				94CD96322E1B88C20097754D /* ExpandingAttachmentsButton.swift in Sources */,
 				94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */,
 				4C4AE6A1224AF35700D4AF6F /* SendMediaNavigationController.swift in Sources */,
@@ -6872,13 +6847,11 @@
 				7B9F71D42852EEE2006DFE7B /* Emoji+Name.swift in Sources */,
 				4CA46F4C219CCC630038ABDE /* CaptionView.swift in Sources */,
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
-				FDEF57242C3CF04700131302 /* (null) in Sources */,
 				9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */,
 				34BECE2E1F7ABCE000D7438D /* GifPickerViewController.swift in Sources */,
 				9422568C2C23F8C800C0FDBF /* DisplayNameScreen.swift in Sources */,
 				7B9F71D72853100A006DFE7B /* Emoji+Available.swift in Sources */,
 				FD09C5E628260FF9000CE219 /* MediaGalleryViewModel.swift in Sources */,
-				FDEF57212C3CF03A00131302 /* (null) in Sources */,
 				7B9F71D32852EEE2006DFE7B /* Emoji.swift in Sources */,
 				C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */,
 				3488F9362191CC4000E524CC /* MediaView.swift in Sources */,
@@ -6918,7 +6891,6 @@
 				940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */,
 				FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */,
 				947D7FDE2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift in Sources */,
-				FDEF57252C3CF04C00131302 /* (null) in Sources */,
 				7B4C75CD26BB92060000AC89 /* DeletedMessageView.swift in Sources */,
 				FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */,
 				FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */,
@@ -8178,7 +8150,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 626;
+				CURRENT_PROJECT_VERSION = 627;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8218,7 +8190,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.2;
+				MARKETING_VERSION = 2.15.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -8259,7 +8231,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 626;
+				CURRENT_PROJECT_VERSION = 627;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8294,7 +8266,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.2;
+				MARKETING_VERSION = 2.15.0;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -8740,7 +8712,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 626;
+				CURRENT_PROJECT_VERSION = 627;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8779,7 +8751,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.2;
+				MARKETING_VERSION = 2.15.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -8797,7 +8769,6 @@
 		FDC605732C71DC03009B3D45 /* Debug_Compile_LibSession */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
@@ -9327,7 +9298,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 626;
+				CURRENT_PROJECT_VERSION = 627;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -9360,7 +9331,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.2;
+				MARKETING_VERSION = 2.15.0;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -9379,7 +9350,6 @@
 		FDC605802C71DC14009B3D45 /* App_Store_Release_Compile_LibSession */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW = NO;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
