@@ -26,9 +26,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         .onTapGesture {
                                             element.onTap?()
                                         }
-                                        .padding(.vertical, 8)
-                                        .padding(.top, (index == 0) ? 8 : 0)
-                                        .padding(.bottom, isLastElement ? 8 : 0)
+                                        .padding(.vertical, Values.smallSpacing)
+                                        .padding(.top, (index == 0) ? Values.smallSpacing : 0)
+                                        .padding(.bottom, isLastElement ? Values.smallSpacing : 0)
                                         .background(
                                             Rectangle()
                                                 .foregroundColor(themeColor: .backgroundSecondary)
@@ -37,7 +37,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 if (section.model.divider && !isLastElement) {
                                     Divider()
                                         .foregroundColor(themeColor: .borderSeparator)
-                                        .padding(.horizontal, 16)
+                                        .padding(.horizontal, Values.mediumSpacing)
                                 }
                                 case .logoWithPro:
                                     ListItemLogWithPro()
@@ -54,8 +54,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                         }
                     }
                     .cornerRadius(11)
-                    .padding(.vertical, 8)
-                    .listRowInsets(.init(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .padding(.vertical, Values.smallSpacing)
+                    .listRowInsets(.init(top: 0, leading: Values.mediumSpacing, bottom: 0, trailing: Values.mediumSpacing))
                     .listRowBackground(Color.clear)
                 }
                 .listRowSeparator(.hidden)

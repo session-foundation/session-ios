@@ -20,11 +20,13 @@ extension SessionListScreen {
                         Text(title)
                             .font(.Body.baseRegular)
                             .foregroundColor(themeColor: .textSecondary)
+                            .padding(.horizontal, Values.smallSpacing)
                     case .titleWithTooltips:
                         HStack(spacing: Values.verySmallSpacing) {
                             Text(title)
                                 .font(.Body.baseRegular)
                                 .foregroundColor(themeColor: .textSecondary)
+                                .padding(.horizontal, Values.smallSpacing)
                             
                             Button {
                                 withAnimation {
