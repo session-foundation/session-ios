@@ -263,6 +263,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                             ),
                             forceBlinded: false
                         ),
+                        skipAuthentication: true,
                         using: dependencies
                     )
                 }
@@ -284,6 +285,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                             requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                         )
                     })
+                
+                expect(expectedRequest?.headers).to(beEmpty())
             }
             
             // MARK: -- will retry 8 times before it fails
