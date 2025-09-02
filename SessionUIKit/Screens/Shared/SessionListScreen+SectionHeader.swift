@@ -39,6 +39,8 @@ extension SessionListScreen {
                             .accessibility(
                                 Accessibility(identifier: "Tooltip")
                             )
+                            
+                            Spacer()
                         }
                         .popoverView(
                             content: {

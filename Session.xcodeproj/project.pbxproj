@@ -151,7 +151,6 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */; };
 		940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433F2C7ED62300D9D2E0 /* StartupError.swift */; };
-		940978612E655C2F00925B36 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 940978602E655C2F00925B36 /* CocoaLumberjackSwift */; };
 		940978632E65673A00925B36 /* SessionListScreen+SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */; };
 		940978652E656CED00925B36 /* SessionListScreen+ListItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */; };
 		941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */; };
@@ -2503,7 +2502,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD756BF22D06687800BD7199 /* Lucide in Frameworks */,
-				940978612E655C2F00925B36 /* CocoaLumberjackSwift in Frameworks */,
 				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

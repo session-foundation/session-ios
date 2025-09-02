@@ -47,7 +47,13 @@ public extension SessionListScreenContent {
     }
     
     struct ListItemAccessory: Hashable, Equatable {
-        @ViewBuilder let content: () -> any View
+        @ViewBuilder public let accessoryView: () -> AnyView
+        
+        public init<Accessory: View>(
+            @ViewBuilder accessoryView: @escaping () -> Accessory
+        ) {
+            self.accessoryView = { AnyView(accessoryView()) }
+        }
         
         public func hash(into hasher: inout Hasher) {}
         public static func == (lhs: ListItemAccessory, rhs: ListItemAccessory) -> Bool {
@@ -100,22 +106,22 @@ public extension SessionListScreenContent {
             accessibility: Accessibility? = nil
         ) -> ListItemAccessory {
             return ListItemAccessory {
-                Image(uiImage: image ?? UIImage())
-                    .renderingMode(.template)
-                    .resizable()
-                    .frame(width: iconSize.size, height: iconSize.size)
-                    .foregroundColor(themeColor: customTint)
-                    .accessibility(accessibility)
-                    .background(
-                        LinearGradient(
-                            colors: gradientBackgroundColors,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        .frame(width: backgroundSize.size, height: backgroundSize.size)
-                        .cornerRadius(backgroundCornerRadius)
+                ZStack {
+                    LinearGradient(
+                        colors: gradientBackgroundColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
+                    .frame(width: backgroundSize.size, height: backgroundSize.size)
+                    .cornerRadius(backgroundCornerRadius)
                     
+                    Image(uiImage: image ?? UIImage())
+                        .renderingMode(.template)
+                        .resizable()
+                        .frame(width: iconSize.size, height: iconSize.size)
+                        .foregroundColor(themeColor: customTint)
+                        .accessibility(accessibility)
+                }
             }
         }
         
@@ -124,8 +130,9 @@ public extension SessionListScreenContent {
             accessibility: Accessibility = Accessibility(identifier: "Switch")
         ) -> ListItemAccessory {
             return ListItemAccessory {
-                Toggle("", isOn: value)
+                Toggle(isOn: value) { EmptyView() }
                     .toggleStyle(.switch)
+                    .listRowInsets(EdgeInsets())
             }
         }
     }

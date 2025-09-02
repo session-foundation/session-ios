@@ -70,6 +70,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             }
         }
         
+        public var divider: Bool {
+            switch self {
+                case .proSettings, .proManagement, .help: return true
+                default: return false
+            }
+        }
+        
         public var footer: String? { return nil }
     }
     

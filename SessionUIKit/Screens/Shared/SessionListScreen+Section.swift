@@ -7,6 +7,7 @@ public extension SessionListScreenContent {
     protocol ListSection: Differentiable, Equatable, Hashable {
         var title: String? { get }
         var style: ListSectionStyle { get }
+        var divider: Bool { get }
         var footer: String? { get }
     }
     

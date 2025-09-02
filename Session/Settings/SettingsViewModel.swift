@@ -395,7 +395,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     leadingAccessory: .proBadge(size: .small),
                     title: Constants.app_pro,
                     styling: SessionCell.StyleInfo(
-                        tintColor: .sessionButton_border
+                        tintColor: .primary
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         let viewController: SessionHostingViewController = SessionHostingViewController(
