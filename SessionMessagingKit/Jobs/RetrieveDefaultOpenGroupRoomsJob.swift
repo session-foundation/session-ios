@@ -72,8 +72,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, OpenGroupAPI.CapabilitiesAndRoomsResponse), Error> in
                 try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     authMethod: authMethod,
-                    using: dependencies,
-                    skipAuthentication: true
+                    skipAuthentication: true,
+                    using: dependencies
                 ).send(using: dependencies)
             }
             .subscribe(on: scheduler, using: dependencies)

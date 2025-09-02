@@ -58,8 +58,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             fileId: fileId,
                             roomToken: roomToken,
                             authMethod: Authentication.community(info: info),
-                            using: dependencies,
-                            skipAuthentication: skipAuthentication
+                            skipAuthentication: skipAuthentication,
+                            using: dependencies
                         )
                 }
             }
