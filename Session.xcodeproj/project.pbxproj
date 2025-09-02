@@ -761,6 +761,8 @@
 		FD6DA9D22D0160F10092085A /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD6DA9D12D0160F10092085A /* Lucide */; };
 		FD6DF00B2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */; };
 		FD6E4C8A2A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */; };
+		FD6F5B5E2E657A24009A8D01 /* CancellationAwareAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6F5B5D2E657A24009A8D01 /* CancellationAwareAsyncStream.swift */; };
+		FD6F5B602E657A33009A8D01 /* StreamLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6F5B5F2E657A32009A8D01 /* StreamLifecycleManager.swift */; };
 		FD705A92278D051200F16121 /* ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD705A91278D051200F16121 /* ReusableView.swift */; };
 		FD70F25C2DC1F184003729B7 /* _026_MessageDeduplicationTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD70F25B2DC1F176003729B7 /* _026_MessageDeduplicationTable.swift */; };
 		FD7115EB28C5D78E00B47552 /* ThreadSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */; };
@@ -2056,6 +2058,8 @@
 		FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopSessionCallManager.swift; sourceTree = "<group>"; };
 		FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddSnodeReveivedMessageInfoPrimaryKey.swift; sourceTree = "<group>"; };
 		FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyUnsubscribeRequest.swift; sourceTree = "<group>"; };
+		FD6F5B5D2E657A24009A8D01 /* CancellationAwareAsyncStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationAwareAsyncStream.swift; sourceTree = "<group>"; };
+		FD6F5B5F2E657A32009A8D01 /* StreamLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamLifecycleManager.swift; sourceTree = "<group>"; };
 		FD705A91278D051200F16121 /* ReusableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReusableView.swift; sourceTree = "<group>"; };
 		FD70F25B2DC1F176003729B7 /* _026_MessageDeduplicationTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _026_MessageDeduplicationTable.swift; sourceTree = "<group>"; };
 		FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -4186,10 +4190,12 @@
 				FDE755042C9BB4ED002A2623 /* Bencode.swift */,
 				FDE755032C9BB4ED002A2623 /* BencodeDecoder.swift */,
 				FD2272D32C34ECE1004D8A6C /* BencodeEncoder.swift */,
+				FD6F5B5D2E657A24009A8D01 /* CancellationAwareAsyncStream.swift */,
 				FDB11A5A2DD1900B00BEF49F /* CurrentValueAsyncStream.swift */,
 				FD3FAB682AF1ADCA00DC5421 /* FileManager.swift */,
 				FD6A38F02C2A66B100762359 /* KeychainStorage.swift */,
 				FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */,
+				FD6F5B5F2E657A32009A8D01 /* StreamLifecycleManager.swift */,
 				FD2272E92C351CA7004D8A6C /* Threading.swift */,
 				FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */,
 			);
@@ -6434,11 +6440,13 @@
 				FD74434A2D07CA9F00862443 /* Codable+Utilities.swift in Sources */,
 				FD0559562E026E1B00DC48CE /* ObservingDatabase.swift in Sources */,
 				FD74434B2D07CA9F00862443 /* CGFloat+Utilities.swift in Sources */,
+				FD6F5B602E657A33009A8D01 /* StreamLifecycleManager.swift in Sources */,
 				FD52CB632E13B61700A4DA70 /* ObservableKey.swift in Sources */,
 				FD74434C2D07CA9F00862443 /* CGSize+Utilities.swift in Sources */,
 				FD74434D2D07CA9F00862443 /* CGPoint+Utilities.swift in Sources */,
 				FD74434E2D07CA9F00862443 /* CGRect+Utilities.swift in Sources */,
 				FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */,
+				FD6F5B5E2E657A24009A8D01 /* CancellationAwareAsyncStream.swift in Sources */,
 				C300A60D2554B31900555489 /* Logging.swift in Sources */,
 				FD9004162818B46700ABAAF6 /* JobRunnerError.swift in Sources */,
 				FDE7551C2C9BC169002A2623 /* UIBezierPath+Utilities.swift in Sources */,
@@ -8180,7 +8188,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 625;
+				CURRENT_PROJECT_VERSION = 626;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8220,7 +8228,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.1;
+				MARKETING_VERSION = 2.14.2;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -8261,7 +8269,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 625;
+				CURRENT_PROJECT_VERSION = 626;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8296,7 +8304,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.1;
+				MARKETING_VERSION = 2.14.2;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -8742,7 +8750,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 625;
+				CURRENT_PROJECT_VERSION = 626;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8781,7 +8789,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.1;
+				MARKETING_VERSION = 2.14.2;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -9329,7 +9337,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 625;
+				CURRENT_PROJECT_VERSION = 626;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -9362,7 +9370,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.1;
+				MARKETING_VERSION = 2.14.2;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",

@@ -1180,7 +1180,7 @@ extension ConversationVC:
                         let currentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
-                            .saved(db)
+                            .upserted(db)
                             .insertControlMessage(
                                 db,
                                 threadVariant: cellViewModel.threadVariant,
