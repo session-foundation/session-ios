@@ -1458,6 +1458,21 @@ public extension Interaction {
             db.addAttachmentEvent(id: info.attachmentId, messageId: info.interactionId, type: .deleted)
         }
         
+        /// Add the garbage collection job to delete orphaned attachment files
+        if !attachments.isEmpty {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .garbageCollection,
+                    behaviour: .runOnce,
+                    details: GarbageCollectionJob.Details(
+                        typesToCollect: [.orphanedAttachmentFiles]
+                    )
+                ),
+                canStartJob: true
+            )
+        }
+        
         /// Delete the reactions from the database
         _ = try Reaction
             .filter(interactionIds.contains(Reaction.Columns.interactionId))
