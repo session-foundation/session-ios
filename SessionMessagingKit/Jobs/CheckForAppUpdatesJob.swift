@@ -40,7 +40,7 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
             )
             dependencies[singleton: .storage].write { db in
-                try updatedJob.save(db)
+                try updatedJob.upsert(db)
             }
             
             Log.info(.cat, "Deferred due to test/simulator build.")

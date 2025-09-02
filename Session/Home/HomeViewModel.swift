@@ -7,6 +7,8 @@ import DifferenceKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import StoreKit
+import SessionUIKit
 
 // MARK: - Log.Category
 
@@ -35,17 +37,24 @@ public class HomeViewModel: NavigatableStateHolder {
     
     public let dependencies: Dependencies
     private let userSessionId: SessionId
+    private var didPresentAppReviewPrompt: Bool = false
 
     /// This value is the current state of the view
     @MainActor @Published private(set) var state: State
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
-    
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
-        self.state = State.initialState(using: dependencies)
+
+        self.state = State.initialState(
+            using: dependencies,
+            appReviewPromptState: AppReviewPromptModel
+                .loadInitialAppReviewPromptState(using: dependencies),
+            appWasInstalledPriorToAppReviewRelease: AppReviewPromptModel
+                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies)
+        )
         
         /// Bind the state
         self.observationTask = ObservationBuilder
@@ -54,6 +63,15 @@ public class HomeViewModel: NavigatableStateHolder {
             .using(dependencies: dependencies)
             .query(HomeViewModel.queryState)
             .assign { [weak self] updatedState in self?.state = updatedState }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    public struct HomeViewModelEvent: Hashable {
+        let pendingAppReviewPromptState: AppReviewPromptState?
+        let appReviewPromptState: AppReviewPromptState?
     }
     
     // MARK: - State
@@ -76,6 +94,9 @@ public class HomeViewModel: NavigatableStateHolder {
         let unreadMessageRequestThreadCount: Int
         let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
         let itemCache: [String: SessionThreadViewModel]
+        let appReviewPromptState: AppReviewPromptState?
+        let pendingAppReviewPromptState: AppReviewPromptState?
+        let appWasInstalledPriorToAppReviewRelease: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -97,7 +118,11 @@ public class HomeViewModel: NavigatableStateHolder {
                 .setting(.hasHiddenMessageRequests),
                 .conversationCreated,
                 .anyMessageCreatedInAnyConversation,
-                .anyContactBlockedStatusChanged
+                .anyContactBlockedStatusChanged,
+                .userDefault(.hasVisitedPathScreen),
+                .userDefault(.hasPressedDonateButton),
+                .userDefault(.hasChangedTheme),
+                .updateScreen(HomeViewModel.self)
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -124,7 +149,7 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        static func initialState(using dependencies: Dependencies) -> State {
+        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, appWasInstalledPriorToAppReviewRelease: Bool) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -148,7 +173,10 @@ public class HomeViewModel: NavigatableStateHolder {
                     groupSQL: SessionThreadViewModel.groupSQL,
                     orderSQL: SessionThreadViewModel.homeOrderSQL
                 ),
-                itemCache: [:]
+                itemCache: [:],
+                appReviewPromptState: nil,
+                pendingAppReviewPromptState: appReviewPromptState,
+                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
             )
         }
     }
@@ -170,6 +198,9 @@ public class HomeViewModel: NavigatableStateHolder {
         var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
         var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
+        var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
+        var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
+        let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -361,6 +392,33 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         }
         
+        /// Next trigger should be ignored if `didShowAppReviewPrompt` is true
+        if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] == true {
+            pendingAppReviewPromptState = nil
+        } else {
+            groupedOtherEvents?[.userDefault]?.forEach { event in
+                guard let value: Bool = event.value as? Bool else { return }
+                
+                switch (event.key, value, appWasInstalledPriorToAppReviewRelease) {
+                    case (.userDefault(.hasVisitedPathScreen), true, false):
+                        pendingAppReviewPromptState = .enjoyingSession
+                        
+                    case (.userDefault(.hasPressedDonateButton), true, _):
+                        pendingAppReviewPromptState = .enjoyingSession
+                        
+                    case (.userDefault(.hasChangedTheme), true, false):
+                        pendingAppReviewPromptState = .enjoyingSession
+                        
+                    default: break
+                }
+            }
+        }
+        
+        if let event: HomeViewModelEvent = events.first?.value as? HomeViewModelEvent {
+            pendingAppReviewPromptState = event.pendingAppReviewPromptState
+            appReviewPromptState = event.appReviewPromptState
+        }
+
         /// Generate the new state
         return State(
             viewState: (loadResult.info.totalCount == 0 && unreadMessageRequestThreadCount == 0 ?
@@ -376,7 +434,10 @@ public class HomeViewModel: NavigatableStateHolder {
             hasHiddenMessageRequests: hasHiddenMessageRequests,
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
             loadedPageInfo: loadResult.info,
-            itemCache: itemCache
+            itemCache: itemCache,
+            appReviewPromptState: appReviewPromptState,
+            pendingAppReviewPromptState: pendingAppReviewPromptState,
+            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
         )
     }
     
@@ -475,6 +536,176 @@ public class HomeViewModel: NavigatableStateHolder {
         ].flatMap { $0 }
     }
     
+    // MARK: - Handle App review
+    @MainActor
+    func viewDidAppear() {
+        guard state.pendingAppReviewPromptState != nil else { return }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+            guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
+            
+            dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
+            
+            self?.handlePromptChangeState(updatedState)
+        }
+    }
+
+    func scheduleAppReviewRetry() {
+        /// Wait 2 weeks before trying again
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
+            .addingTimeInterval(2 * 7 * 24 * 60 * 60)
+    }
+    
+    func handlePromptChangeState(_ state: AppReviewPromptState?) {
+        // Set`didActionAppReviewPrompt` to true when closed from `x` button of prompt
+        // or in show rate limit prompt so it does not show again on relaunch
+        if state == nil || state == .rateLimit { dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true }
+        
+        // Set `didShowAppReviewPrompt` when a new state is presented
+        if state != nil { dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true }
+        
+        dependencies.notifyAsync(
+            priority: .immediate,
+            key: .updateScreen(HomeViewModel.self),
+            value: HomeViewModelEvent(
+                pendingAppReviewPromptState: nil,
+                appReviewPromptState: state
+            )
+        )
+    }
+
+    @MainActor
+    func submitAppStoreReview() {
+        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
+        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.windowBecameVisibleAfterTriggeringAppStoreReview(notification:)),
+            name: UIWindow.didBecomeVisibleNotification, object: nil
+        )
+        
+        if !dependencies[feature: .simulateAppReviewLimit] {
+            requestAppReview()
+        }
+
+        // Added 2 sec delay to give time for requet review to proc
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
+            guard let this = self else { return }
+            
+            NotificationCenter.default.removeObserver(this, name: UIWindow.didBecomeVisibleNotification, object: nil)
+            
+            guard this.didPresentAppReviewPrompt else {
+                // Show rate limit prompt
+                this.handlePromptChangeState(.rateLimit)
+                return
+            }
+            
+            // Reset flag just in case it will be triggered again
+            this.didPresentAppReviewPrompt = false
+        }
+    }
+    
+    @MainActor
+    private func requestAppReview() {
+        guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else {
+            return
+        }
+        
+        if #available(iOS 16.0, *) {
+            AppStore.requestReview(in: scene)
+        } else {
+            SKStoreReviewController.requestReview(in: scene)
+        }
+    }
+    
+    @objc
+    private func windowBecameVisibleAfterTriggeringAppStoreReview(notification: Notification) {
+        didPresentAppReviewPrompt = true
+    }
+    
+    @MainActor
+    func submitFeedbackSurvery() {
+        guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
+        
+        // stringlint:disable
+        let surveyUrl: URL = url.appending(queryItems: [
+            .init(name: "platform", value: Constants.platform_name),
+            .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
+        ])
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: surveyUrl.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                hasCloseButton: true,
+                onConfirm: { modal in
+                    UIApplication.shared.open(surveyUrl, options: [:], completionHandler: nil)
+                    modal.dismiss(animated: true)
+                },
+                onCancel: { modal in
+                    UIPasteboard.general.string = surveyUrl.absoluteString
+                    
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        self.transitionToScreen(modal, transitionType: .present)
+    }
+    
+    @MainActor
+    func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
+        dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
+        
+        switch state {
+            case .enjoyingSession:
+                handlePromptChangeState(.rateSession)
+                scheduleAppReviewRetry()
+            case .feedback:
+                // Close prompt before showing survery
+                handlePromptChangeState(nil)
+                submitFeedbackSurvery()
+            case .rateSession:
+                // Close prompt before showing app review
+                handlePromptChangeState(nil)
+                submitAppStoreReview()
+            default: break
+        }
+    }
+    
+    func handleSecondayTappedForState(_ state: AppReviewPromptState) {
+        dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
+        
+        switch state {
+            case .feedback, .rateSession: handlePromptChangeState(nil)
+            case .enjoyingSession: handlePromptChangeState(.feedback)
+            default: break
+        }
+    }
+    
+    @MainActor
+    @objc func didReturnFromBackground() {
+        // Observe changes to app state retry and flags when app goes to bg to fg
+        if AppReviewPromptModel.checkAndRefreshAppReviewState(using: dependencies) {
+            // state.appReviewPromptState check so it does not replace existing prompt if there is any
+            let updatedState = state.appReviewPromptState ?? .rateSession
+            
+            // Handles scenario where app is in background -> foreground when the retry date is hit
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
+                self?.handlePromptChangeState(updatedState)
+            }
+        }
+    }
+
     // MARK: - Functions
     
     @MainActor func loadPageBefore() {
@@ -532,5 +763,20 @@ private extension ObservedEvent {
                 
             default: return false
         }
+    }
+}
+
+private extension URL {
+    @available(iOS, introduced: 13.0, obsoleted: 16.0)
+    func appending(queryItems: [URLQueryItem]) -> URL {
+        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
+            return self
+        }
+        
+        var existingItems = components.queryItems ?? []
+        existingItems.append(contentsOf: queryItems)
+        components.queryItems = existingItems
+
+        return components.url ?? self
     }
 }

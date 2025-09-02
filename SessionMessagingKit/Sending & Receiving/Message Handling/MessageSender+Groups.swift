@@ -474,7 +474,7 @@ extension MessageSender {
                         
                         /// Add a record of the change to the conversation
                         _ = try updatedConfig
-                            .saved(db)
+                            .upserted(db)
                             .insertControlMessage(
                                 db,
                                 threadVariant: .group,

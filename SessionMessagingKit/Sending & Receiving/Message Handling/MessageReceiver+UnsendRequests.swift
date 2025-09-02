@@ -53,7 +53,7 @@ extension MessageReceiver {
         )
         try Interaction.markAsDeleted(
             db,
-            threadId: threadId,
+            threadId: interactionInfo.threadId, /// Can't use `threadId` as that may be the current users
             threadVariant: threadVariant,
             interactionIds: [interactionInfo.id],
             options: [.local, .network],

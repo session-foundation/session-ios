@@ -1280,7 +1280,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     
     public static func createMemberListViewController(
         threadId: String,
-        transitionToConversation: @escaping (String) -> Void,
+        transitionToConversation: @escaping @MainActor (String) -> Void,
         using dependencies: Dependencies
     ) -> UIViewController {
         return SessionTableViewController(
@@ -1315,7 +1315,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             )
                         },
                         completion: { _ in
-                            transitionToConversation(memberInfo.profileId)
+                            Task { @MainActor in
+                                transitionToConversation(memberInfo.profileId)
+                            }
                         }
                     )
                 },

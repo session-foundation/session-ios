@@ -333,19 +333,7 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.messages) {
-            struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
-                let id: Int64
-                let threadId: String
-            }
-            
-            let interactionInfo: Set<InteractionThreadInfo> = try Interaction
-                .select(.id, .threadId)
-                .filter(threadIds.contains(Interaction.Columns.threadId))
-                .asRequest(of: InteractionThreadInfo.self)
-                .fetchSet(db)
-            try Interaction.deleteAll(db, ids: interactionInfo.map { $0.id })
-            
-            interactionInfo.forEach { db.addMessageEvent(id: $0.id, threadId: $0.threadId, type: .deleted) }
+            try Interaction.deleteWhere(db, .filter(threadIds.contains(Interaction.Columns.threadId)))
             
             /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
@@ -380,6 +368,7 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.thread) {
+            try Interaction.deleteWhere(db, .filter(threadIds.contains(Interaction.Columns.threadId)))
             try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
                 .filter(ids: threadIds)
                 .deleteAll(db)

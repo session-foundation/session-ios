@@ -89,9 +89,10 @@ public enum GetExpirationJob: JobExecutor {
                         hashesWithNoExiprationInfo = hashesWithNoExiprationInfo.subtracting(inferredExpiredMessageHashes)
                         
                         if !inferredExpiredMessageHashes.isEmpty {
-                            try Interaction
+                            try Interaction.deleteWhere(
+                                db,
                                 .filter(inferredExpiredMessageHashes.contains(Interaction.Columns.serverHash))
-                                .deleteAll(db)
+                            )
                         }
                         
                         try Interaction

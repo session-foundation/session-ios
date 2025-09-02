@@ -11,7 +11,7 @@ public extension MessageViewModel {
     struct DeletionBehaviours {
         public enum Behaviour {
             case markAsDeleted(ids: [Int64], options: Interaction.DeletionOption, threadId: String, threadVariant: SessionThread.Variant)
-            case deleteFromDatabase(ids: [Int64], threadId: String)
+            case deleteFromDatabase([Int64])
             case cancelPendingSendJobs([Int64])
             case preparedRequest(Network.PreparedRequest<Void>)
         }
@@ -97,14 +97,9 @@ public extension MessageViewModel {
                             )
                         }
                         
-                    case .deleteFromDatabase(let ids, let threadId):
+                    case .deleteFromDatabase(let ids):
                         result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
-                            _ = try Interaction
-                                .filter(ids: ids)
-                                .deleteAll(db)
-                            ids.forEach { id in
-                                db.addMessageEvent(id: id, threadId: threadId, type: .deleted)
-                            }
+                            try Interaction.deleteWhere(db, .filter(ids.contains(Interaction.Columns.id)))
                         }
                         
                     case .preparedRequest(let preparedRequest):
@@ -203,13 +198,12 @@ public extension MessageViewModel.DeletionBehaviours {
                                         
                                         /// Control messages and deleted messages should be immediately deleted from the database
                                         .deleteFromDatabase(
-                                            ids: cellViewModels
+                                            cellViewModels
                                                 .filter { viewModel in
                                                     viewModel.variant.isInfoMessage ||
                                                     viewModel.variant.isDeletedMessage
                                                 }
-                                                .map { $0.id },
-                                            threadId: threadData.threadId
+                                                .map { $0.id }
                                         ),
                                         
                                         /// Other message types should only be marked as deleted
@@ -446,10 +440,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     )
                     .appending(threadData.threadIsNoteToSelf ?
                         /// If it's the `Note to Self`conversation then we want to just delete the interaction
-                        .deleteFromDatabase(
-                            ids: cellViewModels.map { $0.id },
-                            threadId: threadData.threadId
-                        ) :
+                        .deleteFromDatabase(cellViewModels.map { $0.id }) :
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
                             options: [.local, .network],
@@ -692,10 +683,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             }
                     )
                     .appending(
-                        .deleteFromDatabase(
-                            ids: cellViewModels.map { $0.id },
-                            threadId: threadData.threadId
-                        )
+                        .deleteFromDatabase(cellViewModels.map { $0.id })
                     )
         }
     }

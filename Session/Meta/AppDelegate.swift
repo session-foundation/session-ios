@@ -464,7 +464,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// We need to do a clean up for disappear after send messages that are received by push notifications before
         /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
         /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
-        DisappearingMessagesJob.cleanExpiredMessagesOnLaunch(using: dependencies)
+        DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
         
         /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
         /// them in this thread and create a task to _actually_ load them asynchronously

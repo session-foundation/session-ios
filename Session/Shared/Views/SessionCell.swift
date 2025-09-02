@@ -221,6 +221,9 @@ public class SessionCell: UITableViewCell {
         botSeparatorTrailingConstraint = botSeparator.pin(.trailing, to: .trailing, of: cellBackgroundView)
         botSeparator.pin(.bottom, to: .bottom, of: cellBackgroundView)
         
+        // Limit accessory views horizontal expansion to 40% of the container
+        trailingAccessoryView.set(.width, lessThanOrEqualTo: .width, of: contentView, multiplier: 0.40)
+        
         // Explicitly call this to ensure we have initialised the constraints before we initially
         // layout (if we don't do this then some constraints get created for the first time when
         // updating the cell before the `isActive` value gets set, resulting in breaking constriants)

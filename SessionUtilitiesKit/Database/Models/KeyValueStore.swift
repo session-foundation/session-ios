@@ -127,7 +127,7 @@ public extension ObservingDatabase {
             return nil
         }
         
-        return try? KeyValueStore(key: key, value: value)?.saved(self)
+        return try? KeyValueStore(key: key, value: value)?.upserted(self)
     }
     
     private subscript(key: String) -> KeyValueStore? {
@@ -138,7 +138,7 @@ public extension ObservingDatabase {
                 return
             }
             
-            try? newValue.save(self)
+            try? newValue.upsert(self)
         }
     }
     
