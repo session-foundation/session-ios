@@ -64,7 +64,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
-                case .proStats: return .titleWithTooltips
+                case .proStats: return .titleWithTooltips(content: "Pro stats reflect usage on this device and may appear differently on linked devices")
                 case .proSettings, .proFeatures, .proManagement, .help: return .titleNoBackgroundContent
                 default: return .none
             }

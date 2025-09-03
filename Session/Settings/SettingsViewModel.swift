@@ -398,10 +398,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         tintColor: .primary
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                        let viewController: SessionHostingViewController = SessionHostingViewController(
-                            rootView: SessionListScreen(
-                                viewModel: SessionProSettingsViewModel(using: dependencies)
-                            )
+                        let viewController: SessionListHostingViewController = SessionListHostingViewController(
+                            viewModel: SessionProSettingsViewModel(using: dependencies)
                         )
                         viewModel?.transitionToScreen(viewController)
                     }

@@ -5,6 +5,12 @@ import SwiftUI
 public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
     @StateObject private var viewModel: ViewModel
+    @State var isShowingTooltip: Bool = false
+    @State var tooltipContentFrame: CGRect = CGRect.zero
+    @State var tooltipContent: String = ""
+    
+    private let tooltipViewId: String = "SessionListScreen.SectionHeader.ToolTips" // stringlint:ignore
+    private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
     public init(viewModel: ViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -14,7 +20,36 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         List {
             ForEach(viewModel.state.listItemData, id: \.model) { section in 
                 Section {
-                    SectionHeader(section: section.model)
+                    // MARK: - Header
+                    
+                    if let title: String = section.model.title, section.model.style != .none {
+                        HStack(spacing: 0) {
+                            Text(title)
+                                .font(.Body.baseRegular)
+                                .foregroundColor(themeColor: .textSecondary)
+                                .padding(.horizontal, Values.smallSpacing)
+                            
+                            if case .titleWithTooltips(let content) = section.model.style {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.Body.baseRegular)
+                                    .foregroundColor(themeColor: .textSecondary)
+                                    .onAppear {
+                                        tooltipContent = content
+                                    }
+                                    .anchorView(viewId: tooltipViewId)
+                                    .accessibility(
+                                        Accessibility(identifier: "Tooltip")
+                                    )
+                                    .onTapGesture {
+                                        withAnimation {
+                                            isShowingTooltip.toggle()
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                    
+                    // MARK: List Items
                     
                     VStack(spacing: 0) {
                         ForEach(section.elements.indices, id: \.self) { index in
@@ -63,6 +98,42 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
             }
         }
         .listStyle(.inset)
+        .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
+            guard self.isShowingTooltip else {
+                return
+            }
+            
+            withAnimation(.spring()) {
+                self.isShowingTooltip = false
+            }
+        }
+        .coordinateSpace(name: coordinateSpaceName)
+        .popoverView(
+            content: {
+                ZStack {
+                    Text(tooltipContent)
+                        .font(.Body.smallRegular)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(themeColor: .textPrimary)
+                        .padding(.horizontal, Values.smallSpacing)
+                        .padding(.vertical, Values.smallSpacing)
+                        .frame(maxWidth: 270)
+                }
+                .overlay(
+                    GeometryReader { geometry in
+                        Color.clear // Invisible overlay
+                            .onAppear {
+                                self.tooltipContentFrame = geometry.frame(in: .global)
+                            }
+                    }
+                )
+            },
+            backgroundThemeColor: .toast_background,
+            isPresented: $isShowingTooltip,
+            frame: $tooltipContentFrame,
+            position: .topRight,
+            viewId: tooltipViewId
+        )
     }
 }
 

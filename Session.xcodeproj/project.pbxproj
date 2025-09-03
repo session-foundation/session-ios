@@ -151,7 +151,6 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */; };
 		940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433F2C7ED62300D9D2E0 /* StartupError.swift */; };
-		940978632E65673A00925B36 /* SessionListScreen+SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */; };
 		940978652E656CED00925B36 /* SessionListScreen+ListItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */; };
 		941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */; };
 		941375BD2D5195F30058F244 /* KeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BC2D5195F30058F244 /* KeyValueStore.swift */; };
@@ -192,6 +191,8 @@
 		94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */; };
 		94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */; };
 		94363E6A2E613AF80004EE43 /* SessionProSettingsViewModel+Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */; };
+		9438D4862E67B015008C7FFE /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 940978602E655C2F00925B36 /* CocoaLumberjackSwift */; };
+		9438D4882E67B704008C7FFE /* SessionListHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1540,7 +1541,6 @@
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
 		9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+Constants.swift"; sourceTree = "<group>"; };
 		9409433F2C7ED62300D9D2E0 /* StartupError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupError.swift; sourceTree = "<group>"; };
-		940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+SectionHeader.swift"; sourceTree = "<group>"; };
 		940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemView.swift"; sourceTree = "<group>"; };
 		941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SessionNetwork.swift"; sourceTree = "<group>"; };
 		941375BC2D5195F30058F244 /* KeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueStore.swift; sourceTree = "<group>"; };
@@ -1580,6 +1580,7 @@
 		94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+AccessoryViews.swift"; sourceTree = "<group>"; };
 		94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProSettingsViewModel+Database.swift"; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListHostingViewController.swift; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
@@ -2501,6 +2502,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9438D4862E67B015008C7FFE /* CocoaLumberjackSwift in Frameworks */,
 				FD756BF22D06687800BD7199 /* Lucide in Frameworks */,
 				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 			);
@@ -2896,7 +2898,6 @@
 			isa = PBXGroup;
 			children = (
 				94363E5A2E60026F0004EE43 /* SessionListScreen.swift */,
-				940978622E65672A00925B36 /* SessionListScreen+SectionHeader.swift */,
 				940978642E656CE100925B36 /* SessionListScreen+ListItemView.swift */,
 				94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */,
 				94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */,
@@ -3155,6 +3156,7 @@
 				B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */,
 				FD52090828B59411006098F6 /* ScreenLockWindow.swift */,
 				FD37EA0828AA2D27003AE748 /* SessionTableViewModel.swift */,
+				9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */,
 				FD10AF0B2AF32B9A007709E5 /* SessionListViewModel.swift */,
 				FD37EA0628AA2CCA003AE748 /* SessionTableViewController.swift */,
 				7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */,
@@ -6166,7 +6168,6 @@
 				FDF848F129406A30007DCAE5 /* Format.swift in Sources */,
 				942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */,
 				FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */,
-				940978632E65673A00925B36 /* SessionListScreen+SectionHeader.swift in Sources */,
 				FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */,
 				94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */,
 				FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */,
@@ -6806,6 +6807,7 @@
 				FDEF57222C3CF03D00131302 /* (null) in Sources */,
 				7BA37AFB2AEB64CA002438F8 /* DisappearingMessageTimerView.swift in Sources */,
 				FD12A8492AD63C4700EEBA0D /* SessionNavItem.swift in Sources */,
+				9438D4882E67B704008C7FFE /* SessionListHostingViewController.swift in Sources */,
 				FD12A83D2AD63BCC00EEBA0D /* EditableState.swift in Sources */,
 				FD37EA0528AA00C1003AE748 /* NotificationSettingsViewModel.swift in Sources */,
 				C328255225CA64470062D0A7 /* ContextMenuVC+ActionView.swift in Sources */,
