@@ -232,13 +232,15 @@ actor LibSessionNetwork: NetworkType {
                             .eraseToAnyPublisher()
                         
                     case .randomSnode(let swarmPublicKey):
+                        let swarmSessionId: SessionId = try SessionId(from: swarmPublicKey)
+                        
                         guard (try? SessionId(from: swarmPublicKey)) != nil else {
                             throw SessionIdError.invalidSessionId
                         }
                         guard body != nil else {
                             throw NetworkError.invalidPreparedRequest
                         }
-                        guard let cSwarmPublicKey: [CChar] = swarmPublicKey.cString(using: .utf8) else {
+                        guard let cSwarmPublicKey: [CChar] = swarmSessionId.publicKeyString.cString(using: .utf8) else {
                             throw LibSessionError.invalidCConversion
                         }
                         
