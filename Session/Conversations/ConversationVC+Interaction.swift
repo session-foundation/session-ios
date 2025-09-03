@@ -860,6 +860,9 @@ extension ConversationVC:
     }
 
     func showLinkPreviewSuggestionModal() {
+        // Hides accessory view while link preview confirmation is presented
+        hideInputAccessoryView()
+        
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "linkPreviewsEnable".localized(),
@@ -870,12 +873,17 @@ extension ConversationVC:
                 ),
                 confirmTitle: "enable".localized(),
                 confirmStyle: .danger,
-                cancelStyle: .alert_text
-            ) { [weak self, dependencies = viewModel.dependencies] _ in
-                dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                    self?.snInputView.autoGenerateLinkPreview()
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
+                    dependencies.setAsync(.areLinkPreviewsEnabled, true) {
+                        self?.snInputView.autoGenerateLinkPreview()
+                    }
+                },
+                afterClosed: { [weak self] in
+                    // Bring back accessory view after confirmation action
+                    self?.showInputAccessoryView()
                 }
-            }
+            )
         )
         
         present(linkPreviewModal, animated: true, completion: nil)
