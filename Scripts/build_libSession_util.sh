@@ -12,7 +12,6 @@ COMPILE_DIR="${TARGET_BUILD_DIR}/LibSessionUtil"
 INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NAME}"
 LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
-BUILT_LIB_FINAL_TIMESTAMP_FILE="${TARGET_BUILD_DIR}/libsession_util_built.timestamp"
 
 # Save original stdout and set trap for cleanup
 exec 3>&1
@@ -35,16 +34,34 @@ remove_locked_dir() {
 sync_headers() {
     local source_dir="$1"
     echo "- Syncing headers from ${source_dir}"
-    remove_locked_dir "${TARGET_BUILD_DIR}/include"
-    remove_locked_dir "${INDEX_DIR}/include"
     
-    # Ensure destination parent directories exist
-    mkdir -p "${TARGET_BUILD_DIR}/include"
-    mkdir -p "${INDEX_DIR}/include"
-
-    rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "${TARGET_BUILD_DIR}/include/"
-    rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "${INDEX_DIR}/include/"
+    local destinations=(
+        "${TARGET_BUILD_DIR}/include"
+        "${INDEX_DIR}/include"
+        "${BUILT_PRODUCTS_DIR}/include"
+        "${CONFIGURATION_BUILD_DIR}/include"
+    )
+    
+    for dest in "${destinations[@]}"; do
+        if [ -n "$dest" ]; then
+            remove_locked_dir "$dest"
+            mkdir -p "$dest"
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
+            echo "  Synced to: $dest"
+        fi
+    done
 }
+
+# Modify the platform detection to handle archive builds
+if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
+  # Archive builds typically use 'install' action
+  if [ -z "$PLATFORM_NAME" ]; then
+    # During archive, PLATFORM_NAME might not be set correctly
+    # Default to device build for archives
+    PLATFORM_NAME="iphoneos"
+    echo "Missing 'PLATFORM_NAME' value, manually set to ${PLATFORM_NAME}"
+  fi
+fi
 
 # Determine whether we want to build from source
 TARGET_ARCH_DIR=""
@@ -61,6 +78,10 @@ fi
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   echo "Using pre-packaged SessionUtil"
   sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
+  
+  # Create the placeholder in the FINAL products directory to satisfy dependency.
+  touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+  
   echo "- Revert to SPM complete."
   
   exit 0
@@ -150,6 +171,16 @@ else
 fi
 
 if [ "${REQUIRES_BUILD}" == 1 ]; then
+
+#  # Hide the SPM framework to prevent module conflicts
+#  if [ -d "${PRE_BUILT_FRAMEWORK_DIR}" ]; then
+#    # Temporarily rename the SPM framework to prevent it from being found
+#    mv "${PRE_BUILT_FRAMEWORK_DIR}" "${PRE_BUILT_FRAMEWORK_DIR}.disabled" 2>/dev/null || true
+#
+#    # Store that we disabled it so we can restore if build fails
+#    echo "DISABLED" > "${TARGET_BUILD_DIR}/.spm_framework_disabled"
+#  fi
+
   # Import settings from XCode (defaulting values if not present)
   VALID_SIM_ARCHS=(arm64 x86_64)
   VALID_DEVICE_ARCHS=(arm64)
@@ -335,9 +366,6 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   echo "- Saving successful build cache files"
   echo "${TARGET_ARCH_DIR}" > "${LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE}"
   echo "${CURRENT_SOURCE_TREE_HASH}" > "${LAST_SUCCESSFUL_HASH_FILE}"
-  
-  echo "- Touching timestamp file to signal update to Xcode"
-  touch "${BUILT_LIB_FINAL_TIMESTAMP_FILE}"
 
   echo "- Build complete"
 fi
@@ -347,6 +375,13 @@ echo "- Replacing build dir files"
 # Rsync the compiled ones (maintaining timestamps)
 rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
 rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
+
+if [ "${TARGET_BUILD_DIR}" != "${BUILT_PRODUCTS_DIR}" ]; then
+  echo "- TARGET_BUILD_DIR and BUILT_PRODUCTS_DIR are different. Copying library."
+  rm -f "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+  rsync -rt "${COMPILE_DIR}/libsession-util.a" "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+fi
+
 sync_headers "${COMPILE_DIR}/Headers/"
 echo "- Sync complete."
 
