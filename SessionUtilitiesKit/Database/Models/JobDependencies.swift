@@ -5,10 +5,6 @@ import GRDB
 
 public struct JobDependencies: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "jobDependencies" }
-    internal static let jobForeignKey = ForeignKey([Columns.jobId], to: [Job.Columns.id])
-    internal static let dependantForeignKey = ForeignKey([Columns.dependantId], to: [Job.Columns.id])
-    public static let job = belongsTo(Job.self, using: jobForeignKey)
-    public static let dependant = hasOne(Job.self, using: Job.dependencyForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -35,15 +31,5 @@ public struct JobDependencies: Codable, Equatable, Hashable, FetchableRecord, Pe
     ) {
         self.jobId = jobId
         self.dependantId = dependantId
-    }
-    
-    // MARK: - Relationships
-         
-    public var job: QueryInterfaceRequest<Job> {
-        request(for: JobDependencies.job)
-    }
-    
-    public var dependant: QueryInterfaceRequest<Job> {
-        request(for: JobDependencies.dependant)
     }
 }

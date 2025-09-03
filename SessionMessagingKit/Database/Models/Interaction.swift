@@ -1458,19 +1458,17 @@ public extension Interaction {
             db.addAttachmentEvent(id: info.attachmentId, messageId: info.interactionId, type: .deleted)
         }
         
-        /// Add the garbage collection job to delete orphaned attachment files
+        /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
+        /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
+        /// but we should still try to handle it immediately
         if !attachments.isEmpty {
-            dependencies[singleton: .jobRunner].add(
-                db,
-                job: Job(
-                    variant: .garbageCollection,
-                    behaviour: .runOnce,
-                    details: GarbageCollectionJob.Details(
-                        typesToCollect: [.orphanedAttachmentFiles]
-                    )
-                ),
-                canStartJob: true
-            )
+            let attachmentPaths: [String] = attachments.compactMap {
+                try? dependencies[singleton: .attachmentManager].path(for: $0.downloadUrl)
+            }
+            
+            DispatchQueue.global(qos: .background).async {
+                attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }
+            }
         }
         
         /// Delete the reactions from the database
@@ -1543,19 +1541,6 @@ public extension Interaction {
         /// Notify about the deletion
         interactionIds.forEach { id in
             db.addMessageEvent(id: id, threadId: threadId, type: .deleted)
-        }
-        
-        /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
-        /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
-        /// but we should still try to handle it immediately
-        if !attachments.isEmpty {
-            let attachmentPaths: [String] = attachments.compactMap {
-                try? dependencies[singleton: .attachmentManager].path(for: $0.downloadUrl)
-            }
-            
-            DispatchQueue.global(qos: .background).async {
-                attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }
-            }
         }
     }
     

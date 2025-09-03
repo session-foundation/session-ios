@@ -13,8 +13,8 @@ public class Dependencies {
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
-    private typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
-    private let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
+    fileprivate typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
+    fileprivate let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
 
     // MARK: - Subscript Access
     
@@ -471,7 +471,7 @@ public extension Dependencies {
             let observationTask = Task { [weak self] in
                 guard let self else { return continuation.finish() }
                 
-                for await (changedKey, changedValue) in self.dependecyChangeStream {
+                for await (changedKey, changedValue) in self.dependencyChangeStream.stream {
                     guard changedKey == key else { continue }
                     
                     if let newInstance = changedValue?.value(as: T.self) {

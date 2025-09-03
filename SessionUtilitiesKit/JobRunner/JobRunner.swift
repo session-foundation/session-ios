@@ -1705,7 +1705,12 @@ public final class JobQueue: Hashable {
             updates: { [dependencies] db -> [Job] in
                 /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
                 /// removed so we need to retrieve these records before that happens)
-                let dependantJobs: [Job] = try job.dependantJobs.fetchAll(db)
+                let dependantJobIds: Set<Int64> = try JobDependencies
+                    .select(.jobId)
+                    .filter(JobDependencies.Columns.dependantId == job.id)
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                let dependantJobs: [Job] = try Job.fetchAll(db, ids: dependantJobIds)
                 
                 switch job.behaviour {
                     case .runOnce, .runOnceNextLaunch, .runOnceAfterConfigSyncIgnoringPermanentFailure:
@@ -1824,15 +1829,19 @@ public final class JobQueue: Hashable {
         // Get the max failure count for the job (a value of '-1' means it will retry indefinitely)
         let maxFailureCount: Int = (executorMap[job.variant]?.maxFailureCount ?? 0)
         let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
-        var dependantJobIds: [Int64] = []
+        var dependantJobIds: Set<Int64> = []
         var failureText: String = "failed due to error: \(error)"
         
         dependencies[singleton: .storage].write { db in
             /// Retrieve a list of dependant jobs so we can clear them from the queue
-            dependantJobIds = try job.dependantJobs
-                .select(.id)
+            
+            /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
+            /// removed so we need to retrieve these records before that happens)
+            dependantJobIds = try JobDependencies
+                .select(.jobId)
+                .filter(JobDependencies.Columns.dependantId == job.id)
                 .asRequest(of: Int64.self)
-                .fetchAll(db)
+                .fetchSet(db)
 
             /// Delete/update the failed jobs and any dependencies
             let updatedFailureCount: UInt = (job.failureCount + 1)

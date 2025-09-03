@@ -224,6 +224,7 @@ actor LibSessionNetwork: NetworkType {
         
         return networkInstance
             .compactMap { $0 }
+            .first()
             .tryFlatMap { [dependencies] network -> AnyPublisher<FinalRequestInfo, Error> in
                 switch destination {
                     case .snode, .server, .serverUpload, .serverDownload, .cached:
@@ -232,14 +233,10 @@ actor LibSessionNetwork: NetworkType {
                             .eraseToAnyPublisher()
                         
                     case .randomSnode(let swarmPublicKey):
+                        guard body != nil else { throw NetworkError.invalidPreparedRequest }
+                        
                         let swarmSessionId: SessionId = try SessionId(from: swarmPublicKey)
                         
-                        guard (try? SessionId(from: swarmPublicKey)) != nil else {
-                            throw SessionIdError.invalidSessionId
-                        }
-                        guard body != nil else {
-                            throw NetworkError.invalidPreparedRequest
-                        }
                         guard let cSwarmPublicKey: [CChar] = swarmSessionId.publicKeyString.cString(using: .utf8) else {
                             throw LibSessionError.invalidCConversion
                         }
@@ -355,9 +352,6 @@ actor LibSessionNetwork: NetworkType {
                 )
                 
             case .randomSnode(let swarmPublicKey):
-                guard (try? SessionId(from: swarmPublicKey)) != nil else {
-                    throw SessionIdError.invalidSessionId
-                }
                 guard body != nil else { throw NetworkError.invalidPreparedRequest }
                 
                 let swarm: Set<LibSession.Snode> = try await getSwarm(for: swarmPublicKey)
@@ -404,6 +398,15 @@ actor LibSessionNetwork: NetworkType {
         )
     }
     
+    public func resetNetworkStatus() async {
+        guard !isSuspended, let network = try? await getOrCreateNetwork() else { return }
+        
+        let status: NetworkStatus = NetworkStatus(status: session_network_get_status(network))
+        
+        Log.info(.network, "Network status changed to: \(status)")
+        await internalNetworkStatus.send(status)
+    }
+    
     public func setNetworkStatus(status: NetworkStatus) async {
         guard status == .disconnected || !isSuspended else {
             Log.warn(.network, "Attempted to update network status to '\(status)' for suspended network, closing connections again.")
@@ -414,7 +417,10 @@ actor LibSessionNetwork: NetworkType {
             }
         }
         
-        // Notify any subscribers
+        /// If we have set the `forceOffline` flag then don't allow non-disconnected status updates
+        guard status == .disconnected || !dependencies[feature: .forceOffline] else { return }
+        
+        /// Notify any subscribers
         Log.info(.network, "Network status changed to: \(status)")
         await internalNetworkStatus.send(status)
     }
@@ -1127,6 +1133,7 @@ public extension LibSession {
             )
         }
         
+        public func resetNetworkStatus() async {}
         public func setNetworkStatus(status: NetworkStatus) async {}
         public func suspendNetworkAccess() async {}
         public func resumeNetworkAccess(autoReconnect: Bool) async {}

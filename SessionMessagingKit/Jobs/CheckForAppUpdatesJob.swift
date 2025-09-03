@@ -66,7 +66,7 @@ public enum CheckForAppUpdatesJob: JobExecutor {
             )
             
             try? await dependencies[singleton: .storage].writeAsync { db in
-                try updatedJob.save(db)
+                try updatedJob.upsert(db)
             }
             
             success(updatedJob, false)

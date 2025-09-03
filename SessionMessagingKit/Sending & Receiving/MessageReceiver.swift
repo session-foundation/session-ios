@@ -477,7 +477,7 @@ public enum MessageReceiver {
             .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
             .asRequest(of: Info.self)
             .fetchOne(db)
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageReceiverError.originalMessageNotFound }
         
         // If the user locally deleted the message then we don't want to process reactions for it
         guard !interactionInfo.variant.isDeletedMessage else { return }

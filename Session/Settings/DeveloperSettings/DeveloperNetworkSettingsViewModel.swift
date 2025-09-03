@@ -711,9 +711,12 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         
         /// Changing the network settings can result in data being cleared from the database so we should confirm that is desired before
         /// we make the changes
-        guard hasConfirmed && (networkEnvironmentChanged || pushServiceChanged) else {
+        guard hasConfirmed else {
             switch (networkEnvironmentChanged, pushServiceChanged) {
-                case (false, false): break  /// Most likely just the `forceOffline` (or some new) change
+                case (false, false):
+                    /// Most likely just the `forceOffline` (or some new) change
+                    await self.saveChanges(hasConfirmed: true)
+                    
                 case (false, true):
                     self.transitionToScreen(
                         ConfirmationModal(
@@ -810,9 +813,13 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         /// If the `forceOffline` value changed then apply the change
         if internalState.initialState.forceOffline != internalState.pendingState.forceOffline {
             dependencies.set(feature: .forceOffline, to: internalState.pendingState.forceOffline)
-            await dependencies[singleton: .network].setNetworkStatus(
-                status: internalState.pendingState.forceOffline ? .unknown : .disconnected
-            )
+            
+            if !internalState.pendingState.forceOffline {
+                await dependencies[singleton: .network].resetNetworkStatus()
+            }
+            else {
+                await dependencies[singleton: .network].setNetworkStatus(status: .disconnected)
+            }
         }
         
         /// If the network environment changed then we should make those changes first (since they result in the database being cleared)

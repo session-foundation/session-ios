@@ -48,6 +48,7 @@ public protocol NetworkType {
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: AppVersionResponse)
     
+    func resetNetworkStatus() async
     func setNetworkStatus(status: NetworkStatus) async
     func suspendNetworkAccess() async
     func resumeNetworkAccess(autoReconnect: Bool) async

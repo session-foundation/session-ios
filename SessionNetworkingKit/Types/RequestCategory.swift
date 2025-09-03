@@ -4,7 +4,7 @@ import Foundation
 import SessionUtil
 
 public extension Network {
-    enum RequestCategory {
+    enum RequestCategory: Codable {
         case standard
         case upload
         case download
