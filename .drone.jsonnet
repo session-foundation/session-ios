@@ -77,23 +77,42 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build and Run Tests',
         commands: [
-          'echo "--- Running Build and Tests ---"',
-          'echo "Explicitly running unit tests on \'App_Store_Release\' configuration to ensure optimisation behaviour is consistent"',
-          'echo "If tests fail inconsistently from local builds this is likely the difference"',
-          'echo ""',
-          'xcodebuild_output=$(mktemp)',
-          'xcodebuild_exit_code=0',
-          'NSUnbufferedIO=YES xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | tee "$xcodebuild_output" | xcbeautify --is-ci || xcodebuild_exit_code=${PIPESTATUS[0]}',
-          'echo ""',
-          'echo "--- xcodebuild finished with exit code: $xcodebuild_exit_code ---"',
-          'echo ""',
-          'if [ $xcodebuild_exit_code -ne 0 ]; then',
-          '  echo "🔴 Build failed. See log above for compile errors."',
-          '  exit $xcodebuild_exit_code',
-          'fi',
-          'echo ""',
-          'echo "✅ Build Succeeded. Verifying test results..."',
-          'xcresultparser --output-format cli --exit-with-error-on-failure ./build/artifacts/testResults.xcresult',
+          '''
+          bash -c '
+            # set -e makes the script exit immediately if a command fails.
+            # set -o pipefail ensures that a pipeline fails if any command in it fails.
+            set -eo pipefail
+
+            echo "--- Running Build and Tests ---"
+            echo "Explicitly running unit tests on \\'App_Store_Release\\' configuration..."
+            echo ""
+
+            xcodebuild_output=$(mktemp)
+            xcodebuild_exit_code=0
+            
+            # Run the command and capture the true exit code of xcodebuild, even if xcbeautify succeeds.
+            # We add a `|| true` at the end because `set -e` would otherwise exit the script here
+            # if the pipeline fails, and we want to handle the exit code manually.
+            (NSUnbufferedIO=YES xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | tee "$xcodebuild_output" | xcbeautify --is-ci) || xcodebuild_exit_code=${PIPESTATUS[0]}
+            
+            echo ""
+            echo "--- xcodebuild finished with exit code: $xcodebuild_exit_code ---"
+            echo ""
+            
+            # Check for a build failure (e.g., compile error)
+            if [ "$xcodebuild_exit_code" -ne 0 ]; then
+              echo "🔴 Build failed. See log above for compile errors."
+              exit "$xcodebuild_exit_code"
+            fi
+            
+            echo ""
+            echo "✅ Build Succeeded. Verifying test results..."
+            
+            # If the build succeeded, check the xcresult for test failures.
+            # The exit code of this command will determine the final status of this step.
+            xcresultparser --output-format cli --exit-with-error-on-failure ./build/artifacts/testResults.xcresult
+          '
+          '''
         ],
         depends_on: [
           'Reset SPM Cache if Needed',
