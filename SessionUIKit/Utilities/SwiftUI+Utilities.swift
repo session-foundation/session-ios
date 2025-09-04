@@ -288,3 +288,23 @@ public extension View {
         }
     }
 }
+
+// MARK: - Hide Scroll Indicators for List
+// FIXME: Remove this when we only support iOS 16+
+
+struct HideScrollIndicators: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content
+                .scrollIndicators(.hidden)
+        } else {
+            content
+                .onAppear {
+                    UITableView.appearance().showsVerticalScrollIndicator = false
+                }
+                .onDisappear {
+                    UITableView.appearance().showsVerticalScrollIndicator = true
+                }
+        }
+    }
+}

@@ -104,7 +104,7 @@ internal struct PopoverOffset: ViewModifier {
                 return originBounds.maxX - frame.size.width + arrowOffSet - triangleSideLength / 2
             case .topRight, .bottomRight:
                 // Align left
-                return originBounds.minX - arrowOffSet - triangleSideLength / 2
+                return originBounds.minX - arrowOffSet + triangleSideLength / 2
             case .none:
                 return 0
         }

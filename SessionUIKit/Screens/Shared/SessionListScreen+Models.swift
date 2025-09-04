@@ -6,6 +6,7 @@ public enum SessionListScreenContent {}
 
 public extension SessionListScreenContent {
     protocol ViewModelType: ObservableObject, SectionedListItemData {
+        var title: String { get }
         var state: ListItemDataState<Section, ListItem> { get }
     }
 }

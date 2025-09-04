@@ -31,7 +31,7 @@ class SessionListHostingViewController<ViewModel>: SessionHostingViewController<
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        setNavBarTitle(viewModel.title)
         setupBinding()
     }
     

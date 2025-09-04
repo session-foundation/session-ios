@@ -25,20 +25,17 @@ public extension SessionListScreenContent {
     struct CellInfo: Equatable, Hashable, Differentiable {
         let leadingAccessory: ListItemAccessory?
         let title: TextInfo?
-        let subtitle: TextInfo?
         let description: TextInfo?
         let trailingAccessory: ListItemAccessory?
         
         public init(
             leadingAccessory: ListItemAccessory? = nil,
             title: TextInfo? = nil,
-            subtitle: TextInfo? = nil,
             description: TextInfo? = nil,
             trailingAccessory: ListItemAccessory? = nil
         ) {
             self.leadingAccessory = leadingAccessory
             self.title = title
-            self.subtitle = subtitle
             self.description = description
             self.trailingAccessory = trailingAccessory
         }

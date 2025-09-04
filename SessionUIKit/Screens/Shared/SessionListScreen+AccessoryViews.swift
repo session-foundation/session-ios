@@ -5,23 +5,35 @@ import Lucide
 
 public extension SessionListScreenContent {
     struct TextInfo: Hashable, Equatable {
+        public enum Accessory: Hashable, Equatable {
+            case proBadgeLeading
+            case proBadgeTrailing
+            case none
+        }
+        
         let text: String?
-        let font: Font
+        let font: Font?
+        let attributedString: ThemedAttributedString?
         let alignment: TextAlignment
         let color: ThemeValue
+        let accessory: Accessory
         let accessibility: Accessibility?
         
         public init(
-            _ text: String?,
-            font: Font,
+            _ text: String? = nil,
+            font: Font? = nil,
+            attributedString: ThemedAttributedString? = nil,
             alignment: TextAlignment = .leading,
             color: ThemeValue = .textPrimary,
+            accessory: Accessory = .none,
             accessibility: Accessibility? = nil
         ) {
             self.text = text
             self.font = font
+            self.attributedString = attributedString
             self.alignment = alignment
             self.color = color
+            self.accessory = accessory
             self.accessibility = accessibility
         }
         
@@ -30,8 +42,10 @@ public extension SessionListScreenContent {
         public func hash(into hasher: inout Hasher) {
             text.hash(into: &hasher)
             font.hash(into: &hasher)
+            attributedString.hash(into: &hasher)
             alignment.hash(into: &hasher)
             color.hash(into: &hasher)
+            accessory.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
@@ -39,8 +53,10 @@ public extension SessionListScreenContent {
             return (
                 lhs.text == rhs.text &&
                 lhs.font == rhs.font &&
+                lhs.attributedString == rhs.attributedString &&
                 lhs.alignment == rhs.alignment &&
                 lhs.color == rhs.color &&
+                lhs.accessory == rhs.accessory &&
                 lhs.accessibility == rhs.accessibility
             )
         }

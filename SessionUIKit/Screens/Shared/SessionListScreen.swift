@@ -9,6 +9,10 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     @State var tooltipContentFrame: CGRect = CGRect.zero
     @State var tooltipContent: String = ""
     
+    /// There is an issue on `.onAnyInteraction` of the List and `.onTapGuesture` of the TooltipsIcon. The `.onAnyInteraction` will be called first when tapping the TooltipsIcon to dismiss a tooltip.
+    /// This will result in the tooltip will show again right after it dismissed when tapping the TooltipsIcon. This `suppressUntil` is a workaround to fix this issue.
+    @State var suppressUntil: Date = .distantPast
+    
     private let tooltipViewId: String = "SessionListScreen.SectionHeader.ToolTips" // stringlint:ignore
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
@@ -33,14 +37,13 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 Image(systemName: "questionmark.circle")
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textSecondary)
-                                    .onAppear {
-                                        tooltipContent = content
-                                    }
                                     .anchorView(viewId: tooltipViewId)
                                     .accessibility(
                                         Accessibility(identifier: "Tooltip")
                                     )
                                     .onTapGesture {
+                                        guard Date() >= suppressUntil else { return }
+                                        tooltipContent = content
                                         withAnimation {
                                             isShowingTooltip.toggle()
                                         }
@@ -97,12 +100,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 .listSectionSeparator(.hidden)
             }
         }
-        .listStyle(.inset)
+        .listStyle(.plain)
+        .modifier(HideScrollIndicators())
         .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
             guard self.isShowingTooltip else {
                 return
             }
             
+            suppressUntil = Date().addingTimeInterval(0.2)
             withAnimation(.spring()) {
                 self.isShowingTooltip = false
             }
@@ -121,8 +126,11 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 }
                 .overlay(
                     GeometryReader { geometry in
-                        Color.clear // Invisible overlay
+                        Color.clear
                             .onAppear {
+                                self.tooltipContentFrame = geometry.frame(in: .global)
+                            }
+                            .onChange(of: tooltipContent) { _ in
                                 self.tooltipContentFrame = geometry.frame(in: .global)
                             }
                     }

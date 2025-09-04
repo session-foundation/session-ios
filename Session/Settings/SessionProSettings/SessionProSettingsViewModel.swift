@@ -14,6 +14,7 @@ import SessionUtilitiesKit
 public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
+    public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
     
     /// This value is the current state of the view
@@ -279,7 +280,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .cell(
                         info: .init(
                             title: .init("Update Plan", font: .Headings.H8),
-                            subtitle: .init("Pro auto-renewing in 15 Days", font: .Body.smallRegular),
+                            description: .init("Pro auto-renewing in 15 Days", font: .Body.smallRegular),
                             trailingAccessory: .icon(.chevronRight, size: .large)
                         )
                     ),
@@ -292,7 +293,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .cell(
                         info: .init(
                             title: .init("Pro Badge", font: .Headings.H8),
-                            subtitle: .init("Show Session Pro badge to other users", font: .Body.smallRegular),
+                            description: .init("Show Session Pro badge to other users", font: .Body.smallRegular),
                             trailingAccessory: .toggle(state.$isProBadgeEnabled)
                         )
                     ),
@@ -318,7 +319,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 backgroundSize: .veryLarge,
                                 backgroundCornerRadius: 8
                             ),
-                            title: .init(info.title, font: .Headings.H9),
+                            title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
                             description: .init(info.description, font: .Body.smallRegular, color: .textSecondary)
                         )
                     )
@@ -383,7 +384,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .cell(
                         info: .init(
                             title: .init("Pro FAQ", font: .Headings.H8),
-                            subtitle: .init("Find answers to common questions in the Session Pro FAQ.", font: .Body.smallRegular),
+                            description: .init("Find answers to common questions in the Session Pro FAQ.", font: .Body.smallRegular),
                             trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
                         )
                     ),
@@ -394,7 +395,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .cell(
                         info: .init(
                             title: .init("Support", font: .Headings.H8),
-                            subtitle: .init("Need help with your Pro plan? Submit a request to the support team.", font: .Body.smallRegular),
+                            description: .init("Need help with your Pro plan? Submit a request to the support team.", font: .Body.smallRegular),
                             trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
                         )
                     ),
@@ -449,6 +450,7 @@ extension SessionProSettingsViewModel {
         let backgroundColors: [Theme.PrimaryColor]
         let title: String
         let description: String
+        let accessory: SessionListScreenContent.TextInfo.Accessory
         
         static let allCases: [ProFeaturesInfo] = [
             ProFeaturesInfo(
@@ -456,35 +458,40 @@ extension SessionProSettingsViewModel {
                 icon: UIImage(named: "ic_user_group_plus"),
                 backgroundColors: [.green, .blue],
                 title: "Larger Groups",
-                description: "Groups you are an admin in are automatically upgraded to support 300 members."
+                description: "Groups you are an admin in are automatically upgraded to support 300 members.",
+                accessory: .none
             ),
             ProFeaturesInfo(
                 id: .longerMessages,
                 icon: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
                 backgroundColors: [.blue, .purple],
                 title: "Longer Messages",
-                description: "You can send messages up to 10,000 characters in all conversations."
+                description: "You can send messages up to 10,000 characters in all conversations.",
+                accessory: .none
             ),
             ProFeaturesInfo(
                 id: .animatedDisplayPictures,
                 icon: Lucide.image(icon: .squarePlay, size: IconSize.medium.size),
                 backgroundColors: [.purple, .pink],
                 title: "Animated Display Pictures",
-                description: "Set animated GIFs and WebP images as your display picture."
+                description: "Set animated GIFs and WebP images as your display picture.",
+                accessory: .none
             ),
             ProFeaturesInfo(
                 id: .badges,
                 icon: Lucide.image(icon: .rectangleEllipsis, size: IconSize.medium.size),
                 backgroundColors: [.pink, .red],
                 title: "Badges",
-                description: "Show your support for Session with an exclusive badge next to your display name."
+                description: "Show your support for Session with an exclusive badge next to your display name.",
+                accessory: .proBadgeLeading
             ),
             ProFeaturesInfo(
                 id: .unlimitedPins,
                 icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
                 backgroundColors: [.red, .orange],
                 title: "Unlimited Pins",
-                description: "Organize all your chats with unlimited pinned conversations."
+                description: "Organize all your chats with unlimited pinned conversations.",
+                accessory: .none
             )
         ]
     }

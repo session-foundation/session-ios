@@ -14,31 +14,60 @@ extension SessionListScreen {
                 }
                 
                 VStack(alignment: .leading, spacing: 0) {
-                    if let title = info.title, let text = title.text {
-                        Text(text)
-                            .font(title.font)
-                            .multilineTextAlignment(title.alignment)
-                            .foregroundColor(themeColor: title.color)
-                            .accessibility(title.accessibility)
-                            .fixedSize()
+                    if let title = info.title {
+                        HStack(spacing: Values.verySmallSpacing) {
+                            if title.accessory == .proBadgeLeading {
+                                SessionProBadge_SwiftUI(size: .mini)
+                            }
+                            
+                            if let text = title.text {
+                                Text(text)
+                                    .font(title.font)
+                                    .multilineTextAlignment(title.alignment)
+                                    .foregroundColor(themeColor: title.color)
+                                    .accessibility(title.accessibility)
+                                    .fixedSize()
+                            } else if let attributedString = title.attributedString {
+                                AttributedText(attributedString)
+                                    .font(title.font)
+                                    .multilineTextAlignment(title.alignment)
+                                    .foregroundColor(themeColor: title.color)
+                                    .accessibility(title.accessibility)
+                                    .fixedSize()
+                            }
+                            
+                            if title.accessory == .proBadgeTrailing {
+                                SessionProBadge_SwiftUI(size: .mini)
+                            }
+                        }
                     }
                     
-                    if let subtitle = info.subtitle, let text = subtitle.text {
-                        Text(text)
-                            .font(subtitle.font)
-                            .multilineTextAlignment(subtitle.alignment)
-                            .foregroundColor(themeColor: subtitle.color)
-                            .accessibility(subtitle.accessibility)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    
-                    if let description = info.description, let text = description.text {
-                        Text(text)
-                            .font(description.font)
-                            .multilineTextAlignment(description.alignment)
-                            .foregroundColor(themeColor: description.color)
-                            .accessibility(description.accessibility)
-                            .fixedSize(horizontal: false, vertical: true)
+                    if let description = info.description {
+                        HStack(spacing: Values.verySmallSpacing) {
+                            if description.accessory == .proBadgeLeading {
+                                SessionProBadge_SwiftUI(size: .mini)
+                            }
+                            
+                            if let text = description.text {
+                                Text(text)
+                                    .font(description.font)
+                                    .multilineTextAlignment(description.alignment)
+                                    .foregroundColor(themeColor: description.color)
+                                    .accessibility(description.accessibility)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if let attributedString = description.attributedString {
+                                AttributedText(attributedString)
+                                    .font(description.font)
+                                    .multilineTextAlignment(description.alignment)
+                                    .foregroundColor(themeColor: description.color)
+                                    .accessibility(description.accessibility)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            
+                            if description.accessory == .proBadgeTrailing {
+                                SessionProBadge_SwiftUI(size: .mini)
+                            }
+                        }
                     }
                 }
                 .frame(
@@ -67,9 +96,9 @@ extension SessionListScreen {
                 ZStack {
                     Ellipse()
                         .fill(themeColor: .settings_glowingBackground)
-                        .framing(
-                            maxWidth: .infinity,
-                            height: 133
+                        .frame(
+                            width: UIScreen.main.bounds.width - 2 * Values.mediumSpacing - 20 * 2,
+                            height: 111
                         )
                         .shadow(radius: 15)
                         .opacity(0.15)
@@ -82,7 +111,11 @@ extension SessionListScreen {
                         .scaledToFit()
                         .frame(width: 100, height: 111)
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
+                .framing(
+                    maxWidth: .infinity,
+                    height: 133,
+                    alignment: .center
+                )
                 
                 HStack(spacing: Values.smallSpacing) {
                     Image("SessionHeading")
