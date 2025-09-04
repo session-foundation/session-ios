@@ -66,10 +66,18 @@ public enum GroupLeavingJob: JobExecutor {
                     return details.behaviour
                 }()
                 
+                /// There is a rare edge-case where a group could be created locally but the auth data wasn't saved to `libSession`
+                /// which results in the authentication data being invalid, as a result we want to try to retrieve the auth data regardless
+                /// of whether we are going to use it as this will throw an `invalidAuthentication` error that would allow deletion
+                /// even in this invalid state
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: threadId,
+                    using: dependencies
+                )
+                
                 switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                     case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
-                        let authMethod: AuthenticationMethod = try Authentication.with(swarmPublicKey: threadId, using: dependencies)
                         
                         return .sendLeaveMessage(authMethod, disappearingConfig)
                         

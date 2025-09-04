@@ -7,13 +7,14 @@ import SessionUtilitiesKit
 import SessionNetworkingKit
 
 extension MessageSender {
-    private typealias PreparedGroupData = (
-        groupSessionId: SessionId,
-        groupState: [ConfigDump.Variant: LibSession.Config],
-        thread: SessionThread,
-        group: ClosedGroup,
-        members: [GroupMember]
-    )
+    private struct PreparedGroupData {
+        let groupSessionId: SessionId
+        let identityKeyPair: KeyPair
+        let groupState: [ConfigDump.Variant: LibSession.Config]
+        let thread: SessionThread
+        let group: ClosedGroup
+        let members: [GroupMember]
+    }
     
     public static func createGroup(
         name: String,
@@ -42,95 +43,98 @@ extension MessageSender {
                     .map { Optional($0) }
                     .eraseToAnyPublisher()
             }
-            .flatMap { (displayPictureInfo: DisplayPictureManager.UploadResult?) -> AnyPublisher<PreparedGroupData, Error> in
-                dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
-                    /// Create and cache the libSession entries
-                    let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
-                        db,
-                        name: name,
-                        description: description,
-                        displayPictureUrl: displayPictureInfo?.downloadUrl,
-                        displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
-                        members: members,
-                        using: dependencies
-                    )
-                    
-                    /// Save the relevant objects to the database
-                    let thread: SessionThread = try SessionThread.upsert(
-                        db,
-                        id: createdInfo.group.id,
-                        variant: .group,
-                        values: SessionThread.TargetValues(
-                            creationDateTimestamp: .setTo(createdInfo.group.formationTimestamp),
-                            shouldBeVisible: .setTo(true)
-                        ),
-                        using: dependencies
-                    )
-                    try createdInfo.group.insert(db)
-                    try createdInfo.members.forEach { try $0.insert(db) }
-                    
-                    /// Add a record of the initial invites going out (default to being read as we don't want the creator of the group
-                    /// to see the "Unread Messages" banner above this control message)
-                    _ = try? Interaction(
+            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, displayPictureInfo: DisplayPictureManager.UploadResult?) -> PreparedGroupData in
+                /// Create and cache the libSession entries
+                let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
+                    db,
+                    name: name,
+                    description: description,
+                    displayPictureUrl: displayPictureInfo?.downloadUrl,
+                    displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
+                    members: members,
+                    using: dependencies
+                )
+                
+                /// Save the relevant objects to the database
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: createdInfo.group.id,
+                    variant: .group,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .setTo(createdInfo.group.formationTimestamp),
+                        shouldBeVisible: .setTo(true)
+                    ),
+                    using: dependencies
+                )
+                try createdInfo.group.insert(db)
+                try createdInfo.members.forEach { try $0.insert(db) }
+                
+                /// Add a record of the initial invites going out (default to being read as we don't want the creator of the group
+                /// to see the "Unread Messages" banner above this control message)
+                _ = try? Interaction(
+                    threadId: createdInfo.group.id,
+                    threadVariant: .group,
+                    authorId: userSessionId.hexString,
+                    variant: .infoGroupMembersUpdated,
+                    body: ClosedGroup.MessageInfo
+                        .addedUsers(
+                            hasCurrentUser: false,
+                            names: sortedOtherMembers.map { id, profile in
+                                profile?.displayName(for: .group) ??
+                                id.truncated()
+                            },
+                            historyShared: false
+                        )
+                        .infoString(using: dependencies),
+                    timestampMs: Int64(createdInfo.group.formationTimestamp * 1000),
+                    wasRead: true,
+                    using: dependencies
+                ).inserted(db)
+                
+                /// Schedule the "members added" control message to be sent after the config sync completes
+                try dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .messageSend,
+                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                         threadId: createdInfo.group.id,
-                        threadVariant: .group,
-                        authorId: userSessionId.hexString,
-                        variant: .infoGroupMembersUpdated,
-                        body: ClosedGroup.MessageInfo
-                            .addedUsers(
-                                hasCurrentUser: false,
-                                names: sortedOtherMembers.map { id, profile in
-                                    profile?.displayName(for: .group) ??
-                                    id.truncated()
-                                },
-                                historyShared: false
-                            )
-                            .infoString(using: dependencies),
-                        timestampMs: Int64(createdInfo.group.formationTimestamp * 1000),
-                        wasRead: true,
-                        using: dependencies
-                    ).inserted(db)
-                    
-                    /// Schedule the "members added" control message to be sent after the config sync completes
-                    try dependencies[singleton: .jobRunner].add(
-                        db,
-                        job: Job(
-                            variant: .messageSend,
-                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
-                            threadId: createdInfo.group.id,
-                            details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: createdInfo.group.id),
-                                message: GroupUpdateMemberChangeMessage(
-                                    changeType: .added,
-                                    memberSessionIds: sortedOtherMembers.map { id, _ in id },
-                                    historyShared: false,
-                                    sentTimestampMs: UInt64(createdInfo.group.formationTimestamp * 1000),
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: createdInfo.groupSessionId,
-                                        ed25519SecretKey: createdInfo.identityKeyPair.secretKey
-                                    ),
-                                    using: dependencies
+                        details: MessageSendJob.Details(
+                            destination: .closedGroup(groupPublicKey: createdInfo.group.id),
+                            message: GroupUpdateMemberChangeMessage(
+                                changeType: .added,
+                                memberSessionIds: sortedOtherMembers.map { id, _ in id },
+                                historyShared: false,
+                                sentTimestampMs: UInt64(createdInfo.group.formationTimestamp * 1000),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: createdInfo.groupSessionId,
+                                    ed25519SecretKey: createdInfo.identityKeyPair.secretKey
                                 ),
-                                requiredConfigSyncVariant: .groupMembers
-                            )
-                        ),
-                        canStartJob: false
-                    )
-                    
-                    return (
-                        createdInfo.groupSessionId,
-                        createdInfo.groupState,
-                        thread,
-                        createdInfo.group,
-                        createdInfo.members
-                    )
-                }
+                                using: dependencies
+                            ),
+                            requiredConfigSyncVariant: .groupMembers
+                        )
+                    ),
+                    canStartJob: false
+                )
+                
+                return PreparedGroupData(
+                    groupSessionId: createdInfo.groupSessionId,
+                    identityKeyPair: createdInfo.identityKeyPair,
+                    groupState: createdInfo.groupState,
+                    thread: thread,
+                    group: createdInfo.group,
+                    members: createdInfo.members
+                )
             }
             .flatMap { preparedGroupData -> AnyPublisher<PreparedGroupData, Error> in
                 ConfigurationSyncJob
                     .run(
                         swarmPublicKey: preparedGroupData.groupSessionId.hexString,
                         requireAllRequestsSucceed: true,
+                        customAuthMethod: Authentication.groupAdmin(
+                            groupSessionId: preparedGroupData.groupSessionId,
+                            ed25519SecretKey: preparedGroupData.identityKeyPair.secretKey
+                        ),
                         using: dependencies
                     )
                     .flatMap { _ in
@@ -172,12 +176,12 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { groupSessionId, _, thread, group, groupMembers in
+                receiveOutput: { preparedGroupData in
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     
                     // Start polling
                     Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
-                        await manager.getOrCreatePoller(for: thread.id).startIfNeeded()
+                        await manager.getOrCreatePoller(for: preparedGroupData.thread.id).startIfNeeded()
                     }
                     
                     // Subscribe for push notifications (if PNs are enabled)
@@ -187,7 +191,7 @@ extension MessageSender {
                                 token: Data(hex: token),
                                 swarmAuthentication: [
                                     try? Authentication.with(
-                                        swarmPublicKey: groupSessionId.hexString,
+                                        swarmPublicKey: preparedGroupData.groupSessionId.hexString,
                                         using: dependencies
                                     )
                                 ].compactMap { $0 },
@@ -198,7 +202,7 @@ extension MessageSender {
                     
                     dependencies[singleton: .storage].writeAsync { db in
                         // Save jobs for sending group member invitations
-                        groupMembers
+                        preparedGroupData.members
                             .filter { $0.profileId != userSessionId.hexString }
                             .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
                                 // Generate authData for the removed member
@@ -206,8 +210,11 @@ extension MessageSender {
                                     let memberAuthInfo: Authentication.Info = try? dependencies.mutate(cache: .libSession, { cache in
                                         try dependencies[singleton: .crypto].tryGenerate(
                                             .memberAuthData(
-                                                config: cache.config(for: .groupKeys, sessionId: groupSessionId),
-                                                groupSessionId: groupSessionId,
+                                                config: cache.config(
+                                                    for: .groupKeys,
+                                                    sessionId: preparedGroupData.groupSessionId
+                                                ),
+                                                groupSessionId: preparedGroupData.groupSessionId,
                                                 memberId: member.profileId
                                             )
                                         )
@@ -225,7 +232,7 @@ extension MessageSender {
                                     db,
                                     job: Job(
                                         variant: .groupInviteMember,
-                                        threadId: thread.id,
+                                        threadId: preparedGroupData.thread.id,
                                         details: jobDetails
                                     ),
                                     canStartJob: true
@@ -234,7 +241,7 @@ extension MessageSender {
                     }
                 }
             )
-            .map { _, _, thread, _, _ in thread }
+            .map { $0.thread }
             .eraseToAnyPublisher()
     }
     
