@@ -68,7 +68,7 @@ public extension SessionListScreenContent {
         public init<Accessory: View>(
             @ViewBuilder accessoryView: @escaping () -> Accessory
         ) {
-            self.accessoryView = { AnyView(accessoryView()) }
+            self.accessoryView = { accessoryView().eraseToAnyView() }
         }
         
         public func hash(into hasher: inout Hasher) {}
@@ -142,13 +142,16 @@ public extension SessionListScreenContent {
         }
         
         public static func toggle(
-            _ value: Binding<Bool>,
+            _ value: Bool,
+            oldValue: Bool?,
             accessibility: Accessibility = Accessibility(identifier: "Switch")
         ) -> ListItemAccessory {
             return ListItemAccessory {
-                Toggle(isOn: value) { EmptyView() }
-                    .toggleStyle(.switch)
-                    .listRowInsets(EdgeInsets())
+                AnimatedToggle(
+                    value: value,
+                    oldValue: oldValue,
+                    accessibility: accessibility
+                )
             }
         }
     }

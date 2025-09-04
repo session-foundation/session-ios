@@ -110,7 +110,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let numberOfPinnedConversations: Int
         let numberOfProBadgesSent: Int
         let numberOfLongerMessagesSent: Int
-        @State var isProBadgeEnabled: Bool
+        let isProBadgeEnabled: Bool
         
         @MainActor public func sections(viewModel: SessionProSettingsViewModel, previousState: ViewModelState) -> [SectionModel] {
             SessionProSettingsViewModel.sections(
@@ -294,11 +294,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         info: .init(
                             title: .init("Pro Badge", font: .Headings.H8),
                             description: .init("Show Session Pro badge to other users", font: .Body.smallRegular),
-                            trailingAccessory: .toggle(state.$isProBadgeEnabled)
+                            trailingAccessory: .toggle(
+                                state.isProBadgeEnabled,
+                                oldValue: previousState.isProBadgeEnabled
+                            )
                         )
                     ),
-                    onTap: { [weak viewModel] in
-                        state.isProBadgeEnabled.toggle()
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.setAsync(.isProBadgeEnabled, !state.isProBadgeEnabled)
                     }
                 )
             ]

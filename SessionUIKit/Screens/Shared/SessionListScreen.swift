@@ -5,6 +5,7 @@ import SwiftUI
 public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
     @StateObject private var viewModel: ViewModel
+    @ObservedObject private var state: SessionListScreenContent.ListItemDataState<ViewModel.Section, ViewModel.ListItem>
     @State var isShowingTooltip: Bool = false
     @State var tooltipContentFrame: CGRect = CGRect.zero
     @State var tooltipContent: String = ""
@@ -18,11 +19,12 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     public init(viewModel: ViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        _state = ObservedObject(wrappedValue: viewModel.state)
     }
     
     public var body: some View {
         List {
-            ForEach(viewModel.state.listItemData, id: \.model) { section in 
+            ForEach(state.listItemData, id: \.model) { section in 
                 Section {
                     // MARK: - Header
                     
@@ -61,6 +63,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             switch element.variant {
                                 case .cell(let info):
                                     ListItemCell(info: info, height: section.model.style.height)
+                                        .contentShape(Rectangle())
                                         .onTapGesture {
                                             element.onTap?()
                                         }
@@ -81,9 +84,6 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     ListItemLogWithPro()
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(info: info)
-                                        .onTapGesture {
-                                            element.onTap?()
-                                        }
                                         .background(
                                             Rectangle()
                                                 .foregroundColor(themeColor: .backgroundSecondary)

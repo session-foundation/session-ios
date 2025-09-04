@@ -218,6 +218,8 @@ extension View {
             alignment: alignment
         )
     }
+    
+    public func eraseToAnyView() -> AnyView { AnyView(self) }
 }
 
 extension Binding {

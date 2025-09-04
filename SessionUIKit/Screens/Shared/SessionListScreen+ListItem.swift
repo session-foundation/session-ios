@@ -14,8 +14,8 @@ public extension SessionListScreenContent {
         typealias SectionModel = ArraySection<Section, ListItemInfo<ListItem>>
     }
     
-    class ListItemDataState<Section: ListSection, ListItem: Hashable & Differentiable>: SectionedListItemData {
-        public private(set) var listItemData: [SectionModel]  = []
+    class ListItemDataState<Section: ListSection, ListItem: Hashable & Differentiable>: SectionedListItemData, ObservableObject {
+        @Published public private(set) var listItemData: [SectionModel]  = []
         
         public init() {}
         
