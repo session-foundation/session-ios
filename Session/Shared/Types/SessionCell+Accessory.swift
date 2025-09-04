@@ -40,7 +40,8 @@ public extension SessionCell.Accessory {
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
-        accessibility: Accessibility? = nil
+        shouldFollowIconSize: Bool = false,
+        accessibility: Accessibility? = nil,
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
             icon: icon,
@@ -48,6 +49,7 @@ public extension SessionCell.Accessory {
             iconSize: size,
             customTint: customTint,
             shouldFill: shouldFill,
+            shouldFollowIconSize: shouldFollowIconSize,
             accessibility: accessibility
         )
     }
@@ -57,7 +59,8 @@ public extension SessionCell.Accessory {
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
-        accessibility: Accessibility? = nil
+        shouldFollowIconSize: Bool = false,
+        accessibility: Accessibility? = nil,
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
             icon: nil,
@@ -65,6 +68,7 @@ public extension SessionCell.Accessory {
             iconSize: size,
             customTint: customTint,
             shouldFill: shouldFill,
+            shouldFollowIconSize: shouldFollowIconSize,
             accessibility: accessibility
         )
     }
@@ -226,6 +230,7 @@ public extension SessionCell.AccessoryConfig {
         public let iconSize: IconSize
         public let customTint: ThemeValue?
         public let shouldFill: Bool
+        public let shouldFollowIconSize: Bool
         
         fileprivate init(
             icon: Lucide.Icon?,
@@ -233,6 +238,7 @@ public extension SessionCell.AccessoryConfig {
             iconSize: IconSize,
             customTint: ThemeValue?,
             shouldFill: Bool,
+            shouldFollowIconSize: Bool = false,
             accessibility: Accessibility?
         ) {
             self.icon = icon
@@ -240,6 +246,7 @@ public extension SessionCell.AccessoryConfig {
             self.iconSize = iconSize
             self.customTint = customTint
             self.shouldFill = shouldFill
+            self.shouldFollowIconSize = shouldFollowIconSize
             
             super.init(accessibility: accessibility)
         }
@@ -252,6 +259,7 @@ public extension SessionCell.AccessoryConfig {
             iconSize.hash(into: &hasher)
             customTint.hash(into: &hasher)
             shouldFill.hash(into: &hasher)
+            shouldFollowIconSize.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
@@ -264,7 +272,9 @@ public extension SessionCell.AccessoryConfig {
                 iconSize == rhs.iconSize &&
                 customTint == rhs.customTint &&
                 shouldFill == rhs.shouldFill &&
+                shouldFollowIconSize == rhs.shouldFollowIconSize &&
                 accessibility == rhs.accessibility
+                
             )
         }
     }

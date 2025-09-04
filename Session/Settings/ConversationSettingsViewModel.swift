@@ -188,7 +188,11 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .blockedContacts,
                             title: "conversationsBlockedContacts".localized(),
                             subtitle: "blockedContactsManageDescription".localized(),
-                            trailingAccessory: .icon(.chevronRight),
+                            trailingAccessory: .icon(
+                                .chevronRight,
+                                shouldFill: true ,
+                                shouldFollowIconSize: true
+                            ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(
                                     SessionTableViewController(viewModel: BlockedContactsViewModel(using: dependencies))

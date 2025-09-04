@@ -307,6 +307,13 @@ extension SessionCell {
             imageView.themeTintColor = (accessory.customTint ?? tintColor)
             imageView.contentMode = (accessory.shouldFill ? .scaleAspectFill : .scaleAspectFit)
             
+            // Use icon size when displaying accessory view.
+            // 50 width causes large padding not aligning accessory to right
+            if accessory.shouldFollowIconSize {
+                fixedWidthConstraint.constant = accessory.iconSize.size
+                fixedWidthConstraint.isActive = true
+            }
+
             switch (accessory.icon, accessory.image) {
                 case (.some(let icon), _):
                     imageView.image = Lucide

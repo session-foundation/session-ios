@@ -76,7 +76,9 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        shouldFill: true,
+                        shouldFollowIconSize: true
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://getsession.org/translate") else {
@@ -97,7 +99,9 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        shouldFill: true,
+                        shouldFollowIconSize: true
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://getsession.org/survey") else {
@@ -118,7 +122,9 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        shouldFill: true,
+                        shouldFollowIconSize: true
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://getsession.org/faq") else {
@@ -139,7 +145,9 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        shouldFill: true,
+                        shouldFollowIconSize: true
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us") else {
