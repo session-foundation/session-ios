@@ -19,6 +19,9 @@ COMMON_ARGS=(
 )
 
 UNIQUE_ARGS=("$@")
+XCODEBUILD_RAW_LOG=$(mktemp)
+
+trap 'rm -f "$XCODEBUILD_RAW_LOG"' EXIT
 
 if [[ "$MODE" == "test" ]]; then
     
@@ -32,7 +35,7 @@ if [[ "$MODE" == "test" ]]; then
     (
         NSUnbufferedIO=YES xcodebuild test \
             "${COMMON_ARGS[@]}" \
-            "${UNIQUE_ARGS[@]}" 2>&1 | xcbeautify --is-ci
+            "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG" | xcbeautify --is-ci
     ) || xcodebuild_exit_code=${PIPESTATUS[0]}
 
     echo ""
@@ -43,7 +46,7 @@ if [[ "$MODE" == "test" ]]; then
         echo "🔴 Build failed. See log above for full context."
         echo ""
         echo "--- Summary of Errors ---"
-        grep -i --color=always "error:" /tmp/xcodebuild_raw.log || true
+        grep -i --color=always "error:" "$XCODEBUILD_RAW_LOG" || true
         echo "-------------------------"
         exit "$xcodebuild_exit_code"
     fi
