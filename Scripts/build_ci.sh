@@ -57,8 +57,8 @@ if [[ "$MODE" == "test" ]]; then
     echo "✅ Build Succeeded. Verifying test results from xcresult bundle..."
     
     # If the build passed, xcresultparser becomes the final gatekeeper for test results
-    parser_output=$(xcresultparser --output-format cli ./build/artifacts/testResults.xcresult)
-    echo "$parser_output"
+    xcresultparser --output-format cli --no-test-result --coverage ./build/artifacts/testResults.xcresult
+    parser_output=$(xcresultparser --output-format cli --no-test-result ./build/artifacts/testResults.xcresult)
 
     build_errors_count=$(echo "$parser_output" | grep "Number of errors" | awk '{print $NF}')
     failed_tests_count=$(echo "$parser_output" | grep "Number of failed tests" | awk '{print $NF}')
