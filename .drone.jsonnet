@@ -101,6 +101,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
         commands: [
           'echo "--- FAILED TESTS ---"',
           'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult',
+          'exit 1' // Always fail if this runs to make it more obvious in the UI
         ],
         depends_on: ['Build and Run Tests'],
         when: {

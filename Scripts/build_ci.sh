@@ -43,26 +43,16 @@ if [[ "$MODE" == "test" ]]; then
     echo ""
     echo "--- xcodebuild finished with exit code: $xcodebuild_exit_code ---"
     
-    # Check for a build failure (e.g., compile error, linker issue, or simulator connection error)
-    if [ "$xcodebuild_exit_code" -ne 0 ]; then
-        echo "🔴 Build failed. See log above for full context."
-        echo ""
-        echo "--- Summary of Potential Build Errors ---"
-        grep -E --color=always '(:[0-9]+:[0-9]+: error:)|(ld: error:)|(Command PhaseScriptExecution failed)' "$XCODEBUILD_RAW_LOG" || true
-        echo ""
-        echo "--- End of Raw Log (for context on unknown errors) ---"
-        
-        # If the grep above was empty, the error is likely in the last few lines
-        tail -n 50 "$XCODEBUILD_RAW_LOG"
-        
-        echo "----------------------------------------------------"
-        exit "$xcodebuild_exit_code"
+    if [ "$xcodebuild_exit_code" -eq 0 ]; then
+        echo "✅ All tests passed and build succeeded!"
+        exit 0
     fi
-    
+
     echo ""
-    echo "✅ Build Succeeded. Verifying test results from xcresult bundle..."
-    
-    # If the build passed, xcresultparser becomes the final gatekeeper for test results
+    echo "🔴 Build failed"
+    echo "----------------------------------------------------"
+    echo "Checking for test failures in xcresult bundle..."
+
     xcresultparser --output-format cli --no-test-result --coverage ./build/artifacts/testResults.xcresult
     parser_output=$(xcresultparser --output-format cli --no-test-result ./build/artifacts/testResults.xcresult)
 
@@ -71,11 +61,23 @@ if [[ "$MODE" == "test" ]]; then
 
     if [ "${build_errors_count:-0}" -gt 0 ] || [ "${failed_tests_count:-0}" -gt 0 ]; then
         echo ""
-        echo "🔴 Verification failed: Found $build_errors_count build error(s) and $failed_tests_count failed test(s) in the xcresult bundle."
+        echo "🔴 Found $build_errors_count build error(s) and $failed_tests_count failed test(s) in the xcresult bundle."
         exit 1
     else
-        echo "✅ Verification successful: No build errors or test failures found."
+        echo "No test failures found in results. Failure was likely a build error."
+        echo ""
+
+        echo "--- Summary of Potential Build Errors ---"
+        grep -E --color=always '(:[0-9]+:[0-9]+: error:)|(ld: error:)|(error: linker command failed)|(PhaseScriptExecution)|(rsync error:)' "$XCODEBUILD_RAW_LOG" || true
+        echo ""
+        echo "--- End of Raw Log ---"
+        tail -n 20 "$XCODEBUILD_RAW_LOG"
+        echo "-------------------------"
+        exit "$xcodebuild_exit_code"
     fi
+
+    echo "----------------------------------------------------"
+    exit "$xcodebuild_exit_code"
     
 elif [[ "$MODE" == "archive" ]]; then
     
