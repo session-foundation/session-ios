@@ -36,6 +36,7 @@ final class DeletedMessageView: UIView {
         
         let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
         imageView.themeTintColor = textColor
+        imageView.alpha = Values.mediumOpacity
         imageView.contentMode = .scaleAspectFit
         imageView.set(.width, to: DeletedMessageView.iconSize)
         imageView.set(.height, to: DeletedMessageView.iconSize)
@@ -46,7 +47,7 @@ final class DeletedMessageView: UIView {
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
         titleLabel.preferredMaxLayoutWidth = maxWidth - 6   // `6` for the `stackView.layoutMargins`
-        titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
+        titleLabel.font = .italicSystemFont(ofSize: Values.smallFontSize)
         titleLabel.text = {
             switch variant {
                 case .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
@@ -56,6 +57,7 @@ final class DeletedMessageView: UIView {
             }
         }()
         titleLabel.themeTextColor = textColor
+        titleLabel.alpha = Values.mediumOpacity
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 2
         
