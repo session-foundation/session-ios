@@ -1,5 +1,7 @@
 #!/bin/bash
 
+IFS=$' \t\n'
+
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
@@ -54,8 +56,20 @@ if [[ "$MODE" == "test" ]]; then
     echo ""
     echo "✅ Build Succeeded. Verifying test results from xcresult bundle..."
     
-    # If the build passed, xcresultparser becomes the final gatekeeper for test results.
-    xcresultparser --output-format cli --exit-with-error-on-failure ./build/artifacts/testResults.xcresult
+    # If the build passed, xcresultparser becomes the final gatekeeper for test results
+    parser_output=$(xcresultparser --output-format cli ./build/artifacts/testResults.xcresult)
+    echo "$parser_output"
+
+    build_errors_count=$(echo "$parser_output" | grep "Number of errors" | awk '{print $NF}')
+    failed_tests_count=$(echo "$parser_output" | grep "Number of failed tests" | awk '{print $NF}')
+
+    if [ "${build_errors_count:-0}" -gt 0 ] || [ "${failed_tests_count:-0}" -gt 0 ]; then
+        echo ""
+        echo "🔴 Verification failed: Found $build_errors_count build error(s) and $failed_tests_count failed test(s) in the xcresult bundle."
+        exit 1
+    else
+        echo "✅ Verification successful: No build errors or test failures found."
+    fi
     
 elif [[ "$MODE" == "archive" ]]; then
     
