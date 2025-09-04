@@ -79,21 +79,16 @@ local clean_up_old_test_sims_on_commit_trigger = {
         commands: [
           '''
           bash -c '
-            # set -e makes the script exit immediately if a command fails.
-            # set -o pipefail ensures that a pipeline fails if any command in it fails.
-            set -eo pipefail
-
+            set -o pipefail
+            
             echo "--- Running Build and Tests ---"
             echo "Explicitly running unit tests on \\'App_Store_Release\\' configuration..."
-            echo ""
-
-            xcodebuild_output=$(mktemp)
+            
+            # This variable will hold the true exit code of xcodebuild
             xcodebuild_exit_code=0
             
-            # Run the command and capture the true exit code of xcodebuild, even if xcbeautify succeeds.
-            # We add a `|| true` at the end because `set -e` would otherwise exit the script here
-            # if the pipeline fails, and we want to handle the exit code manually.
-            (NSUnbufferedIO=YES xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | tee "$xcodebuild_output" | xcbeautify --is-ci) || xcodebuild_exit_code=${PIPESTATUS[0]}
+            # Build and test
+            (NSUnbufferedIO=YES xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | tee /tmp/xcodebuild_raw.log | xcbeautify --is-ci) || xcodebuild_exit_code=${PIPESTATUS[0]}
             
             echo ""
             echo "--- xcodebuild finished with exit code: $xcodebuild_exit_code ---"
