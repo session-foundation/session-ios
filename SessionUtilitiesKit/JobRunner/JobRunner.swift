@@ -1860,9 +1860,7 @@ public final class JobQueue: Hashable {
                 
                 // If the job permanently failed or we have performed all of our retry attempts
                 // then delete the job and all of it's dependant jobs (it'll probably never succeed)
-                _ = try job.dependantJobs
-                    .deleteAll(db)
-
+                _ = try Job.deleteAll(db, ids: dependantJobIds)
                 _ = try job.delete(db)
                 return
             }
@@ -1879,7 +1877,8 @@ public final class JobQueue: Hashable {
             // Update the failureCount and nextRunTimestamp on dependant jobs as well (update the
             // 'nextRunTimestamp' value to be 1ms later so when the queue gets regenerated they'll
             // come after the dependency)
-            try job.dependantJobs
+            try Job
+                .filter(ids: dependantJobIds)
                 .updateAll(
                     db,
                     Job.Columns.failureCount.set(to: updatedFailureCount),

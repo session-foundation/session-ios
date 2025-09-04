@@ -36,12 +36,21 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             guard let jobId: Int64 = job.id else { return }
             
             dependencies[singleton: .storage].write { db in
-                try JobDependencies
+                let dependantJobIds: Set<Int64> = try JobDependencies
+                    .select(.jobId)
                     .filter(JobDependencies.Columns.dependantId == jobId)
-                    .joining(
-                        required: JobDependencies.job
-                            .filter(Job.Columns.variant == Job.Variant.messageReceive)
-                    )
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                let targetJobIds: Set<Int64> = try Job
+                    .select(.id)
+                    .filter(dependantJobIds.contains(Job.Columns.id))
+                    .filter(Job.Columns.variant == Job.Variant.messageReceive)
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                
+                try JobDependencies
+                    .filter(targetJobIds.contains(JobDependencies.Columns.jobId))
+                    .filter(JobDependencies.Columns.dependantId == jobId)
                     .deleteAll(db)
             }
         }

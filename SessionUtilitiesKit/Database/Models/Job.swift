@@ -574,7 +574,9 @@ extension Job {
         }
         
         if !includeJobsWithDependencies {
-            query = query.having(Job.jobsThisJobDependsOn.isEmpty)
+            let dependencySubquery: QueryInterfaceRequest<JobDependencies> = JobDependencies
+                .filter(JobDependencies.Columns.jobId == Job.Columns.id)
+            query = query.filter(!dependencySubquery.exists())
         }
         
         return query

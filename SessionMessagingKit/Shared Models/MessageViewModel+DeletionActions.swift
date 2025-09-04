@@ -124,7 +124,7 @@ public extension MessageViewModel.DeletionBehaviours {
         enum SelectedMessageState {
             case outgoingOnly
             case containsIncoming
-            case containsDeletedOrControlMessages
+            case containsLocalOnlyMessages /// Control, pending or deleted messages
         }
         
         /// If it's a legacy group and they have been deprecated then the user shouldn't be able to delete messages
@@ -134,8 +134,9 @@ public extension MessageViewModel.DeletionBehaviours {
         let state: SelectedMessageState = {
             guard
                 !cellViewModels.contains(where: { $0.variant.isDeletedMessage }) &&
-                !cellViewModels.contains(where: { $0.variant.isInfoMessage })
-            else { return .containsDeletedOrControlMessages }
+                !cellViewModels.contains(where: { $0.variant.isInfoMessage }) &&
+                !cellViewModels.contains(where: { $0.state == .sending || $0.state == .failed })
+            else { return .containsLocalOnlyMessages }
             
             return (cellViewModels.contains(where: { $0.variant == .standardIncoming }) ?
                 .containsIncoming :
@@ -171,8 +172,8 @@ public extension MessageViewModel.DeletionBehaviours {
                 }()
                 
                 switch (state, isAdmin) {
-                    /// User selects messages including a control message or “deleted” message
-                    case (.containsDeletedOrControlMessages, _):
+                    /// User selects messages including a control, pending or “deleted” message
+                    case (.containsLocalOnlyMessages, _):
                         return MessageViewModel.DeletionBehaviours(
                             title: "deleteMessage"
                                 .putNumber(cellViewModels.count)

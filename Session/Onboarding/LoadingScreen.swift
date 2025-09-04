@@ -142,15 +142,19 @@ struct LoadingScreen: View {
         animationTimer = nil
         
         guard success else {
-            let viewController: SessionHostingViewController = SessionHostingViewController(
-                rootView: DisplayNameScreen(flow: viewModel.initialFlow, using: viewModel.dependencies)
-            )
-            viewController.setUpNavBarSessionIcon()
-            if let navigationController = self.host.controller?.navigationController {
-                let updatedViewControllers: [UIViewController] = navigationController.viewControllers
-                    .filter { !$0.isKind(of: SessionHostingViewController<LoadingScreen>.self) }
-                    .appending(viewController)
-                navigationController.setViewControllers(updatedViewControllers, animated: true)
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    let viewController: SessionHostingViewController = SessionHostingViewController(
+                        rootView: DisplayNameScreen(flow: viewModel.initialFlow, using: viewModel.dependencies)
+                    )
+                    viewController.setUpNavBarSessionIcon()
+                    if let navigationController = self.host.controller?.navigationController {
+                        let updatedViewControllers: [UIViewController] = navigationController.viewControllers
+                            .filter { !$0.isKind(of: SessionHostingViewController<LoadingScreen>.self) }
+                            .appending(viewController)
+                        navigationController.setViewControllers(updatedViewControllers, animated: true)
+                    }
+                }
             }
             return
         }
