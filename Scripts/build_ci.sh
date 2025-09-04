@@ -46,7 +46,7 @@ if [[ "$MODE" == "test" ]]; then
         echo "🔴 Build failed. See log above for full context."
         echo ""
         echo "--- Summary of Errors ---"
-        grep -i --color=always "error:" "$XCODEBUILD_RAW_LOG" || true
+        grep -E --color=always '(:[0-9]+:[0-9]+: error:)|(ld: error:)|(Command PhaseScriptExecution failed)' "$XCODEBUILD_RAW_LOG" || true
         echo "-------------------------"
         exit "$xcodebuild_exit_code"
     fi
