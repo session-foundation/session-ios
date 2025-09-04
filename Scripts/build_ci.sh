@@ -40,7 +40,11 @@ if [[ "$MODE" == "test" ]]; then
     
     # Check for a build failure (e.g., compile error, linker issue, or simulator connection error)
     if [ "$xcodebuild_exit_code" -ne 0 ]; then
-        echo "🔴 Build failed. See log above for compile errors."
+        echo "🔴 Build failed. See log above for full context."
+        echo ""
+        echo "--- Summary of Errors ---"
+        grep -i --color=always "error:" /tmp/xcodebuild_raw.log || true
+        echo "-------------------------"
         exit "$xcodebuild_exit_code"
     fi
     
