@@ -77,37 +77,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build and Run Tests',
         commands: [
-          '''
-          bash -c '
-            set -o pipefail
-            
-            echo "--- Running Build and Tests ---"
-            echo "Explicitly running unit tests on \\'App_Store_Release\\' configuration..."
-            
-            # This variable will hold the true exit code of xcodebuild
-            xcodebuild_exit_code=0
-            
-            # Build and test
-            (NSUnbufferedIO=YES xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | tee /tmp/xcodebuild_raw.log | xcbeautify --is-ci) || xcodebuild_exit_code=${PIPESTATUS[0]}
-            
-            echo ""
-            echo "--- xcodebuild finished with exit code: $xcodebuild_exit_code ---"
-            echo ""
-            
-            # Check for a build failure (e.g., compile error)
-            if [ "$xcodebuild_exit_code" -ne 0 ]; then
-              echo "🔴 Build failed. See log above for compile errors."
-              exit "$xcodebuild_exit_code"
-            fi
-            
-            echo ""
-            echo "✅ Build Succeeded. Verifying test results..."
-            
-            # If the build succeeded, check the xcresult for test failures.
-            # The exit code of this command will determine the final status of this step.
-            xcresultparser --output-format cli --exit-with-error-on-failure ./build/artifacts/testResults.xcresult
-          '
-          '''
+          './Scripts/run_xcode_ci.sh test -resultBundlePath ./build/artifacts/testResults.xcresult -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES',
         ],
         depends_on: [
           'Reset SPM Cache if Needed',
@@ -179,8 +149,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build',
         commands: [
-          'mkdir build',
-          'NSUnbufferedIO=YES && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
+          './Scripts/run_xcode_ci.sh archive -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator"',
         ],
         depends_on: [
           'Reset SPM Cache if Needed',
