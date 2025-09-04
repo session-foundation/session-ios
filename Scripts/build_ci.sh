@@ -24,7 +24,6 @@ if [[ "$MODE" == "test" ]]; then
     
     echo "--- Running Build and Unit Tests (App_Store_Release) ---"
     
-    mkdir build
     xcodebuild_exit_code=0
     
     # We wrap the pipeline in parentheses to capture the exit code of xcodebuild
@@ -55,7 +54,6 @@ elif [[ "$MODE" == "archive" ]]; then
     
     echo "--- Running Simulator Archive Build (App_Store_Release) ---"
     
-    mkdir build
     NSUnbufferedIO=YES xcodebuild archive \
         "${COMMON_ARGS[@]}" \
         "${UNIQUE_ARGS[@]}" 2>&1 | xcbeautify --is-ci
