@@ -47,9 +47,15 @@ if [[ "$MODE" == "test" ]]; then
     if [ "$xcodebuild_exit_code" -ne 0 ]; then
         echo "🔴 Build failed. See log above for full context."
         echo ""
-        echo "--- Summary of Errors ---"
+        echo "--- Summary of Potential Build Errors ---"
         grep -E --color=always '(:[0-9]+:[0-9]+: error:)|(ld: error:)|(Command PhaseScriptExecution failed)' "$XCODEBUILD_RAW_LOG" || true
-        echo "-------------------------"
+        echo ""
+        echo "--- End of Raw Log (for context on unknown errors) ---"
+        
+        # If the grep above was empty, the error is likely in the last few lines
+        tail -n 50 "$XCODEBUILD_RAW_LOG"
+        
+        echo "----------------------------------------------------"
         exit "$xcodebuild_exit_code"
     fi
     
