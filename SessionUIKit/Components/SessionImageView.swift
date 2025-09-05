@@ -138,7 +138,7 @@ public class SessionImageView: UIImageView {
     }
     
     @MainActor
-    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
+    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
         /// If we are trying to load the image that is already displayed then no need to do anything
         if currentLoadIdentifier == source.identifier && (self.image == nil || isAnimating()) {
             /// If it was an animation that got paused then resume it

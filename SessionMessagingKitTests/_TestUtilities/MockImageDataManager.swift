@@ -12,9 +12,10 @@ class MockImageDataManager: Mock<ImageDataManagerType>, ImageDataManagerType {
         return mock(args: [source])
     }
     
+    @MainActor
     func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
     ) {
         mockNoReturn(args: [source], untrackedArgs: [onComplete])
     }

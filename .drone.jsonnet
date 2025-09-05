@@ -77,10 +77,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build and Run Tests',
         commands: [
-          'echo "Explicitly running unit tests on \'App_Store_Release\' configuration to ensure optimisation behaviour is consistent"',
-          'echo "If tests fail inconsistently from local builds this is likely the difference"',
-          'echo ""',
-          'NSUnbufferedIO=YES xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | xcbeautify --is-ci',
+          './Scripts/build_ci.sh test -resultBundlePath ./build/artifacts/testResults.xcresult -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES',
         ],
         depends_on: [
           'Reset SPM Cache if Needed',
@@ -100,30 +97,26 @@ local clean_up_old_test_sims_on_commit_trigger = {
         },
       },
       {
-        name: 'Check for Build/Test Failures',
-        commands: [
-          'echo "Checking for build errors or test failures in xcresult bundle..."',
-          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult'
-        ],
-        depends_on: ['Build and Run Tests']
-      },
-      {
         name: 'Log Failed Test Summary',
         commands: [
           'echo "--- FAILED TESTS ---"',
-          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult'
+          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult',
+          'exit 1' // Always fail if this runs to make it more obvious in the UI
         ],
-        depends_on: ['Check for Build/Test Failures'],
+        depends_on: ['Build and Run Tests'],
         when: {
           status: ['failure'], // Only run this on failure
         },
       },
       {
-        name: 'Convert xcresult to xml',
+        name: 'Generate Code Coverage Report',
         commands: [
           'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
         ],
         depends_on: ['Build and Run Tests'],
+        when: {
+          status: ['success'],
+        },
       },
     ],
   },
@@ -157,8 +150,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build',
         commands: [
-          'mkdir build',
-          'NSUnbufferedIO=YES && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
+          './Scripts/build_ci.sh archive -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator"',
         ],
         depends_on: [
           'Reset SPM Cache if Needed',

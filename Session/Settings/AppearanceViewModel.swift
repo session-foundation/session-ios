@@ -223,6 +223,8 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                             ),
                             onTap: {
                                 ThemeManager.updateThemeState(
+                                    theme: state.theme,                 /// Keep the current value
+                                    primaryColor: state.primaryColor,   /// Keep the current value
                                     matchSystemNightModeSetting: !state.autoDarkModeEnabled
                                 )
                             }

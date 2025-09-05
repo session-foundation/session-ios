@@ -198,7 +198,7 @@ public class MediaView: UIView {
                     guard processedData == nil else { return }
                     
                     Log.error("[MediaView] Could not load thumbnail")
-                    Task { @MainActor [weak self] in self?.configure(forError: .invalid) }
+                    self?.configure(forError: .invalid)
                 }
         }
         
