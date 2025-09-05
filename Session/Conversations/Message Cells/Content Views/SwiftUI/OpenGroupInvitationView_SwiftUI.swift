@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -32,14 +33,14 @@ struct OpenGroupInvitationView_SwiftUI: View {
         self.textColor = textColor
         self.isOutgoing = isOutgoing
     }
-    
+
     var body: some View {
         HStack(
             alignment: .center,
             spacing: Values.mediumSpacing
         ) {
             // Icon
-            if let iconImage = UIImage(named: isOutgoing ? "Globe" : "Plus")?
+            if let iconImage = Lucide.image(icon: isOutgoing ? .globe : .plus, size: Self.iconSize)?
                 .withRenderingMode(.alwaysTemplate)
             {
                 Circle()
