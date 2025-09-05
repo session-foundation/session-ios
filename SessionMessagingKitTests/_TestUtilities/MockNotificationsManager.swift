@@ -13,7 +13,7 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         mockNoReturn(untrackedArgs: [dependencies])
     }
     
-    internal required init(functionHandler: MockFunctionHandler? = nil, initialSetup: ((Mock<NotificationsManagerType>) -> ())? = nil) {
+    internal required init(functionHandler: MockFunctionHandler_Old? = nil, initialSetup: ((Mock<NotificationsManagerType>) -> ())? = nil) {
         super.init(functionHandler: functionHandler, initialSetup: initialSetup)
     }
     
@@ -41,7 +41,7 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
     public func notificationUserInfo(
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> [String: Any] {
+    ) -> [String: AnyHashable] {
         return mock(args: [threadId, threadVariant])
     }
     

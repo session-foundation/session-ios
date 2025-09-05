@@ -44,7 +44,6 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_stop
     
     private let dependencies: Dependencies
-    private lazy var messagesLoadedStream: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     // MARK: - Initialization
     
@@ -727,18 +726,10 @@ public class ExtensionHelper: ExtensionHelperType {
         try write(data: messageAsData, to: targetPath)
     }
     
-    public func willLoadMessages() {
-        /// We want to synchronously reset the `messagesLoadedStream` value to `false`
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        Task {
-            await messagesLoadedStream.send(false)
-            semaphore.signal()
-        }
-        semaphore.wait()
-    }
-    
     public func loadMessages() async throws {
         typealias MessageData = (namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        
+        try Task.checkCancellation()
         
         /// Retrieve all conversation file paths
         ///
@@ -763,8 +754,14 @@ public class ExtensionHelper: ExtensionHelperType {
         try await dependencies[singleton: .storage].writeAsync { [weak self, dependencies] db in
             guard let this = self else { return }
             
+            /// Stop processing if the task got cancelled
+            guard !Task.isCancelled else { return }
+            
             /// Process each conversation individually
             conversationHashes.forEach { conversationHash in
+                /// Stop processing if the task got cancelled
+                guard !Task.isCancelled else { return }
+                
                 /// Retrieve and process any config messages
                 ///
                 /// For config message changes we want to load in every config for a conversation and process them all at once
@@ -897,14 +894,12 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
-        await messagesLoadedStream.send(true)
     }
     
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
         return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                guard await self?.messagesLoadedStream.currentValue != true else { return true }
-                _ = await self?.messagesLoadedStream.stream.first { $0 == true }
+                try? await self?.loadMessages()
                 return true
             }
             group.addTask {
@@ -1012,7 +1007,6 @@ public protocol ExtensionHelperType {
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws
-    func willLoadMessages()
     func loadMessages() async throws
     @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool
 }

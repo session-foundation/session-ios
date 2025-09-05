@@ -255,7 +255,7 @@ open class Storage {
     
     public func perform(
         migrations: [Migration.Type],
-        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?
+        onProgressUpdate: ((CGFloat, TimeInterval) -> ())? = nil
     ) async throws {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)

@@ -4,7 +4,7 @@ import Foundation
 import SessionUtilitiesKit
 
 extension SnodeAPI {
-    public final class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
+    public final class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case namespace
         }
@@ -54,16 +54,6 @@ extension SnodeAPI {
             }
             
             try super.encode(to: encoder)
-        }
-        
-        // MARK: - UpdatableTimestamp
-        
-        public func with(timestampMs: UInt64) -> DeleteAllMessagesRequest {
-            return DeleteAllMessagesRequest(
-                namespace: self.namespace,
-                authMethod: self.authMethod,
-                timestampMs: timestampMs
-            )
         }
     }
 }

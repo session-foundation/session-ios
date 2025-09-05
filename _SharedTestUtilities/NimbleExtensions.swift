@@ -250,7 +250,7 @@ fileprivate struct CallInfo {
     let didError: Bool
     let caughtError: Error?
     let targetFunction: MockFunction?
-    let allFunctionsCalled: [FunctionConsumer.Key]
+    let allFunctionsCalled: [FunctionConsumer_Old.Key]
     let allCallDetails: [CallDetails]
     
     var functionName: String { "\((targetFunction?.name).map { "\($0)" } ?? "a function")" }
@@ -271,7 +271,7 @@ fileprivate struct CallInfo {
         didError: Bool = false,
         caughtError: Error?,
         targetFunction: MockFunction?,
-        allFunctionsCalled: [FunctionConsumer.Key],
+        allFunctionsCalled: [FunctionConsumer_Old.Key],
         allCallDetails: [CallDetails]
     ) {
         self.didError = didError
@@ -287,7 +287,7 @@ fileprivate func generateCallInfo<M, T, R>(
     _ functionBlock: @escaping (inout T) async throws -> R
 ) -> CallInfo where M: Mock<T> {
     var maybeTargetFunction: MockFunction?
-    var allFunctionsCalled: [FunctionConsumer.Key] = []
+    var allFunctionsCalled: [FunctionConsumer_Old.Key] = []
     var allCallDetails: [CallDetails] = []
     var caughtError: Error? = nil
     
@@ -304,9 +304,9 @@ fileprivate func generateCallInfo<M, T, R>(
         // to build)
         if !allFunctionsCalled.isEmpty {
             validInstance.functionConsumer.trackCalls = false
-            maybeTargetFunction = try MockFunctionBuilder.mockFunctionWith(validInstance, functionBlock)
+            maybeTargetFunction = try MockFunctionBuilder_Old.mockFunctionWith(validInstance, functionBlock)
             
-            let key: FunctionConsumer.Key = FunctionConsumer.Key(
+            let key: FunctionConsumer_Old.Key = FunctionConsumer_Old.Key(
                 name: (maybeTargetFunction?.name ?? ""),
                 generics: (maybeTargetFunction?.generics ?? []),
                 paramCount: (maybeTargetFunction?.parameterCount ?? 0)

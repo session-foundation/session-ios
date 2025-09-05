@@ -215,26 +215,24 @@ public actor GroupPollerManager: GroupPollerManagerType {
     // MARK: - Functions
     
     public func startAllPollers() async {
-        Task {
-            let groupPublicKeys: Set<String> = try await dependencies[singleton: .storage].readAsync { db in
-                try ClosedGroup
-                    .select(.threadId)
-                    .filter(ClosedGroup.Columns.shouldPoll == true)
-                    .filter(
-                        ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                        ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                    )
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-            }
-            
-            for swarmPublicKey in groupPublicKeys {
-                await getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
-            }
+        let groupPublicKeys: Set<String> = ((try? await dependencies[singleton: .storage].readAsync { db in
+            try ClosedGroup
+                .select(.threadId)
+                .filter(ClosedGroup.Columns.shouldPoll == true)
+                .filter(
+                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                )
+                .asRequest(of: String.self)
+                .fetchSet(db)
+        }) ?? [])
+        
+        for swarmPublicKey in groupPublicKeys {
+            await getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
         }
     }
     
-    @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) async -> any SwarmPollerType {
+    @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType {
         guard let poller: GroupPoller = pollers[swarmPublicKey.lowercased()] else {
             let poller: GroupPoller = GroupPoller(
                 pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:ignore
@@ -270,7 +268,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
 
 public protocol GroupPollerManagerType {
     func startAllPollers() async
-    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) async -> any SwarmPollerType
+    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType
     func stopAndRemovePoller(for swarmPublicKey: String) async
     func stopAndRemoveAllPollers() async
 }

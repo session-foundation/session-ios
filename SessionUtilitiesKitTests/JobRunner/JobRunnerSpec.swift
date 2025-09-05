@@ -3,13 +3,14 @@
 import Foundation
 import Combine
 import GRDB
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionUtilitiesKit
 
-class JobRunnerSpec: QuickSpec {
+class JobRunnerSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -47,11 +48,6 @@ class JobRunnerSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: [
-                _001_SUK_InitialSetupMigration.self,
-                _012_AddJobPriority.self,
-                _020_AddJobUniqueHash.self
-            ],
             using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var jobRunner: JobRunnerType! = JobRunner(
@@ -63,6 +59,16 @@ class JobRunnerSpec: QuickSpec {
             ],
             using: dependencies
         )
+        
+        beforeEach {
+            try await mockStorage.perform(
+                migrations: [
+                    _001_SUK_InitialSetupMigration.self,
+                    _012_AddJobPriority.self,
+                    _020_AddJobUniqueHash.self
+                ]
+            )
+        }
         
         // MARK: - a JobRunner
         describe("a JobRunner") {
@@ -1778,7 +1784,7 @@ fileprivate struct TestDetails: Codable {
 }
 
 fileprivate struct InvalidDetails: Codable {
-    func encode(to encoder: Encoder) throws { throw MockError.mockedData }
+    func encode(to encoder: Encoder) throws { throw MockError.mock }
 }
 
 fileprivate enum TestJob: JobExecutor {
@@ -1816,8 +1822,8 @@ fileprivate enum TestJob: JobExecutor {
             
             switch details.result {
                 case .success: success(job, true)
-                case .failure: failure(job, MockError.mockedData, false)
-                case .permanentFailure: failure(job, MockError.mockedData, true)
+                case .failure: failure(job, MockError.mock, false)
+                case .permanentFailure: failure(job, MockError.mock, true)
                 case .deferred: deferred(updatedJob)
             }
         }

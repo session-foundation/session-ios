@@ -28,8 +28,8 @@ public protocol NetworkType {
     func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode>
     
     @available(*, deprecated, message: "We want to shift from Combine to Async/Await when possible")
-    nonisolated func send(
-        endpoint: (any EndpointType),
+    nonisolated func send<E: EndpointType>(
+        endpoint: E,
         destination: Network.Destination,
         body: Data?,
         category: Network.RequestCategory,
@@ -37,8 +37,8 @@ public protocol NetworkType {
         overallTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error>
     
-    func send(
-        endpoint: (any EndpointType),
+    func send<E: EndpointType>(
+        endpoint: E,
         destination: Network.Destination,
         body: Data?,
         category: Network.RequestCategory,
@@ -122,10 +122,10 @@ public extension Network {
     }
     
     enum FileServer {
-        fileprivate static let fileServer = "http://filev2.getsession.org"
-        fileprivate static let fileServerPublicKey = "da21e1d886c6fbaea313f75298bd64aab03a97ce985b46bb2dad9f2089c8ee59"
-        fileprivate static let legacyFileServer = "http://88.99.175.227"
-        fileprivate static let legacyFileServerPublicKey = "7cb31905b55cd5580c686911debf672577b3fb0bff81df4ce2d5c4cb3a7aaa69"
+        internal static let fileServer = "http://filev2.getsession.org"
+        internal static let fileServerPublicKey = "da21e1d886c6fbaea313f75298bd64aab03a97ce985b46bb2dad9f2089c8ee59"
+        internal static let legacyFileServer = "http://88.99.175.227"
+        internal static let legacyFileServerPublicKey = "7cb31905b55cd5580c686911debf672577b3fb0bff81df4ce2d5c4cb3a7aaa69"
         
         public enum Endpoint: EndpointType {
             case file

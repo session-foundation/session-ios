@@ -107,7 +107,7 @@ public extension KeyValueStore.IntKey {
 }
 
 public enum Preferences {
-    public struct NotificationSettings {
+    public struct NotificationSettings: Equatable {
         public let previewType: Preferences.NotificationPreviewType
         public let sound: Preferences.Sound
         public let mentionsOnly: Bool

@@ -3,9 +3,10 @@
 import Foundation
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
-extension Job: CustomArgSummaryDescribable {
-    var customArgSummaryDescribable: String? {
+extension Job: @retroactive ArgumentDescribing {
+    public var summary: String? {
         switch variant {
             case .attachmentUpload:
                 guard

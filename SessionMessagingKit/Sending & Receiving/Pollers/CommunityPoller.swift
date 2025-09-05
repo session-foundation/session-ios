@@ -634,25 +634,23 @@ actor CommunityPollerManager: CommunityPollerManagerType {
     // MARK: - Functions
     
     public func startAllPollers() async {
-        Task {
-            let communityInfo: [CommunityPoller.Info] = try await dependencies[singleton: .storage].readAsync { db in
-                // The default room promise creates an OpenGroup with an empty `roomToken` value,
-                // we don't want to start a poller for this as the user hasn't actually joined a room
-                try OpenGroup
-                    .select(
-                        OpenGroup.Columns.server,
-                        max(OpenGroup.Columns.pollFailureCount).forKey(CommunityPoller.Info.Columns.pollFailureCount)
-                    )
-                    .filter(OpenGroup.Columns.isActive == true)
-                    .filter(OpenGroup.Columns.roomToken != "")
-                    .group(OpenGroup.Columns.server)
-                    .asRequest(of: CommunityPoller.Info.self)
-                    .fetchAll(db)
-            }
-            
-            for info in communityInfo {
-                await getOrCreatePoller(for: info).startIfNeeded()
-            }
+        let communityInfo: [CommunityPoller.Info] = ((try? await dependencies[singleton: .storage].readAsync { db in
+            // The default room promise creates an OpenGroup with an empty `roomToken` value,
+            // we don't want to start a poller for this as the user hasn't actually joined a room
+            try OpenGroup
+                .select(
+                    OpenGroup.Columns.server,
+                    max(OpenGroup.Columns.pollFailureCount).forKey(CommunityPoller.Info.Columns.pollFailureCount)
+                )
+                .filter(OpenGroup.Columns.isActive == true)
+                .filter(OpenGroup.Columns.roomToken != "")
+                .group(OpenGroup.Columns.server)
+                .asRequest(of: CommunityPoller.Info.self)
+                .fetchAll(db)
+        }) ?? [])
+        
+        for info in communityInfo {
+            await getOrCreatePoller(for: info).startIfNeeded()
         }
     }
     

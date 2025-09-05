@@ -24,7 +24,7 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
         
         self = try Request(
             endpoint: endpoint,
-            destination: try .server(
+            destination: .server(
                 method: method,
                 server: server,
                 queryParameters: queryParameters,

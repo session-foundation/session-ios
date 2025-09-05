@@ -195,8 +195,8 @@ actor LibSessionNetwork: NetworkType {
         return nodes
     }
     
-    nonisolated func send(
-        endpoint: (any EndpointType),
+    nonisolated func send<E: EndpointType>(
+        endpoint: E,
         destination: Network.Destination,
         body: Data?,
         category: Network.RequestCategory,
@@ -332,8 +332,8 @@ actor LibSessionNetwork: NetworkType {
             .eraseToAnyPublisher()
     }
     
-    func send(
-        endpoint: (any EndpointType),
+    func send<E: EndpointType>(
+        endpoint: E,
         destination: Network.Destination,
         body: Data?,
         category: Network.RequestCategory,
@@ -1097,8 +1097,8 @@ public extension LibSession {
         public func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode> { return [] }
         public func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode> { return [] }
         
-        nonisolated public func send(
-            endpoint: (any EndpointType),
+        nonisolated public func send<E: EndpointType>(
+            endpoint: E,
             destination: Network.Destination,
             body: Data?,
             category: Network.RequestCategory,
@@ -1108,8 +1108,8 @@ public extension LibSession {
             return Fail(error: NetworkError.invalidState).eraseToAnyPublisher()
         }
         
-        public func send(
-            endpoint: (any EndpointType),
+        public func send<E: EndpointType>(
+            endpoint: E,
             destination: Network.Destination,
             body: Data?,
             category: Network.RequestCategory,

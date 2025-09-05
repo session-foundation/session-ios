@@ -17,7 +17,7 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
     ) throws {
         self = try Request(
             endpoint: endpoint,
-            destination: try .server(
+            destination: .server(
                 method: method,
                 server: PushNotificationAPI.server,
                 queryParameters: queryParameters,

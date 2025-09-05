@@ -21,15 +21,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try SessionThread(
-                    id: "TestId",
-                    variant: .contact,
-                    creationDateTimestamp: 0
-                ).insert(db)
-            }
+            using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
@@ -44,24 +36,36 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
-        @TestState var viewModel: ThreadNotificationSettingsViewModel! = TestState.create {
-            await ThreadNotificationSettingsViewModel(
+        @TestState var viewModel: ThreadNotificationSettingsViewModel!
+        @TestState var cancellables: [AnyCancellable]!
+        
+        beforeEach {
+            try await mockStorage.perform(
+                migrations: SNMessagingKit.migrations
+            )
+            try await mockStorage.writeAsync { db in
+                try SessionThread(
+                    id: "TestId",
+                    variant: .contact,
+                    creationDateTimestamp: 0
+                ).insert(db)
+            }
+            viewModel = await ThreadNotificationSettingsViewModel(
                 threadId: "TestId",
                 threadVariant: .contact,
                 threadOnlyNotifyForMentions: nil,
                 threadMutedUntilTimestamp: nil,
                 using: dependencies
             )
+            cancellables = [
+                viewModel.tableDataPublisher
+                    .receive(on: ImmediateScheduler.shared)
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+            ]
         }
-        
-        @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-        ]
         
         // MARK: - a ThreadNotificationSettingsViewModel
         describe("a ThreadNotificationSettingsViewModel") {

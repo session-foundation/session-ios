@@ -21,15 +21,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try SessionThread(
-                    id: "TestId",
-                    variant: .contact,
-                    creationDateTimestamp: 0
-                ).insert(db)
-            }
+            using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
@@ -58,6 +50,19 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     receiveValue: { viewModel.updateTableData($0) }
                 )
         ]
+        
+        beforeEach {
+            try await mockStorage.perform(
+                migrations: SNMessagingKit.migrations
+            )
+            try await mockStorage.writeAsync { db in
+                try SessionThread(
+                    id: "TestId",
+                    variant: .contact,
+                    creationDateTimestamp: 0
+                ).insert(db)
+            }
+        }
         
         // MARK: - a ThreadDisappearingMessagesSettingsViewModel
         describe("a ThreadDisappearingMessagesSettingsViewModel") {

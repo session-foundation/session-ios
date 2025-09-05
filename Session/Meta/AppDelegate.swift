@@ -471,8 +471,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         ///
         /// **Note:** This **MUST** be called before `dependencies[singleton: .appReadiness].setAppReady()` is
         /// called otherwise a user tapping on a notification may not open the conversation showing the message
-        dependencies[singleton: .extensionHelper].willLoadMessages()
-        
         Task(priority: .medium) { [dependencies] in
             do { try await dependencies[singleton: .extensionHelper].loadMessages() }
             catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }
@@ -705,9 +703,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             self?.enableBackgroundRefreshIfNecessary()
             dependencies[singleton: .jobRunner].appDidBecomeActive()
             
-            await self?.startPollersIfNeeded()
-            
-            /// Fetch the Session Network info in the background
+            /// Kick off polling and fetch the Session Network info in the background
+            Task { await self?.startPollersIfNeeded() }
             Task { await dependencies[singleton: .sessionNetworkApiClient].fetchInfoInBackground() }
 
             if dependencies[singleton: .appContext].isMainApp {

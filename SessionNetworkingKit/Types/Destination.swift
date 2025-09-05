@@ -153,7 +153,7 @@ public extension Network {
             queryParameters: [HTTPQueryParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String
-        ) throws -> Destination {
+        ) -> Destination {
             return .server(info: ServerInfo(
                 method: method,
                 server: server,
@@ -169,7 +169,7 @@ public extension Network {
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
-        ) throws -> Destination {
+        ) -> Destination {
             return .serverUpload(
                 info: ServerInfo(
                     method: .post,
@@ -188,7 +188,7 @@ public extension Network {
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
-        ) throws -> Destination {
+        ) -> Destination {
             return .serverDownload(info: ServerInfo(
                 method: .get,
                 url: url,

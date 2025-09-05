@@ -26,7 +26,7 @@ class PreparedRequestSpec: QuickSpec {
             it("generates the request correctly") {
                 request = try! Request<NoBody, TestEndpoint>(
                     endpoint: .endpoint,
-                    destination: try! .server(
+                    destination: .server(
                         method: .post,
                         server: "testServer",
                         queryParameters: [:],
@@ -64,7 +64,7 @@ class PreparedRequestSpec: QuickSpec {
             it("does not strip excluded subrequest headers") {
                 request = try! Request<NoBody, TestEndpoint>(
                     endpoint: .endpoint,
-                    destination: try! .server(
+                    destination: .server(
                         method: .post,
                         server: "testServer",
                         queryParameters: [:],

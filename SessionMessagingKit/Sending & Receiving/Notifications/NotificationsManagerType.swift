@@ -31,7 +31,7 @@ public protocol NotificationsManagerType {
         mentionsOnly: Bool,
         mutedUntil: TimeInterval?
     )
-    func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any]
+    func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable]
     func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool
     
     func notifyForFailedSend(
@@ -443,7 +443,7 @@ public struct NoopNotificationsManager: NotificationsManagerType, NoopDependency
     public func updateSettings(threadId: String, threadVariant: SessionThread.Variant, mentionsOnly: Bool, mutedUntil: TimeInterval?) {
     }
     
-    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable] {
         return [:]
     }
     

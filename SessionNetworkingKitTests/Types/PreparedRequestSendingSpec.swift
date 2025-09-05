@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -20,7 +21,7 @@ class PreparedRequestSendingSpec: QuickSpec {
         @TestState var preparedRequest: Network.PreparedRequest<Int>! = {
             let request = try! Request<NoBody, TestEndpoint>(
                 endpoint: .endpoint1,
-                destination: try! .server(
+                destination: .server(
                     method: .post,
                     server: "testServer",
                     x25519PublicKey: ""
@@ -109,24 +110,10 @@ class PreparedRequestSendingSpec: QuickSpec {
                 
                 // MARK: ---- and handling events
                 context("and handling events") {
-                    @TestState var didReceiveSubscription: Bool! = false
-                    @TestState var didReceiveCancel: Bool! = false
                     @TestState var receivedOutput: (ResponseInfoType, Int)? = nil
                     @TestState var receivedCompletion: Subscribers.Completion<Error>? = nil
-                    @TestState var multiDidReceiveSubscription: [Bool]! = []
+                    @TestState var multiReceivedOutput: [(ResponseInfoType, Int)]! = []
                     @TestState var multiReceivedCompletion: [Subscribers.Completion<Error>]! = []
-                    
-                    // MARK: ------ calls receiveSubscription correctly
-                    it("calls receiveSubscription correctly") {
-                        preparedRequest
-                            .handleEvents(
-                                receiveSubscription: { didReceiveSubscription = true }
-                            )
-                            .send(using: dependencies)
-                            .sinkAndStore(in: &disposables)
-                    
-                        expect(didReceiveSubscription).to(beTrue())
-                    }
                     
                     // MARK: ------ calls receiveOutput correctly
                     it("calls receiveOutput correctly") {
@@ -152,32 +139,17 @@ class PreparedRequestSendingSpec: QuickSpec {
                         expect(receivedCompletion).toNot(beNil())
                     }
                     
-                    // MARK: ------ calls receiveCancel correctly
-                    it("calls receiveCancel correctly") {
-                        preparedRequest
-                            .handleEvents(
-                                receiveCancel: { didReceiveCancel = true }
-                            )
-                            .send(using: dependencies)
-                            .handleEvents(
-                                receiveSubscription: { $0.cancel() }
-                            )
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(didReceiveCancel).to(beTrue())
-                    }
-                    
                     // MARK: ------ calls multiple callbacks without issue
                     it("calls multiple callbacks without issue") {
                         preparedRequest
                             .handleEvents(
-                                receiveSubscription: { didReceiveSubscription = true },
+                                receiveOutput: { info, output in receivedOutput = (info, output) },
                                 receiveCompletion: { result in receivedCompletion = result }
                             )
                             .send(using: dependencies)
                             .sinkAndStore(in: &disposables)
                         
-                        expect(didReceiveSubscription).to(beTrue())
+                        expect(receivedOutput).toNot(beNil())
                         expect(receivedCompletion).toNot(beNil())
                     }
                     
@@ -185,21 +157,21 @@ class PreparedRequestSendingSpec: QuickSpec {
                     it("supports multiple handleEvents calls") {
                         preparedRequest
                             .handleEvents(
-                                receiveSubscription: { multiDidReceiveSubscription.append(true) },
+                                receiveOutput: { info, output in multiReceivedOutput.append((info, output)) },
                                 receiveCompletion: { result in multiReceivedCompletion.append(result) }
                             )
                             .handleEvents(
-                                receiveSubscription: { multiDidReceiveSubscription.append(true) },
+                                receiveOutput: { info, output in multiReceivedOutput.append((info, output)) },
                                 receiveCompletion: { result in multiReceivedCompletion.append(result) }
                             )
                             .handleEvents(
-                                receiveSubscription: { multiDidReceiveSubscription.append(true) },
+                                receiveOutput: { info, output in multiReceivedOutput.append((info, output)) },
                                 receiveCompletion: { result in multiReceivedCompletion.append(result) }
                             )
                             .send(using: dependencies)
                             .sinkAndStore(in: &disposables)
                         
-                        expect(multiDidReceiveSubscription).to(equal([true, true, true]))
+                        expect(multiReceivedOutput.count).to(equal(3))
                         expect(multiReceivedCompletion.count).to(equal(3))
                     }
                 }
@@ -285,13 +257,11 @@ class PreparedRequestSendingSpec: QuickSpec {
                         preparedRequest
                             .map { _, output -> String in "\(output)" }
                             .handleEvents(
-                                receiveSubscription: { didReceiveSubscription = true },
                                 receiveCompletion: { result in receivedCompletion = result }
                             )
                             .send(using: dependencies)
                             .sinkAndStore(in: &disposables)
                         
-                        expect(didReceiveSubscription).to(beTrue())
                         expect(receivedCompletion).toNot(beNil())
                     }
                 }
@@ -302,7 +272,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                     context("with a BatchResponseMap") {
                         @TestState var subRequest1: Request<NoBody, TestEndpoint>! = try! Request<NoBody, TestEndpoint>(
                             endpoint: TestEndpoint.endpoint1,
-                            destination: try! .server(
+                            destination: .server(
                                 method: .post,
                                 server: "testServer",
                                 x25519PublicKey: ""
@@ -310,7 +280,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                         )
                         @TestState var subRequest2: Request<NoBody, TestEndpoint>! = try! Request<NoBody, TestEndpoint>(
                             endpoint: TestEndpoint.endpoint2,
-                            destination: try! .server(
+                            destination: .server(
                                 method: .post,
                                 server: "testServer",
                                 x25519PublicKey: ""
@@ -319,7 +289,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                         @TestState var preparedBatchRequest: Network.PreparedRequest<Network.BatchResponseMap<TestEndpoint>>! = {
                             let request = try! Request<Network.BatchRequest, TestEndpoint>(
                                 endpoint: TestEndpoint.batch,
-                                destination: try! .server(
+                                destination: .server(
                                     method: .post,
                                     server: "testServer",
                                     x25519PublicKey: ""
@@ -403,7 +373,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                             preparedBatchRequest = {
                                 let request = try! Request<Network.BatchRequest, TestEndpoint>(
                                     endpoint: TestEndpoint.batch,
-                                    destination: try! .server(
+                                    destination: .server(
                                         method: .post,
                                         server: "testServer",
                                         x25519PublicKey: ""
@@ -451,13 +421,11 @@ class PreparedRequestSendingSpec: QuickSpec {
                         it("works with the event handling") {
                             preparedBatchRequest
                                 .handleEvents(
-                                    receiveSubscription: { didReceiveSubscription = true },
                                     receiveCompletion: { result in receivedCompletion = result }
                                 )
                                 .send(using: dependencies)
                                 .sinkAndStore(in: &disposables)
                             
-                            expect(didReceiveSubscription).to(beTrue())
                             expect(receivedCompletion).toNot(beNil())
                         }
                         
@@ -466,7 +434,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                             preparedBatchRequest = {
                                 let request = try! Request<Network.BatchRequest, TestEndpoint>(
                                     endpoint: TestEndpoint.batch,
-                                    destination: try! .server(
+                                    destination: .server(
                                         method: .post,
                                         server: "testServer",
                                         x25519PublicKey: ""
@@ -531,7 +499,8 @@ fileprivate enum TestEndpoint: EndpointType {
 }
 
 fileprivate struct TestType: Codable, Equatable, Mocked {
-    static var mock: TestType { TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil) }
+    public static var any: TestType { TestType(intValue: .any, stringValue: .any, optionalStringValue: .any) }
+    public static var mock: TestType { TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil) }
     
     let intValue: Int
     let stringValue: String

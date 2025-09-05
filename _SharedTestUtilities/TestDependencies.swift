@@ -1,7 +1,9 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import _Concurrency
 import Quick
+import TestUtilities
 
 @testable import SessionUtilitiesKit
 
@@ -204,6 +206,22 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Instance replacing
     
+    public func get<S>(singleton: SingletonConfig<S>) -> S? {
+        return _singletonInstances.performMap { $0[singleton.identifier] as? S }
+    }
+    
+    public func get<M, I>(cache: CacheConfig<M, I>) -> M? {
+        return _cacheInstances.performMap { $0[cache.identifier] as? M }
+    }
+    
+    public func get<T: UserDefaultsType>(defaults: UserDefaultsConfig) -> T? {
+        return _defaultsInstances.performMap { $0[defaults.identifier] as? T }
+    }
+    
+    public func get<T: FeatureOption>(feature: FeatureConfig<T>) -> T? {
+        return _featureInstances.performMap { $0[feature.identifier] as? T }
+    }
+    
     public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
         _singletonInstances.performUpdate { $0.setting(singleton.identifier, instance) }
     }
@@ -212,9 +230,25 @@ public class TestDependencies: Dependencies {
         _cacheInstances.performUpdate { $0.setting(cache.identifier, cache.mutableInstance(instance)) }
     }
     
+    public func set<T: UserDefaultsType>(defaults: UserDefaultsConfig, to instance: T) {
+        _defaultsInstances.performUpdate { $0.setting(defaults.identifier, instance) }
+    }
+    
+    public func set<T: FeatureOption>(feature: FeatureConfig<T>, to instance: Feature<T>) {
+        _featureInstances.performUpdate { $0.setting(feature.identifier, instance) }
+    }
+    
     public override func remove<M, I>(cache: CacheConfig<M, I>) {
         _cacheInstances.performUpdate { $0.setting(cache.identifier, nil) }
     }
+}
+
+// MARK: - DependenciesSettable
+
+protocol DependenciesSettable {
+    var dependencies: Dependencies { get }
+    
+    func setDependencies(_ dependencies: Dependencies?)
 }
 
 // MARK: - TestState Convenience
@@ -224,7 +258,7 @@ internal extension TestState {
         wrappedValue: @escaping @autoclosure () -> T?,
         cache: CacheConfig<M, I>,
         in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
-    ) where T: MutableCacheType {
+    ) async where T: MutableCacheType {
         self.init(wrappedValue: {
             let dependencies: TestDependencies? = dependenciesRetriever()
             let value: T? = wrappedValue()
@@ -266,19 +300,5 @@ internal extension TestState {
             
             return value
         }())
-    }
-    
-    static func create(
-        closure: @escaping () async -> T?
-    ) -> T? {
-        var value: T?
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        Task {
-            value = await closure()
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        return value
     }
 }

@@ -2,48 +2,20 @@
 
 import Combine
 import GRDB
+import TestUtilities
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
-    public var dependencies: Dependencies
-    private let initialData: ((ObservingDatabase) throws -> ())?
-    
-    public init(
-        customWriter: DatabaseWriter? = nil,
-        migrations: [Migration.Type]? = nil,
-        using dependencies: Dependencies,
-        initialData: ((ObservingDatabase) throws -> ())? = nil
-    ) {
-        self.dependencies = dependencies
-        self.initialData = initialData
-        
-        super.init(customWriter: customWriter, using: dependencies)
-        
-        if let migrations: [Migration.Type] = migrations {
-            perform(
-                migrations: migrations,
-                async: false,
-                onProgressUpdate: nil,
-                onComplete: { _ in }
-            )
-        }
-    }
+class SynchronousStorage: Storage, DependenciesSettable {
+    public var _dependencies: Dependencies!
+    public var dependencies: Dependencies { _dependencies }
     
     // MARK: - DependenciesSettable
     
     func setDependencies(_ dependencies: Dependencies?) {
         guard let dependencies: Dependencies = dependencies else { return }
         
-        self.dependencies = dependencies
-    }
-    
-    // MARK: - InitialSetupable
-    
-    func performInitialSetup() {
-        guard let closure: ((ObservingDatabase) throws -> ()) = initialData else { return }
-        
-        write { db in try closure(db) }
+        self._dependencies = dependencies
     }
     
     // MARK: - Overwritten Functions

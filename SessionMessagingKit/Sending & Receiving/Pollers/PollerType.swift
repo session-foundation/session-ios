@@ -15,7 +15,7 @@ public extension Log.Category {
 
 // MARK: - PollerDestination
 
-public enum PollerDestination: Sendable {
+public enum PollerDestination: Sendable, Equatable {
     case swarm(String)
     case server(String)
     

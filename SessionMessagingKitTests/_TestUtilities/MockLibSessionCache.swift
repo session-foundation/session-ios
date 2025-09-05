@@ -15,8 +15,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase, requestId: String?) {
-        mockNoReturn(args: [requestId], untrackedArgs: [db])
+    func loadState(_ db: ObservingDatabase) {
+        mockNoReturn(untrackedArgs: [db])
     }
     
     func loadDefaultStateFor(
@@ -321,6 +321,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? {
         return mock(args: [groupSessionId])
     }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        return mock(args: [groupSessionId])
+    }
 }
 
 // MARK: - Convenience
@@ -459,5 +463,11 @@ extension Mock where T == LibSessionCacheType {
         self
             .when { $0.displayPictureUrl(threadId: .any, threadVariant: .any) }
             .thenReturn(nil)
+        self
+            .when { $0.authData(groupSessionId: .any) }
+            .thenReturn(GroupAuthData(
+                groupIdentityPrivateKey: Data([1, 2, 3]),
+                authData: nil
+            ))
     }
 }
