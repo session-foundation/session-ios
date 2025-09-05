@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -110,9 +111,16 @@ final class InfoMessageCell: MessageCell {
         let icon: UIImage? = {
             switch cellViewModel.variant {
                 case .infoDisappearingMessagesUpdate:
-                    return UIImage(systemName: "timer")
+                    return Lucide.image(
+                        icon: .timer,
+                        size: InfoMessageCell.iconSize
+                    )
                     
-                case .infoMediaSavedNotification: return UIImage(named: "ic_download")
+                case .infoMediaSavedNotification:
+                    return Lucide.image(
+                        icon: .download,
+                        size: InfoMessageCell.iconSize
+                    )
                     
                 default: return nil
             }

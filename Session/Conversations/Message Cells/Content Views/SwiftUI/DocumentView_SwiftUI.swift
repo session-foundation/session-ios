@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 
@@ -77,7 +78,7 @@ struct DocumentView_SwiftUI: View {
             }
             else if
                 attachment.state == .failedDownload || attachment.state == .failedUpload,
-                let invalidImage: UIImage = UIImage(named: "warning")?.withRenderingMode(.alwaysTemplate)
+                let invalidImage = Lucide.image(icon: .triangleAlert, size: 24)?.withRenderingMode(.alwaysTemplate)
             {
                 Image(uiImage: invalidImage)
                     .resizable()
