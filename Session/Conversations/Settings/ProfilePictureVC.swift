@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -65,7 +66,8 @@ final class ProfilePictureVC: BaseVC {
         
         // Close button
         let closeButton = UIBarButtonItem(
-            image: #imageLiteral(resourceName: "X").withRenderingMode(.alwaysTemplate),
+            image: Lucide.image(icon: .x, size: 24)?
+                .withRenderingMode(.alwaysTemplate),
             style: .plain,
             target: self,
             action: #selector(close)

@@ -1,5 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+import Lucide
 import UIKit
 import SessionMessagingKit
 import SessionUIKit
@@ -29,13 +30,13 @@ final class MediaPlaceholderView: UIView {
         cellViewModel: MessageViewModel,
         textColor: ThemeValue
     ) {
-        let (iconName, attachmentDescription): (String, String) = {
+        let (icon, attachmentDescription): (Lucide.Icon?, String) = {
             guard
                 cellViewModel.variant == .standardIncoming,
                 let attachment: Attachment = cellViewModel.attachments?.first
             else {
                 return (
-                    "actionsheet_document_black", // stringlint:ignore
+                    .file,
                     "file".localized().lowercased()
                 ) // Should never occur
             }
@@ -43,19 +44,19 @@ final class MediaPlaceholderView: UIView {
             switch (attachment.isAudio, (attachment.isImage || attachment.isVideo)) {
                 case (true, _):
                     return (
-                        "attachment_audio", // stringlint:ignore
+                        .mic,
                         "audio".localized().lowercased()
                     )
                     
                 case (_, true):
                     return (
-                        "actionsheet_camera_roll_black", // stringlint:ignore
+                        .images,
                         "media".localized().lowercased()
                     )
                     
                 default:
                     return (
-                        "actionsheet_document_black", // stringlint:ignore
+                        .file,
                         "file".localized().lowercased()
                     )
             }
@@ -66,11 +67,11 @@ final class MediaPlaceholderView: UIView {
         imageContainerView.set(.width, to: MediaPlaceholderView.iconImageViewSize)
         imageContainerView.set(.height, to: MediaPlaceholderView.iconImageViewSize)
         
-        let imageView = UIImageView(image: UIImage(named: iconName)?.withRenderingMode(.alwaysTemplate))
+        let imageView = UIImageView(image: Lucide
+            .image(icon: .file, size: MediaPlaceholderView.iconSize)?
+            .withRenderingMode(.alwaysTemplate))
         imageView.themeTintColor = textColor
         imageView.contentMode = .scaleAspectFit
-        imageView.set(.width, to: MediaPlaceholderView.iconSize)
-        imageView.set(.height, to: MediaPlaceholderView.iconSize)
         imageContainerView.addSubview(imageView)
         imageView.center(in: imageContainerView)
         

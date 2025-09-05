@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -73,7 +74,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
 
     private lazy var voiceMessageButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "Microphone"), delegate: self)
+        let result = InputViewButton(
+            icon: Lucide.image(icon: .mic, size: InputViewButton.iconSize),
+            delegate: self
+        )
         result.accessibilityLabel = "New voice message"
         result.accessibilityIdentifier = "New voice message"
         result.isAccessibilityElement = true
@@ -82,7 +86,11 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
 
     private lazy var sendButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
+        let result = InputViewButton(
+            icon: Lucide.image(icon: .arrowUp, size: InputViewButton.iconSize),
+            isSendButton: true,
+            delegate: self
+        )
         result.isHidden = true
         result.accessibilityIdentifier = "Send message button"
         result.accessibilityLabel = "Send message button"

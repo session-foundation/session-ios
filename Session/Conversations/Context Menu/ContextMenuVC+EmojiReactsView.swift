@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -83,7 +84,8 @@ extension ContextMenuVC {
 
         private func setUpViewHierarchy() {
             // Icon image
-            let iconImageView = UIImageView(image: #imageLiteral(resourceName: "ic_plus_24").withRenderingMode(.alwaysTemplate))
+            let iconImageView = UIImageView(image: Lucide.image(icon: .plus, size: iconSize)?
+                .withRenderingMode(.alwaysTemplate))
             iconImageView.themeTintColor = .textPrimary
             iconImageView.set(.width, to: iconSize)
             iconImageView.set(.height, to: iconSize)

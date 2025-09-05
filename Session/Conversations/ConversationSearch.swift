@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import Lucide
 import GRDB
 import SignalUtilitiesKit
 import SessionUIKit
@@ -149,7 +150,8 @@ public final class SearchResultsBar: UIView {
     }()
     
     private lazy var upButton: UIButton = {
-        let icon = #imageLiteral(resourceName: "ic_chevron_up").withRenderingMode(.alwaysTemplate)
+        let icon = Lucide.image(icon: .chevronUp, size: 24)?
+            .withRenderingMode(.alwaysTemplate)
         let result: UIButton = UIButton()
         result.setImage(icon, for: UIControl.State.normal)
         result.themeTintColor = .primary
@@ -159,7 +161,8 @@ public final class SearchResultsBar: UIView {
     }()
     
     private lazy var downButton: UIButton = {
-        let icon = #imageLiteral(resourceName: "ic_chevron_down").withRenderingMode(.alwaysTemplate)
+        let icon = Lucide.image(icon: .chevronDown, size: 24)?
+            .withRenderingMode(.alwaysTemplate)
         let result: UIButton = UIButton()
         result.setImage(icon, for: UIControl.State.normal)
         result.themeTintColor = .primary

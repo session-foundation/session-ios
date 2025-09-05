@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import AVFAudio
 import SessionUIKit
 import SessionMessagingKit
@@ -27,7 +28,7 @@ final class CallMessageCell: MessageCell {
     private lazy var iconImageView: UIImageView = UIImageView()
     private lazy var infoImageView: UIImageView = {
         let result: UIImageView = UIImageView(
-            image: UIImage(named: "ic_info")?
+            image: Lucide.image(icon: .info, size: Self.iconSize)?
                 .withRenderingMode(.alwaysTemplate)
         )
         result.themeTintColor = .textPrimary
@@ -149,10 +150,15 @@ final class CallMessageCell: MessageCell {
         
         iconImageView.image = {
             switch messageInfo.state {
-                case .outgoing: return UIImage(named: "CallOutgoing")?.withRenderingMode(.alwaysTemplate)
-                case .incoming: return UIImage(named: "CallIncoming")?.withRenderingMode(.alwaysTemplate)
+                case .outgoing:
+                    return Lucide.image(icon: .phoneOutgoing, size: Self.iconSize)?
+                        .withRenderingMode(.alwaysTemplate)
+                case .incoming:
+                    return Lucide.image(icon: .phoneIncoming, size: Self.iconSize)?
+                        .withRenderingMode(.alwaysTemplate)
                 case .missed, .permissionDenied, .permissionDeniedMicrophone:
-                    return UIImage(named: "CallMissed")?.withRenderingMode(.alwaysTemplate)
+                    return Lucide.image(icon: .phoneMissed, size: Self.iconSize)?
+                        .withRenderingMode(.alwaysTemplate)
                 default: return nil
             }
         }()

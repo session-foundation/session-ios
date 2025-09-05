@@ -317,7 +317,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
 
     lazy var scrollButton: RoundIconButton = {
         let result: RoundIconButton = RoundIconButton(
-            image: UIImage(named: "ic_chevron_down")?
+            image: Lucide.image(icon: .chevronDown, size: 32)?
                 .withRenderingMode(.alwaysTemplate)
         ) { [weak self] in
             // The table view's content size is calculated by the estimated height of cells,
@@ -1441,7 +1441,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             if shouldHaveCallButton {
                 let callButton = UIBarButtonItem(
-                    image: UIImage(named: "Phone"),
+                    image: Lucide.image(icon: .phone, size: 24),
                     style: .plain,
                     target: self,
                     action: #selector(startCall)

@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -90,9 +91,11 @@ struct QuoteView_SwiftUI: View {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
+                        let fallbackIcon: Lucide.Icon = (attachment.isAudio ? .mic : .file)
                         
-                        if let image = UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate) {
+                        if let image = Lucide.image(icon: fallbackIcon, size: Self.iconSize)?
+                            .withRenderingMode(.alwaysTemplate) {
+                            
                             Image(uiImage: image)
                                 .foregroundColor(themeColor: {
                                     switch info.mode {

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
@@ -56,7 +57,8 @@ final class ReactionContainerView: UIView {
     
     lazy var collapseButton: UIView = {
         let arrow: UIImageView = UIImageView(
-            image: UIImage(named: "ic_chevron_up")?.withRenderingMode(.alwaysTemplate)
+            image: Lucide.image(icon: .chevronUp, size: ReactionContainerView.arrowSize.height)?
+                .withRenderingMode(.alwaysTemplate)
         )
         arrow.themeTintColor = .textPrimary
         arrow.set(.width, to: ReactionContainerView.arrowSize.width)
