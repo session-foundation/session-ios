@@ -10,6 +10,8 @@ import SessionUtilitiesKit
 final class DeletedMessageView: UIView {
     private static let iconSize: CGFloat = 18
     private static let iconImageViewSize: CGFloat = 30
+    private static let horizontalInset = Values.mediumSmallSpacing
+    private static let verticalInset = Values.smallSpacing
     
     // MARK: - Lifecycle
     
@@ -36,7 +38,7 @@ final class DeletedMessageView: UIView {
         
         let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
         imageView.themeTintColor = textColor
-        imageView.alpha = Values.mediumOpacity
+        imageView.alpha = Values.highOpacity
         imageView.contentMode = .scaleAspectFit
         imageView.set(.width, to: DeletedMessageView.iconSize)
         imageView.set(.height, to: DeletedMessageView.iconSize)
@@ -47,7 +49,7 @@ final class DeletedMessageView: UIView {
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
         titleLabel.preferredMaxLayoutWidth = maxWidth - 6   // `6` for the `stackView.layoutMargins`
-        titleLabel.font = .italicSystemFont(ofSize: Values.smallFontSize)
+        titleLabel.font = .italicSystemFont(ofSize: Values.mediumFontSize)
         titleLabel.text = {
             switch variant {
                 case .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
@@ -57,7 +59,7 @@ final class DeletedMessageView: UIView {
             }
         }()
         titleLabel.themeTextColor = textColor
-        titleLabel.alpha = Values.mediumOpacity
+        titleLabel.alpha = Values.highOpacity
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 2
         
@@ -70,7 +72,12 @@ final class DeletedMessageView: UIView {
         addSubview(stackView)
         
         let calculatedSize: CGSize = stackView.systemLayoutSizeFitting(CGSize(width: maxWidth, height: 999))
-        stackView.pin(to: self, withInset: Values.smallSpacing)
+        
+        stackView.pin(.top, to: .top, of: self, withInset: Self.verticalInset)
+        stackView.pin(.leading, to: .leading, of: self, withInset: Self.horizontalInset)
+        stackView.pin(.trailing, to: .trailing, of: self, withInset: -Self.horizontalInset)
+        stackView.pin(.bottom, to: .bottom, of: self, withInset: -Self.verticalInset)
+        
         stackView.set(.height, to: calculatedSize.height)
     }
 }

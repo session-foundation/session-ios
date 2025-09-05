@@ -48,7 +48,7 @@ final class CallMessageCell: MessageCell {
     
     private lazy var label: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
