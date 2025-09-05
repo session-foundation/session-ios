@@ -54,10 +54,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         public var title: String? {
             switch self {
-                case .proStats: return "Your Pro Stats"
-                case .proSettings: return "Pro Settings"
-                case .proFeatures: return "Pro Features"
-                case .proManagement: return "Manage Pro"
+                case .proStats: return "proStats".put(key: "pro", value: Constants.pro).localized()
+                case .proSettings: return "proSettings".put(key: "pro", value: Constants.pro).localized()
+                case .proFeatures: return "proFeatures".put(key: "pro", value: Constants.pro).localized()
+                case .proManagement: return "managePro".put(key: "pro", value: Constants.pro).localized()
                 case .help: return "sessionHelp".localized()
                 default: return nil
             }
@@ -65,7 +65,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
-                case .proStats: return .titleWithTooltips(content: "Pro stats reflect usage on this device and may appear differently on linked devices")
+                case .proStats: return .titleWithTooltips(content: "proStatsTooltip".put(key: "pro", value: Constants.pro).localized())
                 case .proSettings, .proFeatures, .proManagement, .help: return .titleNoBackgroundContent
                 default: return .none
             }
@@ -226,7 +226,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         customTint: .primary,
                                     ),
                                     title: .init(
-                                        "\(state.numberOfGroupsUpgraded) Groups Upgraded",
+                                        "proGroupsUpgraded"
+                                            .put(key: "count", value: state.numberOfGroupsUpgraded)
+                                            .localized(),
                                         font: .Headings.H9
                                     )
                                 ),
@@ -237,7 +239,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         customTint: .primary,
                                     ),
                                     title: .init(
-                                        "\(state.numberOfPinnedConversations) Pinned Conversations",
+                                        "proPinnedConversations"
+                                            .put(key: "count", value: state.numberOfPinnedConversations)
+                                            .localized(),
                                         font: .Headings.H9
                                     )
                                 )
@@ -250,7 +254,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         customTint: .primary,
                                     ),
                                     title: .init(
-                                        "\(state.numberOfProBadgesSent) Pro Badges Sent",
+                                        "proBadgesSent"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .put(key: "count", value: state.numberOfProBadgesSent)
+                                            .localized(),
                                         font: .Headings.H9
                                     )
                                 ),
@@ -261,7 +268,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         customTint: .primary,
                                     ),
                                     title: .init(
-                                        "\(state.numberOfLongerMessagesSent) Longer Messages Sent",
+                                        "proLongerMessagesSent"
+                                            .put(key: "count", value: state.numberOfLongerMessagesSent)
+                                            .localized(),
                                         font: .Headings.H9
                                     )
                                 )
@@ -279,8 +288,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .updatePlan,
                     variant: .cell(
                         info: .init(
-                            title: .init("Update Plan", font: .Headings.H8),
-                            description: .init("Pro auto-renewing in 15 Days", font: .Body.smallRegular),
+                            title: .init("updatePlan".localized(), font: .Headings.H8),
+                            description: .init(
+                                font: .Body.smallRegular,
+                                attributedString: "proAutoRenewTime"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .put(key: "time", value: "15 Days") // TODO: real time
+                                    .localizedFormatted(Fonts.Body.smallRegular)
+                            ),
                             trailingAccessory: .icon(.chevronRight, size: .large)
                         )
                     ),
@@ -292,8 +307,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .proBadge,
                     variant: .cell(
                         info: .init(
-                            title: .init("Pro Badge", font: .Headings.H8),
-                            description: .init("Show Session Pro badge to other users", font: .Body.smallRegular),
+                            title: .init("proBadge".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
+                            description: .init("proBadgeVisible".put(key: "app_pro", value: Constants.app_pro).localized(), font: .Body.smallRegular),
                             trailingAccessory: .toggle(
                                 state.isProBadgeEnabled,
                                 oldValue: previousState.isProBadgeEnabled
@@ -340,8 +355,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 backgroundSize: .veryLarge,
                                 backgroundCornerRadius: 8
                             ),
-                            title: .init("Plus Loads More...", font: .Headings.H9),
-                            description: .init("New features coming soon to Pro. Discover what's next on the Pro Roadmap", font: .Body.smallRegular, color: .textSecondary)
+                            title: .init("plusLoadsMore".localized(), font: .Headings.H9),
+                            description: .init(
+                                font: .Body.smallRegular,
+                                attributedString: "plusLoadsMoreDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .put(key: "icon", value: "<icon>\(Lucide.Icon.squareArrowUpRight)</icon>")
+                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                color: .textSecondary
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
@@ -356,7 +378,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .cancelPlan,
                     variant: .cell(
                         info: .init(
-                            title: .init("Cancel Plan", font: .Headings.H8, color: .danger),
+                            title: .init("cancelPlan".localized(), font: .Headings.H8, color: .danger),
                             trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
                         )
                     ),
@@ -368,7 +390,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .requestRefund,
                     variant: .cell(
                         info: .init(
-                            title: .init("Request Refund", font: .Headings.H8, color: .danger),
+                            title: .init("requestRefund".localized(), font: .Headings.H8, color: .danger),
                             trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
                         )
                     ),
@@ -386,8 +408,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .faq,
                     variant: .cell(
                         info: .init(
-                            title: .init("Pro FAQ", font: .Headings.H8),
-                            description: .init("Find answers to common questions in the Session Pro FAQ.", font: .Body.smallRegular),
+                            title: .init("proFaq".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
+                            description: .init("proFaqDescription".put(key: "app_name", value: Constants.app_pro).localized(), font: .Body.smallRegular),
                             trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
                         )
                     ),
@@ -397,8 +419,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .support,
                     variant: .cell(
                         info: .init(
-                            title: .init("Support", font: .Headings.H8),
-                            description: .init("Need help with your Pro plan? Submit a request to the support team.", font: .Body.smallRegular),
+                            title: .init("helpSupport".localized(), font: .Headings.H8),
+                            description: .init("proSupportDescription".put(key: "pro", value: Constants.pro).localized(), font: .Body.smallRegular),
                             trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
                         )
                     ),
@@ -460,40 +482,40 @@ extension SessionProSettingsViewModel {
                 id: .largerGroups,
                 icon: UIImage(named: "ic_user_group_plus"),
                 backgroundColors: [.green, .blue],
-                title: "Larger Groups",
-                description: "Groups you are an admin in are automatically upgraded to support 300 members.",
+                title: "proLargerGroups".localized(),
+                description: "proLargerGroupsDescription".localized(),
                 accessory: .none
             ),
             ProFeaturesInfo(
                 id: .longerMessages,
                 icon: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
                 backgroundColors: [.blue, .purple],
-                title: "Longer Messages",
-                description: "You can send messages up to 10,000 characters in all conversations.",
+                title: "proLongerMessages".localized(),
+                description: "proLongerMessagesDescription".localized(),
                 accessory: .none
             ),
             ProFeaturesInfo(
                 id: .animatedDisplayPictures,
                 icon: Lucide.image(icon: .squarePlay, size: IconSize.medium.size),
                 backgroundColors: [.purple, .pink],
-                title: "Animated Display Pictures",
-                description: "Set animated GIFs and WebP images as your display picture.",
+                title: "proAnimatedDisplayPictures".localized(),
+                description: "proAnimatedDisplayPicturesDescription".localized(),
                 accessory: .none
             ),
             ProFeaturesInfo(
                 id: .badges,
                 icon: Lucide.image(icon: .rectangleEllipsis, size: IconSize.medium.size),
                 backgroundColors: [.pink, .red],
-                title: "Badges",
-                description: "Show your support for Session with an exclusive badge next to your display name.",
+                title: "proBadges".localized(),
+                description: "proBadgesDescription".put(key: "app_name", value: Constants.app_name).localized(),
                 accessory: .proBadgeLeading
             ),
             ProFeaturesInfo(
                 id: .unlimitedPins,
                 icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
                 backgroundColors: [.red, .orange],
-                title: "Unlimited Pins",
-                description: "Organize all your chats with unlimited pinned conversations.",
+                title: "proUnlimitedPins".localized(),
+                description: "proUnlimitedPinsDescription".localized(),
                 accessory: .none
             )
         ]

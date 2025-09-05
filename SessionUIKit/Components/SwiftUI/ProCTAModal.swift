@@ -11,11 +11,12 @@ public struct ProCTAModal: View {
         case animatedProfileImage(isSessionProActivated: Bool)
         case morePinnedConvos(isGrandfathered: Bool)
         case groupLimit(isAdmin: Bool, isSessionProActivated: Bool)
+        case expiring(timeLeft: TimeInterval)
 
         // stringlint:ignore_contents
         public var backgroundImageName: String {
             switch self {
-                case .generic:
+                case .generic, .expiring:
                     return "GenericCTA.webp"
                 case .longerMessages:
                     return "HigherCharLimitCTA.webp"
@@ -32,6 +33,14 @@ public struct ProCTAModal: View {
                     }
             }
         }
+        
+        public var themeColor: ThemeValue {
+            switch self {
+                case .expiring(let timeLeft): return timeLeft > 0 ? .primary : .disabled
+                default: return .primary
+            }
+        }
+        
         // stringlint:ignore_contents
         public var animatedAvatarImageURL: URL? {
             switch self {
@@ -90,7 +99,17 @@ public struct ProCTAModal: View {
                         case (false, false):
                             return "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro" // TODO: Localised
                     }
-                    
+                case .expiring(let timeLeft):
+                    return timeLeft > 0 ?
+                        "proExpiringSoonDescription"
+                            .put(key: "pro", value: Constants.pro)
+                            .put(key: "time", value: "\(timeLeft)")
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized() :
+                        "proExpiredDescription"
+                            .put(key: "pro", value: Constants.pro)
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
             }
         }
         
@@ -130,6 +149,8 @@ public struct ProCTAModal: View {
                             ]
                         default: return []
                     }
+                case .expiring:
+                    return []
             }
         }
     }
@@ -208,7 +229,7 @@ public struct ProCTAModal: View {
                         .aspectRatio((1522.0/1258.0), contentMode: .fit)
                         .frame(maxWidth: .infinity)
                 }
-                .backgroundColor(themeColor: .primary)
+                .backgroundColor(themeColor: variant.themeColor)
                 .overlay(alignment: .bottom, content: {
                     ThemeLinearGradient(
                         themeColors: [
@@ -245,6 +266,18 @@ public struct ProCTAModal: View {
                             Text("proGroupActivated".localized())
                                 .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
+                        }
+                    } else if case .expiring(let timeLeft) = variant {
+                        let isExpired: Bool = (timeLeft <= 0)
+                        HStack(spacing: Values.smallSpacing) {
+                            SessionProBadge_SwiftUI(
+                                size: .large,
+                                themeBackgroundColor: variant.themeColor
+                            )
+                            
+                            Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
+                                .font(.Headings.H4)
+                                .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
                         }
                     } else {
                         HStack(spacing: Values.smallSpacing) {
