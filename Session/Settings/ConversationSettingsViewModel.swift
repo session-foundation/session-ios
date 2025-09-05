@@ -190,8 +190,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             subtitle: "blockedContactsManageDescription".localized(),
                             trailingAccessory: .icon(
                                 .chevronRight,
-                                shouldFill: true ,
-                                shouldFollowIconSize: true
+                                pinEdges: [.right]
                             ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(

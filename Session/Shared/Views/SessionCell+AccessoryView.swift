@@ -73,7 +73,7 @@ extension SessionCell {
             
             if let newView: UIView = maybeView {
                 addSubview(newView)
-                newView.pin(to: self)
+                pin(view: newView, accessory: accessory)
                 layout(view: newView, accessory: accessory)
             }
             
@@ -189,13 +189,36 @@ extension SessionCell {
             }
         }
         
+        // Determine the type of accessory to decide how to pin the view.
+        private func pin(view: UIView?, accessory: Accessory) {
+            // Icon and IconAsync types have specific layouts, so we do nothing here.
+            switch accessory {
+                case _ as SessionCell.AccessoryConfig.Icon: break
+                case _ as SessionCell.AccessoryConfig.IconAsync: break
+                default:
+                    // For all other accessory types, pin the view to the current view.
+                    // This is a generic layout for accessories that don't need a custom position.
+                    view?.pin(to: self)
+            }
+        }
+        
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
                 case let accessory as SessionCell.AccessoryConfig.Icon:
-                    layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
+                    layoutIconView(
+                        view,
+                        iconSize: accessory.iconSize,
+                        shouldFill: accessory.shouldFill,
+                        pin: accessory.pinEdges
+                    )
                     
                 case let accessory as SessionCell.AccessoryConfig.IconAsync:
-                    layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
+                    layoutIconView(
+                        view,
+                        iconSize: accessory.iconSize,
+                        shouldFill: accessory.shouldFill,
+                        pin: accessory.pinEdges
+                    )
                     
                 case is SessionCell.AccessoryConfig.Toggle: layoutToggleView(view)
                 case is SessionCell.AccessoryConfig.DropDown: layoutDropDownView(view)
@@ -288,13 +311,25 @@ extension SessionCell {
             return result
         }
         
-        private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool) {
+        private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool, pin edges: [UIView.HorizontalEdge]) {
             guard let imageView: SessionImageView = view as? SessionImageView else { return }
             
             imageView.set(.width, to: iconSize.size)
             imageView.set(.height, to: iconSize.size)
-            imageView.pin(.leading, to: .leading, of: self, withInset: (shouldFill ? 0 : Values.smallSpacing))
-            imageView.pin(.trailing, to: .trailing, of: self, withInset: (shouldFill ? 0 : -Values.smallSpacing))
+            imageView.pin(.top, to: .top, of: self)
+            imageView.pin(.bottom, to: .bottom, of: self)
+
+            let shouldInvertPadding: [UIView.HorizontalEdge] = [.left, .trailing]
+   
+            for edge in edges {
+                let inset: CGFloat = (
+                    (shouldFill ? 0 : Values.smallSpacing) *
+                    (shouldInvertPadding.contains(edge) ? -1 : 1)
+                )
+                
+                imageView.pin(edge, to: edge, of: self, withInset: inset)
+            }
+            
             fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
             minWidthConstraint.isActive = !fixedWidthConstraint.isActive
         }
@@ -306,13 +341,6 @@ extension SessionCell {
             imageView.accessibilityLabel = accessory.accessibility?.label
             imageView.themeTintColor = (accessory.customTint ?? tintColor)
             imageView.contentMode = (accessory.shouldFill ? .scaleAspectFill : .scaleAspectFit)
-            
-            // Use icon size when displaying accessory view.
-            // 50 width causes large padding not aligning accessory to right
-            if accessory.shouldFollowIconSize {
-                fixedWidthConstraint.constant = accessory.iconSize.size
-                fixedWidthConstraint.isActive = true
-            }
 
             switch (accessory.icon, accessory.image) {
                 case (.some(let icon), _):

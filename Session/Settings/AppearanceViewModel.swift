@@ -240,8 +240,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                             ),
                             trailingAccessory: .icon(
                                 .chevronRight,
-                                shouldFill: true ,
-                                shouldFollowIconSize: true
+                                pinEdges: [.right]
                             ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(
