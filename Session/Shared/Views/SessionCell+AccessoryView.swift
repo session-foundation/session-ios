@@ -73,7 +73,6 @@ extension SessionCell {
             
             if let newView: UIView = maybeView {
                 addSubview(newView)
-                pin(view: newView, accessory: accessory)
                 layout(view: newView, accessory: accessory)
             }
             
@@ -188,20 +187,7 @@ extension SessionCell {
                     return nil
             }
         }
-        
-        // Determine the type of accessory to decide how to pin the view.
-        private func pin(view: UIView?, accessory: Accessory) {
-            // Icon and IconAsync types have specific layouts, so we do nothing here.
-            switch accessory {
-                case _ as SessionCell.AccessoryConfig.Icon: break
-                case _ as SessionCell.AccessoryConfig.IconAsync: break
-                default:
-                    // For all other accessory types, pin the view to the current view.
-                    // This is a generic layout for accessories that don't need a custom position.
-                    view?.pin(to: self)
-            }
-        }
-        
+ 
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
                 case let accessory as SessionCell.AccessoryConfig.Icon:
@@ -595,6 +581,8 @@ extension SessionCell {
                 let radioView: UIView = radioBorderView.subviews.first
             else { return }
             
+            label.pin(to: self)
+            
             label.pin(.top, to: .top, of: self)
             label.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             label.pin(.trailing, to: .leading, of: radioBorderView, withInset: -Values.smallSpacing)
@@ -790,6 +778,8 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
             }
             
+            view.pin(.top, to: .top, of: self)
+            view.pin(.bottom, to: .bottom, of: self)
             view.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             view.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
         }
