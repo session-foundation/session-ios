@@ -3,6 +3,7 @@
 import UIKit
 import Combine
 import Photos
+import Lucide
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionMessagingKit
@@ -193,7 +194,7 @@ class SendMediaNavigationController: UINavigationController {
 
     private lazy var mediaLibraryModeButton: InputViewButton = {
         let result: InputViewButton = InputViewButton(
-            icon: UIImage(named: "actionsheet_camera_roll_black")?
+            icon: Lucide.image(icon: .images, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate)
         ) { [weak self] in self?.didTapMediaLibraryModeButton() }
 
@@ -648,12 +649,12 @@ private class DoneButton: UIView {
     }()
 
     private lazy var chevron: UIView = {
-        let image: UIImage = {
-            guard Dependencies.isRTL else { return #imageLiteral(resourceName: "small_chevron_right") }
+        let image: Lucide.Icon = {
+            guard Dependencies.isRTL else { return .chevronRight }
             
-            return #imageLiteral(resourceName: "small_chevron_left")
+            return .chevronLeft
         }()
-        let result: UIImageView = UIImageView(image: image.withRenderingMode(.alwaysTemplate))
+        let result: LucideIconView = LucideIconView(icon: image)
         result.contentMode = .scaleAspectFit
         result.themeTintColor = .textPrimary
         result.set(.width, to: 10)

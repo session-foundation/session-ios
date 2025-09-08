@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import Lucide
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -108,7 +109,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         button.isAccessibilityElement = true
         button.clipsToBounds = true
         button.setImage(
-            UIImage(named: "Plus")?
+            Lucide.image(icon: .plus, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )

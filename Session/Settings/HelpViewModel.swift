@@ -74,8 +74,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     trailingAccessory: .icon(
-                        UIImage(systemName: "arrow.up.forward.app")?
-                            .withRenderingMode(.alwaysTemplate),
+                        .squareArrowUpRight,
                         size: .small
                     ),
                     onTap: {
@@ -95,8 +94,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     id: .feedback,
                     title: "helpWedLoveYourFeedback".localized(),
                     trailingAccessory: .icon(
-                        UIImage(systemName: "arrow.up.forward.app")?
-                            .withRenderingMode(.alwaysTemplate),
+                        .squareArrowUpRight,
                         size: .small
                     ),
                     onTap: {
@@ -116,8 +114,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     id: .faq,
                     title: "helpFAQ".localized(),
                     trailingAccessory: .icon(
-                        UIImage(systemName: "arrow.up.forward.app")?
-                            .withRenderingMode(.alwaysTemplate),
+                        .squareArrowUpRight,
                         size: .small
                     ),
                     onTap: {
@@ -137,8 +134,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     id: .support,
                     title: "helpSupport".localized(),
                     trailingAccessory: .icon(
-                        UIImage(systemName: "arrow.up.forward.app")?
-                            .withRenderingMode(.alwaysTemplate),
+                        .squareArrowUpRight,
                         size: .small
                     ),
                     onTap: {

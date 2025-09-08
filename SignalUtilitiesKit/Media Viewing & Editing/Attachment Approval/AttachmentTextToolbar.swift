@@ -2,6 +2,7 @@
 
 import Foundation
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 import Combine
@@ -38,7 +39,9 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     private var bottomStackView: UIStackView?
     
     private lazy var sendButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
+        let sendIcon = Lucide.image(icon: .arrowUp, size: 24)
+        
+        let result = InputViewButton(icon: sendIcon, isSendButton: true, delegate: self)
         result.accessibilityIdentifier = "Send message button"
         result.accessibilityLabel = "Send message button"
         result.isAccessibilityElement = true

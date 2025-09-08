@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import Lucide
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -253,7 +254,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 elements: [
                     SessionCell.Info(
                         id: .invite,
-                        leadingAccessory:  .icon(UIImage(named: "icon_invite")?.withRenderingMode(.alwaysTemplate)),
+                        leadingAccessory: .icon(Lucide.image(icon: .userRoundPlus, size: 24)?.withRenderingMode(.alwaysTemplate)),
                         title: "membersInvite".localized(),
                         accessibility: Accessibility(
                             identifier: "Invite button",
@@ -264,7 +265,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     (!isUpdatedGroup || !dependencies[feature: .updatedGroupsAllowInviteById] ? nil :
                         SessionCell.Info(
                             id: .inviteById,
-                            leadingAccessory:  .icon(UIImage(named: "ic_plus_24")?.withRenderingMode(.alwaysTemplate)),
+                            leadingAccessory: .icon(Lucide.image(icon: .plus, size: 24)?.withRenderingMode(.alwaysTemplate)),
                             title: "accountIdOrOnsInvite".localized(),
                             accessibility: Accessibility(
                                 identifier: "Invite by id",

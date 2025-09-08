@@ -1158,6 +1158,8 @@
 		FDFE75B42ABD46B600655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */; };
+		FE5809902E6EACB0000296AB /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FE58098F2E6EACB0000296AB /* Lucide */; };
+		FE5809922E6EADFA000296AB /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FE5809912E6EADFA000296AB /* Lucide */; };
 		FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */; };
 		FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */; };
 /* End PBXBuildFile section */
@@ -2480,6 +2482,7 @@
 				FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */,
 				C33FD9C2255A54EF00E217F9 /* SessionMessagingKit.framework in Frameworks */,
 				C33FD9C4255A54EF00E217F9 /* SessionSnodeKit.framework in Frameworks */,
+				FE5809922E6EADFA000296AB /* Lucide in Frameworks */,
 				C33FD9C5255A54EF00E217F9 /* SessionUtilitiesKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2515,6 +2518,7 @@
 				FD2286732C38D43900BC06F7 /* DifferenceKit in Frameworks */,
 				FDC4386C27B4E90300C60D73 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3C2A70B25539E1E00C340D1 /* SessionSnodeKit.framework in Frameworks */,
+				FE5809902E6EACB0000296AB /* Lucide in Frameworks */,
 				FD6A39132C2A946A00762359 /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5287,6 +5291,7 @@
 			packageProductDependencies = (
 				FD6A39212C2AA91D00762359 /* NVActivityIndicatorView */,
 				FD22866E2C38D42300BC06F7 /* DifferenceKit */,
+				FE5809912E6EADFA000296AB /* Lucide */,
 			);
 			productName = SignalUtilitiesKit;
 			productReference = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */;
@@ -5361,6 +5366,7 @@
 				FD6A39122C2A946A00762359 /* SwiftProtobuf */,
 				FD2286722C38D43900BC06F7 /* DifferenceKit */,
 				FD6673F92D7021F800041530 /* SessionUtil */,
+				FE58098F2E6EACB0000296AB /* Lucide */,
 			);
 			productName = SessionMessagingKit;
 			productReference = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */;
@@ -10510,6 +10516,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A390E2C2A93CD00762359 /* XCRemoteSwiftPackageReference "WebRTC" */;
 			productName = WebRTC;
+		};
+		FE58098F2E6EACB0000296AB /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
+			productName = Lucide;
+		};
+		FE5809912E6EADFA000296AB /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
+			productName = Lucide;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

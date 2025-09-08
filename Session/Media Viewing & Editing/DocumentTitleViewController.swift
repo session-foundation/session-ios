@@ -2,6 +2,7 @@
 
 import UIKit
 import QuartzCore
+import Lucide
 import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
@@ -358,8 +359,8 @@ class DocumentCell: UITableViewCell {
     
     // MARK: - UI
     
-    private let iconImageView: UIImageView = {
-        let result: UIImageView = UIImageView(image: UIImage(systemName: "doc")?.withRenderingMode(.alwaysTemplate))
+    private let iconImageView: LucideIconView = {
+        let result: LucideIconView = LucideIconView(icon: .file, size: 46)
         result.translatesAutoresizingMaskIntoConstraints = false
         result.themeTintColor = .textPrimary
         result.contentMode = .scaleAspectFit

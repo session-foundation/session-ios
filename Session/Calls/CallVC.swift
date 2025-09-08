@@ -3,6 +3,7 @@
 import UIKit
 import MediaPlayer
 import AVKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -82,10 +83,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         result.themeBackgroundColor = .backgroundSecondary
         result.makeViewDraggable()
         
-        let noVideoIcon: UIImageView = UIImageView(
-            image: UIImage(systemName: "video.slash")?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let noVideoIcon = LucideIconView(icon: .videoOff, size: 28)
         noVideoIcon.themeTintColor = .textPrimary
         noVideoIcon.set(.width, to: 34)
         noVideoIcon.set(.height, to: 28)

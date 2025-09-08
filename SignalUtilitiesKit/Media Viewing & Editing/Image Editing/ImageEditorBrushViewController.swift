@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -95,10 +96,10 @@ public class ImageEditorBrushViewController: OWSViewController {
             updateNavigationBar(navigationBarItems: [])
             return
         }
-
-        let undoButton = navigationBarButton(imageName: "image_editor_undo",
+        
+        let undoButton = navigationBarButton(image: Lucide.image(icon: .rotateCcw, size: 32),
                                              selector: #selector(didTapUndo(sender:)))
-        let doneButton = navigationBarButton(imageName: "image_editor_checkmark_full",
+        let doneButton = navigationBarButton(image: Lucide.image(icon: .circleCheck, size: 32),
                                              selector: #selector(didTapDone(sender:)))
 
         // Prevent users from undo any changes made before entering the view.
