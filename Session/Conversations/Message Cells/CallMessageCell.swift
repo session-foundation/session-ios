@@ -10,7 +10,7 @@ final class CallMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16
     private static let timerViewSize: CGFloat = 16
     private static let inset = Values.mediumSpacing
-    private static let verticalInset = Values.mediumSmallSpacing // Added 4pt vertical to align margins with other bubbles with author padding in `VisibleMessageCell`
+    private static let verticalInset = Values.smallSpacing
     private static let horizontalInset = Values.mediumSmallSpacing
     private static let margin = UIScreen.main.bounds.width * 0.1
     
