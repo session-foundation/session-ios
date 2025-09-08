@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import CoreMedia
 
@@ -44,7 +45,7 @@ class VideoPreviewVC: UIViewController, CameraManagerDelegate {
     private lazy var closeButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "X")?
+            Lucide.image(icon: .x, size: 24)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -59,7 +60,7 @@ class VideoPreviewVC: UIViewController, CameraManagerDelegate {
     private lazy var confirmButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "Check")?
+            Lucide.image(icon: .check, size: 24)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
