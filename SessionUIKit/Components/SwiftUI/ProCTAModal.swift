@@ -3,6 +3,7 @@
 import SwiftUI
 import Lucide
 import Combine
+import SessionUtilitiesKit
 
 public struct ProCTAModal: View {
     public enum Variant {
@@ -103,7 +104,7 @@ public struct ProCTAModal: View {
                     return timeLeft > 0 ?
                         "proExpiringSoonDescription"
                             .put(key: "pro", value: Constants.pro)
-                            .put(key: "time", value: "\(timeLeft)")
+                            .put(key: "time", value: timeLeft.formatted(format: .long))
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localized() :
                         "proExpiredDescription"
@@ -150,7 +151,42 @@ public struct ProCTAModal: View {
                         default: return []
                     }
                 case .expiring:
-                    return []
+                    return [
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListPinnedConversations".localized()
+                    ]
+            }
+        }
+        
+        public var confirmButtonTitle: String {
+            switch self {
+                case .expiring(let timeLeft):
+                    return timeLeft > 0 ? "updatePlan".localized() : "renew".localized()
+                default: return "theContinue".localized()
+            }
+        }
+        
+        public var cancelButtonTitle: String {
+            guard !self.onlyShowCloseButton else {
+                return "close".localized()
+            }
+            
+            switch self {
+                case .expiring(let timeLeft):
+                    return timeLeft > 0 ? "close".localized() : "cancel".localized()
+                default: return "cancel".localized()
+            }
+        }
+        
+        public var onlyShowCloseButton: Bool {
+            switch self {
+                case .animatedProfileImage(let isSessionProActivated):
+                    return isSessionProActivated
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    return (!isAdmin || isSessionProActivated)
+                default:
+                    return false
             }
         }
     }
@@ -158,28 +194,26 @@ public struct ProCTAModal: View {
     @EnvironmentObject var host: HostWrapper
     @State var proCTAImageHeight: CGFloat = 0
     
-    private var delegate: SessionProManagerType?
     private let variant: ProCTAModal.Variant
     private var dataManager: ImageDataManagerType
     
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
-    let afterUpgrade: (() -> Void)?
+    let onConfirm: (() -> Void)?
     
     public init(
-        delegate: SessionProManagerType?,
         variant: ProCTAModal.Variant,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
         afterClosed: (() -> Void)? = nil,
-        afterUpgrade: (() -> Void)? = nil
+        onConfirm: (() -> Void)? = nil
+    
     ) {
-        self.delegate = delegate
         self.variant = variant
         self.dataManager = dataManager
         self.dismissType = dismissType
         self.afterClosed = afterClosed
-        self.afterUpgrade = afterUpgrade
+        self.onConfirm = onConfirm
     }
     
     public var body: some View {
@@ -347,19 +381,13 @@ public struct ProCTAModal: View {
                     }
                     
                     // Buttons
-                    let onlyShowCloseButton: Bool = {
-                        if case .groupLimit(let isAdmin, let isSessionProActivated) = variant, (!isAdmin || isSessionProActivated) { return true }
-                        if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated { return true }
-                        return false
-                    }()
-                    
-                    if onlyShowCloseButton {
+                    if variant.onlyShowCloseButton {
                         GeometryReader { geometry in
                             HStack {
                                 Button {
                                     close(nil)
                                 } label: {
-                                    Text("close".localized())
+                                    Text(variant.confirmButtonTitle)
                                         .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -383,14 +411,10 @@ public struct ProCTAModal: View {
                         HStack(spacing: Values.smallSpacing) {
                             // Upgrade Button
                             ShineButton {
-                                delegate?.upgradeToPro { result in
-                                    if result {
-                                        afterUpgrade?()
-                                    }
-                                    close(nil)
-                                }
+                                onConfirm?()
+                                close(nil)
                             } label: {
-                                Text("theContinue".localized())
+                                Text(variant.confirmButtonTitle)
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                     .framing(
@@ -408,7 +432,7 @@ public struct ProCTAModal: View {
                             Button {
                                 close(nil)
                             } label: {
-                                Text("cancel".localized())
+                                Text(variant.cancelButtonTitle)
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                                     .framing(
@@ -442,7 +466,6 @@ struct ProCTAModal_Previews: PreviewProvider {
         Group {
             PreviewThemeWrapper(theme: .classicDark) {
                 ProCTAModal(
-                    delegate: nil,
                     variant: .generic,
                     dataManager: ImageDataManager(),
                     dismissType: .single,
@@ -454,7 +477,6 @@ struct ProCTAModal_Previews: PreviewProvider {
             
             PreviewThemeWrapper(theme: .classicLight) {
                 ProCTAModal(
-                    delegate: nil,
                     variant: .generic,
                     dataManager: ImageDataManager(),
                     dismissType: .single,
@@ -466,7 +488,6 @@ struct ProCTAModal_Previews: PreviewProvider {
             
             PreviewThemeWrapper(theme: .oceanDark) {
                 ProCTAModal(
-                    delegate: nil,
                     variant: .generic,
                     dataManager: ImageDataManager(),
                     dismissType: .single,
@@ -478,7 +499,6 @@ struct ProCTAModal_Previews: PreviewProvider {
             
             PreviewThemeWrapper(theme: .oceanLight) {
                 ProCTAModal(
-                    delegate: nil,
                     variant: .generic,
                     dataManager: ImageDataManager(),
                     dismissType: .single,

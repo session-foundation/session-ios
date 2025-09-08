@@ -646,12 +646,14 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.hideInputAccessoryView()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
                 variant: .longerMessages,
                 dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
                     self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+                },
+                onConfirm: { [dependencies] in
+                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
                 }
             )
         )

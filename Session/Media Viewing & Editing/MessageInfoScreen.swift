@@ -523,9 +523,11 @@ struct MessageInfoScreen: View {
         }
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
                 variant: proCTAVariant,
-                dataManager: dependencies[singleton: .imageDataManager]
+                dataManager: dependencies[singleton: .imageDataManager],
+                onConfirm: { [dependencies] in
+                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                }
             )
         )
         self.host.controller?.present(sessionProModal, animated: true)

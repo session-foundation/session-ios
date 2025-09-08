@@ -241,12 +241,14 @@ extension ConversationVC:
         self.hideInputAccessoryView()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
                 variant: variant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
                     self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                },
+                onConfirm: { [dependencies] in
+                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
                 }
             )
         )

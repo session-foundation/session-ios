@@ -785,11 +785,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         guard dependencies[feature: .sessionProEnabled] else { return false }
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
                 variant: .animatedProfileImage(
                     isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                 ),
-                dataManager: dependencies[singleton: .imageDataManager]
+                dataManager: dependencies[singleton: .imageDataManager],
+                onConfirm: { [dependencies] in
+                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                }
             )
         )
         self.transitionToScreen(sessionProModal, transitionType: .present)
