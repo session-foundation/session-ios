@@ -30,10 +30,7 @@ final class DocumentView: UIView {
         addSubview(imageBackgroundView)
         
         // Image view
-        let imageView = UIImageView(
-            image: Lucide.image(icon: .file, size: documentIconSize.height)?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let imageView = LucideIconView(icon: .file, size: documentIconSize.height)
         imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
         imageView.setContentHuggingPriority(.required, for: .horizontal)
         imageView.contentMode = .scaleAspectFit

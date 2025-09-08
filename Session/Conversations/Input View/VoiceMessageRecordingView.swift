@@ -416,20 +416,14 @@ extension VoiceMessageRecordingView {
             layer.borderWidth = 1
             
             // Lock icon
-            let lockIconImageView: UIImageView = UIImageView(
-                image: Lucide.image(icon: .lockKeyhole, size: LockView.lockIconSize)?
-                    .withRenderingMode(.alwaysTemplate)
-            )
+            let lockIconImageView: LucideIconView = LucideIconView(icon: .lockKeyhole, size: LockView.lockIconSize)
             lockIconImageView.themeTintColor = .textPrimary
             lockIconImageView.set(.width, to: LockView.lockIconSize)
             lockIconImageView.set(.height, to: LockView.lockIconSize)
             stackView.addArrangedSubview(lockIconImageView)
             
             // Chevron icon
-            let chevronIconImageView: UIImageView = UIImageView(
-                image: Lucide.image(icon: .chevronUp, size: LockView.chevronIconSize)?
-                    .withRenderingMode(.alwaysTemplate)
-            )
+            let chevronIconImageView: LucideIconView = LucideIconView(icon: .chevronUp, size: LockView.chevronIconSize)
             chevronIconImageView.themeTintColor = .textPrimary
             chevronIconImageView.set(.width, to: LockView.chevronIconSize)
             chevronIconImageView.set(.height, to: LockView.chevronIconSize)

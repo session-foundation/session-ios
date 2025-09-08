@@ -25,7 +25,7 @@ struct DocumentView_SwiftUI: View {
             spacing: 0
         ) {
             ZStack {
-                Image(systemName: "doc")
+                LucideIcon(.file)
                     .font(.system(size: Values.largeFontSize))
                     .foregroundColor(themeColor: textColor)
 

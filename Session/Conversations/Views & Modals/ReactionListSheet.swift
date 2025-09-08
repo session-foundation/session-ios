@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -453,7 +454,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 ),
                 trailingAccessory: (!canRemoveEmoji ? nil :
                     .icon(
-                        UIImage(named: "X")?
+                        Lucide.image(icon: .x, size: IconSize.medium.size)?
                             .withRenderingMode(.alwaysTemplate),
                         size: .medium
                     )

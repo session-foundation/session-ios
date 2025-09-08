@@ -240,7 +240,8 @@ final class QuoteView: UIView {
         if mode == .draft {
             // Cancel button
             let cancelButton = UIButton(type: .custom)
-            cancelButton.setImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate), for: .normal)
+            cancelButton.setImage(Lucide.image(icon: .x, size: Self.iconSize)?
+                .withRenderingMode(.alwaysTemplate), for: .normal)
             cancelButton.themeTintColor = .textPrimary
             cancelButton.set(.width, to: cancelButtonSize)
             cancelButton.set(.height, to: cancelButtonSize)

@@ -58,7 +58,7 @@ extension ContextMenuVC {
         
         static func info(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .info, size: 24),
+                icon: Lucide.image(icon: .info, size: IconSize.medium.size),
                 title: "info".localized(),
                 accessibilityLabel: "Message info"
             ) { _ in delegate?.info(cellViewModel) }
@@ -66,7 +66,7 @@ extension ContextMenuVC {
 
         static func retry(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .refreshCw, size: 24),
+                icon: Lucide.image(icon: .refreshCw, size: IconSize.medium.size),
                 title: (cellViewModel.state == .failedToSync ?
                     "resync".localized() :
                     "resend".localized()
@@ -77,7 +77,7 @@ extension ContextMenuVC {
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .reply, size: 24),
+                icon: Lucide.image(icon: .reply, size: IconSize.medium.size),
                 title: "reply".localized(),
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Reply to message"
@@ -86,7 +86,7 @@ extension ContextMenuVC {
 
         static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .copy, size: 24),
+                icon: Lucide.image(icon: .copy, size: IconSize.medium.size),
                 title: "copy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy text"
@@ -95,7 +95,7 @@ extension ContextMenuVC {
 
         static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .copy, size: 24),
+                icon: Lucide.image(icon: .copy, size: IconSize.medium.size),
                 title: "accountIDCopy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy Session ID"
@@ -104,7 +104,7 @@ extension ContextMenuVC {
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .trash2, size: 24),
+                icon: Lucide.image(icon: .trash2, size: IconSize.medium.size),
                 title: "delete".localized(),
                 expirationInfo: ExpirationInfo(
                     expiresStartedAtMs: cellViewModel.expiresStartedAtMs,
@@ -118,7 +118,7 @@ extension ContextMenuVC {
 
         static func save(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .arrowDownToLine, size: 24),
+                icon: Lucide.image(icon: .arrowDownToLine, size: IconSize.medium.size),
                 title: "save".localized(),
                 feedback: "saved".localized(),
                 accessibilityLabel: "Save attachment"

@@ -26,11 +26,8 @@ final class CallMessageCell: MessageCell {
     private lazy var infoImageViewHeightConstraint: NSLayoutConstraint = infoImageView.set(.height, to: 0)
     
     private lazy var iconImageView: UIImageView = UIImageView()
-    private lazy var infoImageView: UIImageView = {
-        let result: UIImageView = UIImageView(
-            image: Lucide.image(icon: .info, size: Self.iconSize)?
-                .withRenderingMode(.alwaysTemplate)
-        )
+    private lazy var infoImageView: LucideIconView = {
+        let result: LucideIconView = LucideIconView(icon: .info, size: Self.iconSize)
         result.themeTintColor = .textPrimary
         
         return result

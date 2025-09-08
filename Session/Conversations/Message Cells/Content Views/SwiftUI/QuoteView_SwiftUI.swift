@@ -91,25 +91,16 @@ struct QuoteView_SwiftUI: View {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        let fallbackIcon: Lucide.Icon = (attachment.isAudio ? .mic : .file)
-                        
-                        if let image = Lucide.image(icon: fallbackIcon, size: Self.iconSize)?
-                            .withRenderingMode(.alwaysTemplate) {
-                            
-                            Image(uiImage: image)
-                                .foregroundColor(themeColor: {
-                                    switch info.mode {
-                                        case .regular: return (info.direction == .outgoing ?
-                                            .messageBubble_outgoingText :
-                                                .messageBubble_incomingText
-                                        )
-                                        case .draft: return .textPrimary
-                                    }
-                                }())
-                        }
-                        else {
-                            Color.clear
-                        }
+                        LucideIcon((attachment.isAudio ? .mic : .file), size: Self.iconSize)
+                            .foregroundColor(themeColor: {
+                                switch info.mode {
+                                    case .regular: return (info.direction == .outgoing ?
+                                        .messageBubble_outgoingText :
+                                            .messageBubble_incomingText
+                                    )
+                                    case .draft: return .textPrimary
+                                }
+                            }())
                     }
                     .frame(
                         width: Self.iconSize,

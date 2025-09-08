@@ -113,13 +113,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
 
-    private lazy var replyIconImageView: UIImageView = {
-        let result = UIImageView()
+    private lazy var replyIconImageView: LucideIconView = {
         let size = VisibleMessageCell.replyButtonSize
+        
+        let result = LucideIconView(icon: .reply, size: size)
         result.set(.width, to: size)
         result.set(.height, to: size)
-        result.image = Lucide.image(icon: .reply, size: size)?
-            .withRenderingMode(.alwaysTemplate)
         result.themeTintColor = .textPrimary
         
         return result

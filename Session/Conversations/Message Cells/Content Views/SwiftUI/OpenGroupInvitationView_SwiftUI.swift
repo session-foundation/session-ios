@@ -40,24 +40,20 @@ struct OpenGroupInvitationView_SwiftUI: View {
             spacing: Values.mediumSpacing
         ) {
             // Icon
-            if let iconImage = Lucide.image(icon: isOutgoing ? .globe : .plus, size: Self.iconSize)?
-                .withRenderingMode(.alwaysTemplate)
-            {
-                Circle()
-                    .fill(themeColor: (isOutgoing ? .messageBubble_overlay : .primary))
-                    .frame(
-                        width: Self.iconImageViewSize,
-                        height: Self.iconImageViewSize
-                    )
-                    .overlay {
-                        Image(uiImage: iconImage)
-                            .foregroundColor(themeColor: (isOutgoing ? .messageBubble_outgoingText : .textPrimary))
-                            .frame(
-                                width: Self.iconSize,
-                                height: Self.iconSize
-                            )
-                    }
-            }
+            Circle()
+                .fill(themeColor: (isOutgoing ? .messageBubble_overlay : .primary))
+                .frame(
+                    width: Self.iconImageViewSize,
+                    height: Self.iconImageViewSize
+                )
+                .overlay {
+                    LucideIcon(isOutgoing ? .globe : .plus, size: Self.iconSize)
+                        .foregroundColor(themeColor: (isOutgoing ? .messageBubble_outgoingText : .textPrimary))
+                        .frame(
+                            width: Self.iconSize,
+                            height: Self.iconSize
+                        )
+                }
             
             // Text
             VStack(

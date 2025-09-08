@@ -63,11 +63,8 @@ public struct LinkPreviewView_SwiftUI: View {
                             height: imageSize
                         )
                         .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
-                } else if
-                    state is LinkPreview.DraftState || state is LinkPreview.SentState,
-                    let defaultImage = Lucide.image(icon: .link, size: 24)?.withRenderingMode(.alwaysTemplate)
-                {
-                    Image(uiImage: defaultImage)
+                } else if state is LinkPreview.DraftState || state is LinkPreview.SentState {
+                    LucideIcon(.link, size: 24)
                         .foregroundColor(
                             themeColor: isOutgoing ?
                                 .messageBubble_outgoingText :

@@ -66,7 +66,7 @@ final class ProfilePictureVC: BaseVC {
         
         // Close button
         let closeButton = UIBarButtonItem(
-            image: Lucide.image(icon: .x, size: 24)?
+            image: Lucide.image(icon: .x, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             target: self,

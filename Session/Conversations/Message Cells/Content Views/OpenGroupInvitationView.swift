@@ -70,11 +70,7 @@ final class OpenGroupInvitationView: UIView {
         iconContainerView.set(.width, to: OpenGroupInvitationView.iconImageViewSize)
         iconContainerView.set(.height, to: OpenGroupInvitationView.iconImageViewSize)
         
-        let iconName: Lucide.Icon = isOutgoing ? .globe : .plus
-        let iconImageView = UIImageView(
-            image: Lucide.image(icon: iconName, size: Self.iconSize)?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let iconImageView = LucideIconView(icon: isOutgoing ? .globe : .plus, size: Self.iconSize)
         iconImageView.themeTintColor = (isOutgoing ? .messageBubble_outgoingText : .textPrimary)
         iconImageView.contentMode = .scaleAspectFit
         iconImageView.set(.width, to: OpenGroupInvitationView.iconSize)

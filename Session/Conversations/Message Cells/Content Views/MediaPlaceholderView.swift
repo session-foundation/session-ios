@@ -67,9 +67,7 @@ final class MediaPlaceholderView: UIView {
         imageContainerView.set(.width, to: MediaPlaceholderView.iconImageViewSize)
         imageContainerView.set(.height, to: MediaPlaceholderView.iconImageViewSize)
         
-        let imageView = UIImageView(image: Lucide
-            .image(icon: .file, size: MediaPlaceholderView.iconSize)?
-            .withRenderingMode(.alwaysTemplate))
+        let imageView = LucideIconView(icon: .file, size: MediaPlaceholderView.iconSize)
         imageView.themeTintColor = textColor
         imageView.contentMode = .scaleAspectFit
         imageContainerView.addSubview(imageView)

@@ -84,8 +84,7 @@ extension ContextMenuVC {
 
         private func setUpViewHierarchy() {
             // Icon image
-            let iconImageView = UIImageView(image: Lucide.image(icon: .plus, size: iconSize)?
-                .withRenderingMode(.alwaysTemplate))
+            let iconImageView = LucideIconView(icon: .plus, size: iconSize)
             iconImageView.themeTintColor = .textPrimary
             iconImageView.set(.width, to: iconSize)
             iconImageView.set(.height, to: iconSize)

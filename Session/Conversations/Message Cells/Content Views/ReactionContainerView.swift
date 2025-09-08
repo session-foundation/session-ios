@@ -56,10 +56,7 @@ final class ReactionContainerView: UIView {
     }()
     
     lazy var collapseButton: UIView = {
-        let arrow: UIImageView = UIImageView(
-            image: Lucide.image(icon: .chevronUp, size: ReactionContainerView.arrowSize.height)?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let arrow = LucideIconView(icon: .chevronUp, size: ReactionContainerView.arrowSize.height)
         arrow.themeTintColor = .textPrimary
         arrow.set(.width, to: ReactionContainerView.arrowSize.width)
         arrow.set(.height, to: ReactionContainerView.arrowSize.height)
