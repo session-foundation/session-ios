@@ -14,9 +14,8 @@ public class Dependencies {
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
     private typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
-    private let dependecyChangeStream: AsyncStream<DependencyChange>
-    private let dependecyChangeContinuation: AsyncStream<DependencyChange>.Continuation
-    
+    private let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
+
     // MARK: - Subscript Access
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
@@ -40,14 +39,7 @@ public class Dependencies {
     
     // MARK: - Initialization
     
-    public static func createEmpty() -> Dependencies { return Dependencies(forTesting: false) }
-    
-    /// This constructor should not be used directly (except for `TestDependencies`), use `Dependencies.createEmpty()` instead
-    internal init(forTesting: Bool) {
-        let (stream, continuation) = AsyncStream.makeStream(of: DependencyChange.self)
-        dependecyChangeStream = stream
-        dependecyChangeContinuation = continuation
-    }
+    public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
     
@@ -150,7 +142,7 @@ public class Dependencies {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
         
-        for await (key, instance) in dependecyChangeStream {
+        for await (key, instance) in dependencyChangeStream.stream {
             /// If the target instance has been set (and isn't a `NoopDependency`) then we can stop waiting (observing the stream)
             if key == targetKey && instance?.isNoop == false {
                 break
@@ -227,7 +219,8 @@ public extension Dependencies {
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
-        dependecyChangeContinuation.yield((key, nil))
+        
+        Task { await dependencyChangeStream.send((key, nil)) }
         notifyAsync(events: [
             ObservedEvent(key: .feature(feature), value: nil),
             ObservedEvent(key: .featureGroup(feature), value: nil)
@@ -396,7 +389,7 @@ private extension Dependencies {
             Log.warn("Setting noop dependency for \(key)")
         }
         
-        dependecyChangeContinuation.yield((finalKey, typedStorage))
+        Task { await dependencyChangeStream.send((finalKey, typedStorage)) }
         return result
     }
     
@@ -408,7 +401,7 @@ private extension Dependencies {
             return storage
         }
         
-        dependecyChangeContinuation.yield((finalKey, nil))
+        Task { await dependencyChangeStream.send((finalKey, nil)) }
     }
 }
  

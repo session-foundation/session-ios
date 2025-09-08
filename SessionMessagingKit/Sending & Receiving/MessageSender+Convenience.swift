@@ -199,17 +199,27 @@ extension MessageSender {
         }
         else {
             // Otherwise we do want to try and update the referenced interaction
-            let interaction: Interaction? = try interaction(db, for: message, interactionId: interactionId)
+            let maybeInteraction: Interaction? = try interaction(db, for: message, interactionId: interactionId)
             
             // Get the visible message if possible
-            if let interaction: Interaction = interaction {
+            if var interaction: Interaction = maybeInteraction {
                 // Only store the server hash of a sync message if the message is self send valid
                 switch (message.isSelfSendValid, destination) {
                     case (false, .syncMessage):
                         try interaction.with(state: .sent).update(db)
                     
                     case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
-                        try interaction.with(
+                        // The timestamp to use for scheduling message deletion. This is generated
+                        // when the message is successfully sent to ensure the deletion timer starts
+                        // from the correct time.
+                        var scheduledTimestampForDeletion: Double? {
+                            guard interaction.isExpiringMessage else { return nil }
+                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                            return sentTimestampMs
+                        }
+                    
+                        // Update the interaction so we have the correct `expiresStartedAtMs` value
+                        interaction = interaction.with(
                             serverHash: message.serverHash,
                             // Track the open group server message ID and update server timestamp (use server
                             // timestamp for open group messages otherwise the quote messages may not be able
@@ -218,9 +228,11 @@ extension MessageSender {
                                 nil :
                                 serverTimestampMs.map { Int64($0) }
                             ),
+                            expiresStartedAtMs: scheduledTimestampForDeletion, // Updates the expiresStartedAtMs value when message is marked as sent
                             openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) },
                             state: .sent
-                        ).update(db)
+                        )
+                        try interaction.update(db)
                         
                         if interaction.isExpiringMessage {
                             // Start disappearing messages job after a message is successfully sent.
@@ -240,7 +252,7 @@ extension MessageSender {
                         
                             if
                                 case .syncMessage = destination,
-                                let startedAtMs: Double = interaction.expiresStartedAtMs,
+                                let startedAtMs: Double = scheduledTimestampForDeletion,
                                 let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
                                 let serverHash: String = message.serverHash
                             {

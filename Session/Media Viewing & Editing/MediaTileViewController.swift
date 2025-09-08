@@ -733,16 +733,12 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 )
                 
                 // Delete any interactions which had all of their attachments removed
-                try items.forEach { item in
-                    let remainingAttachmentCount: Int = try InteractionAttachment
-                        .filter(InteractionAttachment.Columns.interactionId == item.interactionId)
-                        .fetchCount(db)
-                    
-                    if remainingAttachmentCount == 0 {
-                        _ = try Interaction.deleteOne(db, id: item.interactionId)
-                        db.addMessageEvent(id: item.interactionId, threadId: threadId, type: .deleted)
-                    }
-                }
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(items.map { $0.interactionId }.contains(Interaction.Columns.id)),
+                    .filter(Interaction.Columns.threadId == threadId),
+                    .hasAttachments(false)
+                )
             }
             
             self?.endSelectMode()

@@ -506,6 +506,7 @@ extension SessionCell {
             label.themeTextColor = .textPrimary
             label.setContentHugging(to: .required)
             label.setCompressionResistance(to: .required)
+            label.numberOfLines = 0
             
             result.addArrangedSubview(imageView)
             result.addArrangedSubview(label)

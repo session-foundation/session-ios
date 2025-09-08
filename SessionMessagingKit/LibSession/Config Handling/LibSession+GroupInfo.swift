@@ -174,7 +174,7 @@ internal extension LibSessionCacheType {
         
         if localConfig != updatedConfig {
             try updatedConfig
-                .saved(db)
+                .upserted(db)
                 .clearUnrelatedControlMessages(
                     db,
                     threadVariant: .group,

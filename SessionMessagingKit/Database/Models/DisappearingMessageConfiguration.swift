@@ -248,11 +248,12 @@ public extension DisappearingMessagesConfiguration {
         using dependencies: Dependencies
     ) throws {
         guard threadVariant == .contact else {
-            try Interaction
-                .filter(Interaction.Columns.threadId == self.threadId)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+            try Interaction.deleteWhere(
+                db,
+                .filter(Interaction.Columns.threadId == threadId),
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
                 .filter(Interaction.Columns.expiresInSeconds != self.durationSeconds)
-                .deleteAll(db)
+            )
             return
         }
         
@@ -260,28 +261,41 @@ public extension DisappearingMessagesConfiguration {
         
         switch (self.isEnabled, self.type) {
             case (false, _):
-                try Interaction
-                    .filter(Interaction.Columns.threadId == self.threadId)
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .filter(Interaction.Columns.authorId == userSessionId.hexString)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.threadId == threadId),
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
+                    .filter(Interaction.Columns.authorId == userSessionId.hexString),
                     .filter(Interaction.Columns.expiresInSeconds != 0)
-                    .deleteAll(db)
+                )
                 
             case (true, .disappearAfterRead):
-                try Interaction
-                    .filter(Interaction.Columns.threadId == self.threadId)
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .filter(Interaction.Columns.authorId == userSessionId.hexString)
-                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs != Interaction.Columns.timestampMs))
-                    .deleteAll(db)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.threadId == threadId),
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
+                    .filter(Interaction.Columns.authorId == userSessionId.hexString),
+                    .filter(
+                        !(
+                            Interaction.Columns.expiresInSeconds == self.durationSeconds &&
+                            Interaction.Columns.expiresStartedAtMs != Interaction.Columns.timestampMs
+                        )
+                    )
+                )
             
             case (true, .disappearAfterSend):
-                try Interaction
-                    .filter(Interaction.Columns.threadId == self.threadId)
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .filter(Interaction.Columns.authorId == userSessionId.hexString)
-                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs == Interaction.Columns.timestampMs))
-                    .deleteAll(db)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.threadId == threadId),
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
+                    .filter(Interaction.Columns.authorId == userSessionId.hexString),
+                    .filter(
+                        !(
+                            Interaction.Columns.expiresInSeconds == self.durationSeconds &&
+                            Interaction.Columns.expiresStartedAtMs == Interaction.Columns.timestampMs
+                        )
+                    )
+                )
                 
             default: break
         }
@@ -298,16 +312,18 @@ public extension DisappearingMessagesConfiguration {
     ) throws -> MessageReceiver.InsertedInteractionInfo? {
         switch threadVariant {
             case .contact:
-                _ = try Interaction
-                    .filter(Interaction.Columns.threadId == threadId)
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.threadId == threadId),
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate),
                     .filter(Interaction.Columns.authorId == authorId)
-                    .deleteAll(db)
+                )
             case .legacyGroup, .group:
-                _ = try Interaction
-                    .filter(Interaction.Columns.threadId == threadId)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.threadId == threadId),
                     .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .deleteAll(db)
+                )
             case .community: break
         }
         

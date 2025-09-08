@@ -355,6 +355,7 @@ extension Mock where T == LibSessionCacheType {
             .when { try $0.pendingPushes(swarmPublicKey: .any) }
             .thenReturn(LibSession.PendingPushes())
         self.when { $0.configNeedsDump(.any) }.thenReturn(false)
+        self.when { $0.activeHashes(for: .any) }.thenReturn([])
         self
             .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
             .thenReturn(nil)
