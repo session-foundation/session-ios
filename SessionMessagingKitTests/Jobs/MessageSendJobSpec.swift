@@ -13,7 +13,7 @@ extension Job: @retroactive MutableIdentifiable {
     public mutating func setId(_ id: Int64?) { self.id = id }
 }
 
-class MessageSendJobSpec: QuickSpec {
+class MessageSendJobSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -30,26 +30,10 @@ class MessageSendJobSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try SessionThread.upsert(
-                    db,
-                    id: "Test1",
-                    variant: .contact,
-                    values: SessionThread.TargetValues(
-                        creationDateTimestamp: .setTo(1234567890),
-                        // False is the default and will mean we don't need libSession loaded
-                        shouldBeVisible: .setTo(false)
-                    ),
-                    using: dependencies
-                )
-            }
+            using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
@@ -74,6 +58,27 @@ class MessageSendJobSpec: QuickSpec {
                     .thenReturn((1000, Job(variant: .messageSend)))
             }
         )
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try SessionThread.upsert(
+                    db,
+                    id: "Test1",
+                    variant: .contact,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .setTo(1234567890),
+                        // False is the default and will mean we don't need libSession loaded
+                        shouldBeVisible: .setTo(false)
+                    ),
+                    using: dependencies
+                )
+            }
+        }
         
         // MARK: - a MessageSendJob
         describe("a MessageSendJob") {

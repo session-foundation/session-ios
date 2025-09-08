@@ -18,7 +18,6 @@ class MessageDeduplicationSpec: AsyncSpec {
         
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
@@ -44,6 +43,10 @@ class MessageDeduplicationSpec: AsyncSpec {
             
             return result
         }()
+        
+        beforeEach {
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+        }
         
         // MARK: - MessageDeduplication - Inserting
         describe("MessageDeduplication") {

@@ -64,20 +64,19 @@ class OpenGroupAPISpec: QuickSpec {
                     .thenReturn(Array(Data(hex: TestConstants.privateKey)))
             }
         )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+        }
         
         // MARK: - an OpenGroupAPI
         describe("an OpenGroupAPI") {
@@ -636,7 +635,16 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
@@ -657,7 +665,7 @@ class OpenGroupAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest
+                    preparedRequest?
                         .send(using: dependencies)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
@@ -672,7 +680,16 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
@@ -693,7 +710,7 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
+                        preparedRequest?
                             .send(using: dependencies)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
@@ -706,7 +723,16 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
@@ -727,7 +753,7 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
+                        preparedRequest?
                             .send(using: dependencies)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
@@ -775,7 +801,16 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
@@ -795,7 +830,7 @@ class OpenGroupAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest
+                    preparedRequest?
                         .send(using: dependencies)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
@@ -810,7 +845,16 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(
                                 MockNetwork.batchResponseData(with: [
                                     (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),
@@ -838,7 +882,7 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
+                        preparedRequest?
                             .send(using: dependencies)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
@@ -851,7 +895,16 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomsResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
@@ -871,7 +924,7 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
+                        preparedRequest?
                             .send(using: dependencies)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
@@ -2246,7 +2299,16 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
                         .thenReturn(MockNetwork.response(type: [OpenGroupAPI.Room].self))
                 }
                 
@@ -2331,15 +2393,14 @@ private extension Network.Destination {
         switch self {
             case .cached: return nil
             case .snode(_, let swarmPublicKey): return swarmPublicKey
-            case .randomSnode(let swarmPublicKey, _), .randomSnodeLatestNetworkTimeTarget(let swarmPublicKey, _, _):
-                return swarmPublicKey
+            case .randomSnode(let swarmPublicKey): return swarmPublicKey
             case .server(let info), .serverDownload(let info), .serverUpload(let info, _): return info.x25519PublicKey
         }
     }
     
     var testHeaders: [HTTPHeader: String]? {
         switch self {
-            case .cached, .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: return nil
+            case .cached, .snode, .randomSnode: return nil
             case .server(let info), .serverDownload(let info), .serverUpload(let info, _): return info.headers
         }
     }

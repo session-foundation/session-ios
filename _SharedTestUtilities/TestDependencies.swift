@@ -254,22 +254,6 @@ protocol DependenciesSettable {
 // MARK: - TestState Convenience
 
 internal extension TestState {
-    init<M, I>(
-        wrappedValue: @escaping @autoclosure () -> T?,
-        cache: CacheConfig<M, I>,
-        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
-    ) async where T: MutableCacheType {
-        self.init(wrappedValue: {
-            let dependencies: TestDependencies? = dependenciesRetriever()
-            let value: T? = wrappedValue()
-            (value as? DependenciesSettable)?.setDependencies(dependencies)
-            dependencies?[cache: cache] = (value as! M)
-            (value as? (any InitialSetupable))?.performInitialSetup()
-            
-            return value
-        }())
-    }
-    
     init<S>(
         wrappedValue: @escaping @autoclosure () -> T?,
         singleton: SingletonConfig<S>,

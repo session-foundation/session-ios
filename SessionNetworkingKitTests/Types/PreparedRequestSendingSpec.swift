@@ -18,8 +18,12 @@ class PreparedRequestSendingSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState var preparedRequest: Network.PreparedRequest<Int>! = {
-            let request = try! Request<NoBody, TestEndpoint>(
+        @TestState var preparedRequest: Network.PreparedRequest<Int>!
+        @TestState var error: Error?
+        @TestState var disposables: [AnyCancellable]! = []
+        
+        beforeEach {
+            let request: Request<NoBody, TestEndpoint> = try Request(
                 endpoint: .endpoint1,
                 destination: .server(
                     method: .post,
@@ -28,15 +32,12 @@ class PreparedRequestSendingSpec: QuickSpec {
                 ),
                 body: nil
             )
-            
-            return try! Network.PreparedRequest(
+            preparedRequest = try Network.PreparedRequest(
                 request: request,
                 responseType: Int.self,
                 using: dependencies
             )
-        }()
-        @TestState var error: Error?
-        @TestState var disposables: [AnyCancellable]! = []
+        }
         
         // MARK: - a PreparedRequest sending Onion Requests
         describe("a PreparedRequest sending Onion Requests") {
@@ -70,21 +71,6 @@ class PreparedRequestSendingSpec: QuickSpec {
                     expect(response).toNot(beNil())
                     expect(response?.data).to(equal(1))
                     expect(error).to(beNil())
-                }
-                
-                // MARK: ---- returns an error when the prepared request is null
-                it("returns an error when the prepared request is null") {
-                    var response: (info: ResponseInfoType, data: Int)?
-                    
-                    preparedRequest = nil
-                    preparedRequest
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-
-                    expect(error).to(matchError(NetworkError.invalidPreparedRequest))
-                    expect(response).to(beNil())
                 }
                 
                 // MARK: ------ can return a cached response

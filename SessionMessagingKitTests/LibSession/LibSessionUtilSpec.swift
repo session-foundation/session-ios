@@ -10,10 +10,9 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class LibSessionUtilSpec: QuickSpec {
+class LibSessionUtilSpec: AsyncSpec {
     static let maxMessageSizeBytes: Int = 76800  // Storage server's limit, should match `config.hpp` in libSession
     
-    // FIXME: Would be good to move the identity generation into the libSession-util instead of using Sodium separately
     static let userSeed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
     static let seed: Data = Data(
         hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"

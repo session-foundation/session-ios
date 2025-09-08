@@ -21,7 +21,6 @@ class NotificationContentViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
@@ -31,24 +30,29 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             return .local(conf)
         }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: {
-                $0.defaultInitialSetup(
-                    configs: [
-                        .local: localConfig
-                    ]
-                )
-            }
-        )
-        @TestState var viewModel: NotificationContentViewModel! = TestState.create {
-            await NotificationContentViewModel(using: dependencies)
-        }
-        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { viewModel.updateTableData($0) }
-            )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var viewModel: NotificationContentViewModel!
+        @TestState var dataChangeCancellable: AnyCancellable?
         @TestState var dismissCancellable: AnyCancellable?
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .local: localConfig
+                ]
+            )
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            
+            viewModel = await NotificationContentViewModel(using: dependencies)
+            dataChangeCancellable = viewModel.tableDataPublisher
+               .sink(
+                   receiveCompletion: { _ in },
+                   receiveValue: { viewModel.updateTableData($0) }
+               )
+        }
         
         // MARK: - a NotificationContentViewModel
         describe("a NotificationContentViewModel") {

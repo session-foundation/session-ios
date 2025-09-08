@@ -24,7 +24,6 @@ class ExtensionHelperSpec: AsyncSpec {
         @TestState(singleton: .extensionHelper, in: dependencies) var extensionHelper: ExtensionHelper! = ExtensionHelper(using: dependencies)
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -53,16 +52,20 @@ class ExtensionHelperSpec: AsyncSpec {
                     .thenReturn(Data([1, 2, 3]))
             }
         )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-            }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var mockLogger: MockLogger! = MockLogger()
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+        }
         
         // MARK: - an ExtensionHelper - File Management
         describe("an ExtensionHelper") {
@@ -2093,7 +2096,6 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("waits if messages have already been loaded but we indicate we will load them again") {
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     
-                    extensionHelper.willLoadMessages()
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
                     }.to(beFalse())
@@ -2202,7 +2204,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("loads config messages before other messages") {
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     
-                    let key: FunctionConsumer.Key = FunctionConsumer.Key(
+                    let key: FunctionConsumer_Old.Key = FunctionConsumer_Old.Key(
                         name: "contentsOfDirectory(atPath:)",
                         generics: [],
                         paramCount: 1

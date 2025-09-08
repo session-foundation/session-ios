@@ -12,7 +12,7 @@ import SessionNetworkingKit
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-class DatabaseSpec: QuickSpec {
+class DatabaseSpec: AsyncSpec {
     fileprivate static let ignoredTables: Set<String> = [
         "sqlite_sequence", "grdb_migrations", "*_fts*"
     ]
@@ -26,17 +26,11 @@ class DatabaseSpec: QuickSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-            }
-        )
-        @TestState(cache: .libSession, in: dependencies) var libSessionCache: LibSession.Cache! = LibSession.Cache(
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var libSessionCache: LibSession.Cache! = LibSession.Cache(
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
             using: dependencies
         )
-        @TestState var initialResult: Result<Void, Error>! = nil
-        @TestState var finalResult: Result<Void, Error>! = nil
         
         let allMigrations: [Migration.Type] = SNMessagingKit.migrations
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
@@ -63,29 +57,34 @@ class DatabaseSpec: QuickSpec {
             snapshotCache.removeAll()
         }
         
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            dependencies.set(cache: .libSession, to: libSessionCache)
+        }
+        
         // MARK: - a Database
         describe("a Database") {
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                
-                expect(initialResult).to(beSuccess())
+                expect {
+                    try await mockStorage.perform(
+                        migrations: allMigrations,
+                        onProgressUpdate: nil
+                    )
+                }.toNot(throwError())
             }
             
             // MARK: -- can still parse the database table types
             it("can still parse the database table types") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                expect(initialResult).to(beSuccess())
+                expect {
+                    try await mockStorage.perform(
+                        migrations: allMigrations,
+                        onProgressUpdate: nil
+                    )
+                }.toNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
                 expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: false))
@@ -102,13 +101,12 @@ class DatabaseSpec: QuickSpec {
             
             // MARK: -- can still parse the database types setting null where possible
             it("can still parse the database types setting null where possible") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                expect(initialResult).to(beSuccess())
+                expect {
+                    try await mockStorage.perform(
+                        migrations: allMigrations,
+                        onProgressUpdate: nil
+                    )
+                }.toNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
                 expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: true))
@@ -126,7 +124,7 @@ class DatabaseSpec: QuickSpec {
             // MARK: -- can migrate from X to Y
             dynamicTests.forEach { test in
                 it("can migrate from \(test.initialMigrationIdentifier) to \(test.finalMigrationIdentifier)") {
-                    let initialStateResult: Result<DatabaseQueue, Error> = {
+                    let initialStateResult: Result<DatabaseQueue, Error> = await {
                         if let cachedResult: Result<DatabaseQueue, Error> = snapshotCache[test.initialMigrationIdentifier] {
                             return cachedResult
                         }
@@ -139,14 +137,10 @@ class DatabaseSpec: QuickSpec {
                             )
                             
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
-                            var initialResult: Result<Void, Error>!
-                            storage.perform(
+                            try await mockStorage.perform(
                                 migrations: test.initialMigrations,
-                                async: false,
-                                onProgressUpdate: nil,
-                                onComplete: { result in initialResult = result }
+                                onProgressUpdate: nil
                             )
-                            try initialResult.get()
                             
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
                             try MigrationTest.generateDummyData(storage, nullsWherePossible: false)
@@ -173,19 +167,14 @@ class DatabaseSpec: QuickSpec {
                     mockStorage = SynchronousStorage(customWriter: testDb, using: dependencies)
 
                     // Peform the target migrations to ensure the migrations themselves worked correctly
-                    mockStorage.perform(
-                        migrations: test.migrationsToTest,
-                        async: false,
-                        onProgressUpdate: nil,
-                        onComplete: { result in finalResult = result }
-                    )
-                    
-                    switch finalResult {
-                        case .success: break
-                        case .failure(let error):
-                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
-                        case .none:
-                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: No result")
+                    do {
+                        try await mockStorage.perform(
+                            migrations: test.migrationsToTest,
+                            onProgressUpdate: nil
+                        )
+                    }
+                    catch {
+                        fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
                     }
                 }
             }

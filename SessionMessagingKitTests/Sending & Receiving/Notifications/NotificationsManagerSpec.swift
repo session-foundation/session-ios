@@ -18,18 +18,7 @@ class NotificationsManagerSpec: QuickSpec {
                 $0.dateNow = Date(timeIntervalSince1970: 1234567890)
             }
         )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: {
-                $0.defaultInitialSetup()
-                $0.when {
-                    $0.conversationLastRead(
-                        threadId: .any,
-                        threadVariant: .any,
-                        openGroupUrlInfo: .any
-                    )
-                }.thenReturn(1234567800)
-            }
-        )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
             initialSetup: { helper in
                 helper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
@@ -50,6 +39,19 @@ class NotificationsManagerSpec: QuickSpec {
             mentionsOnly: false,
             mutedUntil: nil
         )
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockLibSessionCache.defaultInitialSetup()
+            mockLibSessionCache.when {
+                $0.conversationLastRead(
+                    threadId: .any,
+                    threadVariant: .any,
+                    openGroupUrlInfo: .any
+                )
+            }.thenReturn(1234567800)
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+        }
         
         // MARK: - a NotificationsManager - Ensure Should Show
         describe("a NotificationsManager when ensuring we should show notifications") {

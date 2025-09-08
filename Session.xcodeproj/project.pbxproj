@@ -755,11 +755,6 @@
 		FD6B92672E697012004463B5 /* Mocked+SUK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92632E696EDC004463B5 /* Mocked+SUK.swift */; };
 		FD6B926C2E6A7644004463B5 /* Async+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B926B2E6A763D004463B5 /* Async+Utilities.swift */; };
 		FD6B92722E6AB045004463B5 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD6B92712E6AB045004463B5 /* Quick */; };
-		FD6B92742E6AB097004463B5 /* TextContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92732E6AB095004463B5 /* TextContext.swift */; };
-		FD6B92752E6AB25F004463B5 /* Quick+TestContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B926F2E6AB01F004463B5 /* Quick+TestContext.swift */; };
-		FD6B92762E6AB25F004463B5 /* Quick+TestContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B926F2E6AB01F004463B5 /* Quick+TestContext.swift */; };
-		FD6B92772E6AB25F004463B5 /* Quick+TestContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B926F2E6AB01F004463B5 /* Quick+TestContext.swift */; };
-		FD6B92782E6AB25F004463B5 /* Quick+TestContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B926F2E6AB01F004463B5 /* Quick+TestContext.swift */; };
 		FD6C67242CF6E72E00B350A7 /* NoopSessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */; };
 		FD6D9CF92CA152B300F706A8 /* Session+SNUIKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754BB2C9B9A8E002A2623 /* Session+SNUIKit.swift */; };
 		FD6DA9CF2D015B440092085A /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD6DA9CE2D015B440092085A /* Lucide */; };
@@ -2100,8 +2095,6 @@
 		FD6B925D2E695ACD004463B5 /* FixtureBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureBase.swift; sourceTree = "<group>"; };
 		FD6B92632E696EDC004463B5 /* Mocked+SUK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mocked+SUK.swift"; sourceTree = "<group>"; };
 		FD6B926B2E6A763D004463B5 /* Async+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Async+Utilities.swift"; sourceTree = "<group>"; };
-		FD6B926F2E6AB01F004463B5 /* Quick+TestContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Quick+TestContext.swift"; sourceTree = "<group>"; };
-		FD6B92732E6AB095004463B5 /* TextContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextContext.swift; sourceTree = "<group>"; };
 		FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopSessionCallManager.swift; sourceTree = "<group>"; };
 		FD6DF00A2ACFE40D0084BA4C /* _021_AddSnodeReveivedMessageInfoPrimaryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _021_AddSnodeReveivedMessageInfoPrimaryKey.swift; sourceTree = "<group>"; };
 		FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyUnsubscribeRequest.swift; sourceTree = "<group>"; };
@@ -4203,7 +4196,6 @@
 				FD1BDBDE2E655734008EF998 /* MockFunctionHandler.swift */,
 				FD1BDBB12E6532DB008EF998 /* MockHandler.swift */,
 				FD1BDBD62E65384F008EF998 /* RecordedCall.swift */,
-				FD6B92732E6AB095004463B5 /* TextContext.swift */,
 				FD1BDBFA2E656538008EF998 /* TestFailureReporter.swift */,
 			);
 			path = TestUtilities;
@@ -4682,7 +4674,6 @@
 				FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */,
 				FD23EA6028ED0B260058676E /* CombineExtensions.swift */,
 				FD0150272CA23DB7005B08A1 /* GRDBExtensions.swift */,
-				FD6B926F2E6AB01F004463B5 /* Quick+TestContext.swift */,
 				FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */,
 			);
 			path = _SharedTestUtilities;
@@ -7061,7 +7052,6 @@
 				FD1BDBDF2E655735008EF998 /* MockFunctionHandler.swift in Sources */,
 				FD1BDBD92E653868008EF998 /* MockError.swift in Sources */,
 				FD1BDBDB2E6538B4008EF998 /* MockFunctionBuilder.swift in Sources */,
-				FD6B92742E6AB097004463B5 /* TextContext.swift in Sources */,
 				FD1BDBD32E653660008EF998 /* MockFunction.swift in Sources */,
 				FD1BDBD72E653852008EF998 /* RecordedCall.swift in Sources */,
 				FD1BDBD02E653625008EF998 /* Mockable.swift in Sources */,
@@ -7109,7 +7099,6 @@
 				FDB11A572DD17D0600BEF49F /* MockLogger.swift in Sources */,
 				FD49E2462B05C1D500FFBBB5 /* MockKeychain.swift in Sources */,
 				FD01502C2CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */,
-				FD6B92752E6AB25F004463B5 /* Quick+TestContext.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7118,7 +7107,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */,
-				FD6B92782E6AB25F004463B5 /* Quick+TestContext.swift in Sources */,
 				FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */,
 				FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
 				FD49E2492B05C1D500FFBBB5 /* MockKeychain.swift in Sources */,
@@ -7186,7 +7174,6 @@
 				FD0150282CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */,
 				FDB5DB152A981FB0002C8721 /* SynchronousStorage.swift in Sources */,
 				FDE754AC2C9B967E002A2623 /* FileUploadResponseSpec.swift in Sources */,
-				FD6B92772E6AB25F004463B5 /* Quick+TestContext.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7243,7 +7230,6 @@
 				FD481A902CAD16F100ECC4CF /* LibSessionGroupInfoSpec.swift in Sources */,
 				FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */,
 				FDC2908F27D70938005DAE71 /* SendDirectMessageRequestSpec.swift in Sources */,
-				FD6B92762E6AB25F004463B5 /* Quick+TestContext.swift in Sources */,
 				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,
 				FD72BDA42BE3690B00CF6CF6 /* CryptoSMKSpec.swift in Sources */,
 				FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */,

@@ -36,26 +36,21 @@ public class MockFunctionBuilder<T, R> {
         return self
     }
     
-    public func thenReturn(_ value: R) async {
+    public func thenReturn(_ value: R) async throws {
         self.returnValue = value
-        await finalize()
+        try await finalize()
     }
     
-    public func thenThrow(_ error: Error) async {
+    public func thenThrow(_ error: Error) async throws {
         self.returnError = error
-        await finalize()
+        try await finalize()
     }
     
     // MARK: - Internal Functions
     
-    private func finalize() async {
-        do {
-            let function = try await self.build()
-            handler.register(stub: function)
-        } catch {
-            /// If the build fails (e.g., invalid `when` block), we should fail the test
-            handler.reportFailureFromBuilder(error)
-        }
+    private func finalize() async throws {
+        let function = try await self.build()
+        handler.register(stub: function)
     }
     
     private func captureDetails() async {

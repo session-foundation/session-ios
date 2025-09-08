@@ -14,12 +14,13 @@ class CryptoOpenGroupAPISpec: QuickSpec {
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto(using: dependencies)
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+        }
         
         // MARK: - Crypto for OpenGroupAPI
         describe("Crypto for OpenGroupAPI") {

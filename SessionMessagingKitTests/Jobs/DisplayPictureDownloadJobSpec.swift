@@ -10,7 +10,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-class DisplayPictureDownloadJobSpec: QuickSpec {
+class DisplayPictureDownloadJobSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -22,19 +22,10 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
+            using: dependencies
         )
         @TestState var imageData: Data! = Data(
             hex: "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c" +
@@ -51,7 +42,16 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.response(data: encryptedData))
             }
         )
@@ -89,15 +89,24 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
-        )
+        }
         
         // MARK: - a DisplayPictureDownloadJob
         describe("a DisplayPictureDownloadJob") {
@@ -506,10 +515,12 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 expect(mockNetwork)
                     .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
-                            expectedRequest.body,
-                            to: expectedRequest.destination,
+                            endpoint: expectedRequest.endpoint,
+                            destination: expectedRequest.destination,
+                            body: expectedRequest.body,
+                            category: .upload,
                             requestTimeout: expectedRequest.requestTimeout,
-                            requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                            overallTimeout: expectedRequest.overallTimeout
                         )
                     })
             }
@@ -569,10 +580,12 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 expect(mockNetwork)
                     .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
-                            expectedRequest.body,
-                            to: expectedRequest.destination,
+                            endpoint: expectedRequest.endpoint,
+                            destination: expectedRequest.destination,
+                            body: expectedRequest.body,
+                            category: .upload,
                             requestTimeout: expectedRequest.requestTimeout,
-                            requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                            overallTimeout: expectedRequest.overallTimeout
                         )
                     })
             }
@@ -1089,7 +1102,16 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         
                         // SOGS doesn't encrypt it's images so replace the encrypted mock response
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(data: imageData))
                     }
                     

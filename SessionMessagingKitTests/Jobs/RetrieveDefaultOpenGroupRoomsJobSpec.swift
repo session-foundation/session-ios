@@ -10,7 +10,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
+class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -20,14 +20,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
+            using: dependencies
         )
         @TestState(defaults: .appGroup, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { defaults in
@@ -37,7 +30,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(
                         MockNetwork.batchResponseData(
                             with: [
@@ -78,24 +80,29 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     .thenReturn([:])
             }
         )
-        @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
-            initialSetup: { cache in
-                cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
+        @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
         @TestState var permanentFailure: Bool! = false
         @TestState var wasDeferred: Bool! = false
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
+            dependencies.set(cache: .openGroupManager, to: mockOGMCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+            }
+        }
         
         // MARK: - a RetrieveDefaultOpenGroupRoomsJob
         describe("a RetrieveDefaultOpenGroupRoomsJob") {
@@ -177,7 +184,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             // MARK: -- creates an inactive entry in the database if one does not exist
             it("creates an inactive entry in the database if one does not exist") {
                 mockNetwork
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.errorResponse())
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
@@ -201,7 +217,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             // MARK: -- does not create a new entry if one already exists
             it("does not create a new entry if one already exists") {
                 mockNetwork
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.errorResponse())
                 
                 mockStorage.write { db in
@@ -275,10 +300,12 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(mockNetwork)
                     .to(call { network in
                         network.send(
-                            expectedRequest.body,
-                            to: expectedRequest.destination,
+                            endpoint: OpenGroupAPI.Endpoint.sequence,
+                            destination: expectedRequest.destination,
+                            body: expectedRequest.body,
+                            category: .standard,
                             requestTimeout: expectedRequest.requestTimeout,
-                            requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                            overallTimeout: expectedRequest.overallTimeout
                         )
                     })
             }
@@ -286,7 +313,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             // MARK: -- will retry 8 times before it fails
             it("will retry 8 times before it fails") {
                 mockNetwork
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.nullResponse())
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
@@ -304,7 +340,14 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(error).to(matchError(NetworkError.parsingFailed))
                 expect(mockNetwork)   // First attempt + 8 retries
                     .to(call(.exactly(times: 9)) { network in
-                        network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)
+                        network.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
                     })
             }
             
@@ -368,7 +411,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     .insert(db)
                 }
                 mockNetwork
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(
                         MockNetwork.batchResponseData(
                             with: [
@@ -496,7 +548,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             // MARK: -- does not schedule a display picture download if there is no imageId
             it("does not schedule a display picture download if there is no imageId") {
                 mockNetwork
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
                     .thenReturn(
                         MockNetwork.batchResponseData(
                             with: [

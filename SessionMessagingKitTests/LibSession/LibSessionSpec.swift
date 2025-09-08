@@ -11,7 +11,7 @@ import Nimble
 @testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
-class LibSessionSpec: QuickSpec {
+class LibSessionSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -19,22 +19,10 @@ class LibSessionSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
+            using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
@@ -80,23 +68,36 @@ class LibSessionSpec: QuickSpec {
                  )
             }
         }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                var conf: UnsafeMutablePointer<config_object>!
-                var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
-                _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
-                
-                cache.defaultInitialSetup(
-                    configs: [
-                        .userGroups: .userGroups(conf),
-                        .groupInfo: createGroupOutput.groupState[.groupInfo],
-                        .groupMembers: createGroupOutput.groupState[.groupMembers],
-                        .groupKeys: createGroupOutput.groupState[.groupKeys]
-                    ]
-                )
-            }
-        )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var userGroupsConfig: LibSession.Config!
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            var conf: UnsafeMutablePointer<config_object>!
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: .userGroups(conf),
+                    .groupInfo: createGroupOutput.groupState[.groupInfo],
+                    .groupMembers: createGroupOutput.groupState[.groupMembers],
+                    .groupKeys: createGroupOutput.groupState[.groupKeys]
+                ]
+            )
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+            }
+        }
         
         // MARK: - LibSession
         describe("LibSession") {

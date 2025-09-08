@@ -49,15 +49,6 @@ public final class MockHandler<T> {
         stubs[key, default: []].append(stub)
     }
     
-    internal func reportFailureFromBuilder(
-        _ error: Error,
-        fileID: String = #fileID,
-        file: String = #file,
-        line: UInt = #line
-    ) {
-        failureReporter.reportFailure("Mocking Framework Error during stubbing: \(error)", fileID: fileID, file: file, line: line)
-    }
-    
     // MARK: - Verification
     
     func recordedCalls<R>(for functionBlock: @escaping (T) async throws -> R) async -> [RecordedCall]? {
@@ -257,15 +248,11 @@ public extension MockHandler {
             case .failure(let error):
                 /// Log if the failure was due to a missing mock
                 if case MockError.noStubFound(_, _) = error {
-                    let targetFileID: String = (TestContext.current?.fileID ?? fileID)
-                    let targetFile: String = (TestContext.current?.file ?? file)
-                    let targetLine: UInt = (TestContext.current?.line ?? line)
-                    
                     failureReporter.reportFailure(
                         "Mocking Error: An unstubbed function was called: `\(funcName)`",
-                        fileID: targetFileID,
-                        file: targetFile,
-                        line: targetLine
+                        fileID: fileID,
+                        file: file,
+                        line: line
                     )
                 }
                 

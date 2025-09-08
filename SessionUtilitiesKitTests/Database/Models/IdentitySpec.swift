@@ -8,16 +8,19 @@ import Nimble
 
 @testable import SessionUtilitiesKit
 
-class IdentitySpec: QuickSpec {
+class IdentitySpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: [_001_SUK_InitialSetupMigration.self],
             using: dependencies
         )
+        
+        beforeEach {
+            try await mockStorage.perform(migrations: [_001_SUK_InitialSetupMigration.self])
+        }
         
         // MARK: - an Identity
         describe("an Identity") {

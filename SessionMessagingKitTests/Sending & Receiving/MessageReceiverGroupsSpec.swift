@@ -26,7 +26,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             // MARK: -- when receiving a group invitation
             context("when receiving a group invitation") {
                 // MARK: ---- throws if the admin signature fails to verify
-                itTracked("throws if the admin signature fails to verify") {
+                it("throws if the admin signature fails to verify") {
                     fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -50,7 +50,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- with profile information
                 context("with profile information") {
                     // MARK: ------ updates the profile name
-                    itTracked("updates the profile name") {
+                    it("updates the profile name") {
                         fixture.inviteMessage.profile = VisibleMessage.VMProfile(displayName: "TestName")
                         
                         fixture.mockStorage.write { db in
@@ -72,8 +72,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     // MARK: ------ with a profile picture
                     context("with a profile picture") {
                         // MARK: ------ schedules and starts a displayPictureDownload job if running the main app
-                        itTracked("schedules and starts a displayPictureDownload job if running the main app") {
-                            await fixture.mockAppContext.when { $0.isMainApp }.thenReturn(true)
+                        it("schedules and starts a displayPictureDownload job if running the main app") {
+                            try await fixture.mockAppContext.when { $0.isMainApp }.thenReturn(true)
                             
                             fixture.inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
@@ -117,7 +117,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         }
                         
                         // MARK: ------ schedules but does not start a displayPictureDownload job when not the main app
-                        itTracked("schedules but does not start a displayPictureDownload job when not the main app") {
+                        it("schedules but does not start a displayPictureDownload job when not the main app") {
                             fixture.inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
                                 profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
@@ -162,7 +162,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- creates the thread
-                itTracked("creates the thread") {
+                it("creates the thread") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -181,7 +181,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- creates the group
-                itTracked("creates the group") {
+                it("creates the group") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -201,7 +201,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- adds the group to USER_GROUPS
-                itTracked("adds the group to USER_GROUPS") {
+                it("adds the group to USER_GROUPS") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -233,7 +233,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ adds the group as a pending group invitation
-                    itTracked("adds the group as a pending group invitation") {
+                    it("adds the group as a pending group invitation") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -253,7 +253,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ adds the group to USER_GROUPS with the invited flag set to true
-                    itTracked("adds the group to USER_GROUPS with the invited flag set to true") {
+                    it("adds the group to USER_GROUPS with the invited flag set to true") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -274,7 +274,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ does not start the poller
-                    itTracked("does not start the poller") {
+                    it("does not start the poller") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -296,7 +296,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ sends a local notification about the group invite
-                    itTracked("sends a local notification about the group invite") {
+                    it("sends a local notification about the group invite") {
                         fixture.mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                             .thenReturn(true)
@@ -354,7 +354,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ adds the group as a full group
-                    itTracked("adds the group as a full group") {
+                    it("adds the group as a full group") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -374,7 +374,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the group state
-                    itTracked("creates the group state") {
+                    it("creates the group state") {
                         fixture.mockLibSessionCache
                             .when { $0.hasConfig(for: .any, sessionId: .any) }
                             .thenReturn(false)
@@ -426,7 +426,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ starts the poller
-                    itTracked("starts the poller") {
+                    it("starts the poller") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -451,7 +451,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ sends a local notification about the group invite
-                    itTracked("sends a local notification about the group invite") {
+                    it("sends a local notification about the group invite") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -507,7 +507,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         }
                         
                         // MARK: -------- does not subscribe for push notifications
-                        itTracked("does not subscribe for push notifications") {
+                        it("does not subscribe for push notifications") {
                             // Need to set `isUsingFullAPNs` to true to generate the `expectedRequest`
                             fixture.mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
@@ -607,7 +607,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         }
                         
                         // MARK: -------- subscribes for push notifications
-                        itTracked("subscribes for push notifications") {
+                        it("subscribes for push notifications") {
                             fixture.mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
@@ -691,7 +691,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- adds the invited control message if the thread does not exist
-                itTracked("adds the invited control message if the thread does not exist") {
+                it("adds the invited control message if the thread does not exist") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -711,7 +711,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- does not add the invited control message if the thread already exists
-                itTracked("does not add the invited control message if the thread already exists") {
+                it("does not add the invited control message if the thread already exists") {
                     fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -788,7 +788,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- fails if it cannot convert the group seed to a groupIdentityKeyPair
-                itTracked("fails if it cannot convert the group seed to a groupIdentityKeyPair") {
+                it("fails if it cannot convert the group seed to a groupIdentityKeyPair") {
                     fixture.mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
                     
                     fixture.mockStorage.write { db in
@@ -809,7 +809,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
-                itTracked("updates the GROUP_KEYS state correctly") {
+                it("updates the GROUP_KEYS state correctly") {
                     fixture.mockCrypto
                         .when { $0.generate(.ed25519KeyPair(seed: .any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
@@ -835,7 +835,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- replaces the memberAuthData with the admin key in the database
-                itTracked("replaces the memberAuthData with the admin key in the database") {
+                it("replaces the memberAuthData with the admin key in the database") {
                     fixture.mockStorage.write { db in
                         try ClosedGroup(
                             threadId: fixture.groupId.hexString,
@@ -885,7 +885,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no sender
-                itTracked("throws if there is no sender") {
+                it("throws if there is no sender") {
                     fixture.infoChangedMessage.sender = nil
                     
                     fixture.mockStorage.write { db in
@@ -904,7 +904,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no timestamp
-                itTracked("throws if there is no timestamp") {
+                it("throws if there is no timestamp") {
                     fixture.infoChangedMessage.sentTimestampMs = nil
                     
                     fixture.mockStorage.write { db in
@@ -923,7 +923,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if the admin signature fails to verify
-                itTracked("throws if the admin signature fails to verify") {
+                it("throws if the admin signature fails to verify") {
                     fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -946,7 +946,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- for a name change
                 context("for a name change") {
                     // MARK: ------ creates the correct control message
-                    itTracked("creates the correct control message") {
+                    it("creates the correct control message") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -983,7 +983,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message
-                    itTracked("creates the correct control message") {
+                    it("creates the correct control message") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -1020,7 +1020,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message
-                    itTracked("creates the correct control message") {
+                    it("creates the correct control message") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -1070,7 +1070,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no sender
-                itTracked("throws if there is no sender") {
+                it("throws if there is no sender") {
                     fixture.memberChangedMessage.sender = nil
                     
                     fixture.mockStorage.write { db in
@@ -1089,7 +1089,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no timestamp
-                itTracked("throws if there is no timestamp") {
+                it("throws if there is no timestamp") {
                     fixture.memberChangedMessage.sentTimestampMs = nil
                     
                     fixture.mockStorage.write { db in
@@ -1108,7 +1108,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if the admin signature fails to verify
-                itTracked("throws if the admin signature fails to verify") {
+                it("throws if the admin signature fails to verify") {
                     fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -1129,7 +1129,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- correctly retrieves the member name if present
-                itTracked("correctly retrieves the member name if present") {
+                it("correctly retrieves the member name if present") {
                     fixture.mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
@@ -1161,7 +1161,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- for adding members
                 context("for adding members") {
                     // MARK: ------ creates the correct control message for a single member
-                    itTracked("creates the correct control message for a single member") {
+                    it("creates the correct control message for a single member") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .added,
                             memberSessionIds: [
@@ -1199,7 +1199,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message for two members
-                    itTracked("creates the correct control message for two members") {
+                    it("creates the correct control message for two members") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .added,
                             memberSessionIds: [
@@ -1238,7 +1238,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message for many members
-                    itTracked("creates the correct control message for many members") {
+                    it("creates the correct control message for many members") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .added,
                             memberSessionIds: [
@@ -1281,7 +1281,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- for removing members
                 context("for removing members") {
                     // MARK: ------ creates the correct control message for a single member
-                    itTracked("creates the correct control message for a single member") {
+                    it("creates the correct control message for a single member") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .removed,
                             memberSessionIds: [
@@ -1315,7 +1315,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message for two members
-                    itTracked("creates the correct control message for two members") {
+                    it("creates the correct control message for two members") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .removed,
                             memberSessionIds: [
@@ -1350,7 +1350,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message for many members
-                    itTracked("creates the correct control message for many members") {
+                    it("creates the correct control message for many members") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .removed,
                             memberSessionIds: [
@@ -1389,7 +1389,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- for promoting members
                 context("for promoting members") {
                     // MARK: ------ creates the correct control message for a single member
-                    itTracked("creates the correct control message for a single member") {
+                    it("creates the correct control message for a single member") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .promoted,
                             memberSessionIds: [
@@ -1423,7 +1423,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message for two members
-                    itTracked("creates the correct control message for two members") {
+                    it("creates the correct control message for two members") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .promoted,
                             memberSessionIds: [
@@ -1458,7 +1458,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ creates the correct control message for many members
-                    itTracked("creates the correct control message for many members") {
+                    it("creates the correct control message for many members") {
                         fixture.memberChangedMessage = GroupUpdateMemberChangeMessage(
                             changeType: .promoted,
                             memberSessionIds: [
@@ -1513,7 +1513,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- does not create a control message
-                itTracked("does not create a control message") {
+                it("does not create a control message") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -1531,7 +1531,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no sender
-                itTracked("throws if there is no sender") {
+                it("throws if there is no sender") {
                     fixture.memberLeftMessage.sender = nil
                     
                     fixture.mockStorage.write { db in
@@ -1550,7 +1550,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no timestamp
-                itTracked("throws if there is no timestamp") {
+                it("throws if there is no timestamp") {
                     fixture.memberLeftMessage.sentTimestampMs = nil
                     
                     fixture.mockStorage.write { db in
@@ -1600,7 +1600,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ flags the member for removal keeping their messages
-                    itTracked("flags the member for removal keeping their messages") {
+                    it("flags the member for removal keeping their messages") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -1620,7 +1620,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ flags the GroupMember as pending removal
-                    itTracked("flags the GroupMember as pending removal") {
+                    it("flags the GroupMember as pending removal") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -1639,7 +1639,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ schedules a job to process the pending removal
-                    itTracked("schedules a job to process the pending removal") {
+                    it("schedules a job to process the pending removal") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -1669,7 +1669,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ does not schedule a member change control message to be sent
-                    itTracked("does not schedule a member change control message to be sent") {
+                    it("does not schedule a member change control message to be sent") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
@@ -1732,7 +1732,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- creates the correct control message
-                itTracked("creates the correct control message") {
+                it("creates the correct control message") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -1755,7 +1755,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- correctly retrieves the member name if present
-                itTracked("correctly retrieves the member name if present") {
+                it("correctly retrieves the member name if present") {
                     fixture.mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
@@ -1803,7 +1803,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no sender
-                itTracked("throws if there is no sender") {
+                it("throws if there is no sender") {
                     fixture.inviteResponseMessage.sender = nil
                     
                     fixture.mockStorage.write { db in
@@ -1822,7 +1822,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no timestamp
-                itTracked("throws if there is no timestamp") {
+                it("throws if there is no timestamp") {
                     fixture.inviteResponseMessage.sentTimestampMs = nil
                     
                     fixture.mockStorage.write { db in
@@ -1841,7 +1841,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- updates the profile information in the database if provided
-                itTracked("updates the profile information in the database if provided") {
+                it("updates the profile information in the database if provided") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -1887,7 +1887,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ updates a pending member entry to an accepted member
-                    itTracked("updates a pending member entry to an accepted member") {
+                    it("updates a pending member entry to an accepted member") {
                         fixture.mockStorage.write { db in
                             try GroupMember(
                                 groupId: fixture.groupId.hexString,
@@ -1925,7 +1925,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ updates a failed member entry to an accepted member
-                    itTracked("updates a failed member entry to an accepted member") {
+                    it("updates a failed member entry to an accepted member") {
                         var cMemberId1: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cString(using: .utf8)!
                         var groupMember1: config_group_member = config_group_member()
                         _ = groups_members_get(fixture.groupMembersConfig.conf, &groupMember1, &cMemberId1)
@@ -1969,7 +1969,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ updates the entry in libSession directly if there is no database value
-                    itTracked("updates the entry in libSession directly if there is no database value") {
+                    it("updates the entry in libSession directly if there is no database value") {
                         fixture.mockStorage.write { db in
                             _ = try GroupMember.deleteAll(db)
                         }
@@ -1993,7 +1993,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ---- updates the config member entry with profile information if provided
-                    itTracked("updates the config member entry with profile information if provided") {
+                    it("updates the config member entry with profile information if provided") {
                         fixture.mockStorage.write { db in
                             _ = try GroupMember.deleteAll(db)
                         }
@@ -2136,7 +2136,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no sender and no admin signature
-                itTracked("throws if there is no sender and no admin signature") {
+                it("throws if there is no sender and no admin signature") {
                     fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                         memberSessionIds: ["051111111111111111111111111111111111111111111111111111111111111112"],
                         messageHashes: [],
@@ -2160,7 +2160,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if there is no timestamp
-                itTracked("throws if there is no timestamp") {
+                it("throws if there is no timestamp") {
                     fixture.deleteContentMessage.sentTimestampMs = nil
                     
                     fixture.mockStorage.write { db in
@@ -2179,7 +2179,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if the admin signature fails to verify
-                itTracked("throws if the admin signature fails to verify") {
+                it("throws if the admin signature fails to verify") {
                     fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -2202,7 +2202,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- and there is no admin signature
                 context("and there is no admin signature") {
                     // MARK: ------ removes content for specific messages from the database
-                    itTracked("removes content for specific messages from the database") {
+                    it("removes content for specific messages from the database") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2229,7 +2229,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ removes content for all messages from the sender from the database
-                    itTracked("removes content for all messages from the sender from the database") {
+                    it("removes content for all messages from the sender from the database") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
@@ -2258,7 +2258,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ ignores messages not sent by the sender
-                    itTracked("ignores messages not sent by the sender") {
+                    it("ignores messages not sent by the sender") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash1", "TestMessageHash3"],
@@ -2305,7 +2305,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ ignores messages sent after the delete content message was sent
-                    itTracked("ignores messages sent after the delete content message was sent") {
+                    it("ignores messages sent after the delete content message was sent") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3", "TestMessageHash4"],
@@ -2355,7 +2355,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- and there is no admin signature
                 context("and there is no admin signature") {
                     // MARK: ------ removes content for specific messages from the database
-                    itTracked("removes content for specific messages from the database") {
+                    it("removes content for specific messages from the database") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2382,7 +2382,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ removes content for all messages for a given id from the database
-                    itTracked("removes content for all messages for a given id from the database") {
+                    it("removes content for all messages for a given id from the database") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
@@ -2411,7 +2411,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ removes content for specific messages sent from a user that is not the sender from the database
-                    itTracked("removes content for specific messages sent from a user that is not the sender from the database") {
+                    it("removes content for specific messages sent from a user that is not the sender from the database") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2438,7 +2438,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ removes content for all messages for a given id that is not the sender from the database
-                    itTracked("removes content for all messages for a given id that is not the sender from the database") {
+                    it("removes content for all messages for a given id that is not the sender from the database") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
@@ -2467,7 +2467,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ ignores messages sent after the delete content message was sent
-                    itTracked("ignores messages sent after the delete content message was sent") {
+                    it("ignores messages sent after the delete content message was sent") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111111",
@@ -2534,7 +2534,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ deletes the messages from the swarm
-                    itTracked("deletes the messages from the swarm") {
+                    it("deletes the messages from the swarm") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2583,7 +2583,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- and the current user is not an admin
                 context("and the current user is not an admin") {
                     // MARK: ------ does not delete the messages from the swarm
-                    itTracked("does not delete the messages from the swarm") {
+                    it("does not delete the messages from the swarm") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2716,7 +2716,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                     
                 // MARK: ---- deletes any interactions from the conversation
-                itTracked("deletes any interactions from the conversation") {
+                it("deletes any interactions from the conversation") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
@@ -2731,7 +2731,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- deletes the group auth data
-                itTracked("deletes the group auth data") {
+                it("deletes the group auth data") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
@@ -2758,7 +2758,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- deletes the group members
-                itTracked("deletes the group members") {
+                it("deletes the group members") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
@@ -2773,7 +2773,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- removes the group libSession state
-                itTracked("removes the group libSession state") {
+                it("removes the group libSession state") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
@@ -2790,7 +2790,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- removes the cached libSession state dumps
-                itTracked("removes the cached libSession state dumps") {
+                it("removes the cached libSession state dumps") {
                     fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
@@ -2814,7 +2814,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ------ unsubscribes from push notifications
-                itTracked("unsubscribes from push notifications") {
+                it("unsubscribes from push notifications") {
                     fixture.mockUserDefaults
                         .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                         .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
@@ -2874,7 +2874,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ deletes the thread
-                    itTracked("deletes the thread") {
+                    it("deletes the thread") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2889,7 +2889,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ deletes the group
-                    itTracked("deletes the group") {
+                    it("deletes the group") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2904,7 +2904,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ---- stops the poller
-                    itTracked("stops the poller") {
+                    it("stops the poller") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2920,7 +2920,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ removes the group from the USER_GROUPS config
-                    itTracked("removes the group from the USER_GROUPS config") {
+                    it("removes the group from the USER_GROUPS config") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2945,7 +2945,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ does not delete the thread
-                    itTracked("does not delete the thread") {
+                    it("does not delete the thread") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2960,7 +2960,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ does not remove the group from the USER_GROUPS config
-                    itTracked("does not remove the group from the USER_GROUPS config") {
+                    it("does not remove the group from the USER_GROUPS config") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2976,7 +2976,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ---- stops the poller and flags the group to not poll
-                    itTracked("stops the poller and flags the group to not poll") {
+                    it("stops the poller and flags the group to not poll") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -2999,7 +2999,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     // MARK: ------ marks the group in USER_GROUPS as kicked
-                    itTracked("marks the group in USER_GROUPS as kicked") {
+                    it("marks the group in USER_GROUPS as kicked") {
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
@@ -3016,7 +3016,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if the data is invalid
-                itTracked("throws if the data is invalid") {
+                it("throws if the data is invalid") {
                     fixture.deleteMessage = Data([1, 2, 3])
                     
                     fixture.mockStorage.write { db in
@@ -3033,7 +3033,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if the included member id does not match the current user
-                itTracked("throws if the included member id does not match the current user") {
+                it("throws if the included member id does not match the current user") {
                     fixture.deleteMessage = try! LibSessionMessage.groupKicked(
                         memberId: "051111111111111111111111111111111111111111111111111111111111111111",
                         groupKeysGen: 1
@@ -3053,7 +3053,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- throws if the key generation is earlier than the current keys generation
-                itTracked("throws if the key generation is earlier than the current keys generation") {
+                it("throws if the key generation is earlier than the current keys generation") {
                     fixture.deleteMessage = try! LibSessionMessage.groupKicked(
                         memberId: "05\(TestConstants.publicKey)",
                         groupKeysGen: 0
@@ -3109,7 +3109,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- updates a pending member entry to an accepted member
-                itTracked("updates a pending member entry to an accepted member") {
+                it("updates a pending member entry to an accepted member") {
                     fixture.mockStorage.write { db in
                         try GroupMember(
                             groupId: fixture.groupId.hexString,
@@ -3148,7 +3148,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- updates a failed member entry to an accepted member
-                itTracked("updates a failed member entry to an accepted member") {
+                it("updates a failed member entry to an accepted member") {
                     var cMemberId1: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cString(using: .utf8)!
                     var groupMember1: config_group_member = config_group_member()
                     _ = groups_members_get(fixture.groupMembersConfig.conf, &groupMember1, &cMemberId1)
@@ -3193,7 +3193,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 }
                 
                 // MARK: ---- updates the entry in libSession directly if there is no database value
-                itTracked("updates the entry in libSession directly if there is no database value") {
+                it("updates the entry in libSession directly if there is no database value") {
                     fixture.mockStorage.write { db in
                         _ = try GroupMember.deleteAll(db)
                     }
@@ -3521,18 +3521,18 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await applyBaselineStorage()
         await applyBaselineNetwork()
         await applyBaselineJobRunner()
-        await applyBaselineAppContext()
+        try await applyBaselineAppContext()
         await applyBaselineUserDefaults()
         await applyBaselineCrypto()
         await applyBaselineKeychain()
         await applyBaselineFileManager()
         await applyBaselineExtensionHelper()
-        await applyBaselineGroupPollerManager()
+        try await applyBaselineGroupPollerManager()
         await applyBaselineNotificationsManager()
         await applyBaselineGeneralCache()
         await applyBaselineLibSessionCache()
         await applyBaselineSnodeAPICache()
-        await applyBaselinePoller()
+        try await applyBaselinePoller()
     }
     
     private func applyBaselineStorage() async throws {
@@ -3600,8 +3600,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         mockJobRunner.when { $0.manuallyTriggerResult(.any, result: .any) }.thenReturn(())
     }
     
-    private func applyBaselineAppContext() async {
-        await mockAppContext.when { $0.isMainApp }.thenReturn(false)
+    private func applyBaselineAppContext() async throws {
+        try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
     }
     
     private func applyBaselineUserDefaults() async {
@@ -3670,11 +3670,11 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn(())
     }
     
-    private func applyBaselineGroupPollerManager() async {
-        await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
-        await mockGroupPollerManager.when { await $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
-        await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
-        await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+    private func applyBaselineGroupPollerManager() async throws {
+        try await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
+        try await mockGroupPollerManager.when { await $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
+        try await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+        try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
     }
     
     private func applyBaselineNotificationsManager() async {
@@ -3702,14 +3702,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         mockSnodeAPICache.defaultInitialSetup()
     }
     
-    private func applyBaselinePoller() async {
-        await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
-        await mockPoller.when { $0.receivedPollResponse }.thenReturn(.singleValue(value: ()))
-    }
-    
-    // MARK: - Test Specific Configurations
-    
-    @MainActor func setupForActivePolling() async {
+    private func applyBaselinePoller() async throws {
+        try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
+        try await mockPoller.when { $0.receivedPollResponse }.thenReturn(.singleValue(value: ()))
     }
 }
 

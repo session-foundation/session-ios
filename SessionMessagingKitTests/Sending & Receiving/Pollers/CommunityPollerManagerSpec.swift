@@ -25,7 +25,7 @@ class CommunityPollerManagerSpec: AsyncSpec {
             context("when starting polling") {
                 // MARK: ---- creates pollers for all of the communities
                 it("creates pollers for all of the communities") {
-                    await fixture.setupForActivePolling()
+                    try await fixture.setupForActivePolling()
                     await fixture.manager.startAllPollers()
                     
                     await expect { await fixture.manager.serversBeingPolled }
@@ -34,7 +34,7 @@ class CommunityPollerManagerSpec: AsyncSpec {
                 
                 // MARK: ---- creates a poll task
                 it("creates a poll task") {
-                    await fixture.setupForActivePolling()
+                    try await fixture.setupForActivePolling()
                     await fixture.manager.startAllPollers()
                     
                     await expect { await fixture.manager.allPollers.count } .to(equal(2))
@@ -45,7 +45,7 @@ class CommunityPollerManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does not create additional pollers if it's already polling
                 it("does not create additional pollers if it's already polling") {
-                    await fixture.setupForActivePolling()
+                    try await fixture.setupForActivePolling()
                     await fixture.manager
                         .getOrCreatePoller(for: CommunityPoller.Info(server: "testserver", pollFailureCount: 0))
                         .startIfNeeded()
@@ -116,7 +116,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     private func applyBaselineStubs() async throws {
         try await applyBaselineStorage()
         await applyBaselineNetwork()
-        await applyBaselineAppContext()
+        try await applyBaselineAppContext()
         await applyBaselineUserDefaults()
         await applyBaselineGeneralCache()
         await applyBaselineOGMCache()
@@ -180,8 +180,8 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
             )
     }
     
-    private func applyBaselineAppContext() async {
-        await mockAppContext.when { await $0.isMainAppAndActive }.thenReturn(false)
+    private func applyBaselineAppContext() async throws {
+        try await mockAppContext.when { await $0.isMainAppAndActive }.thenReturn(false)
     }
     
     private func applyBaselineUserDefaults() async {}
@@ -229,7 +229,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     
     // MARK: - Test Specific Configurations
     
-    @MainActor func setupForActivePolling() async {
-        await mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
+    @MainActor func setupForActivePolling() async throws {
+        try await mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
     }
 }

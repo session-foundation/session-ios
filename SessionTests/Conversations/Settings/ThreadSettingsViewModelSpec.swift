@@ -29,22 +29,9 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(
-                    variant: .x25519PublicKey,
-                    data: Data(hex: TestConstants.publicKey)
-                ).insert(db)
-                try Profile(id: userPubkey, name: "TestMe").insert(db)
-                try Profile(id: user2Pubkey, name: "TestUser").insert(db)
-            }
+            using: dependencies
         )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-            }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -58,9 +45,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     .thenReturn([:])
             }
         )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
@@ -68,22 +53,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             }
         )
-        @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
-            initialSetup: { cache in
-                var timestampMs: Int64 = 1234567890000
-                
-                cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache
-                    .when { $0.currentOffsetTimestampMs() }
-                    .thenReturn { _, _ in
-                        /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
-                        /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
-                        /// being identical between different interactions
-                        timestampMs += 1
-                        return timestampMs
-                    }
-            }
-        )
+        @TestState var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache()
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -117,7 +87,39 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 )
                 .store(in: &disposables)
         }
-        
+
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            var timestampMs: Int64 = 1234567890000
+            mockSnodeAPICache.when { $0.clockOffsetMs }.thenReturn(0)
+            mockSnodeAPICache
+                .when { $0.currentOffsetTimestampMs() }
+                .thenReturn { _, _ in
+                    /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                    /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                    /// being identical between different interactions
+                    timestampMs += 1
+                    return timestampMs
+                }
+            dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(
+                    variant: .x25519PublicKey,
+                    data: Data(hex: TestConstants.publicKey)
+                ).insert(db)
+                try Profile(id: userPubkey, name: "TestMe").insert(db)
+                try Profile(id: user2Pubkey, name: "TestUser").insert(db)
+            }
+        }
+
         // MARK: - a ThreadSettingsViewModel
         describe("a ThreadSettingsViewModel") {
             beforeEach {
