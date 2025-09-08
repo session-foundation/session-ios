@@ -741,9 +741,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 body: text
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
-            expiresStartedAtMs: threadData.disappearingMessagesConfiguration?.initialExpiresStartedAtMs(
-                sentTimestampMs: Double(sentTimestampMs)
-            ),
             linkPreviewUrl: linkPreviewDraft?.urlString,
             isProMessage: (text.defaulting(to: "").utf16.count > LibSession.CharacterLimit),
             using: dependencies
