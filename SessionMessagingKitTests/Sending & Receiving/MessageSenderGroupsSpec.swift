@@ -52,53 +52,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             }
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.ed25519KeyPair()) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: groupId.hexString).bytes,
-                            secretKey: groupSecretKey.bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: groupId.hexString).bytes,
-                            secretKey: groupSecretKey.bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.memberAuthData(config: .any, groupSessionId: .any, memberId: .any)) }
-                    .thenReturn(Authentication.Info.groupMember(
-                        groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                        authData: "TestAuthData".data(using: .utf8)!
-                    ))
-                crypto
-                    .when { $0.generate(.tokenSubaccount(config: .any, groupSessionId: .any, memberId: .any)) }
-                    .thenReturn(Array("TestSubAccountToken".data(using: .utf8)!))
-                crypto
-                    .when { try $0.tryGenerate(.randomBytes(.any)) }
-                    .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
-                crypto
-                    .when { $0.generate(.uuid()) }
-                    .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-                crypto
-                    .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any)) }
-                    .thenReturn(TestConstants.validImageData)
-                crypto
-                    .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
-                    .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
-                crypto
-                    .when { $0.generate(.hash(message: .any)) }
-                    .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
-            }
-        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
             initialSetup: { keychain in
                 keychain
@@ -191,6 +145,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             mockSnodeAPICache.defaultInitialSetup()
             dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
             
+            mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
             mockNetwork
                 .when {
                     $0.send(
@@ -251,6 +206,50 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     name: "TestCurrentUser"
                 ).insert(db)
             }
+            
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair()) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: groupId.hexString).bytes,
+                        secretKey: groupSecretKey.bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: groupId.hexString).bytes,
+                        secretKey: groupSecretKey.bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.memberAuthData(config: .any, groupSessionId: .any, memberId: .any)) }
+                .thenReturn(Authentication.Info.groupMember(
+                    groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                    authData: "TestAuthData".data(using: .utf8)!
+                ))
+            try await mockCrypto
+                .when { $0.generate(.tokenSubaccount(config: .any, groupSessionId: .any, memberId: .any)) }
+                .thenReturn(Array("TestSubAccountToken".data(using: .utf8)!))
+            try await mockCrypto
+                .when { try $0.tryGenerate(.randomBytes(.any)) }
+                .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
+            try await mockCrypto
+                .when { $0.generate(.uuid()) }
+                .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+            try await mockCrypto
+                .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any)) }
+                .thenReturn(TestConstants.validImageData)
+            try await mockCrypto
+                .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
+                .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any)) }
+                .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
         }
         
         // MARK: - a MessageSender dealing with Groups

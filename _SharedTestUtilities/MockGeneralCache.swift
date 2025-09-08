@@ -46,6 +46,7 @@ extension Mock where T == GeneralCacheType {
         self.when { $0.userExists }.thenReturn(true)
         self.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
         self.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+        self.when { $0.setSecretKey(ed25519SecretKey: .any) }.thenReturn(())
         self
             .when { $0.ed25519Seed }
             .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))

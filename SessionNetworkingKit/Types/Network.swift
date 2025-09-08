@@ -69,7 +69,11 @@ public extension NetworkType {
 /// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
 public final class NetworkSyncState: @unchecked Sendable {
     private let lock = NSLock()
-    private var _isSuspended: Bool = false
+    private var _isSuspended: Bool
+    
+    public init(isSuspended: Bool = false) {
+        self._isSuspended = isSuspended
+    }
     
     public var isSuspended: Bool { lock.withLock { _isSuspended } }
 

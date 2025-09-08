@@ -140,52 +140,10 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                     }
                     .thenReturn(MockNetwork.errorResponse())
+                network.when { $0.syncState }.thenReturn(NetworkSyncState(isSuspended: false))
             }
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { defaults in
                 defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
@@ -256,6 +214,47 @@ class OpenGroupManagerSpec: AsyncSpec {
                 try testOpenGroup.insert(db)
                 try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
             }
+            
+            try await mockCrypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                .thenReturn(Data([1, 2, 3]))
         }
         
         // MARK: - an OpenGroupManager
@@ -271,6 +270,9 @@ class OpenGroupManagerSpec: AsyncSpec {
                     .thenReturn(mockPoller)
                 try await mockCommunityPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
                 try await mockCommunityPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+                try await mockCommunityPollerManager
+                    .when { await $0.syncState }
+                    .thenReturn(CommunityPollerManagerSyncState())
                 
                 _ = userGroupsInitResult
             }
@@ -1979,7 +1981,7 @@ class OpenGroupManagerSpec: AsyncSpec {
             // MARK: -- when handling direct messages
             context("when handling direct messages") {
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(
                                 .plaintextWithSessionBlindingProtocol(
@@ -1996,7 +1998,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                             Data([UInt8](repeating: 0, count: 32)),
                             senderSessionIdHex: "05\(TestConstants.publicKey)"
                         ))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                 }
@@ -2092,7 +2094,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- for the inbox
                 context("for the inbox") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
                             .thenReturn(false)
                     }
@@ -2121,7 +2123,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     
                     // MARK: ------ ignores a message with invalid data
                     it("ignores a message with invalid data") {
-                        mockCrypto
+                        try await mockCrypto
                             .when {
                                 $0.generate(
                                     .plaintextWithSessionBlindingProtocol(
@@ -2194,7 +2196,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- for the outbox
                 context("for the outbox") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
                             .thenReturn(false)
                     }
@@ -2277,7 +2279,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     
                     // MARK: ------ ignores a message with invalid data
                     it("ignores a message with invalid data") {
-                        mockCrypto
+                        try await mockCrypto
                             .when {
                                 $0.generate(
                                     .plaintextWithSessionBlindingProtocol(
@@ -2547,9 +2549,9 @@ class OpenGroupManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockCrypto).to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.generate(.ed25519KeyPair(seed: [4, 5, 6]))
-                        })
+                        await mockCrypto
+                            .verify { $0.generate(.ed25519KeyPair(seed: [4, 5, 6])) }
+                            .wasCalled(exactly: 1)
                     }
                 }
             }

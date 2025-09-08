@@ -7,26 +7,26 @@ import Nimble
 
 @testable import SessionUtilitiesKit
 
-class GeneralCacheSpec: QuickSpec {
+class GeneralCacheSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
+        
+        beforeEach {
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
-                crypto
-                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.publicKey)))
-            }
-        )
+                )
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.publicKey)))
+        }
         
         // MARK: - a General Cache
         describe("a General Cache") {
@@ -57,7 +57,7 @@ class GeneralCacheSpec: QuickSpec {
             
             // MARK: -- remains invalid when given a seckey that is too short
             it("remains invalid when given a seckey that is too short") {
-                mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                try await mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: [1, 2, 3])
                 
@@ -68,7 +68,7 @@ class GeneralCacheSpec: QuickSpec {
             
             // MARK: -- remains invalid when ed key pair generation fails
             it("remains invalid when ed key pair generation fails") {
-                mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                try await mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
                 
@@ -79,7 +79,7 @@ class GeneralCacheSpec: QuickSpec {
             
             // MARK: -- remains invalid when x25519 pubkey generation fails
             it("remains invalid when x25519 pubkey generation fails") {
-                mockCrypto.when { $0.generate(.x25519(ed25519Pubkey: .any)) }.thenReturn(nil)
+                try await mockCrypto.when { $0.generate(.x25519(ed25519Pubkey: .any)) }.thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
                 

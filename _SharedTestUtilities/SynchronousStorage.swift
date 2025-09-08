@@ -6,16 +6,13 @@ import TestUtilities
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage, DependenciesSettable {
-    public var _dependencies: Dependencies!
-    public var dependencies: Dependencies { _dependencies }
+class SynchronousStorage: Storage {
+    public let dependencies: Dependencies
     
-    // MARK: - DependenciesSettable
-    
-    func setDependencies(_ dependencies: Dependencies?) {
-        guard let dependencies: Dependencies = dependencies else { return }
+    public override init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         
-        self._dependencies = dependencies
+        super.init(customWriter: customWriter, using: dependencies)
     }
     
     // MARK: - Overwritten Functions

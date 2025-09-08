@@ -223,18 +223,22 @@ public class TestDependencies: Dependencies {
     }
     
     public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
         _singletonInstances.performUpdate { $0.setting(singleton.identifier, instance) }
     }
     
     public override func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
         _cacheInstances.performUpdate { $0.setting(cache.identifier, cache.mutableInstance(instance)) }
     }
     
     public func set<T: UserDefaultsType>(defaults: UserDefaultsConfig, to instance: T) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
         _defaultsInstances.performUpdate { $0.setting(defaults.identifier, instance) }
     }
     
     public func set<T: FeatureOption>(feature: FeatureConfig<T>, to instance: Feature<T>) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
         _featureInstances.performUpdate { $0.setting(feature.identifier, instance) }
     }
     

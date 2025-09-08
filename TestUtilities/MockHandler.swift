@@ -43,10 +43,27 @@ public final class MockHandler<T> {
     }
     
     internal func register(stub: MockFunction) {
-        lock.lock()
-        defer { lock.unlock() }
         let key: Key = Key(name: stub.name, generics: stub.generics, paramCount: stub.arguments.count)
-        stubs[key, default: []].append(stub)
+        
+        locked {
+            stubs[key, default: []].append(stub)
+        }
+    }
+    
+    internal func removeStubs<R>(for functionBlock: @escaping (T) async throws -> R) async {
+        let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
+        
+        guard let builtFunction: MockFunction = try? await builder.build() else { return }
+        
+        let key: Key = Key(
+            name: builtFunction.name,
+            generics: builtFunction.generics,
+            paramCount: builtFunction.arguments.count
+        )
+        
+        locked {
+            stubs.removeValue(forKey: key)
+        }
     }
     
     // MARK: - Verification
@@ -64,7 +81,7 @@ public final class MockHandler<T> {
             paramCount: builtFunction.arguments.count
         )
         
-        guard let callsForKey: [RecordedCall] = calls[key] else { return [] }
+        guard let callsForKey: [RecordedCall] = locked({ calls[key] }) else { return [] }
         
         return callsForKey.filter { builtFunction.matches(args: $0.args) }
     }
@@ -82,17 +99,27 @@ public final class MockHandler<T> {
             paramCount: builtFunction.arguments.count
         )
         
-        return calls[key]
+        return locked {
+            calls[key]
+        }
     }
     
     // MARK: - Test Lifecycle
     
     public func reset() {
-        stubs.removeAll()
-        calls.removeAll()
+        locked {
+            stubs.removeAll()
+            calls.removeAll()
+        }
     }
     
     // MARK: - Internal Logic
+    
+    @discardableResult private func locked<R>(_ operation: () -> R) -> R {
+        lock.lock()
+        defer { lock.unlock() }
+        return operation()
+    }
     
     private func findAndExecute<Output>(
         funcName: String,
@@ -102,14 +129,15 @@ public final class MockHandler<T> {
         file: String,
         line: UInt
     ) -> Result<Output, Error> {
-        lock.lock()
         let key: Key = Key(name: funcName, generics: generics, paramCount: args.count)
         let recordedCall: RecordedCall = RecordedCall(name: funcName, args: args)
-        calls[key, default: []].append(recordedCall)
         
         /// Get the `last` value as it was the one called most recently
-        let maybeMatchingCall: MockFunction? = stubs[key]?.last(where: { $0.matches(args: args) })
-        lock.unlock()
+        let maybeMatchingCall: MockFunction? = locked {
+            calls[key, default: []].append(recordedCall)
+            
+            return stubs[key]?.last(where: { $0.matches(args: args) })
+        }
         
         guard let matchingCall: MockFunction = maybeMatchingCall else {
             return .failure(MockError.noStubFound(function: funcName, args: args))

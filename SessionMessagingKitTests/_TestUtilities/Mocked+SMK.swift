@@ -245,3 +245,13 @@ extension PollerDestination: @retroactive Mocked {
     public static var any: PollerDestination { .swarm(.any) }
     public static var mock: PollerDestination { .swarm(TestConstants.publicKey) }
 }
+
+extension CommunityPollerManagerSyncState: @retroactive Mocked {
+    public static var any: CommunityPollerManagerSyncState = CommunityPollerManagerSyncState(
+        serversBeingPolled: .any
+    )
+    
+    public static var mock: CommunityPollerManagerSyncState = CommunityPollerManagerSyncState(
+        serversBeingPolled: .mock
+    )
+}

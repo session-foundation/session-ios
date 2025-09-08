@@ -46,13 +46,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             }
         )
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-            }
-        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache()
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
@@ -118,6 +112,10 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 try Profile(id: userPubkey, name: "TestMe").insert(db)
                 try Profile(id: user2Pubkey, name: "TestUser").insert(db)
             }
+            
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
         }
 
         // MARK: - a ThreadSettingsViewModel

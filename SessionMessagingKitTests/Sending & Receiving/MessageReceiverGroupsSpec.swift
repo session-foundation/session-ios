@@ -27,7 +27,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             context("when receiving a group invitation") {
                 // MARK: ---- throws if the admin signature fails to verify
                 it("throws if the admin signature fails to verify") {
-                    fixture.mockCrypto
+                    try await fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
                     
@@ -789,7 +789,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- fails if it cannot convert the group seed to a groupIdentityKeyPair
                 it("fails if it cannot convert the group seed to a groupIdentityKeyPair") {
-                    fixture.mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                    try await fixture.mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
                     
                     fixture.mockStorage.write { db in
                         result = Result(catching: {
@@ -810,7 +810,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
                 it("updates the GROUP_KEYS state correctly") {
-                    fixture.mockCrypto
+                    try await fixture.mockCrypto
                         .when { $0.generate(.ed25519KeyPair(seed: .any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     
@@ -924,7 +924,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- throws if the admin signature fails to verify
                 it("throws if the admin signature fails to verify") {
-                    fixture.mockCrypto
+                    try await fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
                     
@@ -1109,7 +1109,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- throws if the admin signature fails to verify
                 it("throws if the admin signature fails to verify") {
-                    fixture.mockCrypto
+                    try await fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
                     
@@ -2180,7 +2180,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- throws if the admin signature fails to verify
                 it("throws if the admin signature fails to verify") {
-                    fixture.mockCrypto
+                    try await fixture.mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
                     
@@ -3236,7 +3236,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockJobRunner: MockJobRunner { mock(for: .jobRunner) { MockJobRunner() } }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(for: .standard) { MockUserDefaults() } }
-    var mockCrypto: MockCrypto { mock(for: .crypto) { MockCrypto() } }
+    var mockCrypto: MockCrypto { mock(for: .crypto) }
     var mockKeychain: MockKeychain { mock(for: .keychain) { MockKeychain() } }
     var mockFileManager: MockFileManager { mock(for: .fileManager) { MockFileManager() } }
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) { MockExtensionHelper() } }
@@ -3523,7 +3523,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         await applyBaselineJobRunner()
         try await applyBaselineAppContext()
         await applyBaselineUserDefaults()
-        await applyBaselineCrypto()
+        try await applyBaselineCrypto()
         await applyBaselineKeychain()
         await applyBaselineFileManager()
         await applyBaselineExtensionHelper()
@@ -3608,25 +3608,25 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         mockUserDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
     }
     
-    private func applyBaselineCrypto() async {
-        mockCrypto
+    private func applyBaselineCrypto() async throws {
+        try await mockCrypto
             .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
             .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-        mockCrypto
+        try await mockCrypto
             .when { $0.generate(.signatureSubaccount(config: .any, verificationBytes: .any, memberAuthData: .any)) }
             .thenReturn(Authentication.Signature.subaccount(
                 subaccount: "TestSubAccount".bytes,
                 subaccountSig: "TestSubAccountSignature".bytes,
                 signature: "TestSignature".bytes
             ))
-        mockCrypto
+        try await mockCrypto
             .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
             .thenReturn(true)
-        mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(groupKeyPair)
-        mockCrypto
+        try await mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(groupKeyPair)
+        try await mockCrypto
             .when { $0.verify(.memberAuthData(groupSessionId: .any, ed25519SecretKey: .any, memberAuthData: .any)) }
             .thenReturn(true)
-        mockCrypto
+        try await mockCrypto
             .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
             .thenReturn("TestHash".bytes)
     }

@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import TestUtilities
 
 import Quick
 import Nimble
@@ -58,30 +59,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
-                crypto
-                    .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                    .thenReturn(imageData)
-                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!.bytes)
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-            }
-        )
-        
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState(singleton: .imageDataManager, in: dependencies) var mockImageDataManager: MockImageDataManager! = MockImageDataManager(
             initialSetup: { imageDataManager in
                 imageDataManager
@@ -106,6 +84,26 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
+            
+            try await mockCrypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
+            try await mockCrypto
+                .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                .thenReturn(imageData)
+            try await mockCrypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!.bytes)
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
         }
         
         // MARK: - a DisplayPictureDownloadJob
@@ -631,7 +629,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 // MARK: ---- when it fails to decrypt the data
                 context("when it fails to decrypt the data") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                             .thenReturn(nil)
                     }
@@ -650,7 +648,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 // MARK: ---- when it decrypts invalid image data
                 context("when it decrypts invalid image data") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                             .thenReturn(Data([1, 2, 3]))
                     }
@@ -746,13 +744,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockCrypto)
-                                .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled()
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNotEventually(call {
+                            await expect(mockImageDataManager).toNotEventually(call {
                                 await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(beNil())
@@ -774,13 +771,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockCrypto)
-                                .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled()
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNotEventually(call {
+                            await expect(mockImageDataManager).toNotEventually(call {
                                 await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
@@ -811,13 +807,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockCrypto)
-                                .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled()
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNotEventually(call {
+                            await expect(mockImageDataManager).toNotEventually(call {
                                 await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
@@ -847,10 +842,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- saves the picture
                         it("saves the picture") {
-                            expect(mockCrypto)
-                                .to(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasCalled(exactly: 1)
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
                                     atPath: "/test/DisplayPictures/5465737448617368",
@@ -859,7 +853,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 )
                             })
                             
-                            expect(mockImageDataManager)
+                            await expect(mockImageDataManager)
                                 .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                                     await $0.load(
                                         .url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))
@@ -944,13 +938,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockCrypto)
-                                .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled()
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNotEventually(call {
+                            await expect(mockImageDataManager).toNotEventually(call {
                                 await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) }).to(beNil())
@@ -971,13 +964,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockCrypto)
-                                .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled()
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNotEventually(call {
+                            await expect(mockImageDataManager).toNotEventually(call {
                                 await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
@@ -1012,13 +1004,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockCrypto)
-                                .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
-                                })
+                            await mockCrypto
+                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled()
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
-                            expect(mockImageDataManager).toNotEventually(call {
+                            await expect(mockImageDataManager).toNotEventually(call {
                                 await $0.load(.any)
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })

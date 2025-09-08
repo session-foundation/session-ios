@@ -25,4 +25,8 @@ public extension Mockable {
     func when<R>(_ callBlock: @escaping (MockedType) async throws -> R) -> MockFunctionBuilder<MockedType, R> {
         return handler.createBuilder(for: callBlock)
     }
+    
+    func removeMocksFor<R>(_ callBlock: @escaping (MockedType) async throws -> R) async {
+        await handler.removeStubs(for: callBlock)
+    }
 }

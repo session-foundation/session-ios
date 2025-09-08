@@ -24,40 +24,20 @@ class LibSessionSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.ed25519KeyPair()) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
-                            secretKey: Array(Data(
-                                hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
-                                "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
-                            ))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
-                            secretKey: Array(Data(
-                                hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
-                                "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
-                            ))
-                        )
-                    )
-                crypto
-                    .when { try $0.tryGenerate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
-                    )
-            }
-        )
-        @TestState var createGroupOutput: LibSession.CreatedGroupInfo! = {
-            mockStorage.write { db in
-                 try LibSession.createGroup(
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
+        @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var userGroupsConfig: LibSession.Config!
+        
+        beforeEach {
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                createGroupOutput = try LibSession.createGroup(
                     db,
                     name: "TestGroup",
                     description: nil,
@@ -67,11 +47,7 @@ class LibSessionSpec: AsyncSpec {
                     using: dependencies
                  )
             }
-        }()
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState var userGroupsConfig: LibSession.Config!
-        
-        beforeEach {
+            
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
@@ -90,13 +66,33 @@ class LibSessionSpec: AsyncSpec {
             )
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair()) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
+                        secretKey: Array(Data(
+                            hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                            "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                        ))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
+                        secretKey: Array(Data(
+                            hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                            "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                        ))
+                    )
+                )
+            try await mockCrypto
+                .when { try $0.tryGenerate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
+                )
         }
         
         // MARK: - LibSession
@@ -347,7 +343,7 @@ class LibSessionSpec: AsyncSpec {
                 it("throws when it fails to generate a new identity ed25519 keyPair") {
                     var resultError: Error? = nil
                     
-                    mockCrypto.when { $0.generate(.ed25519KeyPair()) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.ed25519KeyPair()) }.thenReturn(nil)
                     
                     mockStorage.write { db in
                         do {

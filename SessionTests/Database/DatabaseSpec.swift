@@ -70,21 +70,15 @@ class DatabaseSpec: AsyncSpec {
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
                 expect {
-                    try await mockStorage.perform(
-                        migrations: allMigrations,
-                        onProgressUpdate: nil
-                    )
+                    try await mockStorage.perform(migrations: allMigrations)
                 }.toNot(throwError())
             }
             
             // MARK: -- can still parse the database table types
             it("can still parse the database table types") {
-                expect {
-                    try await mockStorage.perform(
-                        migrations: allMigrations,
-                        onProgressUpdate: nil
-                    )
-                }.toNot(throwError())
+                await expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toEventuallyNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
                 expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: false))
@@ -101,12 +95,9 @@ class DatabaseSpec: AsyncSpec {
             
             // MARK: -- can still parse the database types setting null where possible
             it("can still parse the database types setting null where possible") {
-                expect {
-                    try await mockStorage.perform(
-                        migrations: allMigrations,
-                        onProgressUpdate: nil
-                    )
-                }.toNot(throwError())
+                await expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toEventuallyNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
                 expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: true))
@@ -135,12 +126,7 @@ class DatabaseSpec: AsyncSpec {
                                 customWriter: dbQueue,
                                 using: dependencies
                             )
-                            
-                            // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
-                            try await mockStorage.perform(
-                                migrations: test.initialMigrations,
-                                onProgressUpdate: nil
-                            )
+                            try await storage.perform(migrations: test.initialMigrations)
                             
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
                             try MigrationTest.generateDummyData(storage, nullsWherePossible: false)

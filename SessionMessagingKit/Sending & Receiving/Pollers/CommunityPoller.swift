@@ -691,7 +691,11 @@ actor CommunityPollerManager: CommunityPollerManagerType {
 /// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
 public final class CommunityPollerManagerSyncState: @unchecked Sendable {
     private let lock = NSLock()
-    private var _serversBeingPolled: Set<String> = []
+    private var _serversBeingPolled: Set<String>
+    
+    public init(serversBeingPolled: Set<String> = []) {
+        self._serversBeingPolled = serversBeingPolled
+    }
     
     public var serversBeingPolled:  Set<String> { lock.withLock { _serversBeingPolled } }
 

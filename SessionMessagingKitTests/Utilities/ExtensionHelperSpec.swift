@@ -5,6 +5,7 @@ import GRDB
 import SessionUtil
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -26,14 +27,7 @@ class ExtensionHelperSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
-                crypto
-                    .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
-                    .thenReturn(Data([4, 5, 6]))
-            }
-        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
@@ -65,6 +59,11 @@ class ExtensionHelperSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            
+            try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+            try await mockCrypto
+                .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                .thenReturn(Data([4, 5, 6]))
         }
         
         // MARK: - an ExtensionHelper - File Management
@@ -167,7 +166,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws encryption errors
                 it("throws encryption errors") {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             try $0.tryGenerate(
                                 .ciphertextWithXChaCha20(plaintext: .any, encKey: .any)
@@ -272,7 +271,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
                             try! JSONEncoder(using: dependencies)
@@ -305,7 +304,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
@@ -317,7 +316,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                     
@@ -334,7 +333,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when checking whether it has a dedupe record since the last clear") {
                 // MARK: ---- returns true when at least one record exists that is newer than the last cleared timestamp
                 it("returns true when at least one record exists that is newer than the last cleared timestamp") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
                     mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
@@ -349,14 +348,14 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns false when it cannot get the conversation path
                 it("returns false when it cannot get the conversation path") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beFalse())
                 }
                 
                 // MARK: ---- returns false when a record does not exist
                 it("returns false when a record does not exist") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
                     mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
@@ -368,7 +367,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns false when a record exists but is too old
                 it("returns false when a record exists but is too old") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
                     mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
@@ -383,7 +382,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- ignores the lastCleared file when comparing dedupe records
                 it("ignores the lastCleared file when comparing dedupe records") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: .any) }
@@ -397,7 +396,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns true when at least one record exists and there is no last cleared timestamp
                 it("returns true when at least one record exists and there is no last cleared timestamp") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
                     mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     mockFileManager
@@ -435,7 +434,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns false when failing to generate a hash
                 it("returns false when failing to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect(extensionHelper.dedupeRecordExists(
                         threadId: "threadId",
@@ -463,7 +462,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when failing to generate a hash
                 it("throws when failing to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.createDedupeRecord(
@@ -530,7 +529,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.removeDedupeRecord(
@@ -560,7 +559,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when upserting a last cleared record") {
                 // MARK: ---- creates the file successfully
                 it("creates the file successfully") {
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                         .thenReturn(Data())
                     
@@ -581,7 +580,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when failing to generate a hash
                 it("throws when failing to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.upsertLastClearedRecord(threadId: "threadId")
@@ -629,7 +628,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns zero when it fails to generate a hash
                 it("returns zero when it fails to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect(extensionHelper.lastUpdatedTimestamp(
                         for: SessionId(.standard, hex: TestConstants.publicKey),
@@ -682,7 +681,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     extensionHelper.replicate(
                         dump: ConfigDump(
@@ -801,14 +800,14 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
-                    mockValues.forEach { value in
-                        mockCrypto
+                    for value in mockValues {
+                        try await mockCrypto
                             .when { $0.generate(.hash(message: Array(value.key.data(using: .utf8)!))) }
                             .thenReturn(value.hashValue)
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.ciphertextWithXChaCha20(plaintext: value.plaintext, encKey: .any)) }
                             .thenReturn(value.ciphertext)
                     }
@@ -953,8 +952,8 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
-                    mockValues.forEach { value in
-                        mockCrypto
+                    for value in mockValues {
+                        try await mockCrypto
                             .when { $0.generate(.hash(message: Array(value.key.data(using: .utf8)!))) }
                             .thenReturn(nil)
                     }
@@ -971,7 +970,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- does nothing if valid dumps already exist
                 it("does nothing if valid dumps already exist") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                     
@@ -1016,10 +1015,10 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if it fails to replicate
                 it("does nothing if it fails to replicate") {
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
                         .thenThrow(TestError.mock)
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
                         .thenThrow(TestError.mock)
                     
@@ -1056,7 +1055,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing when it fails to generate a hash
                 it("does nothing when it fails to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     extensionHelper.refreshDumpModifiedDate(
                         sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
@@ -1082,7 +1081,7 @@ class ExtensionHelperSpec: AsyncSpec {
             // MARK: -- when loading user configs
             context("when loading user configs") {
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                 }
@@ -1201,7 +1200,7 @@ class ExtensionHelperSpec: AsyncSpec {
             // MARK: -- when loading group configs
             context("when loading group configs") {
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                 }
@@ -1268,8 +1267,8 @@ class ExtensionHelperSpec: AsyncSpec {
                         .groupKeys(keysPtr, info: ptr, members: ptr), .groupInfo(ptr)
                     ]
                     
-                    mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
-                    configs.forEach { config in
+                    await mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
+                    for config in configs {
                         mockLibSessionCache
                             .when {
                                 try $0.loadState(
@@ -1281,14 +1280,14 @@ class ExtensionHelperSpec: AsyncSpec {
                                 )
                             }
                             .thenReturn(config)
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.hash(message: Array("DumpSalt-\(config.variant)".utf8))) }
                             .thenReturn([0, 1, 2])
                     }
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: Array("ConvoIdSalt-03\(TestConstants.publicKey)".utf8))) }
                         .thenReturn([4, 5, 6])
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(.hash(message: Array("DumpSalt-\(ConfigDump.Variant.groupMembers)".utf8)))
                         }
@@ -1359,10 +1358,10 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: .any)) }
                         .thenReturn([0, 1, 2])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                 }
@@ -1418,15 +1417,17 @@ class ExtensionHelperSpec: AsyncSpec {
                         ],
                         replaceExisting: true
                     )
-                    expect(mockCrypto).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.generate(
-                            .ciphertextWithXChaCha20(
-                                plaintext: try JSONEncoder(using: dependencies)
-                                    .encode(expectedResult),
-                                encKey: [1, 2, 3]
+                    await mockCrypto
+                        .verify {
+                            $0.generate(
+                                .ciphertextWithXChaCha20(
+                                    plaintext: try JSONEncoder(using: dependencies)
+                                        .encode(expectedResult),
+                                    encKey: [1, 2, 3]
+                                )
                             )
-                        )
-                    })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does nothing if the settings already exist and we do not want to replace existing
@@ -1451,10 +1452,10 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if it fails to replicate
                 it("does nothing if it fails to replicate") {
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
                         .thenThrow(TestError.mock)
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
                         .thenThrow(TestError.mock)
                     
@@ -1480,7 +1481,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
                             try! JSONEncoder(using: dependencies)
@@ -1533,7 +1534,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
@@ -1548,7 +1549,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                     
@@ -1582,7 +1583,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn(["b", "c", "d", "e", "f"])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
                     let validPaths: [String] = [
@@ -1668,7 +1669,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn(["b1", "b1-legacy", "c1", "c1-legacy", "d1", "d1-legacy"])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
@@ -1807,7 +1808,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             )
                         }
                         .thenReturn(["b", "c", "d", "e", "f"])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
                     mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
@@ -1943,14 +1944,14 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- writes the message request stub file for unread message request messages
                 it("writes the message request stub file for unread message request messages") {
-                    mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
-                    mockCrypto
+                    await mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".utf8))) }
                         .thenReturn([1, 2, 3])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: Array("UnreadMessageSalt-TestHash".utf8))) }
                         .thenReturn([2, 3, 4])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.hash(message: [1, 2, 3] + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
                     
@@ -2014,7 +2015,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
-                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.saveMessage(
@@ -2123,7 +2124,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             .when { try $0.contentsOfDirectory(atPath: key) }
                             .thenReturn([value])
                     }
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(.hash(
                                 message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
@@ -2131,7 +2132,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .thenReturn([1, 2, 3])
                     mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
                             try! JSONEncoder(using: dependencies)
@@ -2158,7 +2159,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     let dataMessage = SNProtoDataMessage.builder()
                     dataMessage.setBody("Test")
                     content.setDataMessage(try! dataMessage.build())
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithSessionProtocol(ciphertext: .any)) }
                         .thenReturn((try! content.build().serializedData(), "05\(TestConstants.publicKey)"))
                 }
@@ -2174,7 +2175,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- always tries to load messages from the current users conversation
                 it("always tries to load messages from the current users conversation") {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(.hash(
                                 message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
@@ -2283,7 +2284,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- removes messages from disk
                 it("removes messages from disk") {
                     mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(.hash(
                                 message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
@@ -2357,7 +2358,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/config") }
                         .thenReturn(["b"])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
@@ -2410,7 +2411,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
@@ -2464,7 +2465,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
                     mockFileManager.when { try $0.removeItem(atPath: .any) }.thenThrow(TestError.mock)
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(.hash(
                                 message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)

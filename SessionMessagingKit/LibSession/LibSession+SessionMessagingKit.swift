@@ -1169,15 +1169,15 @@ public extension LibSessionCacheType {
         return try perform(for: variant, sessionId: userSessionId, change: { _ in try change() })
     }
     
-    func addEvent(key: ObservableKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: ObservableKey, value: T?) {
         addEvent(ObservedEvent(key: key, value: value))
     }
     
-    func addEvent(key: Setting.BoolKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: Setting.BoolKey, value: T?) {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
-    func addEvent(key: Setting.EnumKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: Setting.EnumKey, value: T?) {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     

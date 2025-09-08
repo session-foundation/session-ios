@@ -101,7 +101,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     var mockUserDefaults: MockUserDefaults { mock(for: .standard) { MockUserDefaults() } }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) { MockGeneralCache() } }
     var mockOGMCache: MockOGMCache { mock(cache: .openGroupManager) { MockOGMCache() } }
-    var mockCrypto: MockCrypto { mock(for: .crypto) { MockCrypto() } }
+    var mockCrypto: MockCrypto { mock(for: .crypto) }
     lazy var manager: CommunityPollerManager = CommunityPollerManager(using: dependencies)
     
     static func create() async throws -> CommunityPollerManagerTestFixture {
@@ -120,7 +120,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         await applyBaselineUserDefaults()
         await applyBaselineGeneralCache()
         await applyBaselineOGMCache()
-        await applyBaselineCrypto()
+        try await applyBaselineCrypto()
     }
     
     private func applyBaselineStorage() async throws {
@@ -199,11 +199,11 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         mockOGMCache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
     }
     
-    private func applyBaselineCrypto() async {
-        mockCrypto
+    private func applyBaselineCrypto() async throws {
+        try await mockCrypto
             .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
             .thenReturn([])
-        mockCrypto
+        try await mockCrypto
             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
             .thenReturn(
                 KeyPair(
@@ -211,13 +211,13 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                     secretKey: Data(hex: TestConstants.edSecretKey).bytes
                 )
             )
-        mockCrypto
+        try await mockCrypto
             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
             .thenReturn("TestSogsSignature".bytes)
-        mockCrypto
+        try await mockCrypto
             .when { $0.generate(.randomBytes(16)) }
             .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-        mockCrypto
+        try await mockCrypto
             .when { $0.generate(.ed25519KeyPair(seed: .any)) }
             .thenReturn(
                 KeyPair(

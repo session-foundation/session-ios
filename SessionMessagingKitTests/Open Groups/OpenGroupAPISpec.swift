@@ -11,7 +11,7 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class OpenGroupAPISpec: QuickSpec {
+class OpenGroupAPISpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -20,50 +20,7 @@ class OpenGroupAPISpec: QuickSpec {
             dependencies.forceSynchronous = true
         }
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
-                    .thenReturn([])
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
-                    .thenReturn("TestStandardSignature".bytes)
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.publicKey)))
-                crypto
-                    .when { $0.generate(.x25519(ed25519Seckey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.privateKey)))
-            }
-        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var disposables: [AnyCancellable]! = []
@@ -76,6 +33,47 @@ class OpenGroupAPISpec: QuickSpec {
             
             mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
+                .thenReturn([])
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
+                .thenReturn("TestStandardSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.publicKey)))
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Seckey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.privateKey)))
         }
         
         // MARK: - an OpenGroupAPI
@@ -1052,7 +1050,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1166,7 +1164,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1335,7 +1333,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1445,7 +1443,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2186,7 +2184,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the signature is not generated
                     it("fails when the signature is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                             .thenThrow(CryptoError.failedToGenerateOutput)
                         
@@ -2245,7 +2243,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the blindedKeyPair is not generated
                     it("fails when the blindedKeyPair is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2269,7 +2267,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the sogsSignature is not generated
                     it("fails when the sogsSignature is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         

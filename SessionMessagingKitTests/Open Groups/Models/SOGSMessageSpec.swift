@@ -3,13 +3,14 @@
 import Foundation
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
 
-class SOGSMessageSpec: QuickSpec {
+class SOGSMessageSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -28,7 +29,7 @@ class SOGSMessageSpec: QuickSpec {
         """
         @TestState var messageData: Data! = messageJson.data(using: .utf8)!
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState var decoder: JSONDecoder! = JSONDecoder(using: dependencies)
         
         // MARK: - a SOGSMessage
@@ -199,7 +200,7 @@ class SOGSMessageSpec: QuickSpec {
                         
                         // MARK: -------- succeeds if it succeeds verification
                         it("succeeds if it succeeds verification") {
-                            mockCrypto
+                            try await mockCrypto
                                 .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                                 .thenReturn(true)
                             
@@ -211,14 +212,14 @@ class SOGSMessageSpec: QuickSpec {
                         
                         // MARK: -------- provides the correct values as parameters
                         it("provides the correct values as parameters") {
-                            mockCrypto
+                            try await mockCrypto
                                 .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                                 .thenReturn(true)
                             
                             _ = try? decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                             
-                            expect(mockCrypto)
-                                .to(call(matchingParameters: .all) {
+                            await mockCrypto
+                                .verify {
                                     $0.verify(
                                         .signature(
                                             message: Data(base64Encoded: "VGVzdERhdGE=")!.bytes,
@@ -226,12 +227,13 @@ class SOGSMessageSpec: QuickSpec {
                                             signature: Data(base64Encoded: "VGVzdFNpZ25hdHVyZQ==")!.bytes
                                         )
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                         
                         // MARK: -------- throws if it fails verification
                         it("throws if it fails verification") {
-                            mockCrypto
+                            try await mockCrypto
                                 .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                                 .thenReturn(false)
                             
@@ -246,7 +248,7 @@ class SOGSMessageSpec: QuickSpec {
                     context("that is unblinded") {
                         // MARK: -------- succeeds if it succeeds verification
                         it("succeeds if it succeeds verification") {
-                            mockCrypto
+                            try await mockCrypto
                                 .when { $0.verify(.signatureXed25519(.any, curve25519PublicKey: .any, data: .any)) }
                                 .thenReturn(true)
                             
@@ -258,14 +260,14 @@ class SOGSMessageSpec: QuickSpec {
                         
                         // MARK: -------- provides the correct values as parameters
                         it("provides the correct values as parameters") {
-                            mockCrypto
+                            try await mockCrypto
                                 .when { $0.verify(.signatureXed25519(.any, curve25519PublicKey: .any, data: .any)) }
                                 .thenReturn(true)
                             
                             _ = try? decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                             
-                            expect(mockCrypto)
-                                .to(call(matchingParameters: .all) {
+                            await mockCrypto
+                                .verify {
                                     $0.verify(
                                         .signatureXed25519(
                                             Data(base64Encoded: "VGVzdFNpZ25hdHVyZQ==")!,
@@ -273,12 +275,13 @@ class SOGSMessageSpec: QuickSpec {
                                             data: Data(base64Encoded: "VGVzdERhdGE=")!
                                         )
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                         
                         // MARK: -------- throws if it fails verification
                         it("throws if it fails verification") {
-                            mockCrypto
+                            try await mockCrypto
                                 .when { $0.verify(.signatureXed25519(.any, curve25519PublicKey: .any, data: .any)) }
                                 .thenReturn(false)
                             

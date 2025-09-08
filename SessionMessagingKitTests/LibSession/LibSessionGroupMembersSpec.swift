@@ -53,22 +53,28 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                     .thenReturn([:])
             }
         )
-        @TestState var createGroupOutput: LibSession.CreatedGroupInfo! = {
-            mockStorage.write { db in
-                 try LibSession.createGroup(
-                    db,
-                    name: "TestGroup",
-                    description: nil,
-                    displayPictureUrl: nil,
-                    displayPictureEncryptionKey: nil,
-                    members: [],
-                    using: dependencies
-                 )
-            }
-        }()
+        @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         
         beforeEach {
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                createGroupOutput = try LibSession.createGroup(
+                   db,
+                   name: "TestGroup",
+                   description: nil,
+                   displayPictureUrl: nil,
+                   displayPictureEncryptionKey: nil,
+                   members: [],
+                   using: dependencies
+                )
+            }
+            
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
@@ -86,14 +92,6 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 ]
             )
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
-            
-            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
         }
         
         // MARK: - LibSessionGroupMembers
