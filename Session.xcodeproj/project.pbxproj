@@ -1160,6 +1160,8 @@
 		FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */; };
 		FE5809902E6EACB0000296AB /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FE58098F2E6EACB0000296AB /* Lucide */; };
 		FE5809922E6EADFA000296AB /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FE5809912E6EADFA000296AB /* Lucide */; };
+		FEACA5AF2E6FB03300AA20F3 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FEACA5AE2E6FB03300AA20F3 /* Lucide */; };
+		FEACA5B12E6FB10E00AA20F3 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FEACA5B02E6FB10E00AA20F3 /* Lucide */; };
 		FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */; };
 		FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */; };
 /* End PBXBuildFile section */
@@ -2448,6 +2450,7 @@
 				B8D64FC725BA78520029CFC0 /* SessionMessagingKit.framework in Frameworks */,
 				C3D90A5C25773A25002C9DF5 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3402FE52559036600EA6424 /* SessionUIKit.framework in Frameworks */,
+				FEACA5AF2E6FB03300AA20F3 /* Lucide in Frameworks */,
 				B8D64FCB25BA78A90029CFC0 /* SignalUtilitiesKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2456,6 +2459,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FEACA5B12E6FB10E00AA20F3 /* Lucide in Frameworks */,
 				B8D64FBB25BA78310029CFC0 /* SessionMessagingKit.framework in Frameworks */,
 				FD8A5B182DBF47E9004C689B /* SessionUIKit.framework in Frameworks */,
 				B8D64FBD25BA78310029CFC0 /* SessionSnodeKit.framework in Frameworks */,
@@ -5222,6 +5226,7 @@
 			name = SessionShareExtension;
 			packageProductDependencies = (
 				FD860CC82D6ED2ED00BBE29C /* DifferenceKit */,
+				FEACA5AE2E6FB03300AA20F3 /* Lucide */,
 			);
 			productName = SignalShareExtension;
 			productReference = 453518681FC635DD00210559 /* SessionShareExtension.appex */;
@@ -10523,6 +10528,16 @@
 			productName = Lucide;
 		};
 		FE5809912E6EADFA000296AB /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
+			productName = Lucide;
+		};
+		FEACA5AE2E6FB03300AA20F3 /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
+			productName = Lucide;
+		};
+		FEACA5B02E6FB10E00AA20F3 /* Lucide */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
 			productName = Lucide;

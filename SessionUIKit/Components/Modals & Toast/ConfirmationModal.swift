@@ -260,7 +260,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         .withConfiguration(
             UIButton.Configuration
                 .plain()
-                .withImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate))
+                .withImage(Lucide.image(icon: .x, size: 24)?.withRenderingMode(.alwaysTemplate))
                 .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
         .withConfigurationUpdateHandler { button in

@@ -1,19 +1,8 @@
 {
   "images" : [
     {
-      "filename" : "crop-unlock-custom.png",
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
-      "filename" : "crop-unlock-custom@2x.png",
-      "idiom" : "universal",
-      "scale" : "2x"
-    },
-    {
-      "filename" : "crop-unlock-custom@3x.png",
-      "idiom" : "universal",
-      "scale" : "3x"
+      "filename" : "crop-unlock-custom.pdf",
+      "idiom" : "universal"
     }
   ],
   "info" : {

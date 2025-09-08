@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
@@ -43,7 +44,13 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     }()
     
     private lazy var closeButton: UIBarButtonItem = {
-        let closeButton: UIBarButtonItem = UIBarButtonItem(image: UIImage(named: "X"), style: .plain, target: self, action: #selector(dismissPressed))
+        let closeButton: UIBarButtonItem = UIBarButtonItem(
+            image: Lucide.image(icon: .x, size: 24)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            target: self,
+            action: #selector(dismissPressed)
+        )
         closeButton.themeTintColor = .textPrimary
         
         return closeButton

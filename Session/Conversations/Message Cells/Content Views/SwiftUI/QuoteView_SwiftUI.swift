@@ -181,15 +181,13 @@ struct QuoteView_SwiftUI: View {
                         onCancel?()
                     },
                     label: {
-                        if let image = UIImage(named: "X")?.withRenderingMode(.alwaysTemplate) {
-                            Image(uiImage: image)
-                                .foregroundColor(themeColor: .textPrimary)
-                                .frame(
-                                    width: Self.cancelButtonSize,
-                                    height: Self.cancelButtonSize,
-                                    alignment: .center
-                                )
-                        }
+                        LucideIcon(.x, size: Self.cancelButtonSize)
+                            .foregroundColor(themeColor: .textPrimary)
+                            .frame(
+                                width: Self.cancelButtonSize,
+                                height: Self.cancelButtonSize,
+                                alignment: .center
+                            )
                     }
                 )
             }
