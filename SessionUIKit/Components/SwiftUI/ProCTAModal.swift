@@ -6,191 +6,6 @@ import Combine
 import SessionUtilitiesKit
 
 public struct ProCTAModal: View {
-    public enum Variant {
-        case generic
-        case longerMessages
-        case animatedProfileImage(isSessionProActivated: Bool)
-        case morePinnedConvos(isGrandfathered: Bool)
-        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool)
-        case expiring(timeLeft: TimeInterval)
-
-        // stringlint:ignore_contents
-        public var backgroundImageName: String {
-            switch self {
-                case .generic, .expiring:
-                    return "GenericCTA.webp"
-                case .longerMessages:
-                    return "HigherCharLimitCTA.webp"
-                case .animatedProfileImage:
-                    return "AnimatedProfileCTA.webp"
-                case .morePinnedConvos:
-                    return "PinnedConversationsCTA.webp"
-                case .groupLimit(let isAdmin, let isSessionProActivated):
-                    switch (isAdmin, isSessionProActivated) {
-                        case (false, false):
-                            return "GroupNonAdminCTA.webp"
-                        default:
-                            return "GroupAdminCTA.webp"
-                    }
-            }
-        }
-        
-        public var themeColor: ThemeValue {
-            switch self {
-                case .expiring(let timeLeft): return timeLeft > 0 ? .primary : .disabled
-                default: return .primary
-            }
-        }
-        
-        // stringlint:ignore_contents
-        public var animatedAvatarImageURL: URL? {
-            switch self {
-                case .generic, .animatedProfileImage:
-                    return Bundle.main.url(forResource: "AnimatedProfileCTAAnimationCropped", withExtension: "webp")
-                default: return nil
-            }
-        }
-        /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
-        /// animated webp. These coordinates are based on the full size image and get scaled during rendering based on the actual size
-        /// of the modal.
-        public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
-            switch self {
-                case .generic:
-                return (1313.5, 753)
-                case .animatedProfileImage:
-                return (690, 363)
-                default: return (0, 0)
-            }
-        }
-
-        public var subtitle: String {
-            switch self {
-                case .generic:
-                    return "proUserProfileModalCallToAction"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "app_name", value: Constants.app_name)
-                        .localized()
-                case .longerMessages:
-                    return "proCallToActionLongerMessages"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .localized()
-                case .animatedProfileImage(let isSessionProActivated):
-                    return isSessionProActivated ?
-                        "proAnimatedDisplayPicture".localized() :
-                        "proAnimatedDisplayPictureCallToActionDescription"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
-                case .morePinnedConvos(let isGrandfathered):
-                    return isGrandfathered ?
-                        "proCallToActionPinnedConversations"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized() :
-                        "proCallToActionPinnedConversationsMoreThan"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
-                case .groupLimit(let isAdmin, let isSessionProActivated):
-                    switch (isAdmin, isSessionProActivated) {
-                        case (_, true):
-                            return "proGroupActivatedDescription".localized()
-                        case (true, false):
-                            return "proUserProfileModalCallToAction"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localized()
-                        case (false, false):
-                            return "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro" // TODO: Localised
-                    }
-                case .expiring(let timeLeft):
-                    return timeLeft > 0 ?
-                        "proExpiringSoonDescription"
-                            .put(key: "pro", value: Constants.pro)
-                            .put(key: "time", value: timeLeft.formatted(format: .long))
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized() :
-                        "proExpiredDescription"
-                            .put(key: "pro", value: Constants.pro)
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
-            }
-        }
-        
-        public var benefits: [String] {
-            switch self {
-                case .generic:
-                    return  [
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLongerMessages".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .longerMessages:
-                    return [
-                        "proFeatureListLongerMessages".localized(),
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .animatedProfileImage:
-                    return [
-                        "proFeatureListAnimatedDisplayPicture".localized(),
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .morePinnedConvos:
-                    return [
-                        "proFeatureListPinnedConversations".localized(),
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .groupLimit(let isAdmin, let isSessionProActivated):
-                    switch (isAdmin, isSessionProActivated) {
-                        case (true, false):
-                            return [
-                                "proFeatureListLargerGroups".localized(),
-                                "proFeatureListLongerMessages".localized(),
-                                "proFeatureListLoadsMore".localized()
-                            ]
-                        default: return []
-                    }
-                case .expiring:
-                    return [
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLongerMessages".localized(),
-                        "proFeatureListPinnedConversations".localized()
-                    ]
-            }
-        }
-        
-        public var confirmButtonTitle: String {
-            switch self {
-                case .expiring(let timeLeft):
-                    return timeLeft > 0 ? "updatePlan".localized() : "renew".localized()
-                default: return "theContinue".localized()
-            }
-        }
-        
-        public var cancelButtonTitle: String {
-            guard !self.onlyShowCloseButton else {
-                return "close".localized()
-            }
-            
-            switch self {
-                case .expiring(let timeLeft):
-                    return timeLeft > 0 ? "close".localized() : "cancel".localized()
-                default: return "cancel".localized()
-            }
-        }
-        
-        public var onlyShowCloseButton: Bool {
-            switch self {
-                case .animatedProfileImage(let isSessionProActivated):
-                    return isSessionProActivated
-                case .groupLimit(let isAdmin, let isSessionProActivated):
-                    return (!isAdmin || isSessionProActivated)
-                default:
-                    return false
-            }
-        }
-    }
-    
     @EnvironmentObject var host: HostWrapper
     @State var proCTAImageHeight: CGFloat = 0
     
@@ -453,13 +268,196 @@ public struct ProCTAModal: View {
     }
 }
 
-// MARK: - SessionProManagerType
+// MARK: - Variant
 
-public protocol SessionProManagerType: AnyObject {
-    var isSessionProSubject: CurrentValueSubject<Bool, Never> { get }
-    var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
-    func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
+public extension ProCTAModal {
+    enum Variant {
+        case generic
+        case longerMessages
+        case animatedProfileImage(isSessionProActivated: Bool)
+        case morePinnedConvos(isGrandfathered: Bool)
+        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool)
+        case expiring(timeLeft: TimeInterval)
+
+        // stringlint:ignore_contents
+        public var backgroundImageName: String {
+            switch self {
+                case .generic, .expiring:
+                    return "GenericCTA.webp"
+                case .longerMessages:
+                    return "HigherCharLimitCTA.webp"
+                case .animatedProfileImage:
+                    return "AnimatedProfileCTA.webp"
+                case .morePinnedConvos:
+                    return "PinnedConversationsCTA.webp"
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    switch (isAdmin, isSessionProActivated) {
+                        case (false, false):
+                            return "GroupNonAdminCTA.webp"
+                        default:
+                            return "GroupAdminCTA.webp"
+                    }
+            }
+        }
+        
+        public var themeColor: ThemeValue {
+            switch self {
+                case .expiring(let timeLeft): return timeLeft > 0 ? .primary : .disabled
+                default: return .primary
+            }
+        }
+        
+        // stringlint:ignore_contents
+        public var animatedAvatarImageURL: URL? {
+            switch self {
+                case .generic, .animatedProfileImage:
+                    return Bundle.main.url(forResource: "AnimatedProfileCTAAnimationCropped", withExtension: "webp")
+                default: return nil
+            }
+        }
+        /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
+        /// animated webp. These coordinates are based on the full size image and get scaled during rendering based on the actual size
+        /// of the modal.
+        public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
+            switch self {
+                case .generic:
+                return (1313.5, 753)
+                case .animatedProfileImage:
+                return (690, 363)
+                default: return (0, 0)
+            }
+        }
+
+        public var subtitle: String {
+            switch self {
+                case .generic:
+                    return "proUserProfileModalCallToAction"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
+                case .longerMessages:
+                    return "proCallToActionLongerMessages"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized()
+                case .animatedProfileImage(let isSessionProActivated):
+                    return isSessionProActivated ?
+                        "proAnimatedDisplayPicture".localized() :
+                        "proAnimatedDisplayPictureCallToActionDescription"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
+                case .morePinnedConvos(let isGrandfathered):
+                    return isGrandfathered ?
+                        "proCallToActionPinnedConversations"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized() :
+                        "proCallToActionPinnedConversationsMoreThan"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    switch (isAdmin, isSessionProActivated) {
+                        case (_, true):
+                            return "proGroupActivatedDescription".localized()
+                        case (true, false):
+                            return "proUserProfileModalCallToAction"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized()
+                        case (false, false):
+                            return "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro" // TODO: Localised
+                    }
+                case .expiring(let timeLeft):
+                    return timeLeft > 0 ?
+                        "proExpiringSoonDescription"
+                            .put(key: "pro", value: Constants.pro)
+                            .put(key: "time", value: timeLeft.formatted(format: .long))
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized() :
+                        "proExpiredDescription"
+                            .put(key: "pro", value: Constants.pro)
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
+            }
+        }
+        
+        public var benefits: [String] {
+            switch self {
+                case .generic:
+                    return  [
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListLoadsMore".localized()
+                    ]
+                case .longerMessages:
+                    return [
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
+                    ]
+                case .animatedProfileImage:
+                    return [
+                        "proFeatureListAnimatedDisplayPicture".localized(),
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
+                    ]
+                case .morePinnedConvos:
+                    return [
+                        "proFeatureListPinnedConversations".localized(),
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLoadsMore".localized()
+                    ]
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    switch (isAdmin, isSessionProActivated) {
+                        case (true, false):
+                            return [
+                                "proFeatureListLargerGroups".localized(),
+                                "proFeatureListLongerMessages".localized(),
+                                "proFeatureListLoadsMore".localized()
+                            ]
+                        default: return []
+                    }
+                case .expiring:
+                    return [
+                        "proFeatureListLargerGroups".localized(),
+                        "proFeatureListLongerMessages".localized(),
+                        "proFeatureListPinnedConversations".localized()
+                    ]
+            }
+        }
+        
+        public var confirmButtonTitle: String {
+            switch self {
+                case .expiring(let timeLeft):
+                    return timeLeft > 0 ? "updatePlan".localized() : "renew".localized()
+                default: return "theContinue".localized()
+            }
+        }
+        
+        public var cancelButtonTitle: String {
+            guard !self.onlyShowCloseButton else {
+                return "close".localized()
+            }
+            
+            switch self {
+                case .expiring(let timeLeft):
+                    return timeLeft > 0 ? "close".localized() : "cancel".localized()
+                default: return "cancel".localized()
+            }
+        }
+        
+        public var onlyShowCloseButton: Bool {
+            switch self {
+                case .animatedProfileImage(let isSessionProActivated):
+                    return isSessionProActivated
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    return (!isAdmin || isSessionProActivated)
+                default:
+                    return false
+            }
+        }
+    }
 }
+
+// MARK: - Previews
 
 struct ProCTAModal_Previews: PreviewProvider {
     static var previews: some View {

@@ -23,10 +23,28 @@ public class SessionProState: SessionProManagerType {
             .filter { $0 }
             .eraseToAnyPublisher()
     }
+    public var sessionProPlans: [SessionProPlan]
+    public var isAutoRenewEnabled: Bool
+    public var currentPlan: SessionProPlan?
+    public var currentPlanExpiredOn: Date?
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.isSessionProSubject = CurrentValueSubject(dependencies[cache: .libSession].isSessionPro)
+        self.sessionProPlans = SessionProPlan.Variant.allCases.map {
+            SessionProPlan(
+                variant: $0,
+                price: $0.price,
+                discountPercent: $0.discountPercent
+            )
+        }
+        self.currentPlan = SessionProPlan(
+            variant: .threeMonths,
+            price: SessionProPlan.Variant.threeMonths.price,
+            discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
+        )
+        self.isAutoRenewEnabled = true
+        self.currentPlanExpiredOn = Calendar.current.date(byAdding: .month, value: 1, to: Date())
     }
     
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {

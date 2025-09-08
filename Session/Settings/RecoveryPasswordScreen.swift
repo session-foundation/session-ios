@@ -122,13 +122,8 @@ struct RecoveryPasswordScreen: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                     .padding(.all, Values.largeSpacing)
                                     .overlay(
-                                        RoundedRectangle(
-                                            cornerSize: CGSize(
-                                                width: Self.cornerRadius,
-                                                height: Self.cornerRadius
-                                            )
-                                        )
-                                        .stroke(themeColor: .borderSeparator)
+                                        RoundedRectangle(cornerRadius: Self.cornerRadius)
+                                            .stroke(themeColor: .borderSeparator)
                                     )
                                     .padding(.bottom, Values.mediumSpacing)
                                 

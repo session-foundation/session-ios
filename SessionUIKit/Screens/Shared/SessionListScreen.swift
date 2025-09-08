@@ -103,10 +103,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         .listStyle(.plain)
         .modifier(HideScrollIndicators())
         .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
-            guard self.isShowingTooltip else {
-                return
-            }
-            
+            guard self.isShowingTooltip else { return }
             suppressUntil = Date().addingTimeInterval(0.2)
             withAnimation(.spring()) {
                 self.isShowingTooltip = false

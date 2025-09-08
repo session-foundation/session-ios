@@ -9,6 +9,7 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
     @Binding var show: Bool
     @Binding var frame: CGRect
     var position: ViewPosition
+    var offset: CGFloat
     var viewId: String
     
     func body(content: Content) -> some View {
@@ -24,6 +25,7 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
                             frame: self.$frame,
                             backgroundThemeColor: self.backgroundThemeColor,
                             position: self.position,
+                            offset: offset,
                             viewId: self.viewId
                         )
                     }
@@ -39,6 +41,7 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
         frame: Binding<CGRect>,
         backgroundThemeColor: ThemeValue,
         position: ViewPosition,
+        offset: CGFloat,
         viewId: String
     ) -> some View {
         var originBounds = CGRect.zero
@@ -50,7 +53,8 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
                 .background {
                     ArrowCapsule(
                         arrowPosition: position.opposite,
-                        arrowLength: 10
+                        arrowLength: 10,
+                        arrowOffset: offset
                     )
                     .fill(themeColor: backgroundThemeColor)
                     .shadow(color: .black.opacity(0.35), radius: 4)
@@ -61,6 +65,7 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
                         viewFrame: frame.wrappedValue,
                         originBounds: originBounds,
                         position: position,
+                        offset: offset,
                         arrowLength: 10
                     )
                 )
@@ -72,6 +77,7 @@ internal struct PopoverOffset: ViewModifier {
     var viewFrame: CGRect
     var originBounds: CGRect
     var position: ViewPosition
+    var offset: CGFloat
     var arrowLength: CGFloat
 
     func body(content: Content) -> some View {
@@ -79,6 +85,7 @@ internal struct PopoverOffset: ViewModifier {
             .offset(
                 x: self.offsetXFor(
                     position: position,
+                    offset: offset,
                     frame: viewFrame,
                     originBounds: originBounds,
                     arrowLength: arrowLength
@@ -92,9 +99,9 @@ internal struct PopoverOffset: ViewModifier {
             )
     }
 
-    func offsetXFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
+    func offsetXFor(position: ViewPosition, offset: CGFloat, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
         let triangleSideLength : CGFloat = arrowLength / CGFloat(sqrt(0.75))
-        let arrowOffSet: CGFloat = 30 - triangleSideLength + frame.size.height / 2
+        let arrowOffSet: CGFloat = offset - triangleSideLength + frame.size.height / 2
         switch position {
             case .top, .bottom:
                 // Center horizontally
@@ -104,7 +111,7 @@ internal struct PopoverOffset: ViewModifier {
                 return originBounds.maxX - frame.size.width + arrowOffSet - triangleSideLength / 2
             case .topRight, .bottomRight:
                 // Align left
-                return originBounds.minX - arrowOffSet + triangleSideLength / 2
+                return originBounds.minX - arrowOffSet
             case .none:
                 return 0
         }
@@ -146,6 +153,7 @@ public extension View {
         isPresented: Binding<Bool>,
         frame: Binding<CGRect>,
         position: ViewPosition,
+        offset: CGFloat = 30,
         viewId: String
     ) -> some View {
         self.modifier(
@@ -155,6 +163,7 @@ public extension View {
                 show: isPresented,
                 frame: frame,
                 position: position,
+                offset: offset,
                 viewId: viewId
             )
         )

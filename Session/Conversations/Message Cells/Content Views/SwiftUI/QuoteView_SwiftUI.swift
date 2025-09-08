@@ -72,14 +72,12 @@ struct QuoteView_SwiftUI: View {
         ) {
             if let attachment: Attachment = info.attachment {
                 ZStack() {
-                    RoundedRectangle(
-                        cornerRadius: Self.cornerRadius
-                    )
-                    .fill(themeColor: .messageBubble_overlay)
-                    .frame(
-                        width: Self.thumbnailSize,
-                        height: Self.thumbnailSize
-                    )
+                    RoundedRectangle(cornerRadius: Self.cornerRadius)
+                        .fill(themeColor: .messageBubble_overlay)
+                        .frame(
+                            width: Self.thumbnailSize,
+                            height: Self.thumbnailSize
+                        )
                     
                     SessionAsyncImage(
                         attachment: attachment,

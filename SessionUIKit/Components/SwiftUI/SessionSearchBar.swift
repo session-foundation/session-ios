@@ -45,14 +45,9 @@ public struct SessionSearchBar: View {
                 }
             }
             .background(
-                RoundedRectangle(
-                    cornerSize: CGSize(
-                        width: self.cornerRadius,
-                        height: self.cornerRadius
-                    )
-                )
-                .fill(themeColor: .backgroundSecondary)
-                .frame(height: self.height)
+                RoundedRectangle(cornerRadius: self.cornerRadius)
+                    .fill(themeColor: .backgroundSecondary)
+                    .frame(height: self.height)
             )
             
             Button {

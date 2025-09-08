@@ -299,9 +299,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(.chevronRight, size: .large)
                         )
                     ),
-                    onTap: { [weak viewModel] in
-                        
-                    }
+                    onTap: { [weak viewModel] in viewModel?.updateProPlan() }
                 ),
                 SessionListScreenContent.ListItemInfo(
                     id: .proBadge,
@@ -463,6 +461,16 @@ extension SessionProSettingsViewModel {
         )
         
         self.transitionToScreen(modal, transitionType: .present)
+    }
+    
+    func updateProPlan() {
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: SessionProPlanScreen(
+                dependencies[singleton: .sessionProState],
+                variant: .update(isOriginatingPlatform: true)
+            )
+        )
+        self.transitionToScreen(viewController)
     }
 }
 
