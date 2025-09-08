@@ -26,14 +26,14 @@ extension ConversationVC:
 {
     // MARK: - Open Settings
     
-    @objc func handleTitleViewTapped() {
+    @MainActor @objc func handleTitleViewTapped() {
         // Don't take the user to settings for unapproved threads
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
     }
     
-    func openSettingsFromTitleView() {
+    @MainActor func openSettingsFromTitleView() {
         // If we shouldn't be able to access settings then disable the title view shortcuts
         guard viewModel.threadData.canAccessSettings(using: viewModel.dependencies) else { return }
         
@@ -1181,7 +1181,7 @@ extension ConversationVC:
                         let currentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
-                            .saved(db)
+                            .upserted(db)
                             .insertControlMessage(
                                 db,
                                 threadVariant: cellViewModel.threadVariant,
@@ -1711,6 +1711,33 @@ extension ConversationVC:
     }
     
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
+        // Dismiss current reaction sheet to present alert dialog
+        currentReactionListSheet?.dismiss(animated: true)
+        currentReactionListSheet = nil
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "clearAll".localized(),
+                body: .attributedText(
+                    "emojiReactsClearAll"
+                        .put(key: "emoji", value: emoji)
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
+                confirmTitle: "clear".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self] modal in
+                    // Call clear reaction event
+                    self?.clearAllReactions(cellViewModel, for: emoji)
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        present(modal, animated: true, completion: nil)
+    }
+    
+    func clearAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
         guard
             cellViewModel.threadVariant == .community,
             let roomToken: String = viewModel.threadData.openGroupRoomToken,
@@ -1978,7 +2005,7 @@ extension ConversationVC:
                             )
                         ),
                         to: destination,
-                        namespace: .default,
+                        namespace: destination.defaultNamespace,
                         interactionId: cellViewModel.id,
                         attachments: nil,
                         authMethod: authMethod,
@@ -2992,10 +3019,11 @@ extension ConversationVC {
                     .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                         /// duplicate one from inside the group history)
-                        _ = try Interaction
-                            .filter(Interaction.Columns.threadId == group.id)
+                        try Interaction.deleteWhere(
+                            db,
+                            .filter(Interaction.Columns.threadId == group.id),
                             .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-                            .deleteAll(db)
+                        )
                         
                         /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
                         /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`

@@ -144,10 +144,10 @@ public extension String {
                 dateComponentsFormatter.unitsStyle = .full
                 return dateComponentsFormatter.string(from: duration) ?? ""
             
-            case .twoUnits: // 2 units, no localization, short version e.g 1w 1d
+            case .twoUnits: // 2 units, no localization, short version e.g 1w 1d, remove trailing 0's e.g 12h 0m -> 12h
                 dateComponentsFormatter.maximumUnitCount = 2
                 dateComponentsFormatter.unitsStyle = .abbreviated
-                dateComponentsFormatter.zeroFormattingBehavior = .dropLeading
+                dateComponentsFormatter.zeroFormattingBehavior = .dropAll
                 calendar.locale = Locale(identifier: "en-US")
                 dateComponentsFormatter.calendar = calendar
                 return dateComponentsFormatter.string(from: duration) ?? ""
@@ -221,15 +221,6 @@ public extension String {
         }
         
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    /// iOS strips anything that looks like a printf formatting character from the notification body, so if we want to dispay a literal "%" in
-    /// a notification it must be escaped.
-    ///
-    /// See https://developer.apple.com/documentation/usernotifications/unnotificationcontent/body for
-    /// more details.
-    var filteredForNotification: String {
-        self.replacingOccurrences(of: "%", with: "%%")
     }
     
     private var hasExcessiveDiacriticals: Bool {

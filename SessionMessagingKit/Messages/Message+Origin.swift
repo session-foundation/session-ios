@@ -16,7 +16,7 @@ public extension Message {
         case community(
             openGroupId: String,
             sender: String,
-            timestamp: TimeInterval,
+            timestamp: TimeInterval?,
             messageServerId: Int64,
             whisper: Bool,
             whisperMods: Bool,

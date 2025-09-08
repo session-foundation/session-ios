@@ -359,7 +359,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             
             let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             let interactionId = try updatedConfig
-                .saved(db)
+                .upserted(db)
                 .insertControlMessage(
                     db,
                     threadVariant: threadVariant,

@@ -24,6 +24,7 @@ public class SessionHighlightingBackgroundLabel: UIView {
         result.themeTextColor = .textPrimary
         result.setContentHugging(to: .required)
         result.setCompressionResistance(to: .required)
+        result.numberOfLines = 0
         
         return result
     }()

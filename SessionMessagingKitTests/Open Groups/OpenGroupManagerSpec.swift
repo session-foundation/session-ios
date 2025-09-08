@@ -855,7 +855,7 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when deleting") {
                 beforeEach {
                     mockStorage.write { db in
-                        try Interaction.deleteAll(db)
+                        try Interaction.deleteWhere(db, .deleteAll)
                         try SessionThread.deleteAll(db)
                         
                         try testGroupThread.insert(db)
@@ -1760,7 +1760,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- ignores a message with no sender
                 it("ignores a message with no sender") {
                     mockStorage.write { db in
-                        try Interaction.deleteAll(db)
+                        try Interaction.deleteWhere(db, .deleteAll)
                     }
                     
                     mockStorage.write { db in
@@ -1794,7 +1794,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- ignores a message with invalid data
                 it("ignores a message with invalid data") {
                     mockStorage.write { db in
-                        try Interaction.deleteAll(db)
+                        try Interaction.deleteWhere(db, .deleteAll)
                     }
                     
                     mockStorage.write { db in

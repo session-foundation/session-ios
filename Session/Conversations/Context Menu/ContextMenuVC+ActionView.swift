@@ -119,9 +119,10 @@ extension ContextMenuVC {
         }
         
         private func setUpSubtitle() {
-            guard 
-                let expiresInSeconds = self.action.expirationInfo?.expiresInSeconds,
-                let expiresStartedAtMs = self.action.expirationInfo?.expiresStartedAtMs
+            guard
+                let expirationInfo = self.action.expirationInfo,
+                let expiresStartedAtMs = expirationInfo.expiresStartedAtMs,
+                let expiresInSeconds = expirationInfo.expiresInSeconds
             else {
                 subtitleLabel.isHidden = true
                 subtitleWidthConstraint.isActive = false
@@ -130,10 +131,12 @@ extension ContextMenuVC {
             
             subtitleLabel.isHidden = false
             subtitleWidthConstraint.isActive = true
+            
             // To prevent a negative timer
-            let timeToExpireInSeconds: TimeInterval =  max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000)
+            let timeToExpireInSeconds = max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000)
+            
             subtitleLabel.text = "disappearingMessagesCountdownBigMobile"
-                .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits))
+                .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits, minimumUnit: .second))
                 .localized()
             
             timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, using: dependencies, block: { [weak self, dependencies] _ in
