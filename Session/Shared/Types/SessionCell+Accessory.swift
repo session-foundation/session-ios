@@ -41,7 +41,7 @@ public extension SessionCell.Accessory {
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
         pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
-        accessibility: Accessibility? = nil,
+        accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
             icon: icon,
@@ -60,7 +60,7 @@ public extension SessionCell.Accessory {
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
         pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
-        accessibility: Accessibility? = nil,
+        accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
             icon: nil,
