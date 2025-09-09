@@ -118,7 +118,7 @@ final class InfoMessageCell: MessageCell {
                     
                 case .infoMediaSavedNotification:
                     return Lucide.image(
-                        icon: .download,
+                        icon: .arrowDownToLine,
                         size: InfoMessageCell.iconSize
                     )
                     
