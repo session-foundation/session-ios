@@ -211,16 +211,22 @@ public extension UIView {
         }
     }
     
-    func pin(to view: UIView) {
-        [ HorizontalEdge.leading, HorizontalEdge.trailing ].forEach { pin($0, to: $0, of: view) }
-        [ VerticalEdge.top, VerticalEdge.bottom ].forEach { pin($0, to: $0, of: view) }
+    @discardableResult
+    func pin(to view: UIView) -> [NSLayoutConstraint] {
+        return [
+            [ HorizontalEdge.leading, HorizontalEdge.trailing ].map { pin($0, to: $0, of: view) },
+            [ VerticalEdge.top, VerticalEdge.bottom ].map { pin($0, to: $0, of: view) }
+        ].flatMap { $0 }
     }
     
-    func pin(to view: UIView, withInset inset: CGFloat) {
-        pin(.leading, to: .leading, of: view, withInset: inset)
-        pin(.top, to: .top, of: view, withInset: inset)
-        view.pin(.trailing, to: .trailing, of: self, withInset: inset)
-        view.pin(.bottom, to: .bottom, of: self, withInset: inset)
+    @discardableResult
+    func pin(to view: UIView, withInset inset: CGFloat) -> [NSLayoutConstraint] {
+        return [
+            pin(.leading, to: .leading, of: view, withInset: inset),
+            pin(.top, to: .top, of: view, withInset: inset),
+            view.pin(.trailing, to: .trailing, of: self, withInset: inset),
+            view.pin(.bottom, to: .bottom, of: self, withInset: inset)
+        ]
     }
     
     @discardableResult
