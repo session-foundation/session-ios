@@ -14,6 +14,15 @@ public extension NSObject {
         
         return button
     }
+    
+    func navigationBarButton(image: UIImage?, selector: Selector) -> UIView {
+        let button = OWSButton()
+        button.setImage(image: image)
+        button.themeTintColor = .textPrimary
+        button.addTarget(self, action: selector, for: .touchUpInside)
+        
+        return button
+    }
 }
 
 // MARK: -

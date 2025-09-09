@@ -34,7 +34,7 @@ final class DeletedMessageView: UIView {
         imageContainerView.set(.width, to: DeletedMessageView.iconImageViewSize)
         imageContainerView.set(.height, to: DeletedMessageView.iconImageViewSize)
         
-        let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
+        let imageView = LucideIconView(icon: .trash2, size: DeletedMessageView.iconSize)
         imageView.themeTintColor = textColor
         imageView.contentMode = .scaleAspectFit
         imageView.set(.width, to: DeletedMessageView.iconSize)

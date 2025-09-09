@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -73,16 +74,16 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         return result
     }()
     
-    private lazy var arrowLeft: UIImageView = {
-        let result = UIImageView(image: UIImage(systemName: "chevron.left")?.withRenderingMode(.alwaysTemplate))
+    private lazy var arrowLeft: LucideIconView = {
+        let result = LucideIconView(icon: .chevronLeft)
         result.themeTintColor = .textPrimary
         result.set(.height, to: 10)
         result.set(.width, to: 5)
         return result
     }()
     
-    private lazy var arrowRight: UIImageView = {
-        let result = UIImageView(image: UIImage(systemName: "chevron.right")?.withRenderingMode(.alwaysTemplate))
+    private lazy var arrowRight: LucideIconView = {
+        let result = LucideIconView(icon: .chevronRight)
         result.themeTintColor = .textPrimary
         result.set(.height, to: 10)
         result.set(.width, to: 5)

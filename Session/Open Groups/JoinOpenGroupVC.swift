@@ -3,6 +3,7 @@
 import UIKit
 import Combine
 import AVFoundation
+import Lucide
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
@@ -88,7 +89,10 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
             }
         }
         
-        let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+        let closeIcon = Lucide.image(icon: .x, size: IconSize.medium.size)?
+            .withRenderingMode(.alwaysTemplate)
+        
+        let closeButton = UIBarButtonItem(image: closeIcon, style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
         navigationItem.rightBarButtonItem = closeButton
         

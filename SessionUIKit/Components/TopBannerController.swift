@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 
 public class TopBannerController: UIViewController {
     public enum Warning: String, Codable {
@@ -63,7 +64,7 @@ public class TopBannerController: UIViewController {
         let result: UIButton = UIButton()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setImage(
-            UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))?
+            Lucide.image(icon: .x, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )

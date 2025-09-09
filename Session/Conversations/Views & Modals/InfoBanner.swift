@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import UIKit
+import Lucide
 import SessionUIKit
 
 final class InfoBanner: UIView {
@@ -14,12 +15,11 @@ final class InfoBanner: UIView {
         var image: UIImage? {
             switch self {
                 case .none: return nil
-                case .link: return UIImage(systemName: "arrow.up.right.square")?.withRenderingMode(.alwaysTemplate)
+                case .link: return Lucide.image(icon: .squareArrowUpRight, size: 12)?
+                        .withRenderingMode(.alwaysTemplate)
                 case .close:
-                    return UIImage(
-                        systemName: "xmark",
-                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
-                    )?.withRenderingMode(.alwaysTemplate)
+                    return Lucide.image(icon: .x, size: 12)?
+                        .withRenderingMode(.alwaysTemplate)
             }
         }
     }
