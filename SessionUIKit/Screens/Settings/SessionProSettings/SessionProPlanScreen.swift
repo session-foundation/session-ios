@@ -122,7 +122,17 @@ public struct SessionProPlanScreen: View {
     }
     
     private func updatePlan() {
-        
+        if
+            let currentPlanExpiredOn = delegate?.currentPlanExpiredOn,
+            let expiredOn = Calendar.current.date(byAdding: .month, value: 1, to: currentPlanExpiredOn)
+        {
+            let viewController: SessionHostingViewController = SessionHostingViewController(
+                rootView: SessionProPlanUpdatedScreen(
+                    expiredOn: expiredOn
+                )
+            )
+            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        }
     }
     
     private func openTosPrivacy() {
