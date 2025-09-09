@@ -29,6 +29,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
+                network.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
                 network
                     .when {
                         $0.send(

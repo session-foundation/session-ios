@@ -271,12 +271,12 @@ public final class OpenGroupManager {
                 )
             }
             .handleEvents(
-                receiveCompletion: { [dependencies] result in
+                receiveCompletion: { [communityPollerManager = dependencies[singleton: .communityPollerManager]] result in
                     switch result {
                         case .finished:
                             /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid
                             /// a big delay before the next poll)
-                            Task { [communityPollerManager = dependencies[singleton: .communityPollerManager]] in
+                            Task { [communityPollerManager] in
                                 let poller = await communityPollerManager.getOrCreatePoller(for: server.lowercased())
                                 await poller.stop()
                                 await poller.startIfNeeded()

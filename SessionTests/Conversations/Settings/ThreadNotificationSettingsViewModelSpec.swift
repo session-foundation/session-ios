@@ -33,9 +33,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create()
         @TestState var viewModel: ThreadNotificationSettingsViewModel!
         @TestState var cancellables: [AnyCancellable]!
         
@@ -50,6 +48,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     creationDateTimestamp: 0
                 ).insert(db)
             }
+            try await mockNotificationsManager.defaultInitialSetup()
+            
             viewModel = await ThreadNotificationSettingsViewModel(
                 threadId: "TestId",
                 threadVariant: .contact,
@@ -424,15 +424,16 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     it("saves the updated settings") {
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        await expect(mockNotificationsManager)
-                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        await mockNotificationsManager
+                            .verify {
                                 $0.updateSettings(
                                     threadId: "TestId",
                                     threadVariant: .contact,
                                     mentionsOnly: false,
                                     mutedUntil: Date.distantFuture.timeIntervalSince1970
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
             }

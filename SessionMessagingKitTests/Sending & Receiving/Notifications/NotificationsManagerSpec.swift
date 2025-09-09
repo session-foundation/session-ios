@@ -3,13 +3,14 @@
 import Foundation
 import SessionUIKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
 
-class NotificationsManagerSpec: QuickSpec {
+class NotificationsManagerSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -24,9 +25,7 @@ class NotificationsManagerSpec: QuickSpec {
                 helper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
             }
         )
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create()
         @TestState var message: Message! = VisibleMessage(
             sender: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
             sentTimestampMs: 1234567892,
@@ -51,6 +50,8 @@ class NotificationsManagerSpec: QuickSpec {
                 )
             }.thenReturn(1234567800)
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockNotificationsManager.defaultInitialSetup()
         }
         
         // MARK: - a NotificationsManager - Ensure Should Show
@@ -1283,9 +1284,12 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false }
                     )
                 }.toNot(throwError())
-                expect(mockNotificationsManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.settings(threadId: "05\(TestConstants.publicKey)", threadVariant: .contact)
-                })
+                
+                await mockNotificationsManager
+                    .verify {
+                        $0.settings(threadId: "05\(TestConstants.publicKey)", threadVariant: .contact)
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- checks whether it should show for messages requests if the message is a message request
@@ -1339,27 +1343,29 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false }
                     )
                 }.toNot(throwError())
-                expect(mockNotificationsManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.addNotificationRequest(
-                        content: NotificationContent(
-                            threadId: "05\(TestConstants.publicKey)",
-                            threadVariant: .contact,
-                            identifier: "05\(TestConstants.publicKey)-TestId",
-                            category: .incomingMessage,
-                            title: "0588...c65b",
-                            body: "Test",
-                            sound: .note,
-                            applicationState: .background
-                        ),
-                        notificationSettings: Preferences.NotificationSettings(
-                            previewType: .nameAndPreview,
-                            sound: .defaultNotificationSound,
-                            mentionsOnly: false,
-                            mutedUntil: nil
-                        ),
-                        extensionBaseUnreadCount: 1
-                    )
-                })
+                await mockNotificationsManager
+                    .verify {
+                        $0.addNotificationRequest(
+                            content: NotificationContent(
+                                threadId: "05\(TestConstants.publicKey)",
+                                threadVariant: .contact,
+                                identifier: "05\(TestConstants.publicKey)-TestId",
+                                category: .incomingMessage,
+                                title: "0588...c65b",
+                                body: "Test",
+                                sound: .note,
+                                applicationState: .background
+                            ),
+                            notificationSettings: Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .defaultNotificationSound,
+                                mentionsOnly: false,
+                                mutedUntil: nil
+                            ),
+                            extensionBaseUnreadCount: 1
+                        )
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- uses a random identifier for reaction notifications
@@ -1395,29 +1401,31 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false }
                     )
                 }.toNot(throwError())
-                expect(mockNotificationsManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.addNotificationRequest(
-                        content: NotificationContent(
-                            threadId: "05\(TestConstants.publicKey)",
-                            threadVariant: .contact,
-                            identifier: "00000000-0000-0000-0000-000000000001",
-                            category: .incomingMessage,
-                            title: "0588...c65b",
-                            body: "emojiReactsNotification"
-                                .put(key: "emoji", value: "A")
-                                .localized(),
-                            sound: .note,
-                            applicationState: .background
-                        ),
-                        notificationSettings: Preferences.NotificationSettings(
-                            previewType: .nameAndPreview,
-                            sound: .defaultNotificationSound,
-                            mentionsOnly: false,
-                            mutedUntil: nil
-                        ),
-                        extensionBaseUnreadCount: 1
-                    )
-                })
+                await mockNotificationsManager
+                    .verify {
+                        $0.addNotificationRequest(
+                            content: NotificationContent(
+                                threadId: "05\(TestConstants.publicKey)",
+                                threadVariant: .contact,
+                                identifier: "00000000-0000-0000-0000-000000000001",
+                                category: .incomingMessage,
+                                title: "0588...c65b",
+                                body: "emojiReactsNotification"
+                                    .put(key: "emoji", value: "A")
+                                    .localized(),
+                                sound: .note,
+                                applicationState: .background
+                            ),
+                            notificationSettings: Preferences.NotificationSettings(
+                                previewType: .nameAndPreview,
+                                sound: .defaultNotificationSound,
+                                mentionsOnly: false,
+                                mutedUntil: nil
+                            ),
+                            extensionBaseUnreadCount: 1
+                        )
+                    }
+                    .wasCalled(exactly: 1)
             }
         }
     }

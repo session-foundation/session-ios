@@ -313,9 +313,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockNotificationsManager)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { notificationsManager in
-                                notificationsManager.addNotificationRequest(
+                        await fixture.mockNotificationsManager
+                            .verify {
+                                $0.addNotificationRequest(
                                     content: NotificationContent(
                                         threadId: fixture.groupId.hexString,
                                         threadVariant: .group,
@@ -334,7 +334,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                     ),
                                     extensionBaseUnreadCount: nil
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                 }
                 
@@ -464,9 +465,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockNotificationsManager)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { notificationsManager in
-                                notificationsManager.addNotificationRequest(
+                        await fixture.mockNotificationsManager
+                            .verify {
+                                $0.addNotificationRequest(
                                     content: NotificationContent(
                                         threadId: fixture.groupId.hexString,
                                         threadVariant: .group,
@@ -492,7 +493,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                     ),
                                     extensionBaseUnreadCount: nil
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ and push notifications are disabled
@@ -3241,9 +3243,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockFileManager: MockFileManager { mock(for: .fileManager) { MockFileManager() } }
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) { MockExtensionHelper() } }
     var mockGroupPollerManager: MockGroupPollerManager { mock(for: .groupPollerManager) }
-    var mockNotificationsManager: MockNotificationsManager {
-        mock(for: .notificationsManager) { MockNotificationsManager() }
-    }
+    var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) { MockGeneralCache() } }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) { MockLibSessionCache() } }
     var mockSnodeAPICache: MockSnodeAPICache { mock(cache: .snodeAPI) { MockSnodeAPICache() } }
@@ -3528,7 +3528,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         await applyBaselineFileManager()
         await applyBaselineExtensionHelper()
         try await applyBaselineGroupPollerManager()
-        await applyBaselineNotificationsManager()
+        try await applyBaselineNotificationsManager()
         await applyBaselineGeneralCache()
         await applyBaselineLibSessionCache()
         await applyBaselineSnodeAPICache()
@@ -3677,8 +3677,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
     }
     
-    private func applyBaselineNotificationsManager() async {
-        mockNotificationsManager.defaultInitialSetup()
+    private func applyBaselineNotificationsManager() async throws {
+        try await mockNotificationsManager.defaultInitialSetup()
     }
     
     private func applyBaselineGeneralCache() async {

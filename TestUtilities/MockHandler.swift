@@ -289,11 +289,11 @@ public extension MockHandler {
                     return () as! Output
                 }
                 
-                guard let mockedType = Output.self as? Mocked.Type else {
-                    fatalError("FATAL: The return type '\(Output.self)' of the non-throwing function '\(funcName)' does not conform to 'Mocked'. This conformance is required to provide a fallback value when a test fails due to a missing stub.")
+                if let fallbackValue: Output = MockFallbackRegistry.shared.makeFallback(for: Output.self) {
+                    return fallbackValue
                 }
-                
-                return mockedType.mock as! Output
+
+                fatalError("FATAL: The return type '\(Output.self)' of the non-throwing function '\(funcName)' does not conform to 'Mocked' and has no custom fallback registered. The framework cannot produce a default value.")
             }
     }
 }

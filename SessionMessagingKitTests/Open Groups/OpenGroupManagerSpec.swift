@@ -128,6 +128,7 @@ class OpenGroupManagerSpec: AsyncSpec {
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
+                network.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
                 network
                     .when {
                         $0.send(
@@ -255,25 +256,25 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                 .thenReturn(Data([1, 2, 3]))
+            
+            try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
+            try await mockPoller.when { await $0.stop() }.thenReturn(())
+            
+            try await mockCommunityPollerManager.when { await $0.serversBeingPolled }.thenReturn([])
+            try await mockCommunityPollerManager.when { await $0.startAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager
+                .when { await $0.getOrCreatePoller(for: .any) }
+                .thenReturn(mockPoller)
+            try await mockCommunityPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+            try await mockCommunityPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager
+                .when { $0.syncState }
+                .thenReturn(CommunityPollerManagerSyncState())
         }
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
             beforeEach {
-                try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
-                try await mockPoller.when { await $0.stop() }.thenReturn(())
-                
-                try await mockCommunityPollerManager.when { await $0.serversBeingPolled }.thenReturn([])
-                try await mockCommunityPollerManager.when { await $0.startAllPollers() }.thenReturn(())
-                try await mockCommunityPollerManager
-                    .when { await $0.getOrCreatePoller(for: .any) }
-                    .thenReturn(mockPoller)
-                try await mockCommunityPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
-                try await mockCommunityPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
-                try await mockCommunityPollerManager
-                    .when { await $0.syncState }
-                    .thenReturn(CommunityPollerManagerSyncState())
-                
                 _ = userGroupsInitResult
             }
             
@@ -770,7 +771,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 )
                             )
                         }
-                        .wasCalled()
+                        .wasCalled(timeout: .milliseconds(100))
                     await mockPoller.verify { await $0.startIfNeeded() }.wasCalled()
                 }
                 

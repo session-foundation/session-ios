@@ -756,6 +756,7 @@
 		FD6B92722E6AB045004463B5 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD6B92712E6AB045004463B5 /* Quick */; };
 		FD6B927A2E6F8B90004463B5 /* ServiceNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD10AF112AF85D11007709E5 /* ServiceNetwork.swift */; };
 		FD6B927C2E6F8BB2004463B5 /* Router.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B927B2E6F8BAC004463B5 /* Router.swift */; };
+		FD6B927E2E6FEDFF004463B5 /* MockFallbackRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B927D2E6FEDFE004463B5 /* MockFallbackRegistry.swift */; };
 		FD6C67242CF6E72E00B350A7 /* NoopSessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */; };
 		FD6D9CF92CA152B300F706A8 /* Session+SNUIKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754BB2C9B9A8E002A2623 /* Session+SNUIKit.swift */; };
 		FD6DA9CF2D015B440092085A /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD6DA9CE2D015B440092085A /* Lucide */; };
@@ -2097,6 +2098,7 @@
 		FD6B92632E696EDC004463B5 /* Mocked+SUK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mocked+SUK.swift"; sourceTree = "<group>"; };
 		FD6B926B2E6A763D004463B5 /* Async+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Async+Utilities.swift"; sourceTree = "<group>"; };
 		FD6B927B2E6F8BAC004463B5 /* Router.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Router.swift; sourceTree = "<group>"; };
+		FD6B927D2E6FEDFE004463B5 /* MockFallbackRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFallbackRegistry.swift; sourceTree = "<group>"; };
 		FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopSessionCallManager.swift; sourceTree = "<group>"; };
 		FD6DF00A2ACFE40D0084BA4C /* _021_AddSnodeReveivedMessageInfoPrimaryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _021_AddSnodeReveivedMessageInfoPrimaryKey.swift; sourceTree = "<group>"; };
 		FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyUnsubscribeRequest.swift; sourceTree = "<group>"; };
@@ -4193,6 +4195,7 @@
 				FD1BDBAC2E653200008EF998 /* Mockable.swift */,
 				FD1BDBE22E655BB4008EF998 /* Mocked.swift */,
 				FD1BDBD82E653866008EF998 /* MockError.swift */,
+				FD6B927D2E6FEDFE004463B5 /* MockFallbackRegistry.swift */,
 				FD1BDBD22E65365E008EF998 /* MockFunction.swift */,
 				FD1BDBDA2E6538B0008EF998 /* MockFunctionBuilder.swift */,
 				FD1BDBDE2E655734008EF998 /* MockFunctionHandler.swift */,
@@ -7061,6 +7064,7 @@
 			files = (
 				FD1BDBE52E655DDF008EF998 /* NimbleVerification.swift in Sources */,
 				FD1BDBE32E655BB6008EF998 /* Mocked.swift in Sources */,
+				FD6B927E2E6FEDFF004463B5 /* MockFallbackRegistry.swift in Sources */,
 				FD1BDBDF2E655735008EF998 /* MockFunctionHandler.swift in Sources */,
 				FD1BDBD92E653868008EF998 /* MockError.swift in Sources */,
 				FD1BDBDB2E6538B4008EF998 /* MockFunctionBuilder.swift in Sources */,

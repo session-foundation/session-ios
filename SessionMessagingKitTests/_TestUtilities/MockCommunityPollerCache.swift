@@ -10,6 +10,12 @@ class MockCommunityPollerManager: CommunityPollerManagerType, Mockable {
     
     required init(handler: MockHandler<CommunityPollerManagerType>) {
         self.handler = handler
+        
+        /// Register `any PollerType` with the `MockFallbackRegistry` so we don't need to explicitly mock `getOrCreatePoller`
+        MockFallbackRegistry.register(
+            for: (any PollerType).self,
+            provider: { MockPoller(handler: .invalid()) }
+        )
     }
     
     required init(handlerForBuilder: any MockFunctionHandler) {
@@ -26,4 +32,9 @@ class MockCommunityPollerManager: CommunityPollerManagerType, Mockable {
     }
     func stopAndRemovePoller(for server: String) async { handler.mockNoReturn(args: [server]) }
     func stopAndRemoveAllPollers() async { handler.mockNoReturn() }
+}
+
+extension CommunityPoller.Info: @retroactive Mocked {
+    public static let any: CommunityPoller.Info = CommunityPoller.Info(server: .any, pollFailureCount: .any)
+    public static let mock: CommunityPoller.Info = CommunityPoller.Info(server: .mock, pollFailureCount: .mock)
 }
