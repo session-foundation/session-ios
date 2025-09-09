@@ -28,7 +28,7 @@ public class ApprovalRailCellView: GalleryRailCellView {
             strongSelf.approvalRailCellDelegate?.approvalRailCellView(strongSelf, didRemoveItem: attachmentItem)
         }
 
-        button.setImage(Lucide.image(icon: .x, size: 24)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        button.setImage(Lucide.image(icon: .x, size: IconSize.medium.size)?.withRenderingMode(.alwaysTemplate), for: .normal)
         button.themeTintColor = .white
         button.themeShadowColor = .black
         button.layer.shadowRadius = 2

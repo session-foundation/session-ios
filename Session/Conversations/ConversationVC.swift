@@ -1441,7 +1441,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             if shouldHaveCallButton {
                 let callButton = UIBarButtonItem(
-                    image: Lucide.image(icon: .phone, size: 24),
+                    image: Lucide.image(icon: .phone, size: IconSize.medium.size),
                     style: .plain,
                     target: self,
                     action: #selector(startCall)

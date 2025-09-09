@@ -140,7 +140,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var minimizeButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            Lucide.image(icon: .minimize2, size: 24)?
+            Lucide.image(icon: .minimize2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -205,7 +205,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         let result = UIButton(type: .custom)
         result.isEnabled = call.isVideoEnabled
         result.setImage(
-            Lucide.image(icon: .switchCamera, size: 24)?
+            Lucide.image(icon: .switchCamera, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -222,7 +222,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var switchAudioButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            Lucide.image(icon: .micOff, size: 24)?
+            Lucide.image(icon: .micOff, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -245,7 +245,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var videoButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            Lucide.image(icon: .video, size: 24)?
+            Lucide.image(icon: .video, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -273,7 +273,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var routePickerButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            Lucide.image(icon: .volume2, size: 24)?
+            Lucide.image(icon: .volume2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -825,7 +825,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             
             switch currentOutput.portType {
                 case .builtInSpeaker:
-                    let image = Lucide.image(icon: .volume2, size: 24)?
+                    let image = Lucide.image(icon: .volume2, size: IconSize.medium.size)?
                         .withRenderingMode(.alwaysTemplate)
                     
                     routePickerButton.setImage(image, for: .normal)
@@ -859,7 +859,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                     
                 case .builtInReceiver: fallthrough
                 default:
-                    let image = Lucide.image(icon: .volume2, size: 24)?
+                    let image = Lucide.image(icon: .volume2, size: IconSize.medium.size)?
                         .withRenderingMode(.alwaysTemplate)
                     
                     routePickerButton.setImage(image, for: .normal)

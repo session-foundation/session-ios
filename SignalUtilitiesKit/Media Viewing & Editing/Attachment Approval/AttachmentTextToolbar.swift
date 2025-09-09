@@ -39,7 +39,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     private var bottomStackView: UIStackView?
     
     private lazy var sendButton: InputViewButton = {
-        let sendIcon = Lucide.image(icon: .arrowUp, size: 24)
+        let sendIcon = Lucide.image(icon: .arrowUp, size: IconSize.medium.size)
         
         let result = InputViewButton(icon: sendIcon, isSendButton: true, delegate: self)
         result.accessibilityIdentifier = "Send message button"

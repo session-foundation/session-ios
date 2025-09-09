@@ -45,7 +45,7 @@ class VideoPreviewVC: UIViewController, CameraManagerDelegate {
     private lazy var closeButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            Lucide.image(icon: .x, size: 24)?
+            Lucide.image(icon: .x, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -60,7 +60,7 @@ class VideoPreviewVC: UIViewController, CameraManagerDelegate {
     private lazy var confirmButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            Lucide.image(icon: .check, size: 24)?
+            Lucide.image(icon: .check, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )

@@ -301,7 +301,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     lazy var shareBarButton: UIBarButtonItem = {
         let shareBarButton = UIBarButtonItem(
-            image: Lucide.image(icon: .share, size: 24)?
+            image: Lucide.image(icon: .share, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             target: self,
@@ -314,7 +314,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     lazy var deleteBarButton: UIBarButtonItem = {
         let deleteBarButton = UIBarButtonItem(
-            image: Lucide.image(icon: .trash2, size: 24)?
+            image: Lucide.image(icon: .trash2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             target: self,

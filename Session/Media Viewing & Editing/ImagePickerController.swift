@@ -76,7 +76,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         // quickly toggle between the Capture and the Picker VC's, we use the same custom "X"
         // icon here rather than the system "stop" icon so that the spacing matches exactly.
         // Otherwise there's a noticable shift in the icon placement.
-        let cancelImage = Lucide.image(icon: .x, size: 24)
+        let cancelImage = Lucide.image(icon: .x, size: IconSize.medium.size)
         let cancelButton = UIBarButtonItem(image: cancelImage, style: .plain, target: self, action: #selector(didPressCancel))
 
         cancelButton.themeTintColor = .textPrimary
@@ -96,7 +96,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         collectionView.addGestureRecognizer(selectionPanGesture)
         
         if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited {
-            let plusImage = Lucide.image(icon: .plus, size: 24)
+            let plusImage = Lucide.image(icon: .plus, size: IconSize.medium.size)
             
             let addSeletedPhotoButton = UIBarButtonItem.init(image: plusImage, style: .plain, target: self, action: #selector(addSelectedPhoto))
             self.navigationItem.rightBarButtonItem = addSeletedPhotoButton

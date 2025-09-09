@@ -254,7 +254,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 elements: [
                     SessionCell.Info(
                         id: .invite,
-                        leadingAccessory: .icon(Lucide.image(icon: .userRoundPlus, size: 24)?.withRenderingMode(.alwaysTemplate)),
+                        leadingAccessory: .icon(Lucide.image(icon: .userRoundPlus, size: IconSize.medium.size)?.withRenderingMode(.alwaysTemplate)),
                         title: "membersInvite".localized(),
                         accessibility: Accessibility(
                             identifier: "Invite button",
@@ -265,7 +265,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     (!isUpdatedGroup || !dependencies[feature: .updatedGroupsAllowInviteById] ? nil :
                         SessionCell.Info(
                             id: .inviteById,
-                            leadingAccessory: .icon(Lucide.image(icon: .plus, size: 24)?.withRenderingMode(.alwaysTemplate)),
+                            leadingAccessory: .icon(Lucide.image(icon: .plus, size: IconSize.medium.size)?.withRenderingMode(.alwaysTemplate)),
                             title: "accountIdOrOnsInvite".localized(),
                             accessibility: Accessibility(
                                 identifier: "Invite by id",

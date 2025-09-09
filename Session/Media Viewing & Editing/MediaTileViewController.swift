@@ -128,7 +128,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
     lazy var deleteButton: UIBarButtonItem = {
         let result: UIBarButtonItem = UIBarButtonItem(
-            image: Lucide.image(icon: .trash2, size: 24)?
+            image: Lucide.image(icon: .trash2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             target: self,

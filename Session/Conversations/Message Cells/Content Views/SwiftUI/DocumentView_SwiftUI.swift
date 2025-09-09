@@ -78,7 +78,7 @@ struct DocumentView_SwiftUI: View {
             }
             else if
                 attachment.state == .failedDownload || attachment.state == .failedUpload,
-                let invalidImage = Lucide.image(icon: .triangleAlert, size: 24)?.withRenderingMode(.alwaysTemplate)
+                let invalidImage = Lucide.image(icon: .triangleAlert, size: IconSize.medium.size)?.withRenderingMode(.alwaysTemplate)
             {
                 Image(uiImage: invalidImage)
                     .resizable()

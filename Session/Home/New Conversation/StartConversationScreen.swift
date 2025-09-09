@@ -29,7 +29,7 @@ struct StartConversationScreen: View {
                             .putNumber(1)
                             .localized()
                         NewConversationCell(
-                            image: Lucide.image(icon: .messageSquare, size: 24),
+                            image: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
                             title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -69,7 +69,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: Lucide.image(icon: .globe, size: 24),
+                            image: Lucide.image(icon: .globe, size: IconSize.medium.size),
                             title: "communityJoin".localized()
                         ) {
                             let viewController = JoinOpenGroupVC(using: dependencies)
@@ -87,7 +87,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: Lucide.image(icon: .userRoundPlus, size: 24),
+                            image: Lucide.image(icon: .userRoundPlus, size: IconSize.medium.size),
                             title: "sessionInviteAFriend".localized()
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(

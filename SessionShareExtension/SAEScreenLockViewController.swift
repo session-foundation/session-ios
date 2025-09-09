@@ -45,7 +45,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     
     private lazy var closeButton: UIBarButtonItem = {
         let closeButton: UIBarButtonItem = UIBarButtonItem(
-            image: Lucide.image(icon: .x, size: 24)?
+            image: Lucide.image(icon: .x, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             target: self,

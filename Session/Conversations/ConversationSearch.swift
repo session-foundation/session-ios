@@ -150,7 +150,7 @@ public final class SearchResultsBar: UIView {
     }()
     
     private lazy var upButton: UIButton = {
-        let icon = Lucide.image(icon: .chevronUp, size: 24)?
+        let icon = Lucide.image(icon: .chevronUp, size: IconSize.medium.size)?
             .withRenderingMode(.alwaysTemplate)
         let result: UIButton = UIButton()
         result.setImage(icon, for: UIControl.State.normal)
@@ -161,7 +161,7 @@ public final class SearchResultsBar: UIView {
     }()
     
     private lazy var downButton: UIButton = {
-        let icon = Lucide.image(icon: .chevronDown, size: 24)?
+        let icon = Lucide.image(icon: .chevronDown, size: IconSize.medium.size)?
             .withRenderingMode(.alwaysTemplate)
         let result: UIButton = UIButton()
         result.setImage(icon, for: UIControl.State.normal)

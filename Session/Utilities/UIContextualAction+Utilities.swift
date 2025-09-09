@@ -638,7 +638,7 @@ public extension UIContextualAction {
                     case .delete:
                         return UIContextualAction(
                             title: "delete".localized(),
-                            icon: Lucide.image(icon: .trash2, size: 24),
+                            icon: Lucide.image(icon: .trash2, size: IconSize.medium.size),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Delete button"),

@@ -64,7 +64,7 @@ public class TopBannerController: UIViewController {
         let result: UIButton = UIButton()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setImage(
-            Lucide.image(icon: .x, size: 24)?
+            Lucide.image(icon: .x, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )

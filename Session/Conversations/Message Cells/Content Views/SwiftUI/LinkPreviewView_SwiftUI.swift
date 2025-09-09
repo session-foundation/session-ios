@@ -64,7 +64,7 @@ public struct LinkPreviewView_SwiftUI: View {
                         )
                         .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
                 } else if state is LinkPreview.DraftState || state is LinkPreview.SentState {
-                    LucideIcon(.link, size: 24)
+                    LucideIcon(.link, size: IconSize.medium.size)
                         .foregroundColor(
                             themeColor: isOutgoing ?
                                 .messageBubble_outgoingText :
@@ -106,7 +106,7 @@ public struct LinkPreviewView_SwiftUI: View {
                     Button(action: {
                         onCancel?()
                     }, label: {
-                        if let image = Lucide.image(icon: .x, size: 24)?.withRenderingMode(.alwaysTemplate) {
+                        if let image = Lucide.image(icon: .x, size: IconSize.medium.size)?.withRenderingMode(.alwaysTemplate) {
                             Image(uiImage: image)
                                 .foregroundColor(themeColor: .textPrimary)
                         }
