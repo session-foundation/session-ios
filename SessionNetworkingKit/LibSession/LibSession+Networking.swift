@@ -488,7 +488,7 @@ actor LibSessionNetwork: NetworkType {
                 config.onionreq_single_path_mode = singlePathMode
                 
                 switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
-                    case (.mainnet, _, _): break
+                    case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
                     case (.testnet, _, _), (_, _, false):
                         config.netid = SESSION_NETWORK_TESTNET
                         config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
@@ -497,6 +497,12 @@ actor LibSessionNetwork: NetworkType {
                         config.netid = SESSION_NETWORK_DEVNET
                         config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
                         cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
+                }
+                
+                switch dependencies[feature: .router] {
+                    case .onionRequests: config.router = SESSION_NETWORK_ROUTER_ONION_REQUESTS
+                    case .lokinet: config.router = SESSION_NETWORK_ROUTER_LOKINET
+                    case .direct: config.router = SESSION_NETWORK_ROUTER_DIRECT
                 }
                 
                 /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)

@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 

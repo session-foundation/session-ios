@@ -527,6 +527,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     Configure settings related to how and where network requests are sent.
                     
                     <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
+                    <b>Router:</b> <span>\(dependencies[feature: .router].title)</span>
                     <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
                     """,
                     trailingAccessory: .icon(.chevronRight),

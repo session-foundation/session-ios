@@ -72,44 +72,71 @@ extension LibSession {
                 ///
                 /// We want to simplify the message because our logging already includes category and timestamp information:
                 /// `[+{lifetime}s] {message}`
+                let trimmedMsg = msg.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                guard
+                    let timestampRegex: NSRegularExpression = LibSession.timestampRegex,
+                    let messageStartRegex: NSRegularExpression = LibSession.messageStartRegex,
+                    let fileLineRegex: NSRegularExpression = LibSession.fileLineRegex
+                else {
+                    return Log.custom(Log.Level(lvl), [Log.Category(rawValue: cat, group: .libSession)], trimmedMsg)
+                }
+                
+                let fullRange = NSRange(trimmedMsg.startIndex..<trimmedMsg.endIndex, in: trimmedMsg)
+                let timestamp: String? = {
+                    if let match = timestampRegex.firstMatch(in: trimmedMsg, range: fullRange),
+                       let swiftRange = Range(match.range, in: trimmedMsg) {
+                        return String(trimmedMsg[swiftRange])
+                    }
+                    return nil
+                }()
+                let message: String? = {
+                    if let match = messageStartRegex.firstMatch(in: trimmedMsg, range: fullRange),
+                       match.numberOfRanges == 2, // Ensure our capture group (1) was found
+                       let swiftRange = Range(match.range(at: 1), in: trimmedMsg) {
+                        return String(trimmedMsg[swiftRange])
+                    }
+                    return nil
+                }()
+                let (filename, line): (String?, UInt?) = {
+                    if let match = fileLineRegex.firstMatch(in: trimmedMsg, range: fullRange),
+                       match.numberOfRanges == 3 { // We expect 3 ranges: the full match, filename, and line
+                        
+                        let fileString = Range(match.range(at: 1), in: trimmedMsg).map { String(trimmedMsg[$0]) }
+                        let lineString = Range(match.range(at: 2), in: trimmedMsg).map { String(trimmedMsg[$0]) }
+                        
+                        if let fileString = fileString, let lineString = lineString, let lineUInt = UInt(lineString) {
+                            return (fileString, lineUInt)
+                        }
+                    }
+                    return (nil, nil)
+                }()
+                
                 let processedMessage: String = {
-                    let trimmedMsg = msg.trimmingCharacters(in: .whitespacesAndNewlines)
-                    
-                    guard
-                        let timestampRegex: NSRegularExpression = LibSession.timestampRegex,
-                        let messageStartRegex: NSRegularExpression = LibSession.messageStartRegex
-                    else { return trimmedMsg }
-                    
-                    let fullRange = NSRange(trimmedMsg.startIndex..<trimmedMsg.endIndex, in: trimmedMsg)
-                    let timestamp: String? = {
-                        if let match = timestampRegex.firstMatch(in: trimmedMsg, range: fullRange),
-                           let swiftRange = Range(match.range, in: trimmedMsg) {
-                            return String(trimmedMsg[swiftRange])
-                        }
-                        return nil
-                    }()
-                    let message: String? = {
-                        if let match = messageStartRegex.firstMatch(in: trimmedMsg, range: fullRange),
-                           match.numberOfRanges == 2, // Ensure our capture group (1) was found
-                           let swiftRange = Range(match.range(at: 1), in: trimmedMsg) {
-                            return String(trimmedMsg[swiftRange])
-                        }
-                        return nil
-                    }()
-                    
                     switch (timestamp, message) {
                         case (.some(let timestamp), .some(let message)) where !timestamp.isEmpty && !message.isEmpty:
                             return "\(timestamp) \(message)"
-                            
                         default: return trimmedMsg
                     }
                 }()
                 
-                Log.custom(
-                    Log.Level(lvl),
-                    [Log.Category(rawValue: cat, group: .libSession)],
-                    processedMessage
-                )
+                switch (filename, line) {
+                    case (.some(let filename), .some(let line)):
+                        Log.custom(
+                            Log.Level(lvl),
+                            [Log.Category(rawValue: cat, group: .libSession)],
+                            processedMessage,
+                            file: filename,
+                            line: line
+                        )
+                    
+                    default:
+                        Log.custom(
+                            Log.Level(lvl),
+                            [Log.Category(rawValue: cat, group: .libSession)],
+                            processedMessage
+                        )
+                }
             }
         })
     }
@@ -128,6 +155,9 @@ fileprivate extension LibSession {
     static let messageStartRegex: NSRegularExpression? = try? NSRegularExpression(
         pattern: "\\[.*?\\|.*?\\.(?:c|cpp|h|hpp):\\d+\\]\\s*(.*)",
         options: .dotMatchesLineSeparators
+    )
+    static let fileLineRegex: NSRegularExpression? = try? NSRegularExpression(
+        pattern: "\\|([^:]+):(\\d+)\\]"
     )
 }
 

@@ -43,7 +43,7 @@ public enum Log {
         level: Log.Level,
         categories: [Category],
         message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     )
@@ -69,6 +69,42 @@ public enum Log {
                 case .error: return "error"
                 case .critical: return "critical"
                 case .default: return "default"
+            }
+        }
+        
+        var emoji: String {
+            switch self {
+                case .off, .default: return ""
+                case .verbose: return "💙"
+                case .debug: return "💚"
+                case .info: return "💛"
+                case .warn: return "🧡"
+                case .error: return "❤️"
+                case .critical: return "🔥"
+            }
+        }
+        
+        var ddLevel: DDLogLevel {
+            switch self {
+                case .off, .default: return .off
+                case .verbose: return .verbose
+                case .debug: return .warning
+                case .info: return .info
+                case .warn: return .warning
+                case .error: return .error
+                case .critical: return .error
+            }
+        }
+        
+        var ddFlag: DDLogFlag {
+            switch self {
+                case .off, .default: return .verbose
+                case .verbose: return .verbose
+                case .debug: return .debug
+                case .info: return .info
+                case .warn: return .warning
+                case .error: return .error
+                case .critical: return .error
             }
         }
     }
@@ -255,126 +291,126 @@ public enum Log {
     // FIXME: Would be nice to properly require a category for all logs
     public static func verbose(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cat: Category
         , _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [cat], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, cats, msg, file: file, function: function, line: line) }
     
     public static func debug(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [cat], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, cats, msg, file: file, function: function, line: line) }
     
     public static func info(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [], msg, file: file, function: function, line: line) }
     public static func info(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [cat], msg, file: file, function: function, line: line) }
     public static func info(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, cats, msg, file: file, function: function, line: line) }
     
     public static func warn(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [cat], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, cats, msg, file: file, function: function, line: line) }
     
     public static func error(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [], msg, file: file, function: function, line: line) }
     public static func error(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [cat], msg, file: file, function: function, line: line) }
     public static func error(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, cats, msg, file: file, function: function, line: line) }
     
     public static func critical(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [cat], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, cats, msg, file: file, function: function, line: line) }
@@ -382,7 +418,7 @@ public enum Log {
     public static func assert(
         _ condition: Bool,
         _ message: @autoclosure () -> String = String(),
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -397,7 +433,7 @@ public enum Log {
     }
     
     public static func assertOnMainThread(
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -412,7 +448,7 @@ public enum Log {
     }
     
     public static func assertNotOnMainThread(
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -430,7 +466,7 @@ public enum Log {
         _ level: Level,
         _ categories: [Category],
         _ message: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -459,7 +495,7 @@ public protocol LoggerType: Actor {
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     )
@@ -687,7 +723,7 @@ public actor Logger: LoggerType {
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     ) {
@@ -753,16 +789,26 @@ public actor Logger: LoggerType {
                 return updatedText
             }
         let ddLogMessage: String = "\(logPrefix) ".appending(cleanedMessage)
-        let consoleLogMessage: String = "\(logPrefix)[\(level)] ".appending(cleanedMessage)
+        let consoleLogMessage: String = "\(logPrefix)[\(level)|\(file):\(line)] ".appending(cleanedMessage)
         
-        switch level {
-            case .off, .default: return
-            case .verbose: DDLogVerbose("💙 \(ddLogMessage)", file: file, function: function, line: line)
-            case .debug: DDLogDebug("💚 \(ddLogMessage)", file: file, function: function, line: line)
-            case .info: DDLogInfo("💛 \(ddLogMessage)", file: file, function: function, line: line)
-            case .warn: DDLogWarn("🧡 \(ddLogMessage)", file: file, function: function, line: line)
-            case .error: DDLogError("❤️ \(ddLogMessage)", file: file, function: function, line: line)
-            case .critical: DDLogError("🔥 \(ddLogMessage)", file: file, function: function, line: line)
+        /// Log the message via `DDLog` if logging is on
+        if level != .off && level != .default {
+            DDLog.log(
+                asynchronous: asyncLoggingEnabled,
+                message: DDLogMessage(
+                    format: "",
+                    formatted: "\(level.emoji) \(ddLogMessage)",
+                    level: level.ddLevel,
+                    flag: level.ddFlag,
+                    context: 0,
+                    file: file,
+                    function: String(describing: function),
+                    line: line,
+                    tag: nil,
+                    options: [.dontCopyMessage],
+                    timestamp: nil
+                )
+            )
         }
         
         let mainCategory: String = (categories.first?.rawValue ?? "General")

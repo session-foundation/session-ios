@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtilitiesKit
 
 // MARK: - FeatureStorage
 
@@ -17,7 +18,7 @@ public extension FeatureStorage {
     )
 }
 
-// MARK: - ServiceNetwork Feature
+// MARK: - ServiceNetwork
 
 public enum ServiceNetwork: Int, Sendable, FeatureOption, CaseIterable {
     case mainnet = 1

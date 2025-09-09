@@ -71,6 +71,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case environment
+        case router
         case pushNotificationService
         case forceOffline
         
@@ -86,6 +87,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         public var differenceIdentifier: String {
             switch self {
                 case .environment: return "environment"
+                case .router: return "router"
                 case .pushNotificationService: return "pushNotificationService"
                 case .forceOffline: return "forceOffline"
                     
@@ -104,6 +106,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
             var result: [TableItem] = []
             switch TableItem.environment {
                 case .environment: result.append(.environment); fallthrough
+                case .router: result.append(.router); fallthrough
                 case .pushNotificationService: result.append(.pushNotificationService); fallthrough
                 case .forceOffline: result.append(.forceOffline); fallthrough
                     
@@ -122,6 +125,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
     public struct State: Equatable, ObservableKeyProvider {
         struct NetworkState: Equatable, Hashable {
             let environment: ServiceNetwork
+            let router: Router
             let pushNotificationService: PushNotificationAPI.Service
             let forceOffline: Bool
             
@@ -129,12 +133,14 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
             
             public func with(
                 environment: ServiceNetwork? = nil,
+                router: Router? = nil,
                 pushNotificationService: PushNotificationAPI.Service? = nil,
                 forceOffline: Bool? = nil,
                 devnetConfig: ServiceNetwork.DevnetConfiguration? = nil
             ) -> NetworkState {
                 return NetworkState(
                     environment: (environment ?? self.environment),
+                    router: (router ?? self.router),
                     pushNotificationService: (pushNotificationService ?? self.pushNotificationService),
                     forceOffline: (forceOffline ?? self.forceOffline),
                     devnetConfig: (devnetConfig ?? self.devnetConfig)
@@ -160,6 +166,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         static func initialState(using dependencies: Dependencies) -> State {
             let initialState: NetworkState = NetworkState(
                 environment: dependencies[feature: .serviceNetwork],
+                router: dependencies[feature: .router],
                 pushNotificationService: dependencies[feature: .pushNotificationService],
                 forceOffline: dependencies[feature: .forceOffline],
                 devnetConfig: dependencies[feature: .devnetConfig]
@@ -182,10 +189,12 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                 isEnabled: {
                     guard state.initialState != state.pendingState else { return false }
                     
-                    return (
-                        state.pendingState.environment != .devnet ||
-                        state.pendingState.devnetConfig.isValid
-                    )
+                    switch (state.pendingState.environment, state.pendingState.router) {
+                        case (.devnet, _): return state.pendingState.devnetConfig.isValid
+                        case (.testnet, .lokinet): return true
+                        case (_, .lokinet): return false
+                        default: return true
+                    }
                 }(),
                 accessibility: Accessibility(
                     identifier: "Set button",
@@ -232,6 +241,21 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
                         viewModel?.showEnvironmentModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .router,
+                    title: "Router",
+                    subtitle: """
+                    The routing method which should be used when making network requests.
+                    
+                    The Lokinet option only works on Testnet.
+                    
+                    <b>Current:</b> <span>\(state.pendingState.router.title)</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showRoutingModal(pendingState: state.pendingState)
                     }
                 ),
                 SessionCell.Info(
@@ -351,6 +375,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                         options: ServiceNetwork.allCases.map { network in
                             ConfirmationModal.Info.Body.RadioOptionInfo(
                                 title: network.title,
+                                descriptionText: network.subtitle.map { ThemedAttributedString(string: $0) },
                                 enabled: true,
                                 selected: pendingState.environment == network
                             )
@@ -382,6 +407,59 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                             priority: .immediate,
                             key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
                             value: pendingState.with(environment: selected)
+                        )
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func showRoutingModal(pendingState: State.NetworkState) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Router",
+                    body: .radio(
+                        explanation: ThemedAttributedString(
+                            string: "The routing method which should be used when making network requests."
+                        ),
+                        warning: nil,
+                        options: Router.allCases.map { router in
+                            ConfirmationModal.Info.Body.RadioOptionInfo(
+                                title: router.title,
+                                descriptionText: router.subtitle.map { ThemedAttributedString(string: $0) },
+                                enabled: (router != .direct),
+                                selected: pendingState.router == router
+                            )
+                        }
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selected: Router = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            guard index < Router.allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return Router.allCases[index]
+                                        }
+                                        .defaulting(to: .onionRequests)
+                                
+                                default: return .onionRequests
+                            }
+                        }()
+                        
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperNetworkSettingsViewModel.self),
+                            value: pendingState.with(router: selected)
                         )
                     }
                 )
@@ -705,6 +783,9 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                 internalState.initialState.devnetConfig != internalState.pendingState.devnetConfig
             )
         )
+        let routerChanged: Bool = (
+            internalState.initialState.router != internalState.pendingState.router
+        )
         let pushServiceChanged: Bool = (
             internalState.initialState.pushNotificationService != internalState.pendingState.pushNotificationService
         )
@@ -712,101 +793,96 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         /// Changing the network settings can result in data being cleared from the database so we should confirm that is desired before
         /// we make the changes
         guard hasConfirmed else {
-            switch (networkEnvironmentChanged, pushServiceChanged) {
-                case (false, false):
-                    /// Most likely just the `forceOffline` (or some new) change
-                    await self.saveChanges(hasConfirmed: true)
-                    
-                case (false, true):
-                    self.transitionToScreen(
-                        ConfirmationModal(
-                            info: ConfirmationModal.Info(
-                                title: "Change Push Notification Service",
-                                body: .attributedText(
-                                    ThemedAttributedString(
-                                        stringWithHTMLTags: """
-                                        Are you sure you want to update the Push Notification Service to <b><span>\(internalState.pendingState.pushNotificationService.title)</span></b>?
-                                        
-                                        <b>Warning:</b>
-                                        This will unsubscribe from the current service and subscribe to the new service which may take a few minutes.
-                                        """,
-                                        font: ConfirmationModal.explanationFont
-                                    ),
-                                    scrollMode: .never
-                                ),
-                                confirmTitle: "confirm".localized(),
-                                confirmStyle: .danger,
-                                cancelStyle: .alert_text,
-                                onConfirm: { [weak self] _ in
-                                    Task { [weak self] in
-                                        await self?.saveChanges(hasConfirmed: true)
-                                    }
-                                }
-                            )
-                        ),
-                        transitionType: .present
-                    )
-                    
-                case (true, false):
-                    self.transitionToScreen(
-                        ConfirmationModal(
-                            info: ConfirmationModal.Info(
-                                title: "Change Environment",
-                                body: .attributedText(
-                                    ThemedAttributedString(
-                                        stringWithHTMLTags: """
-                                        Are you sure you want to change the environment to <b><span>\(internalState.pendingState.environment.title)</span></b>?
-                                        
-                                        <b>Warning:</b>
-                                        This will result in all conversation and snode data being cleared and any pending network requests being cancelled.
-                                        """,
-                                        font: ConfirmationModal.explanationFont
-                                    ),
-                                    scrollMode: .never
-                                ),
-                                confirmTitle: "confirm".localized(),
-                                confirmStyle: .danger,
-                                cancelStyle: .alert_text,
-                                onConfirm: { [weak self] _ in
-                                    Task { [weak self] in
-                                        await self?.saveChanges(hasConfirmed: true)
-                                    }
-                                }
-                            )
-                        ),
-                        transitionType: .present
-                    )
-                    
-                case (true, true):
-                    self.transitionToScreen(
-                        ConfirmationModal(
-                            info: ConfirmationModal.Info(
-                                title: "Change Environment",
-                                body: .attributedText(
-                                    ThemedAttributedString(
-                                        stringWithHTMLTags: """
-                                        Are you sure you want to change the environment to <b><span>\(internalState.pendingState.environment.title)</span></b> and the Push Notification Service to <b><span>\(internalState.pendingState.pushNotificationService.title)</span></b>?
-                                        
-                                        <b>Warning:</b>
-                                        This will result in all conversation and snode data being cleared and any pending network requests being cancelled. The device will unsubscribe from the current PN service and subscribe to the new service which may take a few minutes.
-                                        """,
-                                        font: ConfirmationModal.explanationFont
-                                    ),
-                                    scrollMode: .never
-                                ),
-                                confirmTitle: "confirm".localized(),
-                                confirmStyle: .danger,
-                                cancelStyle: .alert_text,
-                                onConfirm: { [weak self] _ in
-                                    Task { [weak self] in
-                                        await self?.saveChanges(hasConfirmed: true)
-                                    }
-                                }
-                            )
-                        ),
-                        transitionType: .present
-                    )
+            /// If we don't need confirmation then just go ahead (eg. `forceOffline` (or some new) change)
+            guard networkEnvironmentChanged || routerChanged || pushServiceChanged else {
+                return await self.saveChanges(hasConfirmed: true)
             }
+            
+            let message: ThemedAttributedString = ThemedAttributedString(string: "Are you sure you want to update the network settings to:\n")
+            
+            let style: NSMutableParagraphStyle = NSMutableParagraphStyle()
+            style.alignment = .left
+            
+            /// Append the list of state changes
+            if networkEnvironmentChanged {
+                message.append(
+                    ThemedAttributedString(
+                        stringWithHTMLTags: """
+                        \n<b>Environment:</b> <span>\(internalState.pendingState.environment.title)</span>
+                        """,
+                        font: ConfirmationModal.explanationFont
+                    ).addingAttribute(.paragraphStyle, value: style)
+                )
+            }
+            
+            if routerChanged {
+                message.append(
+                    ThemedAttributedString(
+                        stringWithHTMLTags: """
+                        \n<b>Router:</b> <span>\(internalState.pendingState.router.title)</span>
+                        """,
+                        font: ConfirmationModal.explanationFont
+                    ).addingAttribute(.paragraphStyle, value: style)
+                )
+            }
+            
+            if pushServiceChanged {
+                message.append(
+                    ThemedAttributedString(
+                        stringWithHTMLTags: """
+                        \n<b>PN Service:</b> <span>\(internalState.pendingState.pushNotificationService.title)</span>
+                        """,
+                        font: ConfirmationModal.explanationFont
+                    ).addingAttribute(.paragraphStyle, value: style)
+                )
+            }
+            
+            /// Add the warnings
+            message.append(
+                ThemedAttributedString(
+                    stringWithHTMLTags: "\n\n<b>Warning this will result in:</b>",
+                    font: ConfirmationModal.explanationFont
+                )
+                .addingAttribute(.paragraphStyle, value: style)
+                .addingAttribute(.themeForegroundColor, value: ThemeValue.warning)
+            )
+            
+            if networkEnvironmentChanged {
+                message.append(NSAttributedString(
+                    string: "\n• All conversation and snode data being cleared and any pending network requests being cancelled.",
+                    attributes: [NSAttributedString.Key.paragraphStyle: style]
+                ))
+            }
+            if routerChanged && !networkEnvironmentChanged {
+                message.append(NSAttributedString(
+                    string: "\n• Any pending network requests being cancelled.",
+                    attributes: [NSAttributedString.Key.paragraphStyle: style]
+                ))
+            }
+            if pushServiceChanged {
+                message.append(NSAttributedString(
+                    string: "\n• Resubscribing for push notifications, which may take a few minutes.",
+                    attributes: [NSAttributedString.Key.paragraphStyle: style]
+                ))
+            }
+            
+            self.transitionToScreen(
+                ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "Change Network Settings",
+                        body: .attributedText(message, scrollMode: .never),
+                        confirmTitle: "confirm".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text,
+                        onConfirm: { [weak self] _ in
+                            Task { [weak self] in
+                                await self?.saveChanges(hasConfirmed: true)
+                            }
+                        }
+                    )
+                ),
+                transitionType: .present
+            )
             return
         }
         
@@ -832,6 +908,17 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                     state.devnetConfig :
                     nil
                 ),
+                using: dependencies
+            )
+        }
+        
+        /// If the router changed then we need to recreate the `network` instance, but updating the environment does the same so
+        /// no need to do it again in that case
+        if routerChanged && !networkEnvironmentChanged {
+            let state: State.NetworkState = internalState.pendingState
+            
+            await DeveloperNetworkSettingsViewModel.updateRouter(
+                router: state.router,
                 using: dependencies
             )
         }
@@ -915,7 +1002,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         }
         catch { return Log.warn("[DevSettings] Environment change ignored due to error fetching identity data: \(error)") }
         
-        Log.info("[DevSettings] Swapping to \(String(describing: serviceNetwork)), clearing data")
+        Log.info("[DevSettings] Swapping environment to \(String(describing: serviceNetwork)), clearing data")
         
         /// Stop all pollers
         dependencies.remove(singleton: .currentUserPoller)
@@ -1014,5 +1101,52 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
         
         Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")
+    }
+    
+    internal static func updateRouter(
+        router: Router,
+        using dependencies: Dependencies
+    ) async {
+        /// Make sure we are actually changing the router before recreating the network
+        guard router != dependencies[feature: .router] else { return }
+        
+        Log.info("[DevSettings] Swapping router to \(String(describing: router))")
+        
+        /// Stop all pollers
+        dependencies.remove(singleton: .currentUserPoller)
+        dependencies.remove(singleton: .groupPollerManager)
+        dependencies.remove(singleton: .communityPollerManager)
+        
+        /// Reset the network (only if it's already been created - don't want to initialise the network if it hasn't already been started)
+        ///
+        /// **Note:** We need to set this to a `NoopNetwork` because a number of objects observe the `networkStatus` which
+        /// would result in automatic re-creation of the network with it's current config (since the `serviceNetwork` hasn't been updated
+        /// yet)
+        ///
+        /// **Note 2:** No need to clear the snode cache in this case as we aren't swapping the environment
+        if dependencies.has(singleton: .network) {
+            await dependencies[singleton: .network].suspendNetworkAccess()
+            await dependencies[singleton: .network].finishCurrentObservations()
+        }
+        
+        dependencies.set(singleton: .network, to: LibSession.NoopNetwork())
+        
+        /// Update to the new `Router`
+        dependencies.set(feature: .router, to: router)
+        
+        /// Remove the temporary NoopNetwork and warm a new instance now that the `router` has been updated
+        dependencies.remove(singleton: .network)
+        dependencies.warm(singleton: .network)
+        
+        /// Restart all pollers
+        Task { @MainActor [dependencies] in
+            guard await dependencies[singleton: .onboarding].state.first() == .completed else { return }
+            
+            await dependencies[singleton: .currentUserPoller].startIfNeeded()
+            await dependencies[singleton: .groupPollerManager].startAllPollers()
+            await dependencies[singleton: .communityPollerManager].startAllPollers()
+        }
+        
+        Log.info("[DevSettings] Completed swap to \(String(describing: router))")
     }
 }
