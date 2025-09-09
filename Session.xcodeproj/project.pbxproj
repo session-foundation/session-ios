@@ -196,6 +196,7 @@
 		9438D51A2E6951B3008C7FFE /* AnimatedToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */; };
 		9438D5572E6A6869008C7FFE /* SessionProPlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */; };
 		9438D55B2E6E9D64008C7FFE /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D55A2E6E9D59008C7FFE /* SessionProManagerType.swift */; };
+		9438D55D2E6FEF44008C7FFE /* SessionProPlanUpdatedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1591,6 +1592,7 @@
 		9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedToggle.swift; sourceTree = "<group>"; };
 		9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlanScreen.swift; sourceTree = "<group>"; };
 		9438D55A2E6E9D59008C7FFE /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
+		9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlanUpdatedScreen.swift; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
@@ -2935,17 +2937,10 @@
 			isa = PBXGroup;
 			children = (
 				9438D55A2E6E9D59008C7FFE /* SessionProManagerType.swift */,
-				9438D5552E6A6851008C7FFE /* SessionProPlanScreen */,
+				9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */,
+				9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */,
 			);
 			path = SessionProSettings;
-			sourceTree = "<group>";
-		};
-		9438D5552E6A6851008C7FFE /* SessionProPlanScreen */ = {
-			isa = PBXGroup;
-			children = (
-				9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */,
-			);
-			path = SessionProPlanScreen;
 			sourceTree = "<group>";
 		};
 		947D7FD32D509FC900E8E413 /* SessionNetworkAPI */ = {
@@ -6211,6 +6206,7 @@
 				FD981BD32DC9770E00564172 /* MentionUtilities.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
 				FD8A5B252DC05B16004C689B /* Number+Utilities.swift in Sources */,
+				9438D55D2E6FEF44008C7FFE /* SessionProPlanUpdatedScreen.swift in Sources */,
 				FDE5219C2E08E76C00061B8E /* SessionAsyncImage.swift in Sources */,
 				FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */,
 				FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */,

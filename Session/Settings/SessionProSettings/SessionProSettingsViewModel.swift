@@ -467,7 +467,7 @@ extension SessionProSettingsViewModel {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPlanScreen(
                 dependencies[singleton: .sessionProState],
-                variant: .update(isOriginatingPlatform: true)
+                variant: .update
             )
         )
         self.transitionToScreen(viewController)

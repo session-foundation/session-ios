@@ -25,6 +25,7 @@ public class SessionProState: SessionProManagerType {
     }
     public var sessionProPlans: [SessionProPlan]
     public var isAutoRenewEnabled: Bool
+    public var originatingPlatform: ClientPlatform
     public var currentPlan: SessionProPlan?
     public var currentPlanExpiredOn: Date?
     
@@ -44,6 +45,7 @@ public class SessionProState: SessionProManagerType {
             discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
         )
         self.isAutoRenewEnabled = true
+        self.originatingPlatform = .iOS
         self.currentPlanExpiredOn = Calendar.current.date(byAdding: .month, value: 1, to: Date())
     }
     

@@ -8,6 +8,7 @@ public protocol SessionProManagerType: AnyObject {
     var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
     var sessionProPlans: [SessionProPlan] { get }
     var isAutoRenewEnabled: Bool { get }
+    var originatingPlatform: ClientPlatform { get }
     var currentPlan: SessionProPlan? { get }
     var currentPlanExpiredOn: Date? { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
@@ -98,5 +99,31 @@ public struct SessionProPlan: Equatable {
     
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.variant  == rhs.variant
+    }
+}
+
+public enum ClientPlatform {
+    case iOS
+    case Android
+    
+    public var store: String {
+        switch self {
+            case .iOS: return "Apple App"
+            case .Android: return "Google Play"
+        }
+    }
+    
+    public var account: String {
+        switch self {
+            case .iOS: return "Apple Account"
+            case .Android: return "Google Account"
+        }
+    }
+    
+    public var deviceType: String {
+        switch self {
+            case .iOS: return "iOS"
+            case .Android: return "Android"
+        }
     }
 }
