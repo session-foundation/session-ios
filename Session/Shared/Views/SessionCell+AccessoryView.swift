@@ -170,7 +170,7 @@ extension SessionCell {
                     return createHighlightingBackgroundLabelView(maxContentWidth: maxContentWidth)
                     
                 case is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio:
-                    return createHighlightingBackgroundLabelAndRadioView()
+                    return createHighlightingBackgroundLabelAndRadioView(maxContentWidth: maxContentWidth)
                     
                 case is SessionCell.AccessoryConfig.DisplayPicture: return createDisplayPictureView()
                 case is SessionCell.AccessoryConfig.Search: return createSearchView()
@@ -544,10 +544,11 @@ extension SessionCell {
         
         // MARK: -- HighlightingBackgroundLabelAndRadio
         
-        private func createHighlightingBackgroundLabelAndRadioView() -> UIView {
+        private func createHighlightingBackgroundLabelAndRadioView(maxContentWidth: CGFloat) -> UIView {
             let result: UIView = UIView()
             let label: SessionHighlightingBackgroundLabel = SessionHighlightingBackgroundLabel()
             let radio: UIView = createRadioView()
+            label.preferredMaxLayoutWidth = (maxContentWidth * 0.4)    /// Limit to 40% of content width
             
             result.addSubview(label)
             result.addSubview(radio)
