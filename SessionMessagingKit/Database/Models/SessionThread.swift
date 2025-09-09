@@ -151,7 +151,9 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
             case .some(let observingDb):
                 /// Only set the `hasSavedThread` value if it's not the 'Note to Self' thread
                 if id != observingDb.dependencies[cache: .general].sessionId.hexString {
-                    observingDb.dependencies.setAsync(.hasSavedThread, true)
+                    observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                        dependencies.setAsync(.hasSavedThread, true)
+                    }
                 }
                 
                 observingDb.addConversationEvent(id: id, type: .created)
