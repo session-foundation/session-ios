@@ -55,7 +55,6 @@ extension SessionCell {
                     accessory: accessory,
                     tintColor: tintColor,
                     isEnabled: isEnabled,
-                    maxContentWidth: maxContentWidth,
                     using: dependencies
                 )
                 return
@@ -82,7 +81,6 @@ extension SessionCell {
                 accessory: accessory,
                 tintColor: tintColor,
                 isEnabled: isEnabled,
-                maxContentWidth: maxContentWidth,
                 using: dependencies
             )
             
@@ -163,11 +161,13 @@ extension SessionCell {
                     return createIconView(using: dependencies)
                     
                 case is SessionCell.AccessoryConfig.Toggle: return createToggleView()
-                case is SessionCell.AccessoryConfig.DropDown: return createDropDownView()
+                case is SessionCell.AccessoryConfig.DropDown:
+                    return createDropDownView(maxContentWidth: maxContentWidth)
+                    
                 case is SessionCell.AccessoryConfig.Radio: return createRadioView()
                     
                 case is SessionCell.AccessoryConfig.HighlightingBackgroundLabel:
-                    return createHighlightingBackgroundLabelView()
+                    return createHighlightingBackgroundLabelView(maxContentWidth: maxContentWidth)
                     
                 case is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio:
                     return createHighlightingBackgroundLabelAndRadioView()
@@ -227,7 +227,6 @@ extension SessionCell {
             accessory: Accessory,
             tintColor: ThemeValue,
             isEnabled: Bool,
-            maxContentWidth: CGFloat,
             using dependencies: Dependencies
         ) {
             switch accessory {
@@ -377,7 +376,7 @@ extension SessionCell {
         
         // MARK: -- DropDown
         
-        private func createDropDownView() -> UIView {
+        private func createDropDownView(maxContentWidth: CGFloat) -> UIView {
             let result: UIStackView = UIStackView()
             result.translatesAutoresizingMaskIntoConstraints = false
             result.axis = .horizontal
@@ -397,6 +396,7 @@ extension SessionCell {
             label.themeTextColor = .textPrimary
             label.setContentHugging(to: .required)
             label.setCompressionResistance(to: .required)
+            label.preferredMaxLayoutWidth = (maxContentWidth * 0.4)    /// Limit to 40% of content width
             label.numberOfLines = 0
             
             result.addArrangedSubview(imageView)
@@ -511,8 +511,11 @@ extension SessionCell {
         
         // MARK: -- HighlightingBackgroundLabel
         
-        private func createHighlightingBackgroundLabelView() -> UIView {
-            return SessionHighlightingBackgroundLabel()
+        private func createHighlightingBackgroundLabelView(maxContentWidth: CGFloat) -> UIView {
+            let result: SessionHighlightingBackgroundLabel = SessionHighlightingBackgroundLabel()
+            result.preferredMaxLayoutWidth = (maxContentWidth * 0.4)    /// Limit to 40% of content width
+            
+            return result
         }
         
         private func layoutHighlightingBackgroundLabelView(_ view: UIView?) {
