@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
@@ -300,7 +301,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     lazy var shareBarButton: UIBarButtonItem = {
         let shareBarButton = UIBarButtonItem(
-            barButtonSystemItem: .action,
+            image: Lucide.image(icon: .share, size: 24)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
             target: self,
             action: #selector(didPressShare)
         )
@@ -311,7 +314,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     lazy var deleteBarButton: UIBarButtonItem = {
         let deleteBarButton = UIBarButtonItem(
-            barButtonSystemItem: .trash,
+            image: Lucide.image(icon: .trash2, size: 24)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
             target: self,
             action: #selector(didPressDelete)
         )

@@ -122,7 +122,7 @@ public extension UIContextualAction {
                     case .clear:
                         return UIContextualAction(
                             title: "clear".localized(),
-                            icon: Lucide.image(icon: .trash2, size: 24),
+                            icon: Lucide.image(icon: .trash2, size: IconSize.medium.size),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             side: side,
@@ -163,7 +163,7 @@ public extension UIContextualAction {
                     case .hide:
                         return UIContextualAction(
                             title: "hide".localized(),
-                            icon: UIImage(systemName: "eye.slash"),
+                            icon: Lucide.image(icon: .eyeOff, size: IconSize.medium.size),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Hide button"),
@@ -214,9 +214,24 @@ public extension UIContextualAction {
                         
                     case .pin:
                         let isCurrentlyPinned: Bool = (threadViewModel.threadPinnedPriority > 0)
+                        
+                        var pin: (title: String, icon: UIImage?) {
+                            if isCurrentlyPinned {
+                                return (
+                                    "pinUnpin".localized(),
+                                    Lucide.image(icon: .pinOff, size: IconSize.medium.size)
+                                )
+                            } else {
+                                return (
+                                    "pin".localized(),
+                                    Lucide.image(icon: .pin, size: IconSize.medium.size)
+                                )
+                            }
+                        }
+                        
                         return UIContextualAction(
-                            title: (isCurrentlyPinned ? "pinUnpin".localized() : "pin".localized()),
-                            icon: (isCurrentlyPinned ? UIImage(systemName: "pin.slash") : UIImage(systemName: "pin")),
+                            title: pin.title,
+                            icon: pin.icon,
                             themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeTertiary,    // Always Tertiary
                             accessibility: Accessibility(
@@ -274,15 +289,23 @@ public extension UIContextualAction {
                     // MARK: -- mute
 
                     case .mute:
+                        var mute: (title: String, icon: UIImage?) {
+                            guard threadViewModel.threadMutedUntilTimestamp == nil else {
+                                return (
+                                    "notificationsMute".localized(),
+                                    Lucide.image(icon: .volumeOff, size: IconSize.medium.size)
+                                )
+                            }
+                            return (
+                                "notificationsMuteUnmute".localized(),
+                                Lucide.image(icon: .volume, size: IconSize.medium.size)
+                            )
+                        }
+                        
+                        
                         return UIContextualAction(
-                            title: (threadViewModel.threadMutedUntilTimestamp == nil ?
-                                "notificationsMute".localized() :
-                                "notificationsMuteUnmute".localized()
-                            ),
-                            icon: (threadViewModel.threadMutedUntilTimestamp == nil ?
-                                UIImage(systemName: "speaker.slash") :
-                                UIImage(systemName: "speaker")
-                            ),
+                            title: mute.title,
+                            icon: mute.icon,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(

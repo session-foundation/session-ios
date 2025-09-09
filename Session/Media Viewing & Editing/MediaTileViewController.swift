@@ -2,6 +2,7 @@
 
 import UIKit
 import QuartzCore
+import Lucide
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -127,7 +128,9 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
     lazy var deleteButton: UIBarButtonItem = {
         let result: UIBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .trash,
+            image: Lucide.image(icon: .trash2, size: 24)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
             target: self,
             action: #selector(didPressDelete)
         )
