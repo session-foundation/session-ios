@@ -227,11 +227,13 @@ public class ImageEditorPaletteView: UIView {
         }
         addSubview(imageView)
         // We use an invisible margin to expand the hot area of this control.
-        let margin: CGFloat = 20
-        imageView.pin(.top, to: .top, of: self, withInset: margin)
-        imageView.pin(.leading, to: .leading, of: self, withInset: -margin)
-        imageView.pin(.trailing, to: .trailing, of: self, withInset: margin)
-        imageView.pin(.bottom, to: .bottom, of: self, withInset: -margin)
+        let verticalMargin: CGFloat = 20
+        let horizontalMargin: CGFloat = 8
+        
+        imageView.pin(.top, to: .top, of: self, withInset: verticalMargin)
+        imageView.pin(.leading, to: .leading, of: self, withInset: -horizontalMargin)
+        imageView.pin(.trailing, to: .trailing, of: self, withInset: horizontalMargin)
+        imageView.pin(.bottom, to: .bottom, of: self, withInset: -verticalMargin)
         imageView.themeBorderColor = .white
         imageView.layer.borderWidth = 1
 
