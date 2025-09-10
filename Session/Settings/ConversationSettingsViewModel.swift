@@ -192,6 +192,9 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 .chevronRight,
                                 pinEdges: [.right]
                             ),
+                            accessibility: Accessibility(
+                                identifier: "Block contacts - Navigation"
+                            ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(
                                     SessionTableViewController(viewModel: BlockedContactsViewModel(using: dependencies))
