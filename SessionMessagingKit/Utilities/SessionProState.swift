@@ -7,7 +7,7 @@ import Combine
 // MARK: - Singleton
 
 public extension Singleton {
-    static let sessionProState: SingletonConfig<SessionProManagerType> = Dependencies.create(
+    static let sessionProState: SingletonConfig<SessionProManagerType & ProfilePictureAnimationManagerType> = Dependencies.create(
         identifier: "sessionProState",
         createInstance: { dependencies in SessionProState(using: dependencies) }
     )
@@ -15,7 +15,7 @@ public extension Singleton {
 
 // MARK: - SessionProState
 
-public class SessionProState: SessionProManagerType {
+public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType {
     public let dependencies: Dependencies
     public var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never>
     public var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> {
@@ -24,6 +24,13 @@ public class SessionProState: SessionProManagerType {
             .eraseToAnyPublisher()
     }
     public var sessionProPlans: [SessionProPlan]
+    
+    public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>
+    public var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> {
+        shouldAnimateImageSubject
+            .filter { $0 }
+            .eraseToAnyPublisher()
+    }
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -48,6 +55,9 @@ public class SessionProState: SessionProManagerType {
                 discountPercent: $0.discountPercent
             )
         }
+        self.shouldAnimateImageSubject = CurrentValueSubject(
+            dependencies[cache: .libSession].isSessionPro
+        )
     }
     
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
@@ -64,6 +74,7 @@ public class SessionProState: SessionProManagerType {
                 originatingPlatform: .iOS
             )
         )
+        self.shouldAnimateImageSubject.send(true)
         completion?(true)
     }
 }

@@ -4,12 +4,17 @@ import UIKit
 import Combine
 import Lucide
 
+public protocol ProfilePictureAnimationManagerType: AnyObject {
+    var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never> { get }
+    var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> { get }
+}
+
 public final class ProfilePictureView: UIView {
     public struct Info {
         public enum AnimationBehaviour {
             case generic(Bool) // For communities and when Pro is not enabled
             case contact(Bool)
-            case currentUser(Bool, AnyPublisher<Bool, Never>)
+            case currentUser(ProfilePictureAnimationManagerType)
         }
         
         public let source: ImageDataManager.DataSource?
@@ -635,9 +640,9 @@ public final class ProfilePictureView: UIView {
             case .generic(let enableAnimation), .contact(let enableAnimation):
                 targetImageView.shouldAnimateImage = enableAnimation
 
-            case .currentUser(let shouldAnimateImage, let shouldAnimateImagePublisher):
-                targetImageView.shouldAnimateImage = shouldAnimateImage
-                shouldAnimateImagePublisher
+            case .currentUser(let profilePictureAnimationManager):
+                targetImageView.shouldAnimateImage = profilePictureAnimationManager.shouldAnimateImageSubject.value
+                profilePictureAnimationManager.shouldAnimateImagePublisher
                     .subscribe(on: DispatchQueue.main)
                     .receive(on: DispatchQueue.main)
                     .sink(

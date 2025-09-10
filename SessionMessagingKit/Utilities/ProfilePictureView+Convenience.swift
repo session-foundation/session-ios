@@ -207,18 +207,7 @@ public extension ProfilePictureView {
                     }
                 }()
             
-                return .currentUser(
-                    shouldAnimatedImage,
-                    dependencies[singleton: .sessionProState].sessionProStatePublisher
-                        .map {
-                            if case .active = $0 {
-                                return true
-                            } else {
-                                return false
-                            }
-                        }
-                        .eraseToAnyPublisher()
-                )
+                return .currentUser(dependencies[singleton: .sessionProState])
                 
             case .some(let profile):
                 return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
