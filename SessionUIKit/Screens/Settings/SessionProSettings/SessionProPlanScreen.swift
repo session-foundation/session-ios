@@ -123,8 +123,10 @@ public struct SessionProPlanScreen: View {
     
     private func updatePlan() {
         if
+            let currentPlan = delegate?.currentPlan,
             let currentPlanExpiredOn = delegate?.currentPlanExpiredOn,
-            let expiredOn = Calendar.current.date(byAdding: .month, value: 1, to: currentPlanExpiredOn)
+            let updatedPlan = delegate?.sessionProPlans[currentSelection],
+            let expiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.variant.duration, to: currentPlanExpiredOn)
         {
             let viewController: SessionHostingViewController = SessionHostingViewController(
                 rootView: SessionProPlanUpdatedScreen(
