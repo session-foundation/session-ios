@@ -17,21 +17,30 @@ public extension Singleton {
 
 public class SessionProState: SessionProManagerType {
     public let dependencies: Dependencies
-    public var isSessionProSubject: CurrentValueSubject<Bool, Never>
-    public var isSessionProPublisher: AnyPublisher<Bool, Never> {
-        isSessionProSubject
-            .filter { $0 }
+    public var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never>
+    public var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> {
+        sessionProStateSubject
+            .compactMap { $0 }
             .eraseToAnyPublisher()
     }
     public var sessionProPlans: [SessionProPlan]
-    public var isAutoRenewEnabled: Bool
-    public var originatingPlatform: ClientPlatform
-    public var currentPlan: SessionProPlan?
-    public var currentPlanExpiredOn: Date?
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.isSessionProSubject = CurrentValueSubject(dependencies[cache: .libSession].isSessionPro)
+        self.sessionProStateSubject = CurrentValueSubject(
+            dependencies[cache: .libSession].isSessionPro ?
+                SessionProPlanState.active(
+                    currentPlan: SessionProPlan(
+                        variant: .threeMonths,
+                        price: SessionProPlan.Variant.threeMonths.price,
+                        discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
+                    ),
+                    expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                    isAutoRenewing: true,
+                    originatingPlatform: .iOS
+                ) :
+                SessionProPlanState.none
+        )
         self.sessionProPlans = SessionProPlan.Variant.allCases.map {
             SessionProPlan(
                 variant: $0,
@@ -39,19 +48,22 @@ public class SessionProState: SessionProManagerType {
                 discountPercent: $0.discountPercent
             )
         }
-        self.currentPlan = SessionProPlan(
-            variant: .threeMonths,
-            price: SessionProPlan.Variant.threeMonths.price,
-            discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
-        )
-        self.isAutoRenewEnabled = true
-        self.originatingPlatform = .iOS
-        self.currentPlanExpiredOn = Calendar.current.date(byAdding: .month, value: 1, to: Date())
     }
     
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        self.isSessionProSubject.send(true)
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: SessionProPlan(
+                    variant: .threeMonths,
+                    price: SessionProPlan.Variant.threeMonths.price,
+                    discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
+                ),
+                expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                isAutoRenewing: true,
+                originatingPlatform: .iOS
+            )
+        )
         completion?(true)
     }
 }

@@ -227,7 +227,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     ),
                                     title: .init(
                                         "proGroupsUpgraded"
-                                            .put(key: "count", value: state.numberOfGroupsUpgraded)
+                                            .putNumber(state.numberOfGroupsUpgraded)
+                                            .put(key: "total", value: state.numberOfGroupsUpgraded)
                                             .localized(),
                                         font: .Headings.H9
                                     )
@@ -240,7 +241,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     ),
                                     title: .init(
                                         "proPinnedConversations"
-                                            .put(key: "count", value: state.numberOfPinnedConversations)
+                                            .putNumber(state.numberOfPinnedConversations)
+                                            .put(key: "total", value: state.numberOfPinnedConversations)
                                             .localized(),
                                         font: .Headings.H9
                                     )
@@ -255,8 +257,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     ),
                                     title: .init(
                                         "proBadgesSent"
+                                            .putNumber(state.numberOfProBadgesSent)
+                                            .put(key: "total", value: state.numberOfProBadgesSent)
                                             .put(key: "pro", value: Constants.pro)
-                                            .put(key: "count", value: state.numberOfProBadgesSent)
                                             .localized(),
                                         font: .Headings.H9
                                     )
@@ -269,7 +272,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     ),
                                     title: .init(
                                         "proLongerMessagesSent"
-                                            .put(key: "count", value: state.numberOfLongerMessagesSent)
+                                            .putNumber(state.numberOfLongerMessagesSent)
+                                            .put(key: "total", value: state.numberOfLongerMessagesSent)
                                             .localized(),
                                         font: .Headings.H9
                                     )
@@ -380,9 +384,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
                         )
                     ),
-                    onTap: {
-                        
-                    }
+                    onTap: { [weak viewModel] in viewModel?.cancelPlan() }
                 ),
                 SessionListScreenContent.ListItemInfo(
                     id: .requestRefund,
@@ -392,9 +394,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
                         )
                     ),
-                    onTap: { [weak viewModel] in
-                        
-                    }
+                    onTap: { [weak viewModel] in viewModel?.requestRefund() }
                 )
             ]
         )
@@ -466,8 +466,34 @@ extension SessionProSettingsViewModel {
     func updateProPlan() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPlanScreen(
-                dependencies[singleton: .sessionProState],
-                variant: .update
+                dataModel: .init(
+                    flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
+                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                )
+            )
+        )
+        self.transitionToScreen(viewController)
+    }
+    
+    func cancelPlan() {
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: SessionProPlanScreen(
+                dataModel: .init(
+                    flow: .cancel,
+                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                )
+            )
+        )
+        self.transitionToScreen(viewController)
+    }
+    
+    func requestRefund() {
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: SessionProPlanScreen(
+                dataModel: .init(
+                    flow: .refund,
+                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                )
             )
         )
         self.transitionToScreen(viewController)
@@ -529,3 +555,76 @@ extension SessionProSettingsViewModel {
         ]
     }
 }
+
+// MARK: - Convenience
+
+extension SessionProPlan {
+    func info() -> SessionProPlanScreenContent.SessionProPlanInfo {
+        let price: Double = self.variant.price
+        let pricePerMonth: Double = (self.variant.price / Double(self.variant.duration))
+        return .init(
+            duration: self.variant.duration,
+            totalPrice: price,
+            pricePerMonth: pricePerMonth,
+            discountPercent: self.variant.discountPercent,
+            titleWithPrice: {
+                switch self.variant {
+                    case .oneMonth:
+                        return "proPriceOneMonth"
+                            .put(key: "monthly_price", value: pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true)))
+                            .localized()
+                    case .threeMonths:
+                        return "proPriceThreeMonths"
+                            .put(key: "monthly_price", value: pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true)))
+                            .localized()
+                    case .twelveMonths:
+                        return "proPriceTwelveMonths"
+                            .put(key: "monthly_price", value: pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true)))
+                            .localized()
+                }
+            }(),
+            subtitleWithPrice: {
+                switch self.variant {
+                    case .oneMonth:
+                        return "proBilledMonthly"
+                            .put(key: "price", value: price.formatted(format: .currency(decimal: true, withLocalSymbol: true)))
+                            .localized()
+                    case .threeMonths:
+                        return "proBilledQuarterly"
+                            .put(key: "price", value: price.formatted(format: .currency(decimal: true, withLocalSymbol: true)))
+                            .localized()
+                    case .twelveMonths:
+                        return "proBilledAnnually"
+                            .put(key: "price", value: price.formatted(format: .currency(decimal: true, withLocalSymbol: true)))
+                            .localized()
+                }
+            }()
+        )
+    }
+}
+
+extension SessionProPlanState {
+    func toPaymentFlow() -> SessionProPlanScreenContent.SessionProPlanPaymentFlow {
+        switch self {
+            case .none:
+                return .purchase
+            case .active(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
+                return .update(
+                    currentPlan: currentPlan.info(),
+                    expiredOn: expiredOn,
+                    isAutoRenewing: isAutoRenewing,
+                    originatingPlatform: {
+                        switch originatingPlatform {
+                            case .iOS: return .iOS
+                            case .Android: return .Android
+                        }
+                    }()
+                )
+            case .expired:
+                return .renew
+            case .refunding:
+                return .refund
+        }
+    }
+}
+

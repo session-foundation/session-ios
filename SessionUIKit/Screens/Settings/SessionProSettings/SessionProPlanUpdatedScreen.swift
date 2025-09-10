@@ -5,8 +5,19 @@ import Lucide
 
 public struct SessionProPlanUpdatedScreen: View {
     @EnvironmentObject var host: HostWrapper
+    let flow: SessionProPlanScreenContent.SessionProPlanPaymentFlow
     let expiredOn: Date
     var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
+    var dismissButtonTitle: String {
+        switch flow {
+            case .purchase, .renew:
+                "Start Using Pro"
+            case .update:
+                "theReturn".localized()
+            default: 
+                ""
+        }
+    }
     
     public var body: some View {
         ZStack(alignment: .top) {
@@ -54,9 +65,9 @@ public struct SessionProPlanUpdatedScreen: View {
                 .padding(.horizontal, Values.mediumSpacing)
                 
                 Button {
-                    
+                    self.host.controller?.dismiss(animated: true)
                 } label: {
-                    Text("theReturn".localized())
+                    Text(dismissButtonTitle)
                         .font(.Body.largeRegular)
                         .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                         .framing(

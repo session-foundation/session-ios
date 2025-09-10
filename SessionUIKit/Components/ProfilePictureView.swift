@@ -9,7 +9,7 @@ public final class ProfilePictureView: UIView {
         public enum AnimationBehaviour {
             case generic(Bool) // For communities and when Pro is not enabled
             case contact(Bool)
-            case currentUser(SessionProManagerType)
+            case currentUser(Bool, AnyPublisher<Bool, Never>)
         }
         
         public let source: ImageDataManager.DataSource?
@@ -635,9 +635,9 @@ public final class ProfilePictureView: UIView {
             case .generic(let enableAnimation), .contact(let enableAnimation):
                 targetImageView.shouldAnimateImage = enableAnimation
 
-            case .currentUser(let currentUserSessionProState):
-                targetImageView.shouldAnimateImage = currentUserSessionProState.isSessionProSubject.value
-                currentUserSessionProState.isSessionProPublisher
+            case .currentUser(let shouldAnimateImage, let shouldAnimateImagePublisher):
+                targetImageView.shouldAnimateImage = shouldAnimateImage
+                shouldAnimateImagePublisher
                     .subscribe(on: DispatchQueue.main)
                     .receive(on: DispatchQueue.main)
                     .sink(

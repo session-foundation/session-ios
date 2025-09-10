@@ -195,10 +195,11 @@
 		9438D4882E67B704008C7FFE /* SessionListHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */; };
 		9438D51A2E6951B3008C7FFE /* AnimatedToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */; };
 		9438D5572E6A6869008C7FFE /* SessionProPlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */; };
-		9438D55B2E6E9D64008C7FFE /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D55A2E6E9D59008C7FFE /* SessionProManagerType.swift */; };
 		9438D55D2E6FEF44008C7FFE /* SessionProPlanUpdatedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		945D9C582D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */; };
+		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
+		9463794C2E71371F0017A014 /* SessionProPlanScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPlanScreen+Models.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
 		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
@@ -1591,11 +1592,12 @@
 		9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListHostingViewController.swift; sourceTree = "<group>"; };
 		9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedToggle.swift; sourceTree = "<group>"; };
 		9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlanScreen.swift; sourceTree = "<group>"; };
-		9438D55A2E6E9D59008C7FFE /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
 		9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlanUpdatedScreen.swift; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		945D9C572D6FDBE7003C4C0C /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
+		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
+		9463794B2E7137120017A014 /* SessionProPlanScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPlanScreen+Models.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -2936,8 +2938,8 @@
 		9438D5542E6A6843008C7FFE /* SessionProSettings */ = {
 			isa = PBXGroup;
 			children = (
-				9438D55A2E6E9D59008C7FFE /* SessionProManagerType.swift */,
 				9438D5562E6A6862008C7FFE /* SessionProPlanScreen.swift */,
+				9463794B2E7137120017A014 /* SessionProPlanScreen+Models.swift */,
 				9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */,
 			);
 			path = SessionProSettings;
@@ -4278,6 +4280,7 @@
 		FD2272D22C34ECBB004D8A6C /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				946379492E71308B0017A014 /* SessionProManagerType.swift */,
 				FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */,
 				FD0E353A2AB98773006A81F7 /* AppVersion.swift */,
 				FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */,
@@ -6227,7 +6230,6 @@
 				94CD962E2E1B85920097754D /* InputTextView.swift in Sources */,
 				7BA1E0E82A8087DB00123D0D /* SwiftUI+Utilities.swift in Sources */,
 				FD37E9C828A1D73F003AE748 /* Theme+Colors.swift in Sources */,
-				9438D55B2E6E9D64008C7FFE /* SessionProManagerType.swift in Sources */,
 				942256982C23F8DD00C0FDBF /* SessionTextField.swift in Sources */,
 				9422EE2B2B8C3A97004C740D /* String+Utilities.swift in Sources */,
 				FD37EA0128A60473003AE748 /* UIKit+Theme.swift in Sources */,
@@ -6291,6 +6293,7 @@
 				FD71163228E2C42A00B47552 /* IconSize.swift in Sources */,
 				C33100282559000A00070591 /* UIView+Utilities.swift in Sources */,
 				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
+				9463794C2E71371F0017A014 /* SessionProPlanScreen+Models.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
 				94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */,
 			);
@@ -6479,6 +6482,7 @@
 				FD2272E02C3502BE004D8A6C /* Setting+Theme.swift in Sources */,
 				FDE519F72AB7CDC700450C53 /* Result+Utilities.swift in Sources */,
 				FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */,
+				9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */,
 				FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */,
 				FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */,
 				FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */,

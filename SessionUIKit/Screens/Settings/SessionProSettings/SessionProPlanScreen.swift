@@ -16,16 +16,13 @@ public struct SessionProPlanScreen: View {
     let tooltipViewId: String = "SessionProPlanScreenToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "SessionProPlanScreen" // stringlint:ignore
     
-    private var delegate: SessionProManagerType?
-    private let variant: Variant
+    private let dataModel: SessionProPlanScreenContent.DataModel
     
-    public init(_ delegate: SessionProManagerType?, variant: Variant) {
-        self.delegate = delegate
-        self.variant = variant
+    public init(dataModel: SessionProPlanScreenContent.DataModel) {
+        self.dataModel = dataModel
         if
-            let currentPlan = delegate?.currentPlan,
-            let plans = delegate?.sessionProPlans,
-            let indexOfCurrentPlan = plans.firstIndex(of: currentPlan)
+            case .update(let currentPlan, _, _, _) = dataModel.flow,
+            let indexOfCurrentPlan = dataModel.plans.firstIndex(of: currentPlan)
         {
             self.currentSelection = indexOfCurrentPlan
         } else {
@@ -39,29 +36,24 @@ public struct SessionProPlanScreen: View {
                 VStack(spacing: Values.mediumSmallSpacing) {
                     ListItemLogWithPro()
                     
-                    if
-                        case .update = variant,
-                        let originatingPlatform = delegate?.originatingPlatform,
-                        let currentPlan = delegate?.currentPlan,
-                        let currentPlanExpiredOn = delegate?.currentPlanExpiredOn
-                    {
-                        if originatingPlatform == .iOS, let sessionProPlans = delegate?.sessionProPlans {
+                    if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow {
+                        if originatingPlatform == .iOS {
                             OriginatingPlatformContent(
                                 currentSelection: $currentSelection,
                                 isShowingTooltip: $isShowingTooltip,
                                 suppressUntil: $suppressUntil,
                                 currentPlan: currentPlan,
-                                currentPlanExpiredOn: currentPlanExpiredOn,
-                                isAutoRenewEnabled: (delegate?.isAutoRenewEnabled == true),
-                                sessionProPlans: sessionProPlans,
+                                currentPlanExpiredOn: expiredOn,
+                                isAutoRenewing: isAutoRenewing,
+                                sessionProPlans: dataModel.plans,
                                 updatePlanAction: { updatePlan() },
                                 openTosPrivacyAction: { openTosPrivacy() }
                             )
                         } else {
                             NonOriginatingPlatformContent(
                                 currentPlan: currentPlan,
-                                currentPlanExpiredOn: currentPlanExpiredOn,
-                                isAutoRenewEnabled: (delegate?.isAutoRenewEnabled == true),
+                                currentPlanExpiredOn: expiredOn,
+                                isAutoRenewing: isAutoRenewing,
                                 originatingPlatform: originatingPlatform,
                                 openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                             )
@@ -87,7 +79,7 @@ public struct SessionProPlanScreen: View {
             .popoverView(
                 content: {
                     ZStack {
-                        if let discountPercent = delegate?.currentPlan?.discountPercent {
+                        if case .update(let currentPlan, _, _, _) = dataModel.flow, let discountPercent = currentPlan.discountPercent {
                             Text(
                                 "proDiscountTooltip"
                                     .put(key: "percent", value: discountPercent)
@@ -122,18 +114,46 @@ public struct SessionProPlanScreen: View {
     }
     
     private func updatePlan() {
+        let updatedPlan = dataModel.plans[currentSelection]
+        
         if
-            let currentPlan = delegate?.currentPlan,
-            let currentPlanExpiredOn = delegate?.currentPlanExpiredOn,
-            let updatedPlan = delegate?.sessionProPlans[currentSelection],
-            let expiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.variant.duration, to: currentPlanExpiredOn)
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow,
+            let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn)
         {
-            let viewController: SessionHostingViewController = SessionHostingViewController(
-                rootView: SessionProPlanUpdatedScreen(
-                    expiredOn: expiredOn
+            let confirmationModal = ConfirmationModal(
+                info: .init(
+                    title: "updatePlan".localized(),
+                    body: .attributedText(
+                        isAutoRenewing ?
+                            "proUpdatePlanDescription"
+                                .put(key: "current_plan", value: currentPlan.durationString)
+                                .put(key: "selected_plan", value: updatedPlan.durationString)
+                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.largeRegular) :
+                            "proUpdatePlanExpireDescription"
+                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                .put(key: "selected_plan", value: updatedPlan.durationString)
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.largeRegular),
+                        scrollMode: .never
+                    ),
+                    confirmTitle: "updatePlan".localized(),
+                    onConfirm: { [host = self.host] _ in
+                        let viewController: SessionHostingViewController = SessionHostingViewController(
+                            rootView: SessionProPlanUpdatedScreen(
+                                flow: dataModel.flow,
+                                expiredOn: expiredOn
+                            )
+                        )
+                        viewController.modalTransitionStyle = .crossDissolve
+                        viewController.modalPresentationStyle = .overFullScreen
+                        host.controller?.present(viewController, animated: true)
+                    }
                 )
             )
-            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            
+            self.host.controller?.present(confirmationModal, animated: true)
         }
     }
     
@@ -146,16 +166,6 @@ public struct SessionProPlanScreen: View {
     }
 }
 
-// MARK: - Variant
-
-public extension SessionProPlanScreen {
-    enum Variant {
-        case purchase
-        case update
-        case renew
-    }
-}
-
 // MARK: - Update Plan Originating Platform Content
 
 struct OriginatingPlatformContent: View {
@@ -163,20 +173,20 @@ struct OriginatingPlatformContent: View {
     @Binding var isShowingTooltip: Bool
     @Binding var suppressUntil: Date
     
-    let currentPlan: SessionProPlan
+    let currentPlan: SessionProPlanScreenContent.SessionProPlanInfo
     let currentPlanExpiredOn: Date
-    let isAutoRenewEnabled: Bool
-    let sessionProPlans: [SessionProPlan]
+    let isAutoRenewing: Bool
+    let sessionProPlans: [SessionProPlanScreenContent.SessionProPlanInfo]
     let updatePlanAction: () -> Void
     let openTosPrivacyAction: () -> Void
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
             AttributedText(
-                isAutoRenewEnabled ?
+                isAutoRenewing ?
                     "proPlanActivatedAuto"
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "current_plan", value: currentPlan.variant.durationString)
+                        .put(key: "current_plan", value: currentPlan.durationString)
                         .put(key: "date", value: currentPlanExpiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular) :
@@ -243,19 +253,19 @@ struct OriginatingPlatformContent: View {
 // MARK: - Non Originating Platform Content
 
 struct NonOriginatingPlatformContent: View {
-    let currentPlan: SessionProPlan
+    let currentPlan: SessionProPlanScreenContent.SessionProPlanInfo
     let currentPlanExpiredOn: Date
-    let isAutoRenewEnabled: Bool
-    let originatingPlatform: ClientPlatform
+    let isAutoRenewing: Bool
+    let originatingPlatform: SessionProPlanScreenContent.ClientPlatform
     let openPlatformStoreWebsiteAction: () -> Void
 
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
             AttributedText(
-                isAutoRenewEnabled ?
+                isAutoRenewing ?
                     "proPlanActivatedAutoShort"
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "current_plan", value: currentPlan.variant.durationString)
+                        .put(key: "current_plan", value: currentPlan.durationString)
                         .put(key: "date", value: currentPlanExpiredOn.formatted("MMM dd, yyyy"))
                         .localizedFormatted(Fonts.Body.baseRegular) :
                     "proPlanExpireDate"
@@ -424,7 +434,7 @@ struct PlanCell: View {
     let tooltipViewId: String = "SessionProPlanScreenToolTip" // stringlint:ignore
     
     var isSelected: Bool { currentSelection == index }
-    let plan: SessionProPlan
+    let plan: SessionProPlanScreenContent.SessionProPlanInfo
     let index: Int
     let isCurrentPlan: Bool
     

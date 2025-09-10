@@ -203,11 +203,18 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
+        self.sessionProState?.sessionProStatePublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak self] isPro in
+                receiveValue: { [weak self] sessionProPlanState in
+                    let isPro: Bool = {
+                        if case .active = sessionProPlanState {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }()
                     self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }

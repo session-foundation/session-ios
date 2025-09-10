@@ -199,7 +199,26 @@ public extension ProfilePictureView {
             case .none: return .generic(false)
             
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
-                return .currentUser(dependencies[singleton: .sessionProState])
+                let shouldAnimatedImage: Bool = {
+                    if case .active = dependencies[singleton: .sessionProState].sessionProStateSubject.value {
+                        return true
+                    } else {
+                        return false
+                    }
+                }()
+            
+                return .currentUser(
+                    shouldAnimatedImage,
+                    dependencies[singleton: .sessionProState].sessionProStatePublisher
+                        .map {
+                            if case .active = $0 {
+                                return true
+                            } else {
+                                return false
+                            }
+                        }
+                        .eraseToAnyPublisher()
+                )
                 
             case .some(let profile):
                 return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
