@@ -20,21 +20,29 @@ extension Emoji {
         var localizedName: String {
             switch self {
             case .smileysAndPeople:
-                return NSLocalizedString("emojiCategorySmileys", comment: "The name for the emoji category 'Smileys & People'")
+                // The name for the emoji category 'Smileys & People'
+                return "emojiCategorySmileys".localized()
             case .animals:
-                return NSLocalizedString("emojiCategoryAnimals", comment: "The name for the emoji category 'Animals & Nature'")
+                // The name for the emoji category 'Animals & Nature'
+                return "emojiCategoryAnimals".localized()
             case .food:
-                return NSLocalizedString("emojiCategoryFood", comment: "The name for the emoji category 'Food & Drink'")
+                // The name for the emoji category 'Food & Drink'
+                return "emojiCategoryFood".localized()
             case .activities:
-                return NSLocalizedString("emojiCategoryActivities", comment: "The name for the emoji category 'Activities'")
+                // The name for the emoji category 'Activities'
+                return "emojiCategoryActivities".localized()
             case .travel:
-                return NSLocalizedString("emojiCategoryTravel", comment: "The name for the emoji category 'Travel & Places'")
+                // The name for the emoji category 'Travel & Places'
+                return "emojiCategoryTravel".localized()
             case .objects:
-                return NSLocalizedString("emojiCategoryObjects", comment: "The name for the emoji category 'Objects'")
+                // The name for the emoji category 'Objects'
+                return "emojiCategoryObjects".localized()
             case .symbols:
-                return NSLocalizedString("emojiCategorySymbols", comment: "The name for the emoji category 'Symbols'")
+                // The name for the emoji category 'Symbols'
+                return "emojiCategorySymbols".localized()
             case .flags:
-                return NSLocalizedString("emojiCategoryFlags", comment: "The name for the emoji category 'Flags'")
+                // The name for the emoji category 'Flags'
+                return "emojiCategoryFlags".localized()
             }
         }
         
