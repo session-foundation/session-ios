@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import TestUtilities
 
 import Quick
 import Nimble
@@ -23,47 +24,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var mockUserDefaults: MockUserDefaults! = .create()
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(
-                        MockNetwork.batchResponseData(
-                            with: [
-                                (
-                                    OpenGroupAPI.Endpoint.capabilities,
-                                    OpenGroupAPI.Capabilities(capabilities: [.blind, .reactions]).batchSubResponse()
-                                ),
-                                (
-                                    OpenGroupAPI.Endpoint.rooms,
-                                    [
-                                        OpenGroupAPI.Room.mock.with(
-                                            token: "testRoom",
-                                            name: "TestRoomName"
-                                        ),
-                                        OpenGroupAPI.Room.mock.with(
-                                            token: "testRoom2",
-                                            name: "TestRoomName2",
-                                            infoUpdates: 12,
-                                            imageId: "12"
-                                        )
-                                    ].batchSubResponse()
-                                )
-                            ]
-                        )
-                    )
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -103,6 +64,45 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
             dependencies.set(defaults: .appGroup, to: mockUserDefaults)
+            
+            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(
+                    MockNetwork.batchResponseData(
+                        with: [
+                            (
+                                OpenGroupAPI.Endpoint.capabilities,
+                                OpenGroupAPI.Capabilities(capabilities: [.blind, .reactions]).batchSubResponse()
+                            ),
+                            (
+                                OpenGroupAPI.Endpoint.rooms,
+                                [
+                                    OpenGroupAPI.Room.mock.with(
+                                        token: "testRoom",
+                                        name: "TestRoomName"
+                                    ),
+                                    OpenGroupAPI.Room.mock.with(
+                                        token: "testRoom2",
+                                        name: "TestRoomName2",
+                                        infoUpdates: 12,
+                                        imageId: "12"
+                                    )
+                                ].batchSubResponse()
+                            )
+                        ]
+                    )
+                )
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - a RetrieveDefaultOpenGroupRoomsJob
@@ -188,7 +188,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- creates an inactive entry in the database if one does not exist
             it("creates an inactive entry in the database if one does not exist") {
-                mockNetwork
+                try await mockNetwork
                     .when {
                         $0.send(
                             endpoint: MockEndpoint.any,
@@ -221,7 +221,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- does not create a new entry if one already exists
             it("does not create a new entry if one already exists") {
-                mockNetwork
+                try await mockNetwork
                     .when {
                         $0.send(
                             endpoint: MockEndpoint.any,
@@ -302,9 +302,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockNetwork)
-                    .to(call { network in
-                        network.send(
+                await mockNetwork
+                    .verify {
+                        $0.send(
                             endpoint: OpenGroupAPI.Endpoint.sequence,
                             destination: expectedRequest.destination,
                             body: expectedRequest.body,
@@ -312,12 +312,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             requestTimeout: expectedRequest.requestTimeout,
                             overallTimeout: expectedRequest.overallTimeout
                         )
-                    })
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- permanently fails if it gets an error
             it("permanently fails if it gets an error") {
-                mockNetwork
+                try await mockNetwork
                     .when {
                         $0.send(
                             endpoint: MockEndpoint.any,
@@ -344,16 +345,18 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 
                 expect(error).to(matchError(NetworkError.parsingFailed))
                 expect(permanentFailure).to(beTrue())
-                expect(mockNetwork).to(call(.exactly(times: 1)) { network in
-                    network.send(
-                        endpoint: MockEndpoint.any,
-                        destination: .any,
-                        body: .any,
-                        category: .any,
-                        requestTimeout: .any,
-                        overallTimeout: .any
-                    )
-                })
+                await mockNetwork
+                    .verify {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            category: .any,
+                            requestTimeout: .any,
+                            overallTimeout: .any
+                        )
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- stores the updated capabilities
@@ -415,7 +418,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     )
                     .insert(db)
                 }
-                mockNetwork
+                try await mockNetwork
                     .when {
                         $0.send(
                             endpoint: MockEndpoint.any,
@@ -552,7 +555,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- does not schedule a display picture download if there is no imageId
             it("does not schedule a display picture download if there is no imageId") {
-                mockNetwork
+                try await mockNetwork
                     .when {
                         $0.send(
                             endpoint: MockEndpoint.any,

@@ -34,10 +34,7 @@ internal func summary(for argument: Any?) -> String {
             return "[\(sortedValues.joined(separator: ", "))]"
             
         case let data as Data: return "Data(base64Encoded: \(data.base64EncodedString()))"
-            
-        default:
-            // Default to the `debugDescription` if available but sort any dictionary content by keys
-            return sortDictionariesInReflectedString(String(reflecting: argument))
+        default: return recursiveSummary(for: argument)
     }
 }
 
@@ -51,6 +48,81 @@ private func isAnyValue(_ value: Any) -> Bool {
     }
     
     return false
+}
+
+private func recursiveSummary(for subject: Any) -> String {
+    let mirror: Mirror = Mirror(reflecting: subject)
+    let typeName: String = String(describing: Swift.type(of: subject))
+
+    /// Fall back to a simple description for types with no custom representation (eg. primitives)
+    guard let displayStyle: Mirror.DisplayStyle = mirror.displayStyle else {
+        return String(describing: subject)
+    }
+
+    switch displayStyle {
+        case .struct, .class:
+            /// If there are no properties, just print the type name
+            guard !mirror.children.isEmpty else { return typeName }
+            
+            let properties: String = mirror.children
+                .compactMap { child -> String? in
+                    guard let label: String = child.label else {
+                        return nil
+                    }
+                    
+                    return "\(label): \(summary(for: child.value))"
+                }
+                .sorted()
+                .joined(separator: ", ")
+            
+            return "\(typeName)(\(properties))"
+            
+        case .enum:
+            // Handle associated values first
+            if let child: Mirror.Child = mirror.children.first {
+                if let label: String = child.label {
+                    /// Enum case with one or more named associated values
+                    let properties: String = mirror.children
+                        .compactMap { child -> String? in
+                            guard let label: String = child.label else {
+                                return nil
+                            }
+                            
+                            return "\(label): \(summary(for: child.value))"
+                        }
+                        .sorted()
+                        .joined(separator: ", ")
+                    
+                    return ".\(label)(\(properties))"
+                }
+                
+                /// Enum case with one or more unnamed associated values
+                let values: String = mirror.children
+                    .map { summary(for: $0.value) }
+                    .joined(separator: ", ")
+                
+               return ".\(mirror.subjectType).\(subject)(\(values))"
+            }
+            
+            /// Simple enum case with no associated value
+            return ".\(subject)"
+            
+        case .tuple:
+            let elements: String = mirror.children
+                .map { child -> String in
+                    if let label: String = child.label {
+                        return "\(label): \(summary(for: child.value))"
+                    }
+                    
+                    return summary(for: child.value)
+                }
+                .joined(separator: ", ")
+            
+            return "(\(elements))"
+            
+        /// For other collections like Set, fall back to the default but sort any dictionary content by keys
+        default: return sortDictionariesInReflectedString(String(describing: subject))
+    }
 }
 
 private func sortDictionariesInReflectedString(_ input: String) -> String {

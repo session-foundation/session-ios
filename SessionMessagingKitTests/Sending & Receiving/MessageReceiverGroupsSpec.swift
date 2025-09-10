@@ -554,46 +554,48 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 )
                             }
                             
-                            expect(fixture.mockNetwork).toNot(call { network in
-                                network.send(
-                                    endpoint: PushNotificationAPI.Endpoint.subscribe,
-                                    destination: .server(
-                                        method: .post,
-                                        server: PushNotificationAPI.server,
-                                        queryParameters: [:],
-                                        headers: [:],
-                                        x25519PublicKey: PushNotificationAPI.serverPublicKey
-                                    ),
-                                    body: try! JSONEncoder(using: fixture.dependencies).encode(
-                                        PushNotificationAPI.SubscribeRequest(
-                                            subscriptions: [
-                                                PushNotificationAPI.SubscribeRequest.Subscription(
-                                                    namespaces: [
-                                                        .groupMessages,
-                                                        .configGroupKeys,
-                                                        .configGroupInfo,
-                                                        .configGroupMembers,
-                                                        .revokedRetrievableGroupMessages
-                                                    ],
-                                                    includeMessageData: true,
-                                                    serviceInfo: PushNotificationAPI.ServiceInfo(
-                                                        token: Data([5, 4, 3, 2, 1]).toHexString()
-                                                    ),
-                                                    notificationsEncryptionKey: Data([1, 2, 3]),
-                                                    authMethod: try! Authentication.with(
-                                                        swarmPublicKey: fixture.groupId.hexString,
-                                                        using: fixture.dependencies
-                                                    ),
-                                                    timestamp: 1234567890
-                                                )
-                                            ]
-                                        )
-                                    ),
-                                    category: .standard,
-                                    requestTimeout: Network.defaultTimeout,
-                                    overallTimeout: nil
-                                )
-                            })
+                            await fixture.mockNetwork
+                                .verify {
+                                    $0.send(
+                                        endpoint: PushNotificationAPI.Endpoint.subscribe,
+                                        destination: .server(
+                                            method: .post,
+                                            server: PushNotificationAPI.server,
+                                            queryParameters: [:],
+                                            headers: [:],
+                                            x25519PublicKey: PushNotificationAPI.serverPublicKey
+                                        ),
+                                        body: try! JSONEncoder(using: fixture.dependencies).encode(
+                                            PushNotificationAPI.SubscribeRequest(
+                                                subscriptions: [
+                                                    PushNotificationAPI.SubscribeRequest.Subscription(
+                                                        namespaces: [
+                                                            .groupMessages,
+                                                            .configGroupKeys,
+                                                            .configGroupInfo,
+                                                            .configGroupMembers,
+                                                            .revokedRetrievableGroupMessages
+                                                        ],
+                                                        includeMessageData: true,
+                                                        serviceInfo: PushNotificationAPI.ServiceInfo(
+                                                            token: Data([5, 4, 3, 2, 1]).toHexString()
+                                                        ),
+                                                        notificationsEncryptionKey: Data([1, 2, 3]),
+                                                        authMethod: try! Authentication.with(
+                                                            swarmPublicKey: fixture.groupId.hexString,
+                                                            using: fixture.dependencies
+                                                        ),
+                                                        timestamp: 1234567890
+                                                    )
+                                                ]
+                                            )
+                                        ),
+                                        category: .standard,
+                                        requestTimeout: Network.defaultTimeout,
+                                        overallTimeout: nil
+                                    )
+                                }
+                                .wasNotCalled()
                         }
                     }
                     
@@ -647,9 +649,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 )
                             }
                             
-                            expect(fixture.mockNetwork)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                    network.send(
+                            await fixture.mockNetwork
+                                .verify {
+                                    $0.send(
                                         endpoint: PushNotificationAPI.Endpoint.subscribe,
                                         destination: .server(
                                             method: .post,
@@ -687,7 +689,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                         requestTimeout: Network.defaultTimeout,
                                         overallTimeout: nil
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                     }
                 }
@@ -2568,9 +2571,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
+                        await fixture.mockNetwork
+                            .verify {
+                                $0.send(
                                     endpoint: SnodeAPI.Endpoint.deleteMessages,
                                     destination: preparedRequest.destination,
                                     body: preparedRequest.body,
@@ -2578,7 +2581,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                     requestTimeout: preparedRequest.requestTimeout,
                                     overallTimeout: preparedRequest.overallTimeout
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                 }
                 
@@ -2606,16 +2610,18 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockNetwork).toNot(call { network in
-                            network.send(
-                                endpoint: MockEndpoint.any,
-                                destination: .any,
-                                body: .any,
-                                category: .any,
-                                requestTimeout: .any,
-                                overallTimeout: .any
-                            )
-                        })
+                        await fixture.mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasNotCalled()
                     }
                 }
             }
@@ -2833,9 +2839,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(fixture.mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
+                    await fixture.mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: PushNotificationAPI.Endpoint.unsubscribe,
                                 destination: .server(
                                     method: .post,
@@ -2864,7 +2870,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 requestTimeout: Network.defaultTimeout,
                                 overallTimeout: nil
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- and the group is an invitation
@@ -3234,14 +3241,14 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             )
         }
     }
-    var mockNetwork: MockNetwork { mock(for: .network) { MockNetwork() } }
+    var mockNetwork: MockNetwork { mock(for: .network) }
     var mockJobRunner: MockJobRunner { mock(for: .jobRunner) { MockJobRunner() } }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     var mockKeychain: MockKeychain { mock(for: .keychain) { MockKeychain() } }
     var mockFileManager: MockFileManager { mock(for: .fileManager) { MockFileManager() } }
-    var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) { MockExtensionHelper() } }
+    var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) }
     var mockGroupPollerManager: MockGroupPollerManager { mock(for: .groupPollerManager) }
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
@@ -3519,14 +3526,14 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
 
     private func applyBaselineStubs() async throws {
         try await applyBaselineStorage()
-        await applyBaselineNetwork()
+        try await applyBaselineNetwork()
         await applyBaselineJobRunner()
         try await applyBaselineAppContext()
         try await applyBaselineUserDefaults()
         try await applyBaselineCrypto()
         await applyBaselineKeychain()
         await applyBaselineFileManager()
-        await applyBaselineExtensionHelper()
+        try await applyBaselineExtensionHelper()
         try await applyBaselineGroupPollerManager()
         try await applyBaselineNotificationsManager()
         try await applyBaselineGeneralCache()
@@ -3550,8 +3557,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         }
     }
     
-    private func applyBaselineNetwork() async {
-        mockNetwork
+    private func applyBaselineNetwork() async throws {
+        try await mockNetwork
             .when {
                 $0.send(
                     endpoint: MockEndpoint.any,
@@ -3563,7 +3570,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 )
             }
             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
-        mockNetwork
+        try await mockNetwork
             .when { try await $0.getSwarm(for: .any) }
             .thenReturn([
                 LibSession.Snode(
@@ -3662,11 +3669,11 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         mockFileManager.defaultInitialSetup()
     }
     
-    private func applyBaselineExtensionHelper() async {
-        mockExtensionHelper
+    private func applyBaselineExtensionHelper() async throws {
+        try await mockExtensionHelper
             .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
             .thenReturn(())
-        mockExtensionHelper
+        try await mockExtensionHelper
             .when { try $0.upsertLastClearedRecord(threadId: .any) }
             .thenReturn(())
     }

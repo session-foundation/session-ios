@@ -102,15 +102,25 @@ private func beCalled<M, R>(
                 }
         }
         
-        var details: String = ""
+        let maybeExpectedCall: RecordedCall? = await info.mock.handler.expectedCall(for: info.callBlock)
         let maybeAllCalls: [RecordedCall]? = await info.mock.handler.allRecordedCalls(for: info.callBlock)
+        let funcName: String? = (maybeExpectedCall?.name ?? maybeAllCalls?.first?.name)
+        var details: String = "\n Expected to call \(funcName.map { "'\($0)'" } ?? "function") with parameters:"
+        
+        if let expectedCall: RecordedCall = maybeExpectedCall {
+            let args: String = expectedCall.args.map { summary(for: $0) }.joined(separator: ", ")
+            details += "\n- [\(args)]"
+        }
+        else {
+            details += "\n- Unable to determine the expected parameters"
+        }
         
         if let allCalls: [RecordedCall] = maybeAllCalls, !allCalls.isEmpty {
             let callDescriptions: String = allCalls
                 .map { call in
                     let args: String = call.args.map { summary(for: $0) }.joined(separator: ", ")
                     
-                    return "- \(call.name) [\(args)]"
+                    return "- [\(args)]"
                 }
                 .joined(separator: "\n")
             

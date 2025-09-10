@@ -3,12 +3,23 @@
 import Foundation
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionMessagingKit
 
-class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
+class MockExtensionHelper: ExtensionHelperType, Mockable {
+    public var handler: MockHandler<ExtensionHelperType>
+    
+    required init(handler: MockHandler<ExtensionHelperType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
     func deleteCache() {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
     
     // MARK: - User Metadata
@@ -18,51 +29,51 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         ed25519SecretKey: [UInt8],
         unreadCount: Int?
     ) throws {
-        try mockThrowingNoReturn(args: [sessionId, ed25519SecretKey, unreadCount])
+        try handler.mockThrowingNoReturn(args: [sessionId, ed25519SecretKey, unreadCount])
     }
     
     func loadUserMetadata() -> ExtensionHelper.UserMetadata? {
-        return mock()
+        return handler.mock()
     }
     
     // MARK: - Deduping
     
     func hasDedupeRecordSinceLastCleared(threadId: String) -> Bool {
-        return mock(args: [threadId])
+        return handler.mock(args: [threadId])
     }
     
     func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool {
-        return mock(args: [threadId, uniqueIdentifier])
+        return handler.mock(args: [threadId, uniqueIdentifier])
     }
     
     func createDedupeRecord(threadId: String, uniqueIdentifier: String) throws {
-        return try mockThrowing(args: [threadId, uniqueIdentifier])
+        return try handler.mockThrowing(args: [threadId, uniqueIdentifier])
     }
     
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws {
-        return try mockThrowing(args: [threadId, uniqueIdentifier])
+        return try handler.mockThrowing(args: [threadId, uniqueIdentifier])
     }
     
     func upsertLastClearedRecord(threadId: String) throws {
-        try mockThrowingNoReturn(args: [threadId])
+        try handler.mockThrowingNoReturn(args: [threadId])
     }
     
     // MARK: - Config Dumps
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval {
-        return mock(args: [sessionId, variant])
+        return handler.mock(args: [sessionId, variant])
     }
     
     func replicate(dump: ConfigDump?, replaceExisting: Bool) {
-        mockNoReturn(args: [dump, replaceExisting])
+        handler.mockNoReturn(args: [dump, replaceExisting])
     }
     
     func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) {
-        mockNoReturn(args: [userSessionId, allDumpSessionIds])
+        handler.mockNoReturn(args: [userSessionId, allDumpSessionIds])
     }
     
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
-        mockNoReturn(args: [sessionId, variant])
+        handler.mockNoReturn(args: [sessionId, variant])
     }
     
     func loadUserConfigState(
@@ -70,7 +81,7 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         userSessionId: SessionId,
         userEd25519SecretKey: [UInt8]
     ) {
-        mockNoReturn(args: [cache, userSessionId, userEd25519SecretKey])
+        handler.mockNoReturn(args: [cache, userSessionId, userEd25519SecretKey])
     }
     
     func loadGroupConfigStateIfNeeded(
@@ -78,41 +89,41 @@ class MockExtensionHelper: Mock<ExtensionHelperType>, ExtensionHelperType {
         swarmPublicKey: String,
         userEd25519SecretKey: [UInt8]
     ) throws -> [ConfigDump.Variant: Bool] {
-        return mock(args: [cache, swarmPublicKey, userEd25519SecretKey])
+        return handler.mock(args: [cache, swarmPublicKey, userEd25519SecretKey])
     }
     
     // MARK: - Notification Settings
     
     func replicate(settings: [String: Preferences.NotificationSettings], replaceExisting: Bool) throws {
-        try mockThrowingNoReturn(args: [settings, replaceExisting])
+        try handler.mockThrowingNoReturn(args: [settings, replaceExisting])
     }
     
     func loadNotificationSettings(
         previewType: Preferences.NotificationPreviewType,
         sound: Preferences.Sound
     ) -> [String: Preferences.NotificationSettings]? {
-        return mock(args: [previewType, sound])
+        return handler.mock(args: [previewType, sound])
     }
     
     // MARK: - Messages
     
     func unreadMessageCount() -> Int? {
-        return mock()
+        return handler.mock()
     }
     
     func saveMessage(_ message: SnodeReceivedMessage?, threadId: String, isUnread: Bool, isMessageRequest: Bool) throws {
-        try mockThrowingNoReturn(args: [message, threadId, isUnread, isMessageRequest])
+        try handler.mockThrowingNoReturn(args: [message, threadId, isUnread, isMessageRequest])
     }
     
     func willLoadMessages() {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
     
     func loadMessages() async throws {
-        try mockThrowingNoReturn()
+        try handler.mockThrowingNoReturn()
     }
     
     @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
-        return mock(args: [timeout])
+        return handler.mock(args: [timeout])
     }
 }

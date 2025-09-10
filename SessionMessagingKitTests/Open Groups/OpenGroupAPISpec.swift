@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -19,7 +20,7 @@ class OpenGroupAPISpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
@@ -74,6 +75,8 @@ class OpenGroupAPISpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Seckey: .any)) }
                 .thenReturn(Array(Data(hex: TestConstants.privateKey)))
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - an OpenGroupAPI
@@ -632,7 +635,7 @@ class OpenGroupAPISpec: AsyncSpec {
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -677,7 +680,7 @@ class OpenGroupAPISpec: AsyncSpec {
                 context("and given an invalid response") {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -720,7 +723,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -798,7 +801,7 @@ class OpenGroupAPISpec: AsyncSpec {
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -842,7 +845,7 @@ class OpenGroupAPISpec: AsyncSpec {
                 context("and given an invalid response") {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -892,7 +895,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -2296,7 +2299,7 @@ class OpenGroupAPISpec: AsyncSpec {
                 @TestState var preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>?
                 
                 beforeEach {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,

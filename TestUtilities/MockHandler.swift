@@ -68,6 +68,19 @@ public final class MockHandler<T> {
     
     // MARK: - Verification
     
+    func expectedCall<R>(for functionBlock: @escaping (T) async throws -> R) async -> RecordedCall? {
+        let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
+        
+        guard let builtFunction = try? await builder.build() else {
+            return nil
+        }
+        
+        return RecordedCall(
+            name: builtFunction.name,
+            args: builtFunction.arguments
+        )
+    }
+    
     func recordedCalls<R>(for functionBlock: @escaping (T) async throws -> R) async -> [RecordedCall]? {
         let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
         

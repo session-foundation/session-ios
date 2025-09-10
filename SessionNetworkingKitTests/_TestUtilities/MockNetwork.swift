@@ -9,23 +9,33 @@ import TestUtilities
 
 // MARK: - MockNetwork
 
-class MockNetwork: Mock<NetworkType>, NetworkType {
+class MockNetwork: NetworkType, Mockable {
+    public var handler: MockHandler<NetworkType>
+    
+    required init(handler: MockHandler<NetworkType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
     var requestData: RequestData?
     
-    var isSuspended: Bool { mock() }
-    var networkStatus: AsyncStream<NetworkStatus> { mock() }
-    var syncState: NetworkSyncState { mock() }
+    var isSuspended: Bool { handler.mock() }
+    var networkStatus: AsyncStream<NetworkStatus> { handler.mock() }
+    var syncState: NetworkSyncState { handler.mock() }
     
     func getActivePaths() async throws -> [LibSession.Path] {
-        return try mockThrowing()
+        return try handler.mockThrowing()
     }
     
     func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode> {
-        return try mockThrowing(args: [swarmPublicKey])
+        return try handler.mockThrowing(args: [swarmPublicKey])
     }
     
     func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode> {
-        return try mockThrowing(args: [count])
+        return try handler.mockThrowing(args: [count])
     }
     
     func send<E: EndpointType>(
@@ -46,7 +56,7 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
             overallTimeout: overallTimeout
         )
         
-        return mock(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
+        return handler.mock(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
     }
     
     func send<E: EndpointType>(
@@ -67,35 +77,35 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
             overallTimeout: overallTimeout
         )
         
-        return try mockThrowing(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
+        return try handler.mockThrowing(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
     }
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: AppVersionResponse) {
-        return try mockThrowing(args: [ed25519SecretKey])
+        return try handler.mockThrowing(args: [ed25519SecretKey])
     }
     
     func resetNetworkStatus() async {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
     
     func setNetworkStatus(status: NetworkStatus) async {
-        mockNoReturn(args: [status])
+        handler.mockNoReturn(args: [status])
     }
     
     func suspendNetworkAccess() async {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
     
     func resumeNetworkAccess(autoReconnect: Bool) async {
-        mockNoReturn(args: [autoReconnect])
+        handler.mockNoReturn(args: [autoReconnect])
     }
     
     func finishCurrentObservations() async {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
     
     func clearCache() async {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
 }
 
@@ -249,6 +259,7 @@ public extension Array where Element: Mocked, Element: Codable {
 enum MockEndpoint: EndpointType, Mocked {
     static var any: MockEndpoint = .anyValue
     static var mockValue: MockEndpoint = .mock
+    static var skipTypeMatchForAnyComparison: Bool { true }
     
     case anyValue
     case mock

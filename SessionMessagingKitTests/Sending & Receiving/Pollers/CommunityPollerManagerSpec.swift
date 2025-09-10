@@ -96,7 +96,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
             )
         }
     }
-    var mockNetwork: MockNetwork { mock(for: .network) { MockNetwork() } }
+    var mockNetwork: MockNetwork { mock(for: .network) }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
@@ -115,7 +115,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
 
     private func applyBaselineStubs() async throws {
         try await applyBaselineStorage()
-        await applyBaselineNetwork()
+        try await applyBaselineNetwork()
         try await applyBaselineAppContext()
         try await applyBaselineUserDefaults()
         try await applyBaselineGeneralCache()
@@ -157,12 +157,12 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         }
     }
     
-    private func applyBaselineNetwork() async {
-        mockNetwork.when { await $0.isSuspended }.thenReturn(false)
-        mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+    private func applyBaselineNetwork() async throws {
+        try await mockNetwork.when { await $0.isSuspended }.thenReturn(false)
+        try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
         
         /// Delay for 10 seconds because we don't want the Poller to get stuck in a recursive loop
-        mockNetwork
+        try await mockNetwork
             .when {
                 $0.send(
                     endpoint: MockEndpoint.any,

@@ -20,11 +20,7 @@ class NotificationsManagerSpec: AsyncSpec {
             }
         )
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
-            initialSetup: { helper in
-                helper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
-            }
-        )
+        @TestState var mockExtensionHelper: MockExtensionHelper! = .create()
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create()
         @TestState var message: Message! = VisibleMessage(
             sender: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
@@ -52,6 +48,9 @@ class NotificationsManagerSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockNotificationsManager.defaultInitialSetup()
+            
+            try await mockExtensionHelper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
+            dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
         }
         
         // MARK: - a NotificationsManager - Ensure Should Show

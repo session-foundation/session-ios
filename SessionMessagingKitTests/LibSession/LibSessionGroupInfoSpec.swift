@@ -5,6 +5,7 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 import SessionNetworkingKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -25,22 +26,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -94,6 +80,20 @@ class LibSessionGroupInfoSpec: AsyncSpec {
             )
             mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - LibSessionGroupInfo
@@ -898,9 +898,9 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: SnodeAPI.Endpoint.deleteMessages,
                                 destination: .randomSnode(swarmPublicKey: createGroupOutput.groupSessionId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
@@ -917,7 +917,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 requestTimeout: Network.defaultTimeout,
                                 overallTimeout: nil
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does not delete from the server if there is no server hash
@@ -974,16 +975,18 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     }
                     expect(result?.count).to(equal(1))
                     expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
-                    expect(mockNetwork).toNot(call { network in
-                        network.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    })
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
+                        .wasNotCalled()
                 }
             }
         }

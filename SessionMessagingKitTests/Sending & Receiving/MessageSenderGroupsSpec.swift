@@ -46,7 +46,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
             initialSetup: { keychain in
@@ -140,8 +140,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
             mockSnodeAPICache.defaultInitialSetup()
             dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
             
-            mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
-            mockNetwork
+            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+            try await mockNetwork
                 .when {
                     $0.send(
                         endpoint: MockEndpoint.any,
@@ -153,7 +153,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(Network.BatchResponse.mockConfigSyncResponse)
-            mockNetwork
+            try await mockNetwork
                 .when { try await $0.getSwarm(for: .any) }
                 .thenReturn([
                     LibSession.Snode(
@@ -181,6 +181,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         swarmId: 1
                     )
                 ])
+            dependencies.set(singleton: .network, to: mockNetwork)
             
             try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
             
@@ -473,9 +474,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: SnodeAPI.Endpoint.sequence,
                                 destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
@@ -503,13 +504,14 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 requestTimeout: Network.defaultTimeout,
                                 overallTimeout: Network.defaultTimeout
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- and the group configuration sync fails
                 context("and the group configuration sync fails") {
                     beforeEach {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -605,9 +607,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockNetwork)
-                        .toNot(call { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: Network.FileServer.Endpoint.file,
                                 destination: .serverUpload(
                                     server: Network.FileServer.fileServer,
@@ -619,14 +621,15 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 requestTimeout: Network.fileUploadTimeout,
                                 overallTimeout: nil
                             )
-                        })
+                        }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ------ with an image
                 context("with an image") {
                     // MARK: ------ uploads the image
                     it("uploads the image") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -659,9 +662,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 using: dependencies
                             )
                         
-                        expect(mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
+                        await mockNetwork
+                            .verify {
+                                $0.send(
                                     endpoint: Network.FileServer.Endpoint.file,
                                     destination: .serverUpload(
                                         server: Network.FileServer.fileServer,
@@ -673,14 +676,15 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     requestTimeout: Network.fileUploadTimeout,
                                     overallTimeout: Network.fileUploadTimeout
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ saves the image info to the group
                     it("saves the image info to the group") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
                         mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -715,7 +719,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ fails if the image fails to upload
                     it("fails if the image fails to upload") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -837,9 +841,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             )
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
+                        await mockNetwork
+                            .verify {
+                                $0.send(
                                     endpoint: PushNotificationAPI.Endpoint.subscribe,
                                     destination: .server(
                                         method: .post,
@@ -877,7 +881,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     requestTimeout: Network.defaultTimeout,
                                     overallTimeout: nil
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ---- does not subscribe if push notifications are disabled
@@ -903,16 +908,18 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             )
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockNetwork).toNot(call { network in
-                            network.send(
-                                endpoint: MockEndpoint.any,
-                                destination: .any,
-                                body: .any,
-                                category: .any,
-                                requestTimeout: .any,
-                                overallTimeout: .any
-                            )
-                        })
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasNotCalled()
                     }
                     
                     // MARK: ---- does not subscribe if there is no push token
@@ -938,16 +945,18 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             )
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockNetwork).toNot(call { network in
-                            network.send(
-                                endpoint: MockEndpoint.any,
-                                destination: .any,
-                                body: .any,
-                                category: .any,
-                                requestTimeout: .any,
-                                overallTimeout: .any
-                            )
-                        })
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasNotCalled()
                     }
                 }
             }
@@ -955,7 +964,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             // MARK: -- when adding members to a group
             context("when adding members to a group") {
                 beforeEach {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -1072,7 +1081,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 // MARK: ---- and granting access to historic messages
                 context("and granting access to historic messages") {
                     beforeEach {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -1139,9 +1148,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             _ = groups_keys_load_message(groupKeysConf, &fakeHash3, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
                         }
                         
-                        expect(mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
+                        await mockNetwork
+                            .verify {
+                                $0.send(
                                     endpoint: SnodeAPI.Endpoint.sequence,
                                     destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                     body: try! JSONEncoder(using: dependencies).encode(
@@ -1186,7 +1195,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     requestTimeout: Network.defaultTimeout,
                                     overallTimeout: Network.defaultTimeout
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ---- schedules member invite jobs
@@ -1293,7 +1303,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 // MARK: ---- and not granting access to historic messages
                 context("and not granting access to historic messages") {
                     beforeEach {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -1352,9 +1362,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: SnodeAPI.Endpoint.sequence,
                                 destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
@@ -1387,7 +1397,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 requestTimeout: Network.defaultTimeout,
                                 overallTimeout: Network.defaultTimeout
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- schedules member invite jobs

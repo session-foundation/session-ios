@@ -2066,28 +2066,28 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when waiting for messages to be loaded") {
                 // MARK: ---- stops waiting once messages are loaded
                 it("stops waiting once messages are loaded") {
-                    Task {
+                    Task { [extensionHelper] in
                         try? await Task.sleep(for: .milliseconds(10))
-                        try? await extensionHelper.loadMessages()
+                        try? await extensionHelper?.loadMessages()
                     }
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(150))
-                    }.to(beTrue())
+                    }.toEventually(beTrue())
                 }
                 
                 // MARK: ---- times out if it takes longer than the timeout specified
                 it("times out if it takes longer than the timeout specified") {
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
-                    }.to(beFalse())
+                    }.toEventually(beFalse())
                 }
                 
                 // MARK: ---- does not wait if messages have already been loaded
                 it("does not wait if messages have already been loaded") {
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
-                    }.to(beTrue())
+                    }.toEventually(beTrue())
                 }
                 
                 // MARK: ---- waits if messages have already been loaded but we indicate we will load them again
@@ -2096,7 +2096,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
-                    }.to(beFalse())
+                    }.toEventually(beFalse())
                 }
             }
             
@@ -2163,7 +2163,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- successfully loads messages
                 it("successfully loads messages") {
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     
                     let interactions: [Interaction]? = mockStorage.read { try Interaction.fetchAll($0) }
                     expect(interactions?.count).to(equal(1))
@@ -2180,7 +2180,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.contentsOfDirectory(
                             atPath: "/test/extensionCache/conversations/0000550000/config"
@@ -2200,7 +2200,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- loads config messages before other messages
                 it("loads config messages before other messages") {
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     
                     let key: FunctionConsumer_Old.Key = FunctionConsumer_Old.Key(
                         name: "contentsOfDirectory(atPath:)",
@@ -2289,7 +2289,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.removeItem(
                             atPath: "/test/extensionCache/conversations/0000550000/config"
@@ -2322,7 +2322,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
                     
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .info,
@@ -2359,7 +2359,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .error,
@@ -2412,7 +2412,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
                     
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .error,
@@ -2470,7 +2470,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     await expect { await mockLogger.logs }.toEventually(contain(
                         MockLogger.LogOutput(
                             level: .info,

@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -24,22 +25,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -92,6 +78,20 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 ]
             )
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - LibSessionGroupMembers

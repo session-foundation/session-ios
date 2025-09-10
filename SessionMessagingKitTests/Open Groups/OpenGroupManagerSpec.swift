@@ -126,24 +126,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     .thenReturn([:])
             }
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.errorResponse())
-                network.when { $0.syncState }.thenReturn(NetworkSyncState(isSuspended: false))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
         @TestState var mockUserDefaults: MockUserDefaults! = .create()
         @TestState var mockAppGroupDefaults: MockUserDefaults! = .create()
@@ -269,6 +252,22 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockAppGroupDefaults.defaultInitialSetup()
             try await mockAppGroupDefaults.when { $0.bool(forKey: .any) }.thenReturn(false)
             dependencies.set(defaults: .appGroup, to: mockAppGroupDefaults)
+            
+            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.errorResponse())
+            try await mockNetwork.when { $0.syncState }.thenReturn(NetworkSyncState(isSuspended: false))
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - an OpenGroupManager
@@ -679,7 +678,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                         try OpenGroup.deleteAll(db)
                     }
                     
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -827,7 +826,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- with an invalid response
                 context("with an invalid response") {
                     beforeEach {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -2582,9 +2581,9 @@ class OpenGroupManagerSpec: AsyncSpec {
                     }
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     
-                    expect(mockNetwork)
-                        .to(call { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: OpenGroupAPI.Endpoint.sequence,
                                 destination: expectedRequest.destination,
                                 body: expectedRequest.body,
@@ -2592,7 +2591,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 requestTimeout: expectedRequest.requestTimeout,
                                 overallTimeout: expectedRequest.overallTimeout
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
@@ -2603,16 +2603,18 @@ class OpenGroupManagerSpec: AsyncSpec {
                     cache.setDefaultRoomInfo([(room: OpenGroupAPI.Room.mock, openGroup: OpenGroup.mock)])
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     
-                    expect(mockNetwork).toNot(call {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    })
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
+                        .wasNotCalled()
                 }
             }
         }

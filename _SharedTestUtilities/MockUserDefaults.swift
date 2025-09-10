@@ -29,12 +29,28 @@ class MockUserDefaults: UserDefaultsType, Mockable {
     func bool(forKey defaultName: String) -> Bool { return (handler.mock(args: [defaultName]) ?? false) }
     func url(forKey defaultName: String) -> URL? { return handler.mock(args: [defaultName]) }
 
-    func set(_ value: Any?, forKey defaultName: String) { handler.mockNoReturn(args: [value, defaultName]) }
-    func set(_ value: Int, forKey defaultName: String) { handler.mockNoReturn(args: [value, defaultName]) }
-    func set(_ value: Float, forKey defaultName: String) { handler.mockNoReturn(args: [value, defaultName]) }
-    func set(_ value: Double, forKey defaultName: String) { handler.mockNoReturn(args: [value, defaultName]) }
-    func set(_ value: Bool, forKey defaultName: String) { handler.mockNoReturn(args: [value, defaultName]) }
-    func set(_ url: URL?, forKey defaultName: String) { handler.mockNoReturn(args: [url, defaultName]) }
+    func set(_ value: Any?, forKey defaultName: String) {
+        handler.mockNoReturn(generics: [Any.self], args: [value, defaultName])
+    }
+    func set(_ value: Int, forKey defaultName: String) {
+        handler.mockNoReturn(generics: [Int.self], args: [value, defaultName])
+    }
+    
+    func set(_ value: Float, forKey defaultName: String) {
+        handler.mockNoReturn(generics: [Float.self], args: [value, defaultName])
+    }
+    
+    func set(_ value: Double, forKey defaultName: String) {
+        handler.mockNoReturn(generics: [Double.self], args: [value, defaultName])
+    }
+    
+    func set(_ value: Bool, forKey defaultName: String) {
+        handler.mockNoReturn(generics: [Bool.self], args: [value, defaultName])
+    }
+    
+    func set(_ url: URL?, forKey defaultName: String) {
+        handler.mockNoReturn(generics: [URL?.self], args: [url, defaultName])
+    }
     
     func removeObject(forKey defaultName: String) {
         handler.mockNoReturn(args: [defaultName])

@@ -31,23 +31,8 @@ class OnboardingSpec: AsyncSpec {
         @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var mockLibSession: MockLibSessionCache! = MockLibSessionCache()
         @TestState var mockUserDefaults: MockUserDefaults! = .create()
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
-            initialSetup: { helper in
-                helper
-                    .when { $0.replicate(dump: .any, replaceExisting: .any) }
-                    .thenReturn(())
-                helper
-                    .when {
-                        try $0.saveUserMetadata(
-                            sessionId: .any,
-                            ed25519SecretKey: .any,
-                            unreadCount: .any
-                        )
-                    }
-                    .thenReturn(())
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create()
+        @TestState var mockExtensionHelper: MockExtensionHelper! = .create()
         @TestState var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache()
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var manager: Onboarding.Manager!
@@ -104,7 +89,7 @@ class OnboardingSpec: AsyncSpec {
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             
-            mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
+            try await mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
                 LibSession.Snode(
                     ed25519PubkeyHex: "1234",
                     ip: "1.2.3.4",
@@ -131,10 +116,10 @@ class OnboardingSpec: AsyncSpec {
                 return try? cache.pendingPushes(swarmPublicKey: cache.userSessionId.hexString)
             }()
             
-            mockNetwork
+            try await mockNetwork
                 .when {
                     try await $0.send(
-                        endpoint: MockEndpoint.mock,
+                        endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
                         category: .any,
@@ -168,6 +153,7 @@ class OnboardingSpec: AsyncSpec {
                         )
                     ]
                 ))
+            dependencies.set(singleton: .network, to: mockNetwork)
             
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults
@@ -178,6 +164,20 @@ class OnboardingSpec: AsyncSpec {
                 .thenReturn(false)
             try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(2)
             dependencies.set(defaults: .standard, to: mockUserDefaults)
+            
+            try await mockExtensionHelper
+                .when { $0.replicate(dump: .any, replaceExisting: .any) }
+                .thenReturn(())
+            try await mockExtensionHelper
+                .when {
+                    try $0.saveUserMetadata(
+                        sessionId: .any,
+                        ed25519SecretKey: .any,
+                        unreadCount: .any
+                    )
+                }
+                .thenReturn(())
+            dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
         }
         
         // MARK: - an Onboarding Cache - Initialization
@@ -502,15 +502,33 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- polls for the userProfile config
             it("polls for the userProfile config") {
-                let base64EncodedDataString: String = "eyJtZXRob2QiOiJiYXRjaCIsInBhcmFtcyI6eyJyZXF1ZXN0cyI6W3sibWV0aG9kIjoicmV0cmlldmUiLCJwYXJhbXMiOnsibGFzdF9oYXNoIjoiIiwibWF4X3NpemUiOi0xLCJuYW1lc3BhY2UiOjIsInB1YmtleSI6IjA1ODg2NzJjY2I5N2Y0MGJiNTcyMzg5ODkyMjZjZjQyOWI1NzViYTM1NTQ0M2Y0N2JjNzZjNWFiMTQ0YTk2YzY1YiIsInB1YmtleV9lZDI1NTE5IjoiYmFjNmU3MWVmZDdkZmE0YTgzYzk4ZWQyNGYyNTRhYjJjMjY3ZjljY2RiMTcyYTUyODBhMDQ0NGFkMjRlODljYyIsInNpZ25hdHVyZSI6IlZHVnpkRk5wWjI1aGRIVnlaUT09IiwidGltZXN0YW1wIjoxMjM0NTY3ODkwMDAwfX1dfX0="
+                let preparedRequest: Network.PreparedRequest<SnodeAPI.PollResponse> = try SnodeAPI.preparedPoll(
+                    namespaces: [.configUserProfile],
+                    lastHashes: [:],
+                    refreshingConfigHashes: [],
+                    from: LibSession.Snode(
+                        ed25519PubkeyHex: "1234",
+                        ip: "1.2.3.4",
+                        httpsPort: 1233,
+                        quicPort: 1234,
+                        version: "2.11.0",
+                        swarmId: 1
+                    ),
+                    authMethod: Authentication.standard(
+                        sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    ),
+                    using: dependencies
+                )
                 
-                await expect(mockNetwork)
-                    .toEventually(call(.exactly(times: 1), matchingParameters: .atLeast(3)) {
+                await mockNetwork
+                    .verify {
                         try await $0.send(
-                            endpoint: MockEndpoint.mock,
+                            endpoint: SnodeAPI.Endpoint.batch,
                             destination: Network.Destination.snode(
                                 LibSession.Snode(
-                                    ed25519PubkeyHex: "",
+                                    ed25519PubkeyHex: "1234",
                                     ip: "1.2.3.4",
                                     httpsPort: 1233,
                                     quicPort: 1234,
@@ -519,12 +537,13 @@ class OnboardingSpec: AsyncSpec {
                                 ),
                                 swarmPublicKey: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"
                             ),
-                            body: Data(base64Encoded: base64EncodedDataString),
+                            body: preparedRequest.body,
                             category: .standard,
                             requestTimeout: 10,
                             overallTimeout: nil
                         )
-                    })
+                    }
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- the display name stream to output the correct value
@@ -720,13 +739,15 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- replicates the user metadata
             it("replicates the user metadata") {
-                expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    try $0.saveUserMetadata(
-                        sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                        ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                        unreadCount: 0
-                    )
-                })
+                await mockExtensionHelper
+                    .verify {
+                        try $0.saveUserMetadata(
+                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                            unreadCount: 0
+                        )
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- stores the desired useAPNs value in the user defaults

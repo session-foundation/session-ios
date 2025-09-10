@@ -11,6 +11,12 @@ import UIKit.UIApplication
 public protocol Mocked {
     static var any: Self { get }
     static var mock: Self { get }
+    
+    static var skipTypeMatchForAnyComparison: Bool { get }
+}
+
+public extension Mocked {
+    static var skipTypeMatchForAnyComparison: Bool { false }
 }
 
 public protocol MockedGeneric {

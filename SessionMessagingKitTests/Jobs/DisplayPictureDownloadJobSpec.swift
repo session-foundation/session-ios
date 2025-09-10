@@ -40,22 +40,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             "673120e153a5cb6b869380744d493068ebc418266d6596d728cfc60b30662a089376" +
             "f2761e3bb6ee837a26b24b5"
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.response(data: encryptedData))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
@@ -104,6 +89,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                 .thenReturn("TestSogsSignature".bytes)
+            
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: encryptedData))
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - a DisplayPictureDownloadJob
@@ -510,9 +509,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockNetwork)
-                    .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                        network.send(
+                await mockNetwork
+                    .verify {
+                        $0.send(
                             endpoint: expectedRequest.endpoint,
                             destination: expectedRequest.destination,
                             body: expectedRequest.body,
@@ -520,7 +519,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             requestTimeout: expectedRequest.requestTimeout,
                             overallTimeout: expectedRequest.overallTimeout
                         )
-                    })
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- generates a SOGS download request correctly
@@ -575,9 +575,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockNetwork)
-                    .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                        network.send(
+                await mockNetwork
+                    .verify {
+                        $0.send(
                             endpoint: expectedRequest.endpoint,
                             destination: expectedRequest.destination,
                             body: expectedRequest.body,
@@ -585,7 +585,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             requestTimeout: expectedRequest.requestTimeout,
                             overallTimeout: expectedRequest.overallTimeout
                         )
-                    })
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- checking if a downloaded display picture is valid
@@ -1092,7 +1093,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         )
                         
                         // SOGS doesn't encrypt it's images so replace the encrypted mock response
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,

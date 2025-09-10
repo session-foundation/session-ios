@@ -10,14 +10,14 @@ import Nimble
 
 @testable import SessionNetworkingKit
 
-class PreparedRequestSendingSpec: QuickSpec {
+class PreparedRequestSendingSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
+        @TestState var mockNetwork: MockNetwork! = .create()
         @TestState var preparedRequest: Network.PreparedRequest<Int>!
         @TestState var error: Error?
         @TestState var disposables: [AnyCancellable]! = []
@@ -37,6 +37,8 @@ class PreparedRequestSendingSpec: QuickSpec {
                 responseType: Int.self,
                 using: dependencies
             )
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - a PreparedRequest sending Onion Requests
@@ -44,7 +46,7 @@ class PreparedRequestSendingSpec: QuickSpec {
             // MARK: -- when sending
             context("when sending") {
                 beforeEach {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -308,7 +310,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                         @TestState var receivedCompletion: Subscribers.Completion<Error>? = nil
                         
                         beforeEach {
-                            mockNetwork
+                            try await mockNetwork
                                 .when {
                                     $0.send(
                                         endpoint: MockEndpoint.any,
