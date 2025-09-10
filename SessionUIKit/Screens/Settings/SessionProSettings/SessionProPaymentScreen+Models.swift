@@ -2,9 +2,9 @@
 
 import Foundation
 
-public enum SessionProPlanScreenContent {}
+public enum SessionProPaymentScreenContent {}
 
-public extension SessionProPlanScreenContent {
+public extension SessionProPaymentScreenContent {
     enum SessionProPlanPaymentFlow: Equatable {
         case purchase
         case update(

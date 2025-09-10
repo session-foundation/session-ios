@@ -3,7 +3,7 @@
 import SwiftUI
 import Lucide
 
-public struct SessionProPlanScreen: View {
+public struct SessionProPaymentScreen: View {
     @EnvironmentObject var host: HostWrapper
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false
@@ -13,12 +13,12 @@ public struct SessionProPlanScreen: View {
     /// This will result in the tooltip will show again right after it dismissed when tapping the TooltipsIcon. This `suppressUntil` is a workaround to fix this issue.
     @State var suppressUntil: Date = .distantPast
 
-    let tooltipViewId: String = "SessionProPlanScreenToolTip" // stringlint:ignore
-    private let coordinateSpaceName: String = "SessionProPlanScreen" // stringlint:ignore
+    let tooltipViewId: String = "SessionProPaymentScreenToolTip" // stringlint:ignore
+    private let coordinateSpaceName: String = "SessionProPaymentScreen" // stringlint:ignore
     
-    private let dataModel: SessionProPlanScreenContent.DataModel
+    private let dataModel: SessionProPaymentScreenContent.DataModel
     
-    public init(dataModel: SessionProPlanScreenContent.DataModel) {
+    public init(dataModel: SessionProPaymentScreenContent.DataModel) {
         self.dataModel = dataModel
         if
             case .update(let currentPlan, _, _, _) = dataModel.flow,
@@ -173,10 +173,10 @@ struct OriginatingPlatformContent: View {
     @Binding var isShowingTooltip: Bool
     @Binding var suppressUntil: Date
     
-    let currentPlan: SessionProPlanScreenContent.SessionProPlanInfo
+    let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo
     let currentPlanExpiredOn: Date
     let isAutoRenewing: Bool
-    let sessionProPlans: [SessionProPlanScreenContent.SessionProPlanInfo]
+    let sessionProPlans: [SessionProPaymentScreenContent.SessionProPlanInfo]
     let updatePlanAction: () -> Void
     let openTosPrivacyAction: () -> Void
     
@@ -253,10 +253,10 @@ struct OriginatingPlatformContent: View {
 // MARK: - Non Originating Platform Content
 
 struct NonOriginatingPlatformContent: View {
-    let currentPlan: SessionProPlanScreenContent.SessionProPlanInfo
+    let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo
     let currentPlanExpiredOn: Date
     let isAutoRenewing: Bool
-    let originatingPlatform: SessionProPlanScreenContent.ClientPlatform
+    let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
     let openPlatformStoreWebsiteAction: () -> Void
 
     var body: some View {
@@ -431,10 +431,10 @@ struct PlanCell: View {
     @Binding var isShowingTooltip: Bool
     @Binding var suppressUntil: Date
     
-    let tooltipViewId: String = "SessionProPlanScreenToolTip" // stringlint:ignore
+    let tooltipViewId: String = "SessionProPaymentScreenToolTip" // stringlint:ignore
     
     var isSelected: Bool { currentSelection == index }
-    let plan: SessionProPlanScreenContent.SessionProPlanInfo
+    let plan: SessionProPaymentScreenContent.SessionProPlanInfo
     let index: Int
     let isCurrentPlan: Bool
     

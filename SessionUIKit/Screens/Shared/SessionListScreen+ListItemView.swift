@@ -90,11 +90,36 @@ struct ListItemCell: View {
 }
 
 struct ListItemLogWithPro: View {
+    enum ThemeStyle {
+        case normal
+        case disabled
+        
+        var themeColor: ThemeValue {
+            switch self {
+                case .normal: return .primary
+                case .disabled: return .disabled
+            }
+        }
+        
+        var growingBackgroundColor: ThemeValue {
+            switch self {
+                case .normal: return .settings_glowingBackground
+                case .disabled: return .disabled
+            }
+        }
+    }
+    
+    let style: ThemeStyle
+    
+    public init(style: ThemeStyle = .normal) {
+        self.style = style
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 Ellipse()
-                    .fill(themeColor: .settings_glowingBackground)
+                    .fill(themeColor: style.growingBackgroundColor)
                     .frame(
                         width: UIScreen.main.bounds.width - 2 * Values.mediumSpacing - 20 * 2,
                         height: 111
@@ -106,7 +131,7 @@ struct ListItemLogWithPro: View {
                 Image("SessionGreen64")
                     .resizable()
                     .renderingMode(.template)
-                    .foregroundColor(themeColor: .primary)
+                    .foregroundColor(themeColor: style.themeColor)
                     .scaledToFit()
                     .frame(width: 100, height: 111)
             }
@@ -124,7 +149,7 @@ struct ListItemLogWithPro: View {
                     .scaledToFit()
                     .frame(width: 131, height: 18)
                 
-                SessionProBadge_SwiftUI(size: .medium)
+                SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: style.themeColor)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)

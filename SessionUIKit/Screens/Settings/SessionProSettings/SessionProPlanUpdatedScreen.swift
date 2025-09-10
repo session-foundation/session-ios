@@ -5,7 +5,7 @@ import Lucide
 
 public struct SessionProPlanUpdatedScreen: View {
     @EnvironmentObject var host: HostWrapper
-    let flow: SessionProPlanScreenContent.SessionProPlanPaymentFlow
+    let flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow
     let expiredOn: Date
     var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
     var dismissButtonTitle: String {

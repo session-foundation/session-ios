@@ -465,7 +465,7 @@ extension SessionProSettingsViewModel {
     
     func updateProPlan() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: SessionProPlanScreen(
+            rootView: SessionProPaymentScreen(
                 dataModel: .init(
                     flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
                     plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
@@ -477,7 +477,7 @@ extension SessionProSettingsViewModel {
     
     func cancelPlan() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: SessionProPlanScreen(
+            rootView: SessionProPaymentScreen(
                 dataModel: .init(
                     flow: .cancel,
                     plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
@@ -489,7 +489,7 @@ extension SessionProSettingsViewModel {
     
     func requestRefund() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: SessionProPlanScreen(
+            rootView: SessionProPaymentScreen(
                 dataModel: .init(
                     flow: .refund,
                     plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
@@ -559,7 +559,7 @@ extension SessionProSettingsViewModel {
 // MARK: - Convenience
 
 extension SessionProPlan {
-    func info() -> SessionProPlanScreenContent.SessionProPlanInfo {
+    func info() -> SessionProPaymentScreenContent.SessionProPlanInfo {
         let price: Double = self.variant.price
         let pricePerMonth: Double = (self.variant.price / Double(self.variant.duration))
         return .init(
@@ -604,7 +604,7 @@ extension SessionProPlan {
 }
 
 extension SessionProPlanState {
-    func toPaymentFlow() -> SessionProPlanScreenContent.SessionProPlanPaymentFlow {
+    func toPaymentFlow() -> SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         switch self {
             case .none:
                 return .purchase
