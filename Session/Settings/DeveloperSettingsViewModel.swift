@@ -960,11 +960,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             current.mockCurrentUserSessionPro,
                             oldValue: previous?.mockCurrentUserSessionPro
                         ),
-                        onTap: { [weak self] in
-                            self?.updateFlag(
-                                for: .mockCurrentUserSessionPro,
-                                to: !current.mockCurrentUserSessionPro
-                            )
+                        onTap: { [weak self, dependencies] in
+                            if !current.mockCurrentUserSessionPro {
+                                dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                            } else {
+                                self?.updateFlag(
+                                    for: .mockCurrentUserSessionPro,
+                                    to: false
+                                )
+                            }
                         }
                     ),
                     SessionCell.Info(
