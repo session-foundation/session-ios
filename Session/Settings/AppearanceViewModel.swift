@@ -238,7 +238,10 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 "appIconSelect".localized(),
                                 font: .titleRegular
                             ),
-                            trailingAccessory: .icon(.chevronRight),
+                            trailingAccessory: .icon(
+                                .chevronRight,
+                                pinEdges: [.right]
+                            ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(
                                     SessionTableViewController(

@@ -39,16 +39,11 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
             switch self {
                 case .messageTrimming: return "conversationsMessageTrimming".localized()
                 case .audioMessages: return "conversationsAudioMessages".localized()
-                case .blockedContacts: return nil
+                case .blockedContacts: return "conversationsBlockedContacts".localized()
             }
         }
         
-        var style: SessionTableSectionStyle {
-            switch self {
-                case .blockedContacts: return .padding
-                default: return .titleRoundedContent
-            }
-        }
+        var style: SessionTableSectionStyle { .titleRoundedContent }
     }
     
     // MARK: - Content
@@ -192,9 +187,13 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .blockedContacts,
                             title: "conversationsBlockedContacts".localized(),
-                            styling: SessionCell.StyleInfo(
-                                tintColor: .danger,
-                                backgroundStyle: .noBackground
+                            subtitle: "blockedContactsManageDescription".localized(),
+                            trailingAccessory: .icon(
+                                .chevronRight,
+                                pinEdges: [.right]
+                            ),
+                            accessibility: Accessibility(
+                                identifier: "Block contacts - Navigation"
                             ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(
