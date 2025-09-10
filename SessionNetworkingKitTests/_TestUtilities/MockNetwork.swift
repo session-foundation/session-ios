@@ -143,6 +143,36 @@ extension MockNetwork {
     static func errorResponse() -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return Fail(error: TestError.mock).eraseToAnyPublisher()
     }
+    
+    static func response<T: Encodable>(info: MockResponseInfo = .mock, with value: T) -> (ResponseInfoType, Data?) {
+        return (info, try? JSONEncoder().with(outputFormatting: .sortedKeys).encode(value))
+    }
+    
+    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mock, type: T.Type) -> (ResponseInfoType, Data?) {
+        return response(info: info, with: T.mock)
+    }
+    
+    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mock, type: Array<T>.Type) -> (ResponseInfoType, Data?) {
+        return response(info: info, with: [T.mock])
+    }
+    
+    static func batchResponseData<E: EndpointType>(
+        info: MockResponseInfo = .mock,
+        with value: [(endpoint: E, data: Data)]
+    ) -> (ResponseInfoType, Data?) {
+        let data: Data = "[\(value.map { String(data: $0.data, encoding: .utf8)! }.joined(separator: ","))]"
+            .data(using: .utf8)!
+        
+        return (info, data)
+    }
+    
+    static func response(info: MockResponseInfo = .mock, data: Data) -> (ResponseInfoType, Data?) {
+        return (info, data)
+    }
+    
+    static func nullResponse(info: MockResponseInfo = .mock) -> (ResponseInfoType, Data?) {
+        return (info, nil)
+    }
 }
 
 // MARK: - MockResponseInfo

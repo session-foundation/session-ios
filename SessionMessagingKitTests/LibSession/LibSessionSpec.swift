@@ -30,41 +30,9 @@ class LibSessionSpec: AsyncSpec {
         @TestState var userGroupsConfig: LibSession.Config!
         
         beforeEach {
-            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                
-                createGroupOutput = try LibSession.createGroup(
-                    db,
-                    name: "TestGroup",
-                    description: nil,
-                    displayPictureUrl: nil,
-                    displayPictureEncryptionKey: nil,
-                    members: [],
-                    using: dependencies
-                 )
-            }
-            
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
-            
-            var conf: UnsafeMutablePointer<config_object>!
-            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
-            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
-            
-            mockLibSessionCache.defaultInitialSetup(
-                configs: [
-                    .userGroups: .userGroups(conf),
-                    .groupInfo: createGroupOutput.groupState[.groupInfo],
-                    .groupMembers: createGroupOutput.groupState[.groupMembers],
-                    .groupKeys: createGroupOutput.groupState[.groupKeys]
-                ]
-            )
-            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockCrypto
                 .when { $0.generate(.ed25519KeyPair()) }
@@ -93,6 +61,38 @@ class LibSessionSpec: AsyncSpec {
                 .thenReturn(
                     Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
                 )
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                createGroupOutput = try LibSession.createGroup(
+                    db,
+                    name: "TestGroup",
+                    description: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    members: [],
+                    using: dependencies
+                 )
+            }
+            
+            var conf: UnsafeMutablePointer<config_object>!
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: .userGroups(conf),
+                    .groupInfo: createGroupOutput.groupState[.groupInfo],
+                    .groupMembers: createGroupOutput.groupState[.groupMembers],
+                    .groupKeys: createGroupOutput.groupState[.groupKeys]
+                ]
+            )
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
         }
         
         // MARK: - LibSession

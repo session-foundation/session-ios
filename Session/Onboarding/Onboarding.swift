@@ -298,13 +298,11 @@ extension Onboarding {
                 }
                 catch {
                     Log.warn(.onboarding, "Failed to retrieve existing profile information due to error: \(error).")
+                    
+                    /// Always emit a value if we got a response (doesn't matter it it was a successful response or not, we just want to
+                    /// finish loading)
+                    await self?.displayNameStream.send(self?.displayNameStream.currentValue)
                 }
-                
-                guard let self = self else { return }
-                
-                /// Always emit a value if we got a response (doesn't matter it it was a successful response or not, we just want to
-                /// finish loading)
-                await displayNameStream.send(displayNameStream.currentValue ?? "")
             }
         }
         
@@ -313,6 +311,8 @@ extension Onboarding {
         }
         
         func setDisplayName(_ displayName: String) async {
+            retrieveDisplayNameTask?.cancel()
+            
             await displayNameStream.send(displayName)
         }
         
@@ -371,8 +371,8 @@ extension Onboarding {
                     )
                     
                     /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
-                    dependencies.mutate(cache: .libSession) { cache in
-                        cache.loadState(db)
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.loadState(db, userEd25519SecretKey: ed25519KeyPair.secretKey)
                         
                         /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
                         /// we won't even process it (because the hash may be deduped via another process)

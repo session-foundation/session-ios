@@ -541,8 +541,11 @@ final class ShareNavController: UINavigationController {
                             if let data = image.pngData() {
                                 let tempFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "png") // stringlint:ignore
                                 do {
-                                    let url = NSURL.fileURL(withPath: tempFilePath)
-                                    try data.write(to: url)
+                                    let url: URL = URL(fileURLWithPath: tempFilePath)
+                                    try dependencies[singleton: .fileManager].write(
+                                        data: data,
+                                        to: URL(fileURLWithPath: tempFilePath)
+                                    )
                                     
                                     resolver(
                                         Result.success(

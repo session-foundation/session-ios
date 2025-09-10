@@ -1453,10 +1453,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- does nothing if it fails to replicate
                 it("does nothing if it fails to replicate") {
                     try await mockCrypto
-                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
-                        .thenThrow(TestError.mock)
-                    try await mockCrypto
-                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
+                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                         .thenThrow(TestError.mock)
                     
                     try? extensionHelper.replicate(

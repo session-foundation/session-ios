@@ -57,6 +57,10 @@ class LibSessionGroupMembersSpec: AsyncSpec {
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         
         beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -74,10 +78,6 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                    using: dependencies
                 )
             }
-            
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
-            dependencies.set(cache: .general, to: mockGeneralCache)
             
             var conf: UnsafeMutablePointer<config_object>!
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))

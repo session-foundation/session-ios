@@ -810,6 +810,7 @@ public enum OpenGroupAPI {
                     fileName: fileName
                 ),
                 body: data,
+                category: .upload,
                 requestTimeout: Network.fileUploadTimeout
             ),
             responseType: FileUploadResponse.self,
@@ -847,6 +848,7 @@ public enum OpenGroupAPI {
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
+                category: .download,
                 authMethod: authMethod,
                 requestTimeout: Network.fileDownloadTimeout
             ),

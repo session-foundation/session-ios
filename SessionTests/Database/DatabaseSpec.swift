@@ -26,6 +26,9 @@ class DatabaseSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
         @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
         @TestState var libSessionCache: LibSession.Cache! = LibSession.Cache(
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),

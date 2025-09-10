@@ -58,6 +58,10 @@ class LibSessionGroupInfoSpec: AsyncSpec {
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         
         beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -75,10 +79,6 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     using: dependencies
                  )
             }
-            
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
-            dependencies.set(cache: .general, to: mockGeneralCache)
             
             var conf: UnsafeMutablePointer<config_object>!
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
@@ -229,9 +229,9 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 
                 // MARK: ---- updates the formation timestamp if it is later than the current value
                 it("updates the formation timestamp if it is later than the current value") {
-                    // Note: the 'formationTimestamp' stores the "joinedAt" date so we on'y update it if it's later
-                    // than the current value (as we don't want to replace the record of when the current user joined
-                    // the group with when the group was originally created)
+                    /// **Note:** the `formationTimestamp` stores the "joinedAt" date so we only update it if it's later than
+                    /// the current value (as we don't want to replace the record of when the current user joined the group with
+                    /// when the group was originally created)
                     mockStorage.write { db in try ClosedGroup.updateAll(db, ClosedGroup.Columns.formationTimestamp.set(to: 50000)) }
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
                     let originalGroup: ClosedGroup? = mockStorage.read { db in
@@ -843,6 +843,14 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 
                 // MARK: ---- deletes from the server after deleting messages before a given timestamp
                 it("deletes from the server after deleting messages before a given timestamp") {
+                    mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(
+                            GroupAuthData(
+                                groupIdentityPrivateKey: Data(createGroupOutput.identityKeyPair.secretKey),
+                                authData: nil
+                            )
+                        )
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,

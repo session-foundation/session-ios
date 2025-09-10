@@ -186,9 +186,13 @@ enum _036_GroupsRebuildChanges: Migration {
                 .path
             
             // Save the decrypted display picture to disk
-            try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
+            try? dependencies[singleton: .fileManager].write(
+                data: imageData,
+                to: URL(fileURLWithPath: filePath),
+                options: .atomic
+            )
             
-            guard UIImage(contentsOfFile: filePath) != nil else {
+            guard dependencies[singleton: .fileManager].imageContents(atPath: filePath) != nil else {
                 Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(threadId)")
                 return
             }

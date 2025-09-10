@@ -206,7 +206,7 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: ObservingDatabase) {
+        public func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard configStore.isEmpty else {
@@ -270,11 +270,11 @@ public extension LibSession {
             }
                                             
             /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
-            configsToLoad.forEach { sessionId, variant, dump in
-                configStore[sessionId, variant] = try? loadState(
+            try configsToLoad.forEach { sessionId, variant, dump in
+                configStore[sessionId, variant] = try loadState(
                     for: variant,
                     sessionId: sessionId,
-                    userEd25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                    userEd25519SecretKey: userEd25519SecretKey,
                     groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
                         .groupIdentityPrivateKey
                         .map { Array($0) },
@@ -950,7 +950,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase)
+    func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -1208,7 +1208,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase) {}
+    func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {}
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,

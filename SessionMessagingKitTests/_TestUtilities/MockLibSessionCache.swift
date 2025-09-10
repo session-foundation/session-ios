@@ -15,8 +15,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase) {
-        mockNoReturn(untrackedArgs: [db])
+    func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {
+        try mockThrowingNoReturn(args: [userEd25519SecretKey], untrackedArgs: [db])
     }
     
     func loadDefaultStateFor(
@@ -466,7 +466,12 @@ extension Mock where T == LibSessionCacheType {
         self
             .when { $0.authData(groupSessionId: .any) }
             .thenReturn(GroupAuthData(
-                groupIdentityPrivateKey: Data([1, 2, 3]),
+                groupIdentityPrivateKey: Data([
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8
+                ]),
                 authData: nil
             ))
     }

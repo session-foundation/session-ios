@@ -168,3 +168,8 @@ extension FileProtectionType: Mocked {
     public static let any: FileProtectionType = .complete
     public static let mock: FileProtectionType = .complete
 }
+
+extension Data.WritingOptions: Mocked {
+    public static let any: Data.WritingOptions = .fileProtectionMask
+    public static let mock: Data.WritingOptions = .atomic
+}

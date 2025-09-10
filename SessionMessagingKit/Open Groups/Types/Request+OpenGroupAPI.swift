@@ -14,6 +14,7 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
+        category: Network.RequestCategory = .standard,
         authMethod: AuthenticationMethod,
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil
@@ -32,6 +33,7 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
                 x25519PublicKey: publicKey
             ),
             body: body,
+            category: category,
             requestTimeout: requestTimeout,
             overallTimeout: overallTimeout
         )

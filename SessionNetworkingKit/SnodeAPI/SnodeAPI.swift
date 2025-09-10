@@ -583,11 +583,6 @@ public final class SnodeAPI {
                     snode: snode,
                     body: [:]
                 ),
-//                request: Request<SnodeRequest<[String: String]>, Endpoint>(
-//                    endpoint: .getInfo,
-//                    snode: snode,
-//                    body: [:]
-//                ),
                 responseType: GetNetworkTimestampResponse.self,
                 using: dependencies
             )
@@ -607,18 +602,12 @@ public final class SnodeAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         requireAllBatchResponses: Bool = true,
-//        retryCount: Int = 0,
-//        requestTimeout: TimeInterval = Network.defaultTimeout,
-//        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return try Network.PreparedRequest<R>(
             request: request,
             responseType: responseType,
             requireAllBatchResponses: requireAllBatchResponses,
-//            retryCount: retryCount,
-//            requestTimeout: requestTimeout,
-//            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .handleEvents(

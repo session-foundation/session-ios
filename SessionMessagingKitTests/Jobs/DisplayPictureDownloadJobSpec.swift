@@ -516,7 +516,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             endpoint: expectedRequest.endpoint,
                             destination: expectedRequest.destination,
                             body: expectedRequest.body,
-                            category: .upload,
+                            category: .download,
                             requestTimeout: expectedRequest.requestTimeout,
                             overallTimeout: expectedRequest.overallTimeout
                         )
@@ -581,7 +581,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             endpoint: expectedRequest.endpoint,
                             destination: expectedRequest.destination,
                             body: expectedRequest.body,
-                            category: .upload,
+                            category: .download,
                             requestTimeout: expectedRequest.requestTimeout,
                             overallTimeout: expectedRequest.overallTimeout
                         )

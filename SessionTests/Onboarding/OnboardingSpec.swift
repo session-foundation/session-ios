@@ -39,73 +39,7 @@ class OnboardingSpec: AsyncSpec {
                 defaults.when { $0.set(false, forKey: .any) }.thenReturn(())
             }
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network.when { try await $0.getSwarm(for: .any) }.thenReturn([
-                    LibSession.Snode(
-                        ed25519PubkeyHex: "1234",
-                        ip: "1.2.3.4",
-                        httpsPort: 1233,
-                        quicPort: 1234,
-                        version: "2.11.0",
-                        swarmId: 1
-                    )
-                ])
-                
-                let cache: LibSession.Cache = LibSession.Cache(
-                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                    using: dependencies
-                )
-                cache.loadDefaultStateFor(
-                    variant: .userProfile,
-                    sessionId: cache.userSessionId,
-                    userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                    groupEd25519SecretKey: nil
-                )
-                try? cache.updateProfile(displayName: "TestPolledName")
-                let pendingPushes: LibSession.PendingPushes? = try? cache.pendingPushes(
-                    swarmPublicKey: cache.userSessionId.hexString
-                )
-                
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.mock,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.batchResponseData(
-                        with: [
-                            (
-                                SnodeAPI.Endpoint.getMessages,
-                                GetMessagesResponse(
-                                    messages: (pendingPushes?
-                                        .pushData
-                                        .first { $0.variant == .userProfile }?
-                                        .data
-                                        .enumerated()
-                                        .map { index, data in
-                                            GetMessagesResponse.RawMessage(
-                                                base64EncodedDataString: data.base64EncodedString(),
-                                                expirationMs: nil,
-                                                hash: "\(index)",
-                                                timestampMs: 1234567890
-                                            )
-                                        } ?? []),
-                                    more: false,
-                                    hardForkVersion: [2, 2],
-                                    timeOffset: 0
-                                    
-                                ).batchSubResponse()
-                            )
-                        ]
-                    ))
-            }
-        )
+        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
         @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
             initialSetup: { helper in
                 helper
@@ -177,6 +111,71 @@ class OnboardingSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            
+            mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
+                LibSession.Snode(
+                    ed25519PubkeyHex: "1234",
+                    ip: "1.2.3.4",
+                    httpsPort: 1233,
+                    quicPort: 1234,
+                    version: "2.11.0",
+                    swarmId: 1
+                )
+            ])
+            
+            let pendingPushes: LibSession.PendingPushes? = {
+                let cache: LibSession.Cache = LibSession.Cache(
+                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                    using: dependencies
+                )
+                cache.loadDefaultStateFor(
+                    variant: .userProfile,
+                    sessionId: cache.userSessionId,
+                    userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    groupEd25519SecretKey: nil
+                )
+                try? cache.updateProfile(displayName: "TestPolledName")
+                
+                return try? cache.pendingPushes(swarmPublicKey: cache.userSessionId.hexString)
+            }()
+            
+            mockNetwork
+                .when {
+                    try await $0.send(
+                        endpoint: MockEndpoint.mock,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.batchResponseData(
+                    with: [
+                        (
+                            SnodeAPI.Endpoint.getMessages,
+                            GetMessagesResponse(
+                                messages: (pendingPushes?
+                                    .pushData
+                                    .first { $0.variant == .userProfile }?
+                                    .data
+                                    .enumerated()
+                                    .map { index, data in
+                                        GetMessagesResponse.RawMessage(
+                                            base64EncodedDataString: data.base64EncodedString(),
+                                            expirationMs: nil,
+                                            hash: "\(index)",
+                                            timestampMs: 1234567890
+                                        )
+                                    } ?? []),
+                                more: false,
+                                hardForkVersion: [2, 2],
+                                timeOffset: 0
+                                
+                            ).batchSubResponse()
+                        )
+                    ]
+                ))
         }
         
         // MARK: - an Onboarding Cache - Initialization
@@ -192,6 +191,7 @@ class OnboardingSpec: AsyncSpec {
                     flow: .restore,
                     using: dependencies
                 )
+                try await manager.loadInitialState()
             }
             
             // MARK: -- stores the initialFlow
@@ -222,11 +222,16 @@ class OnboardingSpec: AsyncSpec {
                 
                 // MARK: ---- generates new key pairs
                 it("generates new key pairs") {
-                    await expect { await manager.ed25519KeyPair.publicKey.toHexString() }.to(equal("010203"))
-                    await expect { await manager.ed25519KeyPair.secretKey.toHexString() }.to(equal("040506"))
-                    await expect { await manager.x25519KeyPair.publicKey.toHexString() }.to(equal("030201"))
-                    await expect { await manager.x25519KeyPair.secretKey.toHexString() }.to(equal("060504"))
-                    await expect { await manager.userSessionId }.to(equal(SessionId(.standard, hex: "030201")))
+                    await expect { await manager.ed25519KeyPair.publicKey.toHexString() }
+                        .toEventually(equal("010203"))
+                    await expect { await manager.ed25519KeyPair.secretKey.toHexString() }
+                        .toEventually(equal("040506"))
+                    await expect { await manager.x25519KeyPair.publicKey.toHexString() }
+                        .toEventually(equal("030201"))
+                    await expect { await manager.x25519KeyPair.secretKey.toHexString() }
+                        .toEventually(equal("060504"))
+                    await expect { await manager.userSessionId }
+                        .toEventually(equal(SessionId(.standard, hex: "030201")))
                 }
             }
             
@@ -297,9 +302,10 @@ class OnboardingSpec: AsyncSpec {
                             .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
                         try await mockCrypto
                             .when {
-                                $0.generate(.ed25519KeyPair(
-                                    seed: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]
-                                )) }
+                                $0.generate(.ed25519KeyPair(seed: [
+                                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                                ])) }
                             .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                         try await mockCrypto
                             .when { $0.generate(.x25519(ed25519Pubkey: [1, 2, 3])) }
@@ -331,6 +337,7 @@ class OnboardingSpec: AsyncSpec {
                             flow: .restore,
                             using: dependencies
                         )
+                        try await manager.loadInitialState()
                         await expect{ await manager.state.first() }.to(equal(.noUserInvalidSeedGeneration))
                     }
                     
@@ -398,9 +405,10 @@ class OnboardingSpec: AsyncSpec {
                                 .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
                             try await mockCrypto
                                 .when {
-                                    $0.generate(.ed25519KeyPair(
-                                        seed: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]
-                                    )) }
+                                    $0.generate(.ed25519KeyPair(seed: [
+                                        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                                    ])) }
                                 .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                             try await mockCrypto
                                 .when { $0.generate(.x25519(ed25519Pubkey: [1, 2, 3])) }
@@ -415,7 +423,7 @@ class OnboardingSpec: AsyncSpec {
                         
                         // MARK: -------- has an empty display name
                         it("has an empty display name") {
-                            await expect { await manager.displayName.first() }.to(equal(""))
+                            await expect { await manager.displayName.first() }.to(beNil())
                         }
                     }
                 }
@@ -460,32 +468,34 @@ class OnboardingSpec: AsyncSpec {
                     flow: .register,
                     using: dependencies
                 )
-                try? await manager.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
+                try await manager.loadInitialState()
+                try await manager.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
             }
             
             // MARK: -- throws if the seed is the wrong length
             it("throws if the seed is the wrong length") {
-                expect { try await manager.setSeedData(Data([1, 2, 3])) }
-                    .to(throwError(CryptoError.invalidSeed))
+                await expect { try await manager.setSeedData(Data([1, 2, 3])) }
+                    .toEventually(throwError(CryptoError.invalidSeed))
             }
             
             // MARK: -- stores the seed
             it("stores the seed") {
-                await expect { await manager.seed }.to(equal(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16)))
+                await expect { await manager.seed }
+                    .toEventually(equal(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16)))
             }
             
             // MARK: -- stores the generated identity
             it("stores the generated identity") {
                 await expect { await manager.ed25519KeyPair.publicKey.toHexString() }
-                    .to(equal(TestConstants.edPublicKey))
+                    .toEventually(equal(TestConstants.edPublicKey))
                 await expect { await manager.ed25519KeyPair.secretKey.toHexString() }
-                    .to(equal(TestConstants.edSecretKey))
+                    .toEventually(equal(TestConstants.edSecretKey))
                 await expect { await manager.x25519KeyPair.publicKey.toHexString() }
-                    .to(equal(TestConstants.publicKey))
+                    .toEventually(equal(TestConstants.publicKey))
                 await expect { await manager.x25519KeyPair.secretKey.toHexString() }
-                    .to(equal(TestConstants.privateKey))
+                    .toEventually(equal(TestConstants.privateKey))
                 await expect { await manager.userSessionId }
-                    .to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
+                    .toEventually(equal(SessionId(.standard, hex: TestConstants.publicKey)))
             }
             
             // MARK: -- polls for the userProfile config
@@ -494,7 +504,7 @@ class OnboardingSpec: AsyncSpec {
                 
                 await expect(mockNetwork)
                     .toEventually(call(.exactly(times: 1), matchingParameters: .atLeast(3)) {
-                        $0.send(
+                        try await $0.send(
                             endpoint: MockEndpoint.mock,
                             destination: Network.Destination.snode(
                                 LibSession.Snode(
@@ -528,30 +538,34 @@ class OnboardingSpec: AsyncSpec {
                     flow: .register,
                     using: dependencies
                 )
+                try await manager.loadInitialState()
             }
             
             // MARK: -- stores the useAPNs setting
             it("stores the useAPNs setting") {
-                await expect { await manager.useAPNS }.to(beFalse())
+                await expect { await manager.useAPNS }.toEventually(beFalse())
                 await manager.setUseAPNS(true)
-                await expect { await manager.useAPNS }.to(beTrue())
+                await expect { await manager.useAPNS }.toEventually(beTrue())
             }
             
             // MARK: -- stores the display name
             it("stores the display name") {
-                await expect { await manager.displayName.first() }.to(equal(""))
+                await expect { await manager.displayName.first() }.toEventually(equal(""))
                 await manager.setDisplayName("TestName")
-                await expect { await manager.displayName.first() }.to(equal("TestName"))
+                await expect { await manager.displayName.first() }.toEventually(equal("TestName"))
             }
         }
         
         // MARK: - an Onboarding Cache - Complete Registration
         describe("an Onboarding Cache when completing registration") {
             justBeforeEach {
+                mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                
                 manager = Onboarding.Manager(
                     flow: .register,
                     using: dependencies
                 )
+                try await manager.loadInitialState()
                 await manager.setDisplayName("TestCompleteName")
                 await manager.completeRegistration()
             }
@@ -695,6 +709,7 @@ class OnboardingSpec: AsyncSpec {
                     flow: .restore,
                     using: dependencies
                 )
+                try await manager.loadInitialState()
                 await manager.setDisplayName("TestCompleteName")
                 await manager.completeRegistration()
                 
@@ -725,11 +740,12 @@ class OnboardingSpec: AsyncSpec {
                     flow: .register,
                     using: dependencies
                 )
-                await expect { await manager.state.first() }.toNot(equal(.completed))
+                try await manager.loadInitialState()
+                await expect { await manager.state.first() }.toEventuallyNot(equal(.completed))
                 await manager.setDisplayName("TestCompleteName")
                 await manager.completeRegistration()
                 
-                await expect { await manager.state.first() }.to(equal(.completed))
+                await expect { await manager.state.first() }.toEventually(equal(.completed))
             }
         }
     }

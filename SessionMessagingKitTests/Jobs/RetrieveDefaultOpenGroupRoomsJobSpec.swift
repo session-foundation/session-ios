@@ -311,8 +311,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     })
             }
             
-            // MARK: -- will retry 8 times before it fails
-            it("will retry 8 times before it fails") {
+            // MARK: -- permanently fails if it gets an error
+            it("permanently fails if it gets an error") {
                 mockNetwork
                     .when {
                         $0.send(
@@ -339,17 +339,17 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 )
                 
                 expect(error).to(matchError(NetworkError.parsingFailed))
-                expect(mockNetwork)   // First attempt + 8 retries
-                    .to(call(.exactly(times: 9)) { network in
-                        network.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    })
+                expect(permanentFailure).to(beTrue())
+                expect(mockNetwork).to(call(.exactly(times: 1)) { network in
+                    network.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                })
             }
             
             // MARK: -- stores the updated capabilities

@@ -76,7 +76,7 @@ public enum AppSetup {
                 userSessionId: userSessionId,
                 using: dependencies
             )
-            cache.loadState(db)
+            try? cache.loadState(db, userEd25519SecretKey: ed25519KeyPair.secretKey)
             dependencies.set(cache: .libSession, to: cache)
             
             return (
