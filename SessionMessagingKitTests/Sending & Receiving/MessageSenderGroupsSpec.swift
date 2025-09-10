@@ -32,12 +32,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { userDefaults in
-                userDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
-                userDefaults.when { $0.set(String.any, forKey: .any) }.thenReturn(())
-            }
-        )
+        @TestState var mockUserDefaults: MockUserDefaults! = .create()
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -80,7 +75,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
             }
         )
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
         @TestState var groupEdPK: [UInt8]! = groupKeyPair.publicKey
         @TestState var groupEdSK: [UInt8]! = groupKeyPair.secretKey
@@ -126,7 +121,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockLibSessionCache.defaultInitialSetup(
@@ -250,6 +245,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.hash(message: .any)) }
                 .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
+            
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
+            dependencies.set(defaults: .standard, to: mockUserDefaults)
         }
         
         // MARK: - a MessageSender dealing with Groups
@@ -785,10 +784,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 context("and trying to subscribe for push notifications") {
                     beforeEach {
                         // Need to set `isUsingFullAPNs` to true to generate the `expectedRequest`
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         mockStorage.write { db in
@@ -819,10 +818,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     
                     // MARK: ---- subscribes when they are enabled
                     it("subscribes when they are enabled") {
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         
@@ -885,10 +884,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     it("does not subscribe if push notifications are disabled") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
                         mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(false)
                         
@@ -920,10 +919,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     it("does not subscribe if there is no push token") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
                         mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(nil)
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         

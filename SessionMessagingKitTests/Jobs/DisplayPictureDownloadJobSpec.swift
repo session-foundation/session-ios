@@ -67,11 +67,11 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockLibSessionCache.defaultInitialSetup()

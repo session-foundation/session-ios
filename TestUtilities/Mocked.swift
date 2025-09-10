@@ -21,6 +21,8 @@ public protocol MockedGeneric {
 
 // MARK: - DSL
 
+public func anyAny() -> Any { 0 }
+
 extension Int: Mocked {
     public static let any: Int = (Int.max - 123)
     public static let mock: Int = 0

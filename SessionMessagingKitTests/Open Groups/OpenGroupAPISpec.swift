@@ -21,14 +21,14 @@ class OpenGroupAPISpec: AsyncSpec {
         }
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockLibSessionCache.defaultInitialSetup()
@@ -996,7 +996,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedSend(
@@ -1023,7 +1023,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is ed25519Seed
                     it("fails to sign if there is ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedSend(
@@ -1110,7 +1110,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedSend(
@@ -1137,7 +1137,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedSend(
@@ -1281,7 +1281,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedMessageUpdate(
@@ -1307,7 +1307,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedMessageUpdate(
@@ -1391,7 +1391,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedMessageUpdate(
@@ -1417,7 +1417,7 @@ class OpenGroupAPISpec: AsyncSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try OpenGroupAPI.preparedMessageUpdate(
@@ -2128,7 +2128,7 @@ class OpenGroupAPISpec: AsyncSpec {
                 
                 // MARK: ---- fails when there is no ed25519SecretKey
                 it("fails when there is no ed25519SecretKey") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     
                     expect {
                         preparedRequest = try OpenGroupAPI.preparedRooms(

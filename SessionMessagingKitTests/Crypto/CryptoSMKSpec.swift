@@ -8,17 +8,17 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class CryptoSMKSpec: QuickSpec {
+class CryptoSMKSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
 
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto(using: dependencies)
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
         }
 
@@ -85,7 +85,7 @@ class CryptoSMKSpec: QuickSpec {
 
                 // MARK: ---- throws an error if there is no ed25519 keyPair
                 it("throws an error if there is no ed25519 keyPair") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
 
                     expect {
                         try crypto.tryGenerate(
@@ -120,7 +120,7 @@ class CryptoSMKSpec: QuickSpec {
 
                 // MARK: ---- throws an error if there is no ed25519 keyPair
                 it("throws an error if there is no ed25519 keyPair") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
 
                     expect {
                         try crypto.tryGenerate(

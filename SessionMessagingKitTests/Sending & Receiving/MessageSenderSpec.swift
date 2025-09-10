@@ -20,11 +20,11 @@ class MessageSenderSpec: AsyncSpec {
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)

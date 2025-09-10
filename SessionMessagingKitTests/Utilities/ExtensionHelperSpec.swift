@@ -46,13 +46,13 @@ class ExtensionHelperSpec: AsyncSpec {
                     .thenReturn(Data([1, 2, 3]))
             }
         )
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var mockLogger: MockLogger! = MockLogger()
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockLibSessionCache.defaultInitialSetup()

@@ -145,18 +145,9 @@ class OpenGroupManagerSpec: AsyncSpec {
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
-                defaults.when { $0.set(Int.any, forKey: .any) }.thenReturn(())
-            }
-        )
-        @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: .any) }.thenReturn(false)
-            }
-        )
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockUserDefaults: MockUserDefaults! = .create()
+        @TestState var mockAppGroupDefaults: MockUserDefaults! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
         @TestState var mockPoller: MockPoller! = .create()
@@ -192,7 +183,7 @@ class OpenGroupManagerSpec: AsyncSpec {
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockLibSessionCache.defaultInitialSetup()
@@ -270,6 +261,14 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockCommunityPollerManager
                 .when { $0.syncState }
                 .thenReturn(CommunityPollerManagerSyncState())
+            
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(0)
+            dependencies.set(defaults: .standard, to: mockUserDefaults)
+            
+            try await mockAppGroupDefaults.defaultInitialSetup()
+            try await mockAppGroupDefaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+            dependencies.set(defaults: .appGroup, to: mockAppGroupDefaults)
         }
         
         // MARK: - an OpenGroupManager
@@ -282,10 +281,8 @@ class OpenGroupManagerSpec: AsyncSpec {
             context("cache data") {
                 // MARK: ---- defaults the time since last open to zero
                 it("defaults the time since last open to zero") {
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(nil)
                     
                     expect(cache.getLastSuccessfulCommunityPollTimestamp()).to(equal(0))
@@ -293,10 +290,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                 
                 // MARK: ---- returns the time since the last poll
                 it("returns the time since the last poll") {
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567880))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
                     
@@ -306,20 +301,16 @@ class OpenGroupManagerSpec: AsyncSpec {
                 
                 // MARK: ---- caches the time since the last poll in memory
                 it("caches the time since the last poll in memory") {
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567770))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
                     
                     expect(cache.getLastSuccessfulCommunityPollTimestamp())
                         .to(equal(1234567770))
                     
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                  
                     // Cached value shouldn't have been updated
@@ -331,13 +322,14 @@ class OpenGroupManagerSpec: AsyncSpec {
                 it("updates the time since the last poll in user defaults") {
                     cache.setLastSuccessfulCommunityPollTimestamp(12345)
                     
-                    expect(mockUserDefaults)
-                        .to(call(matchingParameters: .all) {
+                    await mockUserDefaults
+                        .verify {
                             $0.set(
                                 Date(timeIntervalSince1970: 12345),
                                 forKey: UserDefaults.DateKey.lastOpen.rawValue
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
             
@@ -416,8 +408,10 @@ class OpenGroupManagerSpec: AsyncSpec {
                 context("when there is a thread for the room and the cache has a poller") {
                     beforeEach {
                         try await mockCommunityPollerManager
-                            .when { await $0.serversBeingPolled }
-                            .thenReturn(["http://127.0.0.1"])
+                            .when { await $0.syncState }
+                            .thenReturn(CommunityPollerManagerSyncState(
+                                serversBeingPolled: ["http://127.0.0.1"]
+                            ))
                     }
                     
                     // MARK: ------ for the no-scheme variant
@@ -698,10 +692,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
                 
@@ -848,10 +840,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                             }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
-                        mockUserDefaults
-                            .when { (defaults: inout any UserDefaultsType) -> Any? in
-                                defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                            }
+                        try await mockUserDefaults
+                            .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                             .thenReturn(Date(timeIntervalSince1970: 1234567890))
                     }
                 
@@ -2539,7 +2529,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     
                     // MARK: ------ generates and unblinded key if the key belongs to the current user
                     it("generates and unblinded key if the key belongs to the current user") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([4, 5, 6])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([4, 5, 6])
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
@@ -2561,7 +2551,7 @@ class OpenGroupManagerSpec: AsyncSpec {
             context("when accessing the default rooms publisher") {
                 // MARK: ---- starts a job to retrieve the default rooms if we have none
                 it("starts a job to retrieve the default rooms if we have none") {
-                    mockAppGroupDefaults
+                    try await mockAppGroupDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                         .thenReturn(true)
                     mockStorage.write { db in
@@ -2607,7 +2597,9 @@ class OpenGroupManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
                 it("does not start a job to retrieve the default rooms if we already have rooms") {
-                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                    try await mockAppGroupDefaults
+                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                        .thenReturn(true)
                     cache.setDefaultRoomInfo([(room: OpenGroupAPI.Room.mock, openGroup: OpenGroup.mock)])
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     

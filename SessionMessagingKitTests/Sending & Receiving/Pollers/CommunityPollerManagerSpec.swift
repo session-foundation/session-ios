@@ -98,8 +98,8 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     }
     var mockNetwork: MockNetwork { mock(for: .network) { MockNetwork() } }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
-    var mockUserDefaults: MockUserDefaults { mock(for: .standard) { MockUserDefaults() } }
-    var mockGeneralCache: MockGeneralCache { mock(cache: .general) { MockGeneralCache() } }
+    var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
+    var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockOGMCache: MockOGMCache { mock(cache: .openGroupManager) { MockOGMCache() } }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     lazy var manager: CommunityPollerManager = CommunityPollerManager(using: dependencies)
@@ -117,8 +117,8 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         try await applyBaselineStorage()
         await applyBaselineNetwork()
         try await applyBaselineAppContext()
-        await applyBaselineUserDefaults()
-        await applyBaselineGeneralCache()
+        try await applyBaselineUserDefaults()
+        try await applyBaselineGeneralCache()
         await applyBaselineOGMCache()
         try await applyBaselineCrypto()
     }
@@ -184,12 +184,18 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         try await mockAppContext.when { await $0.isMainAppAndActive }.thenReturn(false)
     }
     
-    private func applyBaselineUserDefaults() async {}
+    private func applyBaselineUserDefaults() async throws {
+        try await mockUserDefaults.defaultInitialSetup()
+    }
     
-    private func applyBaselineGeneralCache() async {
-        mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-        mockGeneralCache
+    private func applyBaselineGeneralCache() async throws {
+        try await mockGeneralCache
+            .when { $0.sessionId }
+            .thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+        try await mockGeneralCache
+            .when { $0.ed25519SecretKey }
+            .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+        try await mockGeneralCache
             .when { $0.ed25519Seed }
             .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
     }

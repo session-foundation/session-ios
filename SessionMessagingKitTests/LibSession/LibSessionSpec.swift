@@ -19,7 +19,7 @@ class LibSessionSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
@@ -31,7 +31,7 @@ class LibSessionSpec: AsyncSpec {
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             try await mockCrypto
@@ -320,7 +320,7 @@ class LibSessionSpec: AsyncSpec {
                 // MARK: ---- throws when there is no user ed25519 keyPair
                 it("throws when there is no user ed25519 keyPair") {
                     var resultError: Error? = nil
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(

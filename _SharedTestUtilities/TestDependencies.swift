@@ -273,20 +273,4 @@ internal extension TestState {
             return value
         }())
     }
-    
-    init(
-        wrappedValue: @escaping @autoclosure () -> T?,
-        defaults: UserDefaultsConfig,
-        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
-    ) where T: UserDefaultsType {
-        self.init(wrappedValue: {
-            let dependencies: TestDependencies? = dependenciesRetriever()
-            let value: T? = wrappedValue()
-            (value as? DependenciesSettable)?.setDependencies(dependencies)
-            dependencies?[defaults: defaults] = value
-            (value as? (any InitialSetupable))?.performInitialSetup()
-            
-            return value
-        }())
-    }
 }

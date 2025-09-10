@@ -28,17 +28,9 @@ class OnboardingSpec: AsyncSpec {
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var mockLibSession: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
-                defaults.when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }.thenReturn(false)
-                defaults.when { $0.integer(forKey: .any) }.thenReturn(2)
-                defaults.when { $0.set(true, forKey: .any) }.thenReturn(())
-                defaults.when { $0.set(false, forKey: .any) }.thenReturn(())
-            }
-        )
+        @TestState var mockUserDefaults: MockUserDefaults! = .create()
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
         @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
             initialSetup: { helper in
@@ -62,7 +54,7 @@ class OnboardingSpec: AsyncSpec {
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockLibSession.defaultInitialSetup()
@@ -176,6 +168,16 @@ class OnboardingSpec: AsyncSpec {
                         )
                     ]
                 ))
+            
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults
+                .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                .thenReturn(true)
+            try await mockUserDefaults
+                .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                .thenReturn(false)
+            try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(2)
+            dependencies.set(defaults: .standard, to: mockUserDefaults)
         }
         
         // MARK: - an Onboarding Cache - Initialization
@@ -208,7 +210,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- without a stored secret key
             context("without a stored secret key") {
                 beforeEach {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     try await mockCrypto
                         .when { $0.generate(.ed25519KeyPair(seed: .any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
@@ -238,7 +240,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- with a stored secret key
             context("with a stored secret key") {
                 beforeEach {
-                    mockGeneralCache
+                    try await mockGeneralCache
                         .when { $0.ed25519SecretKey }
                         .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
                     try await mockCrypto
@@ -343,14 +345,14 @@ class OnboardingSpec: AsyncSpec {
                     
                     // MARK: ------ does not load the useAPNs flag from user defaults
                     it("does not load the useAPNs flag from user defaults") {
-                        expect(mockUserDefaults).toNot(call { $0.bool(forKey: .any) })
+                        await mockUserDefaults.verify { $0.bool(forKey: .any) }.wasNotCalled()
                     }
                 }
                 
                 // MARK: ---- and an existing display name
                 context("and an existing display name") {
                     beforeEach {
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         mockLibSession
@@ -384,7 +386,7 @@ class OnboardingSpec: AsyncSpec {
                     
                     // MARK: ------ loads the useAPNs setting from user defaults
                     it("loads the useAPNs setting from user defaults") {
-                        expect(mockUserDefaults).to(call { $0.bool(forKey: .any) })
+                        await mockUserDefaults.verify { $0.bool(forKey: .any) }.wasCalled()
                         await expect{ await manager.useAPNS }.to(beTrue())
                     }
                     
@@ -431,7 +433,7 @@ class OnboardingSpec: AsyncSpec {
                 // MARK: ---- and a missing display name
                 context("and a missing display name") {
                     beforeEach {
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                     }
@@ -443,7 +445,7 @@ class OnboardingSpec: AsyncSpec {
                     
                     // MARK: ------ loads the useAPNs setting from user defaults
                     it("loads the useAPNs setting from user defaults") {
-                        expect(mockUserDefaults).to(call { $0.bool(forKey: .any) })
+                        await mockUserDefaults.verify { $0.bool(forKey: .any) }.wasCalled()
                         await expect { await manager.useAPNS }.to(beTrue())
                     }
                 }
@@ -559,7 +561,7 @@ class OnboardingSpec: AsyncSpec {
         // MARK: - an Onboarding Cache - Complete Registration
         describe("an Onboarding Cache when completing registration") {
             justBeforeEach {
-                mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                 
                 manager = Onboarding.Manager(
                     flow: .register,
@@ -572,9 +574,9 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- stores the ed25519 secret key in the general cache
             it("stores the ed25519 secret key in the general cache") {
-                expect(mockGeneralCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
-                })
+                await mockGeneralCache
+                    .verify { $0.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))) }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- stores a new libSession cache instance
@@ -729,9 +731,9 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- stores the desired useAPNs value in the user defaults
             it("stores the desired useAPNs value in the user defaults") {
-                expect(mockUserDefaults).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.set(false, forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue)
-                })
+                await mockUserDefaults
+                    .verify { $0.set(false, forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- emits the complete status

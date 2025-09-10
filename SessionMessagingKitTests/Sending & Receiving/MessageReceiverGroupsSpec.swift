@@ -297,7 +297,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ sends a local notification about the group invite
                     it("sends a local notification about the group invite") {
-                        fixture.mockUserDefaults
+                        try await fixture.mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                             .thenReturn(true)
                         
@@ -500,10 +500,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     // MARK: ------ and push notifications are disabled
                     context("and push notifications are disabled") {
                         beforeEach {
-                            fixture.mockUserDefaults
+                            try await fixture.mockUserDefaults
                                 .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                                 .thenReturn(nil)
-                            fixture.mockUserDefaults
+                            try await fixture.mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(false)
                         }
@@ -511,7 +511,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         // MARK: -------- does not subscribe for push notifications
                         it("does not subscribe for push notifications") {
                             // Need to set `isUsingFullAPNs` to true to generate the `expectedRequest`
-                            fixture.mockUserDefaults
+                            try await fixture.mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(true)
                             fixture.mockStorage.write { db in
@@ -538,7 +538,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 try ClosedGroup.filter(id: fixture.groupId.hexString).deleteAll(db)
                                 try SessionThread.filter(id: fixture.groupId.hexString).deleteAll(db)
                             }!
-                            fixture.mockUserDefaults
+                            try await fixture.mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(false)
                             
@@ -600,10 +600,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     // MARK: ------ and push notifications are enabled
                     context("and push notifications are enabled") {
                         beforeEach {
-                            fixture.mockUserDefaults
+                            try await fixture.mockUserDefaults
                                 .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                                 .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                            fixture.mockUserDefaults
+                            try await fixture.mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(true)
                         }
@@ -2817,10 +2817,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ------ unsubscribes from push notifications
                 it("unsubscribes from push notifications") {
-                    fixture.mockUserDefaults
+                    try await fixture.mockUserDefaults
                         .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                         .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                    fixture.mockUserDefaults
+                    try await fixture.mockUserDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                         .thenReturn(true)
                     
@@ -3237,14 +3237,14 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockNetwork: MockNetwork { mock(for: .network) { MockNetwork() } }
     var mockJobRunner: MockJobRunner { mock(for: .jobRunner) { MockJobRunner() } }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
-    var mockUserDefaults: MockUserDefaults { mock(for: .standard) { MockUserDefaults() } }
+    var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     var mockKeychain: MockKeychain { mock(for: .keychain) { MockKeychain() } }
     var mockFileManager: MockFileManager { mock(for: .fileManager) { MockFileManager() } }
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) { MockExtensionHelper() } }
     var mockGroupPollerManager: MockGroupPollerManager { mock(for: .groupPollerManager) }
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
-    var mockGeneralCache: MockGeneralCache { mock(cache: .general) { MockGeneralCache() } }
+    var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) { MockLibSessionCache() } }
     var mockSnodeAPICache: MockSnodeAPICache { mock(cache: .snodeAPI) { MockSnodeAPICache() } }
     let mockPoller: MockPoller = .create()
@@ -3522,14 +3522,14 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         await applyBaselineNetwork()
         await applyBaselineJobRunner()
         try await applyBaselineAppContext()
-        await applyBaselineUserDefaults()
+        try await applyBaselineUserDefaults()
         try await applyBaselineCrypto()
         await applyBaselineKeychain()
         await applyBaselineFileManager()
         await applyBaselineExtensionHelper()
         try await applyBaselineGroupPollerManager()
         try await applyBaselineNotificationsManager()
-        await applyBaselineGeneralCache()
+        try await applyBaselineGeneralCache()
         await applyBaselineLibSessionCache()
         await applyBaselineSnodeAPICache()
         try await applyBaselinePoller()
@@ -3604,8 +3604,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
     }
     
-    private func applyBaselineUserDefaults() async {
-        mockUserDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
+    private func applyBaselineUserDefaults() async throws {
+        try await mockUserDefaults.defaultInitialSetup()
+        try await mockUserDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
     }
     
     private func applyBaselineCrypto() async throws {
@@ -3681,9 +3682,13 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await mockNotificationsManager.defaultInitialSetup()
     }
     
-    private func applyBaselineGeneralCache() async {
-        mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+    private func applyBaselineGeneralCache() async throws {
+        try await mockGeneralCache
+            .when { $0.sessionId }
+            .thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+        try await mockGeneralCache
+            .when { $0.ed25519SecretKey }
+            .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
     }
     
     private func applyBaselineLibSessionCache() async {

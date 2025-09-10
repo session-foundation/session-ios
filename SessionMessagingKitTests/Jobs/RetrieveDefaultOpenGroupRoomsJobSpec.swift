@@ -22,11 +22,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(defaults: .appGroup, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: .any) }.thenReturn(true)
-            }
-        )
+        @TestState var mockUserDefaults: MockUserDefaults! = .create()
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
@@ -82,7 +78,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             }
         )
         @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
-        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create()
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
         @TestState var permanentFailure: Bool! = false
@@ -90,7 +86,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockGeneralCache.defaultInitialSetup()
+            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
             mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
@@ -103,13 +99,19 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
+            
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
+            dependencies.set(defaults: .appGroup, to: mockUserDefaults)
         }
         
         // MARK: - a RetrieveDefaultOpenGroupRoomsJob
         describe("a RetrieveDefaultOpenGroupRoomsJob") {
             // MARK: -- defers the job if the main app is not running
             it("defers the job if the main app is not running") {
-                mockUserDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(false)
+                try await mockUserDefaults
+                    .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                    .thenReturn(false)
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
@@ -125,7 +127,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- does not defer the job when the main app is running
             it("does not defer the job when the main app is running") {
-                mockUserDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                try await mockUserDefaults
+                    .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                    .thenReturn(true)
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
