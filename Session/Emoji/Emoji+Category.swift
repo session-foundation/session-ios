@@ -100,6 +100,8 @@ extension Emoji {
                     .faceExhaling,
                     .lyingFace,
                     .shakingFace,
+                    .headShakingHorizontally,
+                    .headShakingVertically,
                     .relieved,
                     .pensive,
                     .sleepy,
@@ -458,24 +460,42 @@ extension Emoji {
                     .walking,
                     .manWalking,
                     .womanWalking,
+                    .personWalkingFacingRight,
+                    .womanWalkingFacingRight,
+                    .manWalkingFacingRight,
                     .standingPerson,
                     .manStanding,
                     .womanStanding,
                     .kneelingPerson,
                     .manKneeling,
                     .womanKneeling,
+                    .personKneelingFacingRight,
+                    .womanKneelingFacingRight,
+                    .manKneelingFacingRight,
                     .personWithProbingCane,
+                    .personWithWhiteCaneFacingRight,
                     .manWithProbingCane,
+                    .manWithWhiteCaneFacingRight,
                     .womanWithProbingCane,
+                    .womanWithWhiteCaneFacingRight,
                     .personInMotorizedWheelchair,
+                    .personInMotorizedWheelchairFacingRight,
                     .manInMotorizedWheelchair,
+                    .manInMotorizedWheelchairFacingRight,
                     .womanInMotorizedWheelchair,
+                    .womanInMotorizedWheelchairFacingRight,
                     .personInManualWheelchair,
+                    .personInManualWheelchairFacingRight,
                     .manInManualWheelchair,
+                    .manInManualWheelchairFacingRight,
                     .womanInManualWheelchair,
+                    .womanInManualWheelchairFacingRight,
                     .runner,
                     .manRunning,
                     .womanRunning,
+                    .personRunningFacingRight,
+                    .womanRunningFacingRight,
+                    .manRunningFacingRight,
                     .dancer,
                     .manDancing,
                     .manInBusinessSuitLevitating,
@@ -548,7 +568,6 @@ extension Emoji {
                     .womanHeartMan,
                     .manHeartMan,
                     .womanHeartWoman,
-                    .family,
                     .manWomanBoy,
                     .manWomanGirl,
                     .manWomanGirlBoy,
@@ -578,6 +597,11 @@ extension Emoji {
                     .bustInSilhouette,
                     .bustsInSilhouette,
                     .peopleHugging,
+                    .family,
+                    .familyAdultAdultChild,
+                    .familyAdultAdultChildChild,
+                    .familyAdultChild,
+                    .familyAdultChildChild,
                     .footprints,
                 ]
             case .animals:
@@ -669,6 +693,7 @@ extension Emoji {
                     .wing,
                     .blackBird,
                     .goose,
+                    .phoenix,
                     .frog,
                     .crocodile,
                     .turtle,
@@ -742,6 +767,7 @@ extension Emoji {
                     .watermelon,
                     .tangerine,
                     .lemon,
+                    .lime,
                     .banana,
                     .pineapple,
                     .mango,
@@ -773,6 +799,7 @@ extension Emoji {
                     .chestnut,
                     .gingerRoot,
                     .peaPod,
+                    .brownMushroom,
                     .bread,
                     .croissant,
                     .baguetteBread,
@@ -1390,6 +1417,7 @@ extension Emoji {
                     .scales,
                     .probingCane,
                     .link,
+                    .brokenChain,
                     .chains,
                     .hook,
                     .toolbox,
@@ -1997,6 +2025,8 @@ extension Emoji {
         case .faceExhaling: return .smileysAndPeople
         case .lyingFace: return .smileysAndPeople
         case .shakingFace: return .smileysAndPeople
+        case .headShakingHorizontally: return .smileysAndPeople
+        case .headShakingVertically: return .smileysAndPeople
         case .relieved: return .smileysAndPeople
         case .pensive: return .smileysAndPeople
         case .sleepy: return .smileysAndPeople
@@ -2355,24 +2385,42 @@ extension Emoji {
         case .walking: return .smileysAndPeople
         case .manWalking: return .smileysAndPeople
         case .womanWalking: return .smileysAndPeople
+        case .personWalkingFacingRight: return .smileysAndPeople
+        case .womanWalkingFacingRight: return .smileysAndPeople
+        case .manWalkingFacingRight: return .smileysAndPeople
         case .standingPerson: return .smileysAndPeople
         case .manStanding: return .smileysAndPeople
         case .womanStanding: return .smileysAndPeople
         case .kneelingPerson: return .smileysAndPeople
         case .manKneeling: return .smileysAndPeople
         case .womanKneeling: return .smileysAndPeople
+        case .personKneelingFacingRight: return .smileysAndPeople
+        case .womanKneelingFacingRight: return .smileysAndPeople
+        case .manKneelingFacingRight: return .smileysAndPeople
         case .personWithProbingCane: return .smileysAndPeople
+        case .personWithWhiteCaneFacingRight: return .smileysAndPeople
         case .manWithProbingCane: return .smileysAndPeople
+        case .manWithWhiteCaneFacingRight: return .smileysAndPeople
         case .womanWithProbingCane: return .smileysAndPeople
+        case .womanWithWhiteCaneFacingRight: return .smileysAndPeople
         case .personInMotorizedWheelchair: return .smileysAndPeople
+        case .personInMotorizedWheelchairFacingRight: return .smileysAndPeople
         case .manInMotorizedWheelchair: return .smileysAndPeople
+        case .manInMotorizedWheelchairFacingRight: return .smileysAndPeople
         case .womanInMotorizedWheelchair: return .smileysAndPeople
+        case .womanInMotorizedWheelchairFacingRight: return .smileysAndPeople
         case .personInManualWheelchair: return .smileysAndPeople
+        case .personInManualWheelchairFacingRight: return .smileysAndPeople
         case .manInManualWheelchair: return .smileysAndPeople
+        case .manInManualWheelchairFacingRight: return .smileysAndPeople
         case .womanInManualWheelchair: return .smileysAndPeople
+        case .womanInManualWheelchairFacingRight: return .smileysAndPeople
         case .runner: return .smileysAndPeople
         case .manRunning: return .smileysAndPeople
         case .womanRunning: return .smileysAndPeople
+        case .personRunningFacingRight: return .smileysAndPeople
+        case .womanRunningFacingRight: return .smileysAndPeople
+        case .manRunningFacingRight: return .smileysAndPeople
         case .dancer: return .smileysAndPeople
         case .manDancing: return .smileysAndPeople
         case .manInBusinessSuitLevitating: return .smileysAndPeople
@@ -2445,7 +2493,6 @@ extension Emoji {
         case .womanHeartMan: return .smileysAndPeople
         case .manHeartMan: return .smileysAndPeople
         case .womanHeartWoman: return .smileysAndPeople
-        case .family: return .smileysAndPeople
         case .manWomanBoy: return .smileysAndPeople
         case .manWomanGirl: return .smileysAndPeople
         case .manWomanGirlBoy: return .smileysAndPeople
@@ -2475,6 +2522,11 @@ extension Emoji {
         case .bustInSilhouette: return .smileysAndPeople
         case .bustsInSilhouette: return .smileysAndPeople
         case .peopleHugging: return .smileysAndPeople
+        case .family: return .smileysAndPeople
+        case .familyAdultAdultChild: return .smileysAndPeople
+        case .familyAdultAdultChildChild: return .smileysAndPeople
+        case .familyAdultChild: return .smileysAndPeople
+        case .familyAdultChildChild: return .smileysAndPeople
         case .footprints: return .smileysAndPeople
         case .monkeyFace: return .animals
         case .monkey: return .animals
@@ -2563,6 +2615,7 @@ extension Emoji {
         case .wing: return .animals
         case .blackBird: return .animals
         case .goose: return .animals
+        case .phoenix: return .animals
         case .frog: return .animals
         case .crocodile: return .animals
         case .turtle: return .animals
@@ -2633,6 +2686,7 @@ extension Emoji {
         case .watermelon: return .food
         case .tangerine: return .food
         case .lemon: return .food
+        case .lime: return .food
         case .banana: return .food
         case .pineapple: return .food
         case .mango: return .food
@@ -2664,6 +2718,7 @@ extension Emoji {
         case .chestnut: return .food
         case .gingerRoot: return .food
         case .peaPod: return .food
+        case .brownMushroom: return .food
         case .bread: return .food
         case .croissant: return .food
         case .baguetteBread: return .food
@@ -3272,6 +3327,7 @@ extension Emoji {
         case .scales: return .objects
         case .probingCane: return .objects
         case .link: return .objects
+        case .brokenChain: return .objects
         case .chains: return .objects
         case .hook: return .objects
         case .toolbox: return .objects
@@ -3829,4 +3885,3 @@ extension Emoji {
         }
     }
 }
-// swiftlint:disable all
