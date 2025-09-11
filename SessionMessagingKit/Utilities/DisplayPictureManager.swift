@@ -34,7 +34,7 @@ public class DisplayPictureManager {
         case contactUpdateTo(url: String, key: Data, filePath: String, contactProProof: String?)
         
         case currentUserRemove
-        case currentUserUploadImageData(data: Data)
+        case currentUserUploadImageData(data: Data, isReupload: Bool)
         case currentUserUpdateTo(url: String, key: Data, filePath: String, sessionProProof: String?)
         
         case groupRemove
