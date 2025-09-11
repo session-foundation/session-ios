@@ -126,30 +126,16 @@ class OpenGroupManagerSpec: AsyncSpec {
                     .thenReturn([:])
             }
         )
-        @TestState var mockNetwork: MockNetwork! = .create()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockUserDefaults: MockUserDefaults! = .create()
-        @TestState var mockAppGroupDefaults: MockUserDefaults! = .create()
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockAppGroupDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
-        @TestState var mockPoller: MockPoller! = .create()
-        @TestState(singleton: .communityPollerManager, in: dependencies) var mockCommunityPollerManager: MockCommunityPollerManager! = .create()
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
-            initialSetup: { keychain in
-                keychain
-                    .when {
-                        try $0.getOrGenerateEncryptionKey(
-                            forKey: .any,
-                            length: .any,
-                            cat: .any,
-                            legacyKey: .any,
-                            legacyService: .any
-                        )
-                    }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
+        @TestState var mockPoller: MockPoller! = .create(using: dependencies)
+        @TestState(singleton: .communityPollerManager, in: dependencies) var mockCommunityPollerManager: MockCommunityPollerManager! = .create(using: dependencies)
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
@@ -244,6 +230,18 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockCommunityPollerManager
                 .when { $0.syncState }
                 .thenReturn(CommunityPollerManagerSyncState())
+            
+            try await mockKeychain
+                .when {
+                    try $0.getOrGenerateEncryptionKey(
+                        forKey: .any,
+                        length: .any,
+                        cat: .any,
+                        legacyKey: .any,
+                        legacyService: .any
+                    )
+                }
+                .thenReturn(Data([1, 2, 3]))
             
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(0)
@@ -762,7 +760,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 )
                             )
                         }
-                        .wasCalled(timeout: .milliseconds(100))
+                        .wasCalled(timeout: .milliseconds(50))
                     await mockPoller.verify { await $0.startIfNeeded() }.wasCalled()
                 }
                 

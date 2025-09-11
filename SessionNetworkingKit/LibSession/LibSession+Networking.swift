@@ -972,7 +972,12 @@ private extension LibSessionNetwork {
         _ callback: (UnsafePointer<session_request_params>) -> Result
     ) throws -> Result {
         return try withBodyPointer(request.body) { cBodyPtr, bodySize in
-            try info.pathAndParamsString.withCString { cEndpoint in
+            let pathWithParams: String = try Network.Destination.generatePathWithParams(
+                endpoint: request.endpoint,
+                queryParameters: info.queryParameters
+            )
+            
+            return try pathWithParams.withCString { cEndpoint in
                 try withFileNamePtr(uploadFileName) { cUploadFileNamePtr in
                     try info.withServerInfoPointer { cServerDestinationPtr in
                         let params: session_request_params = session_request_params(
@@ -1039,16 +1044,15 @@ private extension LibSessionNetwork {
 
 private extension Network.Destination.ServerInfo {
     func withServerInfoPointer<Result>(_ body: (UnsafePointer<network_v2_server_destination>) -> Result) throws -> Result {
-        let url: URL = try self.url
         let x25519PublicKey: String = String(x25519PublicKey.suffix(64)) // Quick way to drop '05' prefix if present
         
-        guard let host: String = url.host else { throw NetworkError.invalidURL }
+        guard let host: String = self.host else { throw NetworkError.invalidURL }
         guard x25519PublicKey.count == 64 || x25519PublicKey.count == 66 else {
             throw LibSessionError.invalidCConversion
         }
         
-        let targetScheme: String = (url.scheme ?? "https")
-        let port: UInt16 = UInt16(url.port ?? (targetScheme == "https" ? 443 : 80))
+        let targetScheme: String = (self.scheme ?? "https")
+        let port: UInt16 = UInt16(self.port ?? (targetScheme == "https" ? 443 : 80))
         let headersArray: [String] = headers.flatMap { [$0.key, $0.value] }
         
         // Use scoped closure to avoid manual memory management (crazy nesting but it ends up safer)

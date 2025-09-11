@@ -13,7 +13,7 @@ actor MockPoller: PollerType, Mockable {
     
     nonisolated let handler: MockHandler<MockPoller>
     
-    var dependencies: Dependencies { handler.mock() }
+    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
     var pollerName: String { handler.mock() }
     var destination: PollerDestination { handler.mock() }
     var logStartAndStopCalls: Bool { handler.mock() }
@@ -46,7 +46,10 @@ actor MockPoller: PollerType, Mockable {
         customAuthMethod: (any AuthenticationMethod)?,
         using dependencies: Dependencies
     ) {
-        handler = MockHandler(dummyProvider: { _ in MockPoller(handler: .invalid()) })
+        handler = MockHandler(
+            dummyProvider: { _ in MockPoller(handler: .invalid()) },
+            using: dependencies
+        )
         handler.mockNoReturn(
             args: [
                 pollerName,

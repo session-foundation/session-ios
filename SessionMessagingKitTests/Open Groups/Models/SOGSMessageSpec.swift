@@ -29,7 +29,7 @@ class SOGSMessageSpec: AsyncSpec {
         """
         @TestState var messageData: Data! = messageJson.data(using: .utf8)!
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var decoder: JSONDecoder! = JSONDecoder(using: dependencies)
         
         // MARK: - a SOGSMessage

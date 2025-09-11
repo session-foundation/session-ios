@@ -5,7 +5,7 @@
 import Foundation
 import Combine
 
-public class Dependencies {
+public class Dependencies: FeatureStorageType {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "session.dependencies.codingOptions")!
     
     /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
@@ -21,7 +21,7 @@ public class Dependencies {
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I { getOrCreate(cache).immutable(cache: cache, using: self) }
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType { getOrCreate(defaults) }
-    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(using: self) }
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(in: self) }
     
     // MARK: - Global Values, Timing and Async Handling
     
@@ -172,6 +172,19 @@ public class Dependencies {
     public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async throws {
         try await waitUntilInitialised(targetKey: DependencyStorage.Key.Variant.cache.key(cache.identifier))
     }
+    
+    // MARK: - FeatureStorageType
+
+    public var hardfork: Int { self[defaults: .standard, key: .hardfork] }
+    public var softfork: Int { self[defaults: .standard, key: .hardfork] }
+    
+    public func rawFeatureValue(forKey defaultName: String) -> Any? {
+        return self[defaults: .appGroup].object(forKey: defaultName)
+    }
+    
+    public func storeFeatureValue(_ value: Any?, forKey defaultName: String) {
+        return self[defaults: .appGroup].set(value, forKey: defaultName)
+    }
 }
 
 // MARK: - Cache Management
@@ -211,7 +224,7 @@ public extension Dependencies {
             typedValue?.value(as: Feature<T>.self) ??
             feature.createInstance(self)
         )
-        instance.setValue(to: updatedFeature, using: self)
+        instance.setValue(to: updatedFeature, in: self)
         setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
         
         /// Notify observers
@@ -229,7 +242,7 @@ public extension Dependencies {
         _storage.perform { storage in
             storage.instances[key]?
                 .value(as: Feature<T>.self)?
-                .setValue(to: nil, using: self)
+                .setValue(to: nil, in: self)
         }
         removeValue(feature.identifier, of: .feature)
         

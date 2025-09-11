@@ -8,7 +8,7 @@ internal import Nimble
 public struct NimbleVerification<M: Mockable, R> {
     fileprivate struct VerificationData {
         fileprivate let mock: M
-        fileprivate let callBlock: (M.MockedType) async throws -> R
+        fileprivate let callBlock: (inout M.MockedType) async throws -> R
     }
     
     fileprivate let data: VerificationData
@@ -25,7 +25,11 @@ public struct NimbleVerification<M: Mockable, R> {
         }
         else {
             await expect(fileID: fileID, file: file, line: line, self.data)
-                .toEventually(beCalled(exactly: times), timeout: timeout.nimbleInterval)
+                .toEventually(
+                    beCalled(exactly: times),
+                    timeout: timeout.nimbleInterval,
+                    description: "Timed out waiting for call count to be \(times)."
+                )
         }
     }
     
@@ -41,7 +45,11 @@ public struct NimbleVerification<M: Mockable, R> {
         }
         else {
             await expect(fileID: fileID, file: file, line: line, self.data)
-                .toEventually(beCalled(atLeast: times), timeout: timeout.nimbleInterval)
+                .toEventually(
+                    beCalled(atLeast: times),
+                    timeout: timeout.nimbleInterval,
+                    description: "Timed out waiting for call count to be at least \(times)."
+                )
         }
     }
     
@@ -56,13 +64,17 @@ public struct NimbleVerification<M: Mockable, R> {
         }
         else {
             await expect(fileID: fileID, file: file, line: line, self.data)
-                .toEventually(beCalled(exactly: 0), timeout: timeout.nimbleInterval)
+                .toEventually(
+                    beCalled(exactly: 0),
+                    timeout: timeout.nimbleInterval,
+                    description: "Timed out waiting for call count to be 0."
+                )
         }
     }
 }
 
 public extension Mockable {
-    func verify<R>(_ callBlock: @escaping (MockedType) async throws -> R) async -> NimbleVerification<Self, R> {
+    func verify<R>(_ callBlock: @escaping (inout MockedType) async throws -> R) async -> NimbleVerification<Self, R> {
         return NimbleVerification(
             data: NimbleVerification.VerificationData(mock: self, callBlock: callBlock)
         )
@@ -74,65 +86,81 @@ private func beCalled<M, R>(
     atLeast atLeastTimes: Int? = nil
 ) -> AsyncMatcher<NimbleVerification<M, R>.VerificationData> {
     return AsyncMatcher { actualExpression in
-        let message: ExpectationMessage = (atLeastTimes != nil ?
-            ExpectationMessage.expectedTo("be called at least \(atLeastTimes ?? 1) time(s)") :
-            ExpectationMessage.expectedTo("be called exactly \(exactTimes ?? 1) time(s)")
-        )
+        let message: ExpectationMessage
+        
+        switch (exactTimes, atLeastTimes) {
+            case (_, 1), (.none, .none): message = ExpectationMessage.expectedTo("be called at least 1 time")
+            case (_, .some(let atLeastTimes)):
+                message = ExpectationMessage.expectedTo("be called at least \(atLeastTimes) time(s)")
+            
+            case (0, _): message = ExpectationMessage.expectedTo("not be called")
+            case (1, _): message = ExpectationMessage.expectedTo("be called exactly 1 time")
+            case (.some(let exactTimes), _):
+                message = ExpectationMessage.expectedTo("be called exactly \(exactTimes) time(s)")
+        }
         
         guard let info = try await actualExpression.evaluate() else {
             return MatcherResult(status: .fail, message: message.appendedBeNilHint())
         }
         
-        let matchingCalls: [RecordedCall] = (await info.mock.handler.recordedCalls(for: info.callBlock) ?? [])
+        let callInfo: MockHandler.CallInfo? = await info.mock.handler.recordedCallInfo(for: info.callBlock)
         
         switch (exactTimes, atLeastTimes) {
             case (.some(let times), _):
-                if matchingCalls.count == times {
+                if callInfo?.matching.count == times {
                     return MatcherResult(status: .matches, message: message)
                 }
                 
             case (_, .some(let times)):
-                if matchingCalls.count >= times {
+                if (callInfo?.matching.count ?? 0) >= times {
                     return MatcherResult(status: .matches, message: message)
                 }
                 
             case (.none, .none):
-                if matchingCalls.count >= 1 {
+                if (callInfo?.matching.count ?? 0) >= 1 {
                     return MatcherResult(status: .matches, message: message)
                 }
         }
         
-        let maybeExpectedCall: RecordedCall? = await info.mock.handler.expectedCall(for: info.callBlock)
-        let maybeAllCalls: [RecordedCall]? = await info.mock.handler.allRecordedCalls(for: info.callBlock)
-        let funcName: String? = (maybeExpectedCall?.name ?? maybeAllCalls?.first?.name)
-        var details: String = "\n Expected to call \(funcName.map { "'\($0)'" } ?? "function") with parameters:"
+        var details: String = ""
         
-        if let expectedCall: RecordedCall = maybeExpectedCall {
-            let args: String = expectedCall.args.map { summary(for: $0) }.joined(separator: ", ")
-            details += "\n- [\(args)]"
-        }
-        else {
-            details += "\n- Unable to determine the expected parameters"
+        if (exactTimes ?? 0) > 0 || (atLeastTimes ?? 0) > 0 {
+            details += "\nExpected to call \((callInfo?.expected.name).map { "'\($0)'" } ?? "function") with parameters:"
+            
+            if let expectedCall: RecordedCall = callInfo?.expected {
+                let args: String = expectedCall.arguments.map { summary(for: $0) }.joined(separator: ", ")
+                details += "\n- [\(args)]"
+            }
+            else {
+                details += "\n- Unable to determine the expected parameters"
+            }
+            
+            details += "\n"
         }
         
-        if let allCalls: [RecordedCall] = maybeAllCalls, !allCalls.isEmpty {
+        if let allCalls: [RecordedCall] = callInfo?.all, !allCalls.isEmpty {
             let callDescriptions: String = allCalls
                 .map { call in
-                    let args: String = call.args.map { summary(for: $0) }.joined(separator: ", ")
+                    let args: String = call.arguments.map { summary(for: $0) }.joined(separator: ", ")
                     
                     return "- [\(args)]"
                 }
                 .joined(separator: "\n")
             
-            details += "\n\nAll calls to this function with different arguments:\n\(callDescriptions)"
+            details += "\nAll calls to this function with different arguments:\n\(callDescriptions)"
         } else {
-            details += "\n\nNo other calls were made to this function."
+            details += "\nNo other calls were made to this function."
         }
+        
+        let gotMessage: String = ((exactTimes ?? 0) > 0 || (atLeastTimes ?? 0) > 0 ?
+            ", got \(callInfo?.matching.count ?? 0) matching call(s)." :
+            ", got called \(callInfo?.matching.count ?? 0) time(s)."
+        )
         
         return MatcherResult(
             status: .fail,
             message: message
-                .appended(message: ", got \(matchingCalls.count) matching call(s).")
+                .appended(message: gotMessage)
                 .appended(details: details)
         )
     }

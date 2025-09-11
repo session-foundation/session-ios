@@ -24,7 +24,7 @@ class PreparedRequestSpec: QuickSpec {
         describe("a PreparedRequest") {
             // MARK: -- generates the request correctly
             it("generates the request correctly") {
-                request = try! Request<NoBody, TestEndpoint>(
+                request = Request<NoBody, TestEndpoint>(
                     endpoint: .endpoint,
                     destination: .server(
                         method: .post,
@@ -62,7 +62,7 @@ class PreparedRequestSpec: QuickSpec {
             
             // MARK: -- does not strip excluded subrequest headers
             it("does not strip excluded subrequest headers") {
-                request = try! Request<NoBody, TestEndpoint>(
+                request = Request<NoBody, TestEndpoint>(
                     endpoint: .endpoint,
                     destination: .server(
                         method: .post,
@@ -84,6 +84,31 @@ class PreparedRequestSpec: QuickSpec {
                 
                 expect(TestEndpoint.excludedSubRequestHeaders).to(equal([HTTPHeader.testHeader]))
                 expect(preparedRequest.headers.keys).to(contain([HTTPHeader.testHeader]))
+            }
+            
+            // MARK: ---- throws an error if the generated URL is invalid
+            it("throws an error if the generated URL is invalid") {
+                request = Request<NoBody, TestEndpoint>(
+                    endpoint: .testParams("test", 123),
+                    destination: .server(
+                        method: .post,
+                        server: "ftp:// test Server",
+                        queryParameters: [:],
+                        headers: [
+                            "TestCustomHeader": "TestCustom",
+                            HTTPHeader.testHeader: "Test"
+                        ],
+                        x25519PublicKey: ""
+                    ),
+                    body: nil
+                )
+                preparedRequest = try! Network.PreparedRequest(
+                    request: request,
+                    responseType: TestType.self,
+                    using: dependencies
+                )
+                
+                expect { try preparedRequest.generateUrl() }.to(throwError(NetworkError.invalidURL))
             }
         }
         
@@ -166,6 +191,7 @@ fileprivate extension HTTPHeader {
 
 fileprivate enum TestEndpoint: EndpointType {
     case endpoint
+    case testParams(String, Int)
     
     static var name: String { "TestEndpoint" }
     static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }

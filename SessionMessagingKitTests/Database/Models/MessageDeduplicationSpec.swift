@@ -21,7 +21,7 @@ class MessageDeduplicationSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState var mockExtensionHelper: MockExtensionHelper! = .create()
+        @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
         @TestState var mockMessage: Message! = {
             let result: ReadReceipt = ReadReceipt(timestamps: [1])
             result.sentTimestampMs = 12345678901234

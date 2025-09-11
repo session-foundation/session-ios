@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -14,7 +15,7 @@ class CryptoSMKSpec: AsyncSpec {
 
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto(using: dependencies)
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         
         beforeEach {
             /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead

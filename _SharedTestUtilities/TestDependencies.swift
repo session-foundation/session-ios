@@ -12,6 +12,8 @@ public class TestDependencies: Dependencies {
     @ThreadSafeObject private var cacheInstances: [String: MutableCacheType] = [:]
     @ThreadSafeObject private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
     @ThreadSafeObject private var featureInstances: [String: (any FeatureType)] = [:]
+    @ThreadSafeObject private var featureValues: [String: Any] = [:]
+    @ThreadSafeObject private var otherInstances: [ObjectIdentifier: Any] = [:]
     
     // MARK: - Subscript Access
     
@@ -60,10 +62,10 @@ public class TestDependencies: Dependencies {
         guard let value: Feature<T> = (featureInstances[feature.identifier] as? Feature<T>) else {
             let value: Feature<T> = feature.createInstance(self)
             _featureInstances.performUpdate { $0.setting(feature.identifier, value) }
-            return value.currentValue(using: self)
+            return value.currentValue(in: self)
         }
         
-        return value.currentValue(using: self)
+        return value.currentValue(in: self)
     }
     
     public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T? {
@@ -222,6 +224,10 @@ public class TestDependencies: Dependencies {
         return _featureInstances.performMap { $0[feature.identifier] as? T }
     }
     
+    public func get<T>(other: ObjectIdentifier) -> T? {
+        return _otherInstances.performMap { $0[other] as? T }
+    }
+    
     public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
         (instance as? DependenciesSettable)?.setDependencies(self)
         _singletonInstances.performUpdate { $0.setting(singleton.identifier, instance) }
@@ -242,8 +248,26 @@ public class TestDependencies: Dependencies {
         _featureInstances.performUpdate { $0.setting(feature.identifier, instance) }
     }
     
+    public func set<T>(other: ObjectIdentifier, to instance: T) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
+        _otherInstances.performUpdate { $0.setting(other, instance) }
+    }
+    
     public override func remove<M, I>(cache: CacheConfig<M, I>) {
         _cacheInstances.performUpdate { $0.setting(cache.identifier, nil) }
+    }
+    
+    // MARK: - FeatureStorageType
+    
+    public override var hardfork: Int { 2 }
+    public override var softfork: Int { 11 }
+    
+    public override func rawFeatureValue(forKey defaultName: String) -> Any? {
+        return _featureValues.performMap { $0[defaultName] }
+    }
+    
+    public override func storeFeatureValue(_ value: Any?, forKey defaultName: String) {
+        _featureValues.performUpdate { $0.setting(defaultName, value) }
     }
 }
 

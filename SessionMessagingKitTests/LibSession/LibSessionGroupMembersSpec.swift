@@ -20,12 +20,12 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState var mockNetwork: MockNetwork! = .create()
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner

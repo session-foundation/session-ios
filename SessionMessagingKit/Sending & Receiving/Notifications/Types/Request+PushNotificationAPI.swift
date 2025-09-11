@@ -14,8 +14,8 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
         retryCount: Int = 0
-    ) throws {
-        self = try Request(
+    ) {
+        self = Request(
             endpoint: endpoint,
             destination: .server(
                 method: method,

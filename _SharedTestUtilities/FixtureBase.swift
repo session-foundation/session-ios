@@ -65,6 +65,18 @@ open class FixtureBase {
         return value
     }
     
+    private func mock<T>(_ creation: (TestDependencies) -> T) -> T {
+        if let existingMock: T = dependencies.get(other: ObjectIdentifier(T.self)) {
+            return existingMock
+        }
+        
+        let value: T = creation(dependencies)
+        (value as? DependenciesSettable)?.setDependencies(dependencies)
+        dependencies.set(other: ObjectIdentifier(T.self), to: value)
+        
+        return value
+    }
+    
     // MARK: - No Dependencies Convenience
     
     public func mock<R, SingletonType>(
@@ -90,15 +102,19 @@ open class FixtureBase {
     
     // MARK: - Mockable Convenience
     
+    public func mock<R: Mockable>() -> R {
+        return mock { dependencies in R.create(using: dependencies) }
+    }
+    
     public func mock<R: Mockable, SingletonType>(for singleton: SingletonConfig<SingletonType>) -> R {
-        return mock(for: singleton) { _ in R.create() }
+        return mock(for: singleton) { dependencies in R.create(using: dependencies) }
     }
     
     public func mock<R: Mockable, MutableCache, ImmutableCache>(cache: CacheConfig<MutableCache, ImmutableCache>) -> R {
-        return mock(cache: cache) { _ in R.create() }
+        return mock(cache: cache) { dependencies in R.create(using: dependencies) }
     }
     
     public func mock<T: Mockable & UserDefaultsType>(defaults: UserDefaultsConfig) -> T {
-        return mock(for: defaults) { _ in T.create() }
+        return mock(for: defaults) { dependencies in T.create(using: dependencies) }
     }
 }

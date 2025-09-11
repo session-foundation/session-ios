@@ -40,11 +40,11 @@ extension Network.Destination: @retroactive Mocked {
         headers: .any,
         x25519PublicKey: .any
     )
-    public static var mock: Network.Destination = try! Network.Destination.server(
+    public static var mock: Network.Destination = Network.Destination.server(
         server: "testServer",
         headers: [:],
         x25519PublicKey: ""
-    ).withGeneratedUrl(for: MockEndpoint.mock)
+    )
 }
 
 extension Network.RequestCategory: @retroactive Mocked {

@@ -5,44 +5,55 @@ import Foundation
 import Foundation
 import Combine
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionNetworkingKit
 
-class MockSnodeAPICache: Mock<SnodeAPICacheType>, SnodeAPICacheType {
+class MockSnodeAPICache: SnodeAPICacheType, Mockable {
+    public var handler: MockHandler<SnodeAPICacheType>
+    
+    required init(handler: MockHandler<SnodeAPICacheType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
     var hardfork: Int {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
+        get { return handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     
     var softfork: Int {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
+        get { return handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     
-    var clockOffsetMs: Int64 { mock() }
+    var clockOffsetMs: Int64 { handler.mock() }
     
     func currentOffsetTimestampMs<T>() -> T where T: Numeric {
-        return mock(generics: [T.self])
+        return handler.mock(generics: [T.self])
     }
     
     func setClockOffsetMs(_ clockOffsetMs: Int64) {
-        mockNoReturn(args: [clockOffsetMs])
+        handler.mockNoReturn(args: [clockOffsetMs])
     }
 }
 
 // MARK: - Convenience
 
-extension Mock where T == SnodeAPICacheType {
-    func defaultInitialSetup() {
-        self.when { $0.hardfork }.thenReturn(0)
-        self.when { $0.hardfork = .any }.thenReturn(())
-        self.when { $0.softfork }.thenReturn(0)
-        self.when { $0.softfork = .any }.thenReturn(())
-        self.when { $0.clockOffsetMs }.thenReturn(0)
-        self.when { $0.setClockOffsetMs(.any) }.thenReturn(())
-        self.when { $0.currentOffsetTimestampMs() }.thenReturn(Double(1234567890000))
-        self.when { $0.currentOffsetTimestampMs() }.thenReturn(Int(1234567890000))
-        self.when { $0.currentOffsetTimestampMs() }.thenReturn(Int64(1234567890000))
-        self.when { $0.currentOffsetTimestampMs() }.thenReturn(UInt64(1234567890000))
+extension MockSnodeAPICache {
+    func defaultInitialSetup() async throws {
+        try await self.when { $0.hardfork }.thenReturn(0)
+        try await self.when { $0.hardfork = .any }.thenReturn(())
+        try await self.when { $0.softfork }.thenReturn(0)
+        try await self.when { $0.softfork = .any }.thenReturn(())
+        try await self.when { $0.clockOffsetMs }.thenReturn(0)
+        try await self.when { $0.setClockOffsetMs(.any) }.thenReturn(())
+        try await self.when { $0.currentOffsetTimestampMs() }.thenReturn(Double(1234567890000))
+        try await self.when { $0.currentOffsetTimestampMs() }.thenReturn(Int(1234567890000))
+        try await self.when { $0.currentOffsetTimestampMs() }.thenReturn(Int64(1234567890000))
+        try await self.when { $0.currentOffsetTimestampMs() }.thenReturn(UInt64(1234567890000))
     }
 }

@@ -23,7 +23,7 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
             throw CryptoError.signatureGenerationFailed
         }
         
-        self = try Request(
+        self = Request(
             endpoint: endpoint,
             destination: .server(
                 method: method,

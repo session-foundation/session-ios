@@ -22,7 +22,7 @@ class BatchRequestSpec: QuickSpec {
             context("when encoding") {
                 // MARK: ---- correctly strips specified headers from sub requests
                 it("correctly strips specified headers from sub requests") {
-                    let httpRequest: Request<NoBody, TestEndpoint1> = try! Request<NoBody, TestEndpoint1>(
+                    let httpRequest: Request<NoBody, TestEndpoint1> = Request<NoBody, TestEndpoint1>(
                         endpoint: .endpoint1,
                         destination: .server(
                             server: "testServer",
@@ -58,7 +58,7 @@ class BatchRequestSpec: QuickSpec {
                 
                 // MARK: ---- does not strip unspecified headers from sub requests
                 it("does not strip unspecified headers from sub requests") {
-                    let httpRequest: Request<NoBody, TestEndpoint1> = try! Request<NoBody, TestEndpoint1>(
+                    let httpRequest: Request<NoBody, TestEndpoint1> = Request<NoBody, TestEndpoint1>(
                         endpoint: .endpoint1,
                         destination: .server(
                             server: "testServer",

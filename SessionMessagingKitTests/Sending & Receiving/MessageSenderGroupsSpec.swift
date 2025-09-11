@@ -32,7 +32,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState var mockUserDefaults: MockUserDefaults! = .create()
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -46,36 +46,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState var mockNetwork: MockNetwork! = .create()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
-            initialSetup: { keychain in
-                keychain
-                    .when {
-                        try $0.migrateLegacyKeyIfNeeded(
-                            legacyKey: .any,
-                            legacyService: .any,
-                            toKey: .pushNotificationEncryptionKey
-                        )
-                    }
-                    .thenReturn(())
-                keychain
-                    .when {
-                        try $0.getOrGenerateEncryptionKey(
-                            forKey: .any,
-                            length: .any,
-                            cat: .any,
-                            legacyKey: .any,
-                            legacyService: .any
-                        )
-                    }
-                    .thenReturn(Data([1, 2, 3]))
-                keychain
-                    .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-                    .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
-            }
-        )
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
         @TestState var groupEdPK: [UInt8]! = groupKeyPair.publicKey
         @TestState var groupEdSK: [UInt8]! = groupKeyPair.secretKey
@@ -109,9 +83,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
             return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
         }()
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache()
-        @TestState var mockPoller: MockPoller! = .create()
-        @TestState(singleton: .groupPollerManager, in: dependencies) var mockGroupPollerManager: MockGroupPollerManager! = .create()
+        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
+        @TestState var mockPoller: MockPoller! = .create(using: dependencies)
+        @TestState(singleton: .groupPollerManager, in: dependencies) var mockGroupPollerManager: MockGroupPollerManager! = .create(using: dependencies)
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
@@ -137,7 +111,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            mockSnodeAPICache.defaultInitialSetup()
+            try await mockSnodeAPICache.defaultInitialSetup()
             dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
             
             try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
@@ -182,6 +156,30 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     )
                 ])
             dependencies.set(singleton: .network, to: mockNetwork)
+            
+            try await mockKeychain
+                .when {
+                    try $0.migrateLegacyKeyIfNeeded(
+                        legacyKey: .any,
+                        legacyService: .any,
+                        toKey: .pushNotificationEncryptionKey
+                    )
+                }
+                .thenReturn(())
+            try await mockKeychain
+                .when {
+                    try $0.getOrGenerateEncryptionKey(
+                        forKey: .any,
+                        length: .any,
+                        cat: .any,
+                        legacyKey: .any,
+                        legacyService: .any
+                    )
+                }
+                .thenReturn(Data([1, 2, 3]))
+            try await mockKeychain
+                .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
+                .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
             
             try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
             
@@ -540,7 +538,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(TestError.mock))
+                        await expect(error).toEventually(matchError(TestError.mock))
                     }
                     
                     // MARK: ------ removes the config state
@@ -558,8 +556,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
+                        await expect(mockLibSessionCache)
+                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) { cache in
                                 cache.removeConfigs(for: groupId)
                             })
                     }
@@ -579,11 +577,11 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        let threads: [SessionThread]? = mockStorage.read { db in try SessionThread.fetchAll(db) }
+                        await expect { mockStorage.read { db in try SessionThread.fetchAll(db) } }
+                            .toEventually(beEmpty())
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
                         
-                        expect(threads).to(beEmpty())
                         expect(groups).to(beEmpty())
                         expect(members).to(beEmpty())
                     }
@@ -882,7 +880,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     overallTimeout: nil
                                 )
                             }
-                            .wasCalled(exactly: 1)
+                            .wasCalled(exactly: PushNotificationAPI.maxRetryCount + 1, timeout: .milliseconds(50))
                     }
                     
                     // MARK: ---- does not subscribe if push notifications are disabled

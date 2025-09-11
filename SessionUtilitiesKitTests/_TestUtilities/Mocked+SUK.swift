@@ -7,7 +7,14 @@ import TestUtilities
 
 @testable import SessionUtilitiesKit
 
-extension SessionId { static var any: SessionId { SessionId.invalid } }
+extension SessionId: @retroactive Mocked {
+    public static let any: SessionId = SessionId(.standard, publicKey: [255, 255, 255, 255, 255])
+    public static let mock: SessionId = SessionId(.standard, publicKey: [
+        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8
+    ])
+}
+
 extension Dependencies {
     static var any: Dependencies {
         TestDependencies { dependencies in

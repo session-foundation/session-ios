@@ -49,7 +49,8 @@ class MockNetwork: NetworkType, Mockable {
         requestData = RequestData(
             method: destination.method,
             headers: destination.headers,
-            urlPathAndParamsString: destination.urlPathAndParamsString,
+            path: endpoint.path,
+            queryParameters: destination.queryParameters,
             body: body,
             category: category,
             requestTimeout: requestTimeout,
@@ -70,7 +71,8 @@ class MockNetwork: NetworkType, Mockable {
         requestData = RequestData(
             method: destination.method,
             headers: destination.headers,
-            urlPathAndParamsString: destination.urlPathAndParamsString,
+            path: endpoint.path,
+            queryParameters: destination.queryParameters,
             body: body,
             category: category,
             requestTimeout: requestTimeout,
@@ -206,7 +208,8 @@ struct RequestData: Codable, Mocked {
     static let any: RequestData = RequestData(
         method: .get,
         headers: .any,
-        urlPathAndParamsString: .any,
+        path: .any,
+        queryParameters: .any,
         body: .any,
         category: .standard,
         requestTimeout: .any,
@@ -215,7 +218,8 @@ struct RequestData: Codable, Mocked {
     static let mock: RequestData = RequestData(
         method: .get,
         headers: [:],
-        urlPathAndParamsString: "",
+        path: "/mock",
+        queryParameters: [:],
         body: nil,
         category: .standard,
         requestTimeout: 0,
@@ -224,7 +228,8 @@ struct RequestData: Codable, Mocked {
     
     let method: HTTPMethod
     let headers: [HTTPHeader: String]
-    let urlPathAndParamsString: String
+    let path: String
+    let queryParameters: [HTTPQueryParam: String]
     let body: Data?
     let category: Network.RequestCategory
     let requestTimeout: TimeInterval

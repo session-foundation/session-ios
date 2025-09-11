@@ -605,7 +605,6 @@
 		FD336F622CAA28CF00C0B51B /* ArgumentDescribing+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* ArgumentDescribing+SMK.swift */; };
 		FD336F632CAA28CF00C0B51B /* MockOGMCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5D2CAA28CF00C0B51B /* MockOGMCache.swift */; };
 		FD336F642CAA28CF00C0B51B /* MockCommunityPollerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */; };
-		FD336F652CAA28CF00C0B51B /* MockDisplayPictureCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */; };
 		FD336F672CAA28CF00C0B51B /* MockGroupPollerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5A2CAA28CF00C0B51B /* MockGroupPollerCache.swift */; };
 		FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5E2CAA28CF00C0B51B /* MockPoller.swift */; };
 		FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */; };
@@ -1981,7 +1980,6 @@
 		FD336F562CAA28CF00C0B51B /* Mocked+SMK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mocked+SMK.swift"; sourceTree = "<group>"; };
 		FD336F572CAA28CF00C0B51B /* ArgumentDescribing+SMK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ArgumentDescribing+SMK.swift"; sourceTree = "<group>"; };
 		FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityPollerCache.swift; sourceTree = "<group>"; };
-		FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDisplayPictureCache.swift; sourceTree = "<group>"; };
 		FD336F5A2CAA28CF00C0B51B /* MockGroupPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGroupPollerCache.swift; sourceTree = "<group>"; };
 		FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLibSessionCache.swift; sourceTree = "<group>"; };
 		FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockNotificationsManager.swift; sourceTree = "<group>"; };
@@ -4980,7 +4978,6 @@
 				FD336F572CAA28CF00C0B51B /* ArgumentDescribing+SMK.swift */,
 				FD336F562CAA28CF00C0B51B /* Mocked+SMK.swift */,
 				FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */,
-				FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */,
 				FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */,
 				FD336F5A2CAA28CF00C0B51B /* MockGroupPollerCache.swift */,
 				FD78E9F12DDA9E9B00D55B50 /* MockImageDataManager.swift */,
@@ -7222,7 +7219,6 @@
 				FD336F632CAA28CF00C0B51B /* MockOGMCache.swift in Sources */,
 				FD481A922CAD17DE00ECC4CF /* LibSessionGroupMembersSpec.swift in Sources */,
 				FD336F642CAA28CF00C0B51B /* MockCommunityPollerCache.swift in Sources */,
-				FD336F652CAA28CF00C0B51B /* MockDisplayPictureCache.swift in Sources */,
 				FD336F672CAA28CF00C0B51B /* MockGroupPollerCache.swift in Sources */,
 				FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */,
 				FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */,

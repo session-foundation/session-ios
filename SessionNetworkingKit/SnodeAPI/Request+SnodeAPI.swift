@@ -16,8 +16,8 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         retryCount: Int = 0
-    ) throws {
-        self = try Request(
+    ) {
+        self = Request(
             endpoint: endpoint,
             destination: .snode(
                 snode,
@@ -37,8 +37,8 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         retryCount: Int = 0
-    ) throws {
-        self = try Request(
+    ) {
+        self = Request(
             endpoint: endpoint,
             destination: .randomSnode(swarmPublicKey: swarmPublicKey),
             body: body,

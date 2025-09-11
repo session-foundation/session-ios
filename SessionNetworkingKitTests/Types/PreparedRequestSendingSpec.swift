@@ -17,13 +17,13 @@ class PreparedRequestSendingSpec: AsyncSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockNetwork: MockNetwork! = .create()
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var preparedRequest: Network.PreparedRequest<Int>!
         @TestState var error: Error?
         @TestState var disposables: [AnyCancellable]! = []
         
         beforeEach {
-            let request: Request<NoBody, TestEndpoint> = try Request(
+            let request: Request<NoBody, TestEndpoint> = Request(
                 endpoint: .endpoint1,
                 destination: .server(
                     method: .post,
@@ -258,7 +258,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                 context("a batch request") {
                     // MARK: ---- with a BatchResponseMap
                     context("with a BatchResponseMap") {
-                        @TestState var subRequest1: Request<NoBody, TestEndpoint>! = try! Request<NoBody, TestEndpoint>(
+                        @TestState var subRequest1: Request<NoBody, TestEndpoint>! = Request<NoBody, TestEndpoint>(
                             endpoint: TestEndpoint.endpoint1,
                             destination: .server(
                                 method: .post,
@@ -266,7 +266,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                                 x25519PublicKey: ""
                             )
                         )
-                        @TestState var subRequest2: Request<NoBody, TestEndpoint>! = try! Request<NoBody, TestEndpoint>(
+                        @TestState var subRequest2: Request<NoBody, TestEndpoint>! = Request<NoBody, TestEndpoint>(
                             endpoint: TestEndpoint.endpoint2,
                             destination: .server(
                                 method: .post,
@@ -275,7 +275,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                             )
                         )
                         @TestState var preparedBatchRequest: Network.PreparedRequest<Network.BatchResponseMap<TestEndpoint>>! = {
-                            let request = try! Request<Network.BatchRequest, TestEndpoint>(
+                            let request = Request<Network.BatchRequest, TestEndpoint>(
                                 endpoint: TestEndpoint.batch,
                                 destination: .server(
                                     method: .post,
@@ -359,7 +359,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                         // MARK: ------ supports transformations on subrequests
                         it("supports transformations on subrequests") {
                             preparedBatchRequest = {
-                                let request = try! Request<Network.BatchRequest, TestEndpoint>(
+                                let request = Request<Network.BatchRequest, TestEndpoint>(
                                     endpoint: TestEndpoint.batch,
                                     destination: .server(
                                         method: .post,
@@ -420,7 +420,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                         // MARK: ------ supports event handling on sub requests
                         it("supports event handling on sub requests") {
                             preparedBatchRequest = {
-                                let request = try! Request<Network.BatchRequest, TestEndpoint>(
+                                let request = Request<Network.BatchRequest, TestEndpoint>(
                                     endpoint: TestEndpoint.batch,
                                     destination: .server(
                                         method: .post,

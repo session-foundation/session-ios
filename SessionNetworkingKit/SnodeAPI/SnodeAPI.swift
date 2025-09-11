@@ -96,7 +96,7 @@ public final class SnodeAPI {
                 request: {
                     switch snode {
                         case .none:
-                            return try Request(
+                            return Request(
                                 endpoint: .batch,
                                 swarmPublicKey: swarmPublicKey,
                                 body: Network.BatchRequest(requestsKey: .requests, requests: requests),
@@ -105,7 +105,7 @@ public final class SnodeAPI {
                             )
                         
                         case .some(let snode):
-                            return try Request(
+                            return Request(
                                 endpoint: .batch,
                                 snode: snode,
                                 swarmPublicKey: swarmPublicKey,

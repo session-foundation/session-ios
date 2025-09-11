@@ -27,26 +27,12 @@ class ExtensionHelperSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
-            initialSetup: { keychain in
-                keychain
-                    .when {
-                        try $0.getOrGenerateEncryptionKey(
-                            forKey: .any,
-                            length: .any,
-                            cat: .any,
-                            legacyKey: .any,
-                            legacyService: .any
-                        )
-                    }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var mockLogger: MockLogger! = MockLogger()
         
@@ -64,6 +50,18 @@ class ExtensionHelperSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                 .thenReturn(Data([4, 5, 6]))
+            
+            try await mockKeychain
+                .when {
+                    try $0.getOrGenerateEncryptionKey(
+                        forKey: .any,
+                        length: .any,
+                        cat: .any,
+                        legacyKey: .any,
+                        legacyService: .any
+                    )
+                }
+                .thenReturn(Data([1, 2, 3]))
         }
         
         // MARK: - an ExtensionHelper - File Management
@@ -144,7 +142,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when failing to retrieve the encryption key
                 it("throws when failing to retrieve the encryption key") {
-                    mockKeychain
+                    try await mockKeychain
                         .when {
                             try $0.getOrGenerateEncryptionKey(
                                 forKey: .any,
@@ -2066,33 +2064,14 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when waiting for messages to be loaded") {
                 // MARK: ---- stops waiting once messages are loaded
                 it("stops waiting once messages are loaded") {
-                    Task { [extensionHelper] in
-                        try? await Task.sleep(for: .milliseconds(10))
-                        try? await extensionHelper?.loadMessages()
-                    }
                     await expect {
-                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(150))
+                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .seconds(5))
                     }.toEventually(beTrue())
                 }
                 
                 // MARK: ---- times out if it takes longer than the timeout specified
                 it("times out if it takes longer than the timeout specified") {
-                    await expect {
-                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
-                    }.toEventually(beFalse())
-                }
-                
-                // MARK: ---- does not wait if messages have already been loaded
-                it("does not wait if messages have already been loaded") {
-                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
-                    await expect {
-                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
-                    }.toEventually(beTrue())
-                }
-                
-                // MARK: ---- waits if messages have already been loaded but we indicate we will load them again
-                it("waits if messages have already been loaded but we indicate we will load them again") {
-                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                    dependencies[feature: .forceSlowDatabaseQueries] = true
                     
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))

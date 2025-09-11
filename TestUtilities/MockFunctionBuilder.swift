@@ -8,7 +8,7 @@ internal protocol Buildable {
 
 public class MockFunctionBuilder<T, R> {
     private let handler: MockHandler<T>
-    private let callBlock: (T) async throws -> R
+    private let callBlock: (inout T) async throws -> R
     private let dummyProvider: (any MockFunctionHandler) -> T
     
     private var capturedFunctionName: String?
@@ -16,12 +16,13 @@ public class MockFunctionBuilder<T, R> {
     private var capturedArguments: [Any?] = []
     
     private var returnValue: Any?
+    private var dynamicReturnValueRetriever: (([Any?]) -> Any?)?
     private var returnError: Error?
     private var actions: [([Any?]) -> Void] = []
     
     public init(
         handler: MockHandler<T>,
-        callBlock: @escaping (T) async throws -> R,
+        callBlock: @escaping (inout T) async throws -> R,
         dummyProvider: @escaping (any MockFunctionHandler) -> T
     ) {
         self.handler = handler
@@ -41,6 +42,11 @@ public class MockFunctionBuilder<T, R> {
         try await finalize()
     }
     
+    public func thenReturn(_ closure: @escaping ([Any?]) -> R) async throws {
+        self.dynamicReturnValueRetriever = closure
+        try await finalize()
+    }
+    
     public func thenThrow(_ error: Error) async throws {
         self.returnError = error
         try await finalize()
@@ -57,8 +63,8 @@ public class MockFunctionBuilder<T, R> {
         /// Only run capture once
         guard capturedFunctionName == nil else { return }
         
-        let dummy: T = dummyProvider(self)
-        _ = try? await callBlock(dummy)
+        var dummy: T = dummyProvider(self)
+        _ = try? await callBlock(&dummy)
     }
 }
 
@@ -75,6 +81,7 @@ extension MockFunctionBuilder: Buildable {
             generics: capturedGenerics,
             arguments: capturedArguments,
             returnValue: returnValue,
+            dynamicReturnValueRetriever: dynamicReturnValueRetriever,
             returnError: returnError,
             actions: actions
         )

@@ -22,7 +22,7 @@ private extension Log.Category {
 
 public enum PushNotificationAPI {
     internal static let encryptionKeyLength: Int = 32
-    private static let maxRetryCount: Int = 4
+    internal static let maxRetryCount: Int = 4
     private static let tokenExpirationInterval: TimeInterval = (12 * 60 * 60)
     
     public static let server: String = "https://push.getsession.org"

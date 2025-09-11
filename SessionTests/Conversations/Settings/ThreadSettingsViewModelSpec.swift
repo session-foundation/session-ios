@@ -7,6 +7,7 @@ import Nimble
 import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionUIKit
 @testable import SessionMessagingKit
@@ -31,7 +32,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -46,8 +47,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             }
         )
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -91,10 +92,10 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             var timestampMs: Int64 = 1234567890000
-            mockSnodeAPICache.when { $0.clockOffsetMs }.thenReturn(0)
-            mockSnodeAPICache
+            try await mockSnodeAPICache.when { $0.clockOffsetMs }.thenReturn(0)
+            try await mockSnodeAPICache
                 .when { $0.currentOffsetTimestampMs() }
-                .thenReturn { _, _ in
+                .thenReturn { _ in
                     /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
                     /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
                     /// being identical between different interactions
@@ -755,7 +756,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",
-                                                    sentTimestampMs: UInt64(1234567890002),
+                                                    sentTimestampMs: UInt64(1234567890001),
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: SessionId(.group, hex: groupPubkey),
                                                         ed25519SecretKey: [1, 2, 3]

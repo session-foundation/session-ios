@@ -3,25 +3,30 @@
 import Foundation
 
 public final class MockHandler<T> {
+    public let erasedDependencies: Any?
+    
     private let lock = NSLock()
     private let dummyProvider: (any MockFunctionHandler) -> T
     private let failureReporter: TestFailureReporter
     private let forwardingHandler: (any MockFunctionHandler)?
-    private var stubs: [Key: [MockFunction]] = [:]
-    private var calls: [Key: [RecordedCall]] = [:]
+    private var stubs: [RecordedCall.Key: [MockFunction]] = [:]
+    private var calls: [RecordedCall.Key: [RecordedCall]] = [:]
     
     // MARK: - Initialization
     
     public init(
         dummyProvider: @escaping (any MockFunctionHandler) -> T,
-        failureReporter: TestFailureReporter = NimbleFailureReporter()
+        failureReporter: TestFailureReporter = NimbleFailureReporter(),
+        using erasedDependencies: Any?
     ) {
+        self.erasedDependencies = erasedDependencies
         self.dummyProvider = dummyProvider
         self.failureReporter = failureReporter
         self.forwardingHandler = nil
     }
     
     public init(forwardingHandler: any MockFunctionHandler) {
+        self.erasedDependencies = nil
         self.dummyProvider = { _ in fatalError("A dummy instance cannot create other dummies.") }
         self.failureReporter = NimbleFailureReporter()
         self.forwardingHandler = forwardingHandler
@@ -29,12 +34,12 @@ public final class MockHandler<T> {
 
     
     public static func invalid() -> MockHandler<T> {
-        return MockHandler(dummyProvider: { _ in fatalError("Should not call mock on a mock") } )
+        return MockHandler(dummyProvider: { _ in fatalError("Should not call mock on a mock") }, using: nil)
     }
     
     // MARK: - Setup
     
-    func createBuilder<R>(for callBlock: @escaping (T) async throws -> R) -> MockFunctionBuilder<T, R> {
+    func createBuilder<R>(for callBlock: @escaping (inout T) async throws -> R) -> MockFunctionBuilder<T, R> {
         return MockFunctionBuilder(
             handler: self,
             callBlock: callBlock,
@@ -43,32 +48,28 @@ public final class MockHandler<T> {
     }
     
     internal func register(stub: MockFunction) {
-        let key: Key = Key(name: stub.name, generics: stub.generics, paramCount: stub.arguments.count)
+        let key: RecordedCall.Key = RecordedCall.Key(
+            name: stub.name,
+            generics: stub.generics,
+            paramCount: stub.arguments.count
+        )
         
         locked {
             stubs[key, default: []].append(stub)
         }
     }
     
-    internal func removeStubs<R>(for functionBlock: @escaping (T) async throws -> R) async {
-        let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
-        
-        guard let builtFunction: MockFunction = try? await builder.build() else { return }
-        
-        let key: Key = Key(
-            name: builtFunction.name,
-            generics: builtFunction.generics,
-            paramCount: builtFunction.arguments.count
-        )
+    internal func removeStubs<R>(for functionBlock: @escaping (inout T) async throws -> R) async {
+        guard let expectedCall: RecordedCall = await expectedCall(for: functionBlock) else { return }
         
         locked {
-            stubs.removeValue(forKey: key)
+            stubs.removeValue(forKey: expectedCall.key)
         }
     }
     
     // MARK: - Verification
     
-    func expectedCall<R>(for functionBlock: @escaping (T) async throws -> R) async -> RecordedCall? {
+    func expectedCall<R>(for functionBlock: @escaping (inout T) async throws -> R) async -> RecordedCall? {
         let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
         
         guard let builtFunction = try? await builder.build() else {
@@ -77,44 +78,36 @@ public final class MockHandler<T> {
         
         return RecordedCall(
             name: builtFunction.name,
-            args: builtFunction.arguments
+            generics: builtFunction.generics,
+            arguments: builtFunction.arguments
         )
     }
     
-    func recordedCalls<R>(for functionBlock: @escaping (T) async throws -> R) async -> [RecordedCall]? {
+    typealias CallInfo = (
+        expected: RecordedCall,
+        matching: [RecordedCall],
+        all: [RecordedCall]
+    )
+    
+    func recordedCallInfo<R>(for functionBlock: @escaping (inout T) async throws -> R) async -> CallInfo? {
         let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
         
         guard let builtFunction = try? await builder.build() else {
             return nil
         }
         
-        let key: Key = Key(
+        let expectedCall: RecordedCall = RecordedCall(
             name: builtFunction.name,
             generics: builtFunction.generics,
-            paramCount: builtFunction.arguments.count
+            arguments: builtFunction.arguments
         )
+        let allCalls: [RecordedCall] = (locked { calls[expectedCall.key] } ?? [])
         
-        guard let callsForKey: [RecordedCall] = locked({ calls[key] }) else { return [] }
-        
-        return callsForKey.filter { builtFunction.matches(args: $0.args) }
-    }
-    
-    func allRecordedCalls<R>(for functionBlock: @escaping (T) async throws -> R) async -> [RecordedCall]? {
-        let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
-        
-        guard let builtFunction = try? await builder.build() else {
-            return nil
-        }
-        
-        let key: Key = Key(
-            name: builtFunction.name,
-            generics: builtFunction.generics,
-            paramCount: builtFunction.arguments.count
+        return (
+            expectedCall,
+            allCalls.filter { expectedCall.matches(args: $0.arguments) },
+            allCalls
         )
-        
-        return locked {
-            calls[key]
-        }
     }
     
     // MARK: - Test Lifecycle
@@ -137,23 +130,35 @@ public final class MockHandler<T> {
     private func findAndExecute<Output>(
         funcName: String,
         generics: [Any.Type],
-        args: [Any?],
-        fileID: String,
-        file: String,
-        line: UInt
+        args: [Any?]
     ) -> Result<Output, Error> {
-        let key: Key = Key(name: funcName, generics: generics, paramCount: args.count)
-        let recordedCall: RecordedCall = RecordedCall(name: funcName, args: args)
+        typealias CallMatches = (
+            matchingCall: MockFunction?,
+            allCalls: [MockFunction]
+        )
+        let recordedCall: RecordedCall = RecordedCall(name: funcName, generics: generics, arguments: args)
         
         /// Get the `last` value as it was the one called most recently
-        let maybeMatchingCall: MockFunction? = locked {
-            calls[key, default: []].append(recordedCall)
+        let maybeCallMatches: CallMatches? = locked {
+            calls[recordedCall.key, default: []].append(recordedCall)
             
-            return stubs[key]?.last(where: { $0.matches(args: args) })
+            return stubs[recordedCall.key].map { allStubs in
+                (
+                    allStubs.last(where: { $0.asCall.matches(args: args) }),
+                    allStubs
+                )
+            }
         }
         
-        guard let matchingCall: MockFunction = maybeMatchingCall else {
+        guard let callMatches: CallMatches = maybeCallMatches else {
             return .failure(MockError.noStubFound(function: funcName, args: args))
+        }
+        guard let matchingCall: MockFunction = callMatches.matchingCall else {
+            return .failure(MockError.noMatchingStubFound(
+                function: funcName,
+                expectedArgs: args,
+                mockedArgs: callMatches.allCalls.map { $0.arguments }
+            ))
         }
         
         /// Perform any actions
@@ -161,10 +166,10 @@ public final class MockHandler<T> {
             action(args)
         }
         
-        return execute(stub: matchingCall)
+        return execute(stub: matchingCall, args: args)
     }
     
-    private func execute<Output>(stub: MockFunction) -> Result<Output, Error> {
+    private func execute<Output>(stub: MockFunction, args: [Any?]) -> Result<Output, Error> {
         if let error: Error = stub.returnError {
             return .failure(error)
         }
@@ -174,12 +179,18 @@ public final class MockHandler<T> {
             return .success(() as! Output)
         }
         
+        /// Try the `dynamicReturnValueRetriever` if there is one
+        if let returnValue: Any = stub.dynamicReturnValueRetriever?(args), let typedValue: Output = returnValue as? Output {
+            return .success(typedValue)
+        }
+        
         /// Then handle the proper typed return value
         if let returnValue: Any = stub.returnValue, let typedValue: Output = returnValue as? Output {
             return .success(typedValue)
         }
         
         return .failure(MockError.stubbedValueIsWrongType(
+            function: stub.name,
             expected: Output.self,
             actual: type(of: stub.returnValue)
         ))
@@ -217,14 +228,11 @@ public extension MockHandler {
             return forwardedHandler.mock(funcName: funcName, generics: generics, args: args)
         }
         
-        return handlingNonThrowingResult(
+        return handleNonThrowingResult(
             result: findAndExecute(
                 funcName: funcName,
                 generics: generics,
-                args: args,
-                fileID: fileID,
-                file: file,
-                line: line
+                args: args
             ),
             funcName: funcName,
             fileID: fileID,
@@ -259,10 +267,7 @@ public extension MockHandler {
         return try findAndExecute(
             funcName: funcName,
             generics: generics,
-            args: args,
-            fileID: fileID,
-            file: file,
-            line: line
+            args: args
         ).get()
     }
     
@@ -277,7 +282,7 @@ public extension MockHandler {
         let _: Void = try mockThrowing(funcName: funcName, generics: generics, args: args, fileID: fileID, file: file, line: line)
     }
     
-    private func handlingNonThrowingResult<Output>(
+    private func handleNonThrowingResult<Output>(
         result: Result<Output, Error>,
         funcName: String,
         fileID: String,
@@ -288,9 +293,9 @@ public extension MockHandler {
             case .success(let value): return value
             case .failure(let error):
                 /// Log if the failure was due to a missing mock
-                if case MockError.noStubFound(_, _) = error {
+                if (error as? MockError)?.shouldLogFailure == true {
                     failureReporter.reportFailure(
-                        "Mocking Error: An unstubbed function was called: `\(funcName)`",
+                        "\(error)",
                         fileID: fileID,
                         file: file,
                         line: line

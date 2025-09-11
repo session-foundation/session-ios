@@ -23,8 +23,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState var mockUserDefaults: MockUserDefaults! = .create()
-        @TestState var mockNetwork: MockNetwork! = .create()
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -39,7 +39,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             }
         )
         @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
         @TestState var permanentFailure: Bool! = false
@@ -306,14 +306,20 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .verify {
                         $0.send(
                             endpoint: OpenGroupAPI.Endpoint.sequence,
-                            destination: expectedRequest.destination,
+                            destination: .server(info: Network.Destination.ServerInfo(
+                                method: .post,
+                                server: OpenGroupAPI.defaultServer,
+                                queryParameters: [:],
+                                headers: .any,
+                                x25519PublicKey: OpenGroupAPI.defaultServerPublicKey
+                            )),
                             body: expectedRequest.body,
                             category: .standard,
                             requestTimeout: expectedRequest.requestTimeout,
                             overallTimeout: expectedRequest.overallTimeout
                         )
                     }
-                    .wasCalled(exactly: 1)
+                    .wasCalled(exactly: 1, timeout: .milliseconds(50))
             }
             
             // MARK: -- permanently fails if it gets an error
@@ -343,8 +349,6 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(error).to(matchError(NetworkError.parsingFailed))
-                expect(permanentFailure).to(beTrue())
                 await mockNetwork
                     .verify {
                         $0.send(
@@ -356,7 +360,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             overallTimeout: .any
                         )
                     }
-                    .wasCalled(exactly: 1)
+                    .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                expect(error).to(matchError(NetworkError.parsingFailed))
+                expect(permanentFailure).to(beTrue())
             }
             
             // MARK: -- stores the updated capabilities
@@ -370,7 +376,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                let capabilities: [Capability]? = mockStorage.read { db in try Capability.fetchAll(db) }
+                let capabilities: [Capability]? = await expect { mockStorage.read { db in try Capability.fetchAll(db) } }
+                    .toEventuallyNot(beNil())
+                    .retrieveValue()
                 expect(capabilities?.count).to(equal(2))
                 expect(capabilities?.map { $0.openGroupServer })
                     .to(equal([OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer]))
@@ -389,7 +397,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
+                let openGroups: [OpenGroup]? = await expect { mockStorage.read { db in try OpenGroup.fetchAll(db) } }
+                    .toEventuallyNot(beNil())
+                    .retrieveValue()
                 expect(openGroups?.count).to(equal(3))  // 1 for the entry used to fetch the default rooms
                 expect(openGroups?.map { $0.server })
                     .to(equal([OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer]))
@@ -462,7 +472,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
+                let openGroups: [OpenGroup]? = await expect { mockStorage.read { db in try OpenGroup.fetchAll(db) } }
+                    .toEventuallyNot(beNil())
+                    .retrieveValue()
                 expect(openGroups?.count).to(equal(2))  // 1 for the entry used to fetch the default rooms
                 expect(openGroups?.map { $0.server })
                     .to(equal([OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer]))

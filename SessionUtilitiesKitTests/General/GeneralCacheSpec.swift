@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import TestUtilities
 
 import Quick
 import Nimble
@@ -12,7 +13,7 @@ class GeneralCacheSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
         
         beforeEach {
             try await mockCrypto

@@ -27,13 +27,13 @@ class OnboardingSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSession: MockLibSessionCache! = MockLibSessionCache()
-        @TestState var mockUserDefaults: MockUserDefaults! = .create()
-        @TestState var mockNetwork: MockNetwork! = .create()
-        @TestState var mockExtensionHelper: MockExtensionHelper! = .create()
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache()
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
+        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var manager: Onboarding.Manager!
         
@@ -55,7 +55,7 @@ class OnboardingSpec: AsyncSpec {
                 .thenReturn(nil)
             dependencies.set(cache: .libSession, to: mockLibSession)
             
-            mockSnodeAPICache.defaultInitialSetup()
+            try await mockSnodeAPICache.defaultInitialSetup()
             dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
@@ -543,7 +543,7 @@ class OnboardingSpec: AsyncSpec {
                             overallTimeout: nil
                         )
                     }
-                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    .wasCalled(exactly: 1, timeout: .milliseconds(50))
             }
             
             // MARK: -- the display name stream to output the correct value

@@ -103,6 +103,11 @@ extension Dictionary: Mocked {
             return [hashableKey: anyValue] as! Self
         }
         
+        /// Try to handle generic dictionaries
+        if Key.self == AnyHashable.self && (Value.self == AnyHashable.self || Value.self == Any.self) {
+            return [String.any: String.any] as! Self
+        }
+        
         return [:]
     }
     public static var mock: Self { [:] }
@@ -129,7 +134,7 @@ extension Set: Mocked {
 }
 
 extension UIApplication.State: Mocked {
-    public static let any: UIApplication.State = .active
+    public static let any: UIApplication.State = UIApplication.State(rawValue: .any)!
     public static let mock: UIApplication.State = .active
 }
 extension UnsafeMutablePointer<ObjCBool>?: Mocked {
@@ -168,16 +173,16 @@ extension AsyncStream: Mocked {
 }
 
 extension FileManager.ItemReplacementOptions: Mocked {
-    public static let any: FileManager.ItemReplacementOptions = FileManager.ItemReplacementOptions()
+    public static let any: FileManager.ItemReplacementOptions = FileManager.ItemReplacementOptions(rawValue: .any)
     public static let mock: FileManager.ItemReplacementOptions = FileManager.ItemReplacementOptions()
 }
 
 extension FileProtectionType: Mocked {
-    public static let any: FileProtectionType = .complete
+    public static let any: FileProtectionType = FileProtectionType(rawValue: .any)
     public static let mock: FileProtectionType = .complete
 }
 
 extension Data.WritingOptions: Mocked {
-    public static let any: Data.WritingOptions = .fileProtectionMask
+    public static let any: Data.WritingOptions = Data.WritingOptions(rawValue: .any)
     public static let mock: Data.WritingOptions = .atomic
 }

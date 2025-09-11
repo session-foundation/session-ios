@@ -300,6 +300,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         try await fixture.mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                             .thenReturn(true)
+                        fixture.mockLibSessionCache
+                            .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
+                            .thenReturn(true)
                         
                         fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -690,7 +693,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                         overallTimeout: nil
                                     )
                                 }
-                                .wasCalled(exactly: 1)
+                                .wasCalled(exactly: PushNotificationAPI.maxRetryCount + 1, timeout: .milliseconds(50))
                         }
                     }
                 }
@@ -2588,6 +2591,12 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- and the current user is not an admin
                 context("and the current user is not an admin") {
+                    beforeEach {
+                        try await fixture.mockLibSessionCache
+                            .when { $0.isAdmin(groupSessionId: .any) }
+                            .thenReturn(false)
+                    }
+                    
                     // MARK: ------ does not delete the messages from the swarm
                     it("does not delete the messages from the swarm") {
                         fixture.deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
@@ -2871,7 +2880,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 overallTimeout: nil
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: PushNotificationAPI.maxRetryCount + 1, timeout: .milliseconds(50))
                 }
                 
                 // MARK: ---- and the group is an invitation
@@ -3246,15 +3255,15 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
-    var mockKeychain: MockKeychain { mock(for: .keychain) { MockKeychain() } }
+    var mockKeychain: MockKeychain { mock(for: .keychain) }
     var mockFileManager: MockFileManager { mock(for: .fileManager) { MockFileManager() } }
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) }
     var mockGroupPollerManager: MockGroupPollerManager { mock(for: .groupPollerManager) }
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) { MockLibSessionCache() } }
-    var mockSnodeAPICache: MockSnodeAPICache { mock(cache: .snodeAPI) { MockSnodeAPICache() } }
-    let mockPoller: MockPoller = .create()
+    var mockSnodeAPICache: MockSnodeAPICache { mock(cache: .snodeAPI) }
+    var mockPoller: MockPoller { mock() }
     
     let userGroupsConfig: LibSession.Config
     let convoInfoVolatileConfig: LibSession.Config
@@ -3531,14 +3540,14 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await applyBaselineAppContext()
         try await applyBaselineUserDefaults()
         try await applyBaselineCrypto()
-        await applyBaselineKeychain()
+        try await applyBaselineKeychain()
         await applyBaselineFileManager()
         try await applyBaselineExtensionHelper()
         try await applyBaselineGroupPollerManager()
         try await applyBaselineNotificationsManager()
         try await applyBaselineGeneralCache()
         await applyBaselineLibSessionCache()
-        await applyBaselineSnodeAPICache()
+        try await applyBaselineSnodeAPICache()
         try await applyBaselinePoller()
     }
     
@@ -3639,8 +3648,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn("TestHash".bytes)
     }
     
-    private func applyBaselineKeychain() async {
-        mockKeychain
+    private func applyBaselineKeychain() async throws {
+        try await mockKeychain
             .when {
                 try $0.migrateLegacyKeyIfNeeded(
                     legacyKey: .any,
@@ -3649,7 +3658,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 )
             }
             .thenReturn(())
-        mockKeychain
+        try await mockKeychain
             .when {
                 try $0.getOrGenerateEncryptionKey(
                     forKey: .any,
@@ -3660,7 +3669,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 )
             }
             .thenReturn(Data([1, 2, 3]))
-        mockKeychain
+        try await mockKeychain
             .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
             .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
     }
@@ -3710,8 +3719,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         )
     }
     
-    private func applyBaselineSnodeAPICache() async {
-        mockSnodeAPICache.defaultInitialSetup()
+    private func applyBaselineSnodeAPICache() async throws {
+        try await mockSnodeAPICache.defaultInitialSetup()
     }
     
     private func applyBaselinePoller() async throws {

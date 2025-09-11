@@ -7,6 +7,7 @@ import Nimble
 import SessionUtil
 import SessionUIKit
 import SessionNetworkingKit
+import TestUtilities
 
 @testable import Session
 @testable import SessionMessagingKit
@@ -29,7 +30,7 @@ class DatabaseSpec: AsyncSpec {
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var libSessionCache: LibSession.Cache! = LibSession.Cache(
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
             using: dependencies

@@ -55,9 +55,9 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         retryCount: Int = 0
-    ) throws {
+    ) {
         self.endpoint = endpoint
-        self.destination = try destination.withGeneratedUrl(for: endpoint)
+        self.destination = destination
         self.body = body
         self.category = category
         self.requestTimeout = requestTimeout
@@ -102,8 +102,8 @@ public extension Request where T == NoBody {
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         retryCount: Int = 0
-    ) throws {
-        self = try Request(
+    ) {
+        self = Request(
             endpoint: endpoint,
             destination: destination,
             body: nil,

@@ -20,9 +20,9 @@ class OpenGroupAPISpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockNetwork: MockNetwork! = .create()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?

@@ -9,7 +9,7 @@ import TestUtilities
 
 class MockNotificationsManager: NotificationsManagerType, Mockable {
     let handler: MockHandler<NotificationsManagerType>
-    let dependencies: Dependencies = TestDependencies.any
+    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
     
     required init(handler: MockHandler<NotificationsManagerType>) {
         self.handler = handler
@@ -20,7 +20,10 @@ class MockNotificationsManager: NotificationsManagerType, Mockable {
     }
     
     public required init(using dependencies: Dependencies) {
-        handler = MockHandler(dummyProvider: { _ in MockNotificationsManager(handler: .invalid()) })
+        handler = MockHandler(
+            dummyProvider: { _ in MockNotificationsManager(handler: .invalid()) },
+            using: dependencies
+        )
         handler.mockNoReturn()
     }
     

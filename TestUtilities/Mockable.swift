@@ -12,21 +12,22 @@ public protocol Mockable {
 }
 
 public extension Mockable {
-    static func create<M: Mockable>() -> M {
+    static func create<M: Mockable>(using erasedDependencies: Any?) -> M {
         let handler: MockHandler<M.MockedType> = MockHandler(
             dummyProvider: { builderHandler in
                 return M(handlerForBuilder: builderHandler) as! M.MockedType
-            }
+            },
+            using: erasedDependencies
         )
         
         return M(handler: handler)
     }
 
-    func when<R>(_ callBlock: @escaping (MockedType) async throws -> R) -> MockFunctionBuilder<MockedType, R> {
+    func when<R>(_ callBlock: @escaping (inout MockedType) async throws -> R) -> MockFunctionBuilder<MockedType, R> {
         return handler.createBuilder(for: callBlock)
     }
     
-    func removeMocksFor<R>(_ callBlock: @escaping (MockedType) async throws -> R) async {
+    func removeMocksFor<R>(_ callBlock: @escaping (inout MockedType) async throws -> R) async {
         await handler.removeStubs(for: callBlock)
     }
 }

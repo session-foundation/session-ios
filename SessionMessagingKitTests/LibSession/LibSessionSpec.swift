@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -19,12 +20,12 @@ class LibSessionSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockGeneralCache: MockGeneralCache! = .create()
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create()
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
         @TestState var userGroupsConfig: LibSession.Config!

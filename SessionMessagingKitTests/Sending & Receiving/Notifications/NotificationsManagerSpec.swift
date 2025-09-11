@@ -20,8 +20,8 @@ class NotificationsManagerSpec: AsyncSpec {
             }
         )
         @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState var mockExtensionHelper: MockExtensionHelper! = .create()
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create()
+        @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
         @TestState var message: Message! = VisibleMessage(
             sender: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
             sentTimestampMs: 1234567892,

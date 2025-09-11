@@ -8,6 +8,7 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import Session
 
@@ -33,7 +34,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create()
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
         @TestState var viewModel: ThreadNotificationSettingsViewModel!
         @TestState var cancellables: [AnyCancellable]!
         
@@ -433,7 +434,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     mutedUntil: Date.distantFuture.timeIntervalSince1970
                                 )
                             }
-                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                            .wasCalled(exactly: 1, timeout: .milliseconds(50))
                     }
                 }
             }
