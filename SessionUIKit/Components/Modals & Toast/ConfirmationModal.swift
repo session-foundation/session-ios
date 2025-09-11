@@ -485,6 +485,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     options: options.enumerated().map { otherIndex, otherInfo in
                                         Info.Body.RadioOptionInfo(
                                             title: otherInfo.title,
+                                            descriptionText: otherInfo.descriptionText,
                                             enabled: otherInfo.enabled,
                                             selected: (index == otherIndex),
                                             accessibility: otherInfo.accessibility
@@ -495,6 +496,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                         )
                     }
                     radioButton.text = optionInfo.title
+                    radioButton.descriptionText = optionInfo.descriptionText
                     radioButton.accessibilityLabel = optionInfo.accessibility?.label
                     radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
                     radioButton.update(isEnabled: optionInfo.enabled, isSelected: optionInfo.selected)
@@ -549,7 +551,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         explanationLabel.isAccessibilityElement = true
         explanationLabel.accessibilityIdentifier = "Modal description"
-        explanationLabel.accessibilityLabel = explanationLabel.text
+        explanationLabel.accessibilityLabel = explanationLabel.text?.deformatted()
     }
     
     // MARK: - Error Handling
@@ -962,17 +964,20 @@ public extension ConfirmationModal.Info {
         }
         public struct RadioOptionInfo: Equatable, Hashable {
             public let title: String
+            public let descriptionText: ThemedAttributedString?
             public let enabled: Bool
             public let selected: Bool
             public let accessibility: Accessibility?
             
             public init(
                 title: String,
+                descriptionText: ThemedAttributedString? = nil,
                 enabled: Bool,
                 selected: Bool = false,
                 accessibility: Accessibility? = nil
             ) {
                 self.title = title
+                self.descriptionText = descriptionText
                 self.enabled = enabled
                 self.selected = selected
                 self.accessibility = accessibility

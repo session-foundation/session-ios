@@ -122,7 +122,7 @@ public extension UIContextualAction {
                     case .clear:
                         return UIContextualAction(
                             title: "clear".localized(),
-                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
+                            icon: Lucide.image(icon: .trash2, size: 24),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             side: side,
@@ -615,7 +615,7 @@ public extension UIContextualAction {
                     case .delete:
                         return UIContextualAction(
                             title: "delete".localized(),
-                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
+                            icon: Lucide.image(icon: .trash2, size: 24),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Delete button"),

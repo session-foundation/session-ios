@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public enum AttachmentDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 3
@@ -144,7 +144,11 @@ public enum AttachmentDownloadJob: JobExecutor {
             .receive(on: scheduler, using: dependencies)
             .tryMap { attachment, temporaryFileUrl, data -> Attachment in
                 // Store the encrypted data temporarily
-                try data.write(to: temporaryFileUrl, options: .atomic)
+                try dependencies[singleton: .fileManager].write(
+                    data: data,
+                    to: temporaryFileUrl,
+                    options: .atomic
+                )
                 
                 // Decrypt the data
                 let plaintext: Data = try {

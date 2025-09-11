@@ -5,9 +5,10 @@ import GRDB
 import Quick
 import Nimble
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import Session
 
@@ -21,20 +22,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
-            using: dependencies,
-            initialData: { db in
-                try SessionThread(
-                    id: "TestId",
-                    variant: .contact,
-                    creationDateTimestamp: 0
-                ).insert(db)
-            }
+            using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
@@ -46,27 +34,39 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     .thenReturn(nil)
             }
         )
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState var viewModel: ThreadNotificationSettingsViewModel! = TestState.create {
-            await ThreadNotificationSettingsViewModel(
+        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
+        @TestState var viewModel: ThreadNotificationSettingsViewModel!
+        @TestState var cancellables: [AnyCancellable]!
+        
+        beforeEach {
+            try await mockStorage.perform(
+                migrations: SNMessagingKit.migrations
+            )
+            try await mockStorage.writeAsync { db in
+                try SessionThread(
+                    id: "TestId",
+                    variant: .contact,
+                    creationDateTimestamp: 0
+                ).insert(db)
+            }
+            try await mockNotificationsManager.defaultInitialSetup()
+            
+            viewModel = await ThreadNotificationSettingsViewModel(
                 threadId: "TestId",
                 threadVariant: .contact,
                 threadOnlyNotifyForMentions: nil,
                 threadMutedUntilTimestamp: nil,
                 using: dependencies
             )
+            cancellables = [
+                viewModel.tableDataPublisher
+                    .receive(on: ImmediateScheduler.shared)
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+            ]
         }
-        
-        @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-        ]
         
         // MARK: - a ThreadNotificationSettingsViewModel
         describe("a ThreadNotificationSettingsViewModel") {
@@ -425,15 +425,16 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     it("saves the updated settings") {
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        await expect(mockNotificationsManager)
-                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        await mockNotificationsManager
+                            .verify {
                                 $0.updateSettings(
                                     threadId: "TestId",
                                     threadVariant: .contact,
                                     mentionsOnly: false,
                                     mutedUntil: Date.distantFuture.timeIntervalSince1970
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(50))
                     }
                 }
             }

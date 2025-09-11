@@ -4,14 +4,15 @@ import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
-class LibSessionGroupMembersSpec: QuickSpec {
+class LibSessionGroupMembersSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -19,33 +20,12 @@ class LibSessionGroupMembersSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
+            using: dependencies
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
@@ -59,35 +39,60 @@ class LibSessionGroupMembersSpec: QuickSpec {
                     .thenReturn([:])
             }
         )
-        @TestState var createGroupOutput: LibSession.CreatedGroupInfo! = {
-            mockStorage.write { db in
-                 try LibSession.createGroup(
-                    db,
-                    name: "TestGroup",
-                    description: nil,
-                    displayPictureUrl: nil,
-                    displayPictureEncryptionKey: nil,
-                    members: [],
-                    using: dependencies
-                 )
-            }
-        }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                var conf: UnsafeMutablePointer<config_object>!
-                var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
-                _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+        @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            try await mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
                 
-                cache.defaultInitialSetup(
-                    configs: [
-                        .userGroups: .userGroups(conf),
-                        .groupInfo: createGroupOutput.groupState[.groupInfo],
-                        .groupMembers: createGroupOutput.groupState[.groupMembers],
-                        .groupKeys: createGroupOutput.groupState[.groupKeys]
-                    ]
+                createGroupOutput = try LibSession.createGroup(
+                   db,
+                   name: "TestGroup",
+                   description: nil,
+                   displayPictureUrl: nil,
+                   displayPictureEncryptionKey: nil,
+                   members: [],
+                   using: dependencies
                 )
             }
-        )
+            
+            var conf: UnsafeMutablePointer<config_object>!
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: .userGroups(conf),
+                    .groupInfo: createGroupOutput.groupState[.groupInfo],
+                    .groupMembers: createGroupOutput.groupState[.groupMembers],
+                    .groupKeys: createGroupOutput.groupState[.groupKeys]
+                ]
+            )
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+            dependencies.set(singleton: .network, to: mockNetwork)
+        }
         
         // MARK: - LibSessionGroupMembers
         describe("LibSessionGroupMembers") {

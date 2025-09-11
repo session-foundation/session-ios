@@ -1,7 +1,9 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import _Concurrency
 import Quick
+import TestUtilities
 
 @testable import SessionUtilitiesKit
 
@@ -10,6 +12,8 @@ public class TestDependencies: Dependencies {
     @ThreadSafeObject private var cacheInstances: [String: MutableCacheType] = [:]
     @ThreadSafeObject private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
     @ThreadSafeObject private var featureInstances: [String: (any FeatureType)] = [:]
+    @ThreadSafeObject private var featureValues: [String: Any] = [:]
+    @ThreadSafeObject private var otherInstances: [ObjectIdentifier: Any] = [:]
     
     // MARK: - Subscript Access
     
@@ -58,10 +62,10 @@ public class TestDependencies: Dependencies {
         guard let value: Feature<T> = (featureInstances[feature.identifier] as? Feature<T>) else {
             let value: Feature<T> = feature.createInstance(self)
             _featureInstances.performUpdate { $0.setting(feature.identifier, value) }
-            return value.currentValue(using: self)
+            return value.currentValue(in: self)
         }
         
-        return value.currentValue(using: self)
+        return value.currentValue(in: self)
     }
     
     public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T? {
@@ -204,38 +208,80 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Instance replacing
     
+    public func get<S>(singleton: SingletonConfig<S>) -> S? {
+        return _singletonInstances.performMap { $0[singleton.identifier] as? S }
+    }
+    
+    public func get<M, I>(cache: CacheConfig<M, I>) -> M? {
+        return _cacheInstances.performMap { $0[cache.identifier] as? M }
+    }
+    
+    public func get<T: UserDefaultsType>(defaults: UserDefaultsConfig) -> T? {
+        return _defaultsInstances.performMap { $0[defaults.identifier] as? T }
+    }
+    
+    public func get<T: FeatureOption>(feature: FeatureConfig<T>) -> T? {
+        return _featureInstances.performMap { $0[feature.identifier] as? T }
+    }
+    
+    public func get<T>(other: ObjectIdentifier) -> T? {
+        return _otherInstances.performMap { $0[other] as? T }
+    }
+    
     public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
         _singletonInstances.performUpdate { $0.setting(singleton.identifier, instance) }
     }
     
     public override func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
         _cacheInstances.performUpdate { $0.setting(cache.identifier, cache.mutableInstance(instance)) }
+    }
+    
+    public func set<T: UserDefaultsType>(defaults: UserDefaultsConfig, to instance: T) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
+        _defaultsInstances.performUpdate { $0.setting(defaults.identifier, instance) }
+    }
+    
+    public func set<T: FeatureOption>(feature: FeatureConfig<T>, to instance: Feature<T>) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
+        _featureInstances.performUpdate { $0.setting(feature.identifier, instance) }
+    }
+    
+    public func set<T>(other: ObjectIdentifier, to instance: T) {
+        (instance as? DependenciesSettable)?.setDependencies(self)
+        _otherInstances.performUpdate { $0.setting(other, instance) }
     }
     
     public override func remove<M, I>(cache: CacheConfig<M, I>) {
         _cacheInstances.performUpdate { $0.setting(cache.identifier, nil) }
     }
+    
+    // MARK: - FeatureStorageType
+    
+    public override var hardfork: Int { 2 }
+    public override var softfork: Int { 11 }
+    
+    public override func rawFeatureValue(forKey defaultName: String) -> Any? {
+        return _featureValues.performMap { $0[defaultName] }
+    }
+    
+    public override func storeFeatureValue(_ value: Any?, forKey defaultName: String) {
+        _featureValues.performUpdate { $0.setting(defaultName, value) }
+    }
+}
+
+// MARK: - DependenciesSettable
+
+protocol DependenciesSettable {
+    var dependencies: Dependencies { get }
+    
+    func setDependencies(_ dependencies: Dependencies?)
 }
 
 // MARK: - TestState Convenience
 
 internal extension TestState {
-    init<M, I>(
-        wrappedValue: @escaping @autoclosure () -> T?,
-        cache: CacheConfig<M, I>,
-        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
-    ) where T: MutableCacheType {
-        self.init(wrappedValue: {
-            let dependencies: TestDependencies? = dependenciesRetriever()
-            let value: T? = wrappedValue()
-            (value as? DependenciesSettable)?.setDependencies(dependencies)
-            dependencies?[cache: cache] = (value as! M)
-            (value as? (any InitialSetupable))?.performInitialSetup()
-            
-            return value
-        }())
-    }
-    
     init<S>(
         wrappedValue: @escaping @autoclosure () -> T?,
         singleton: SingletonConfig<S>,
@@ -250,35 +296,5 @@ internal extension TestState {
             
             return value
         }())
-    }
-    
-    init(
-        wrappedValue: @escaping @autoclosure () -> T?,
-        defaults: UserDefaultsConfig,
-        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
-    ) where T: UserDefaultsType {
-        self.init(wrappedValue: {
-            let dependencies: TestDependencies? = dependenciesRetriever()
-            let value: T? = wrappedValue()
-            (value as? DependenciesSettable)?.setDependencies(dependencies)
-            dependencies?[defaults: defaults] = value
-            (value as? (any InitialSetupable))?.performInitialSetup()
-            
-            return value
-        }())
-    }
-    
-    static func create(
-        closure: @escaping () async -> T?
-    ) -> T? {
-        var value: T?
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        Task {
-            value = await closure()
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        return value
     }
 }

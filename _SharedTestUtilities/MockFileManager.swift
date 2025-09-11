@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit.UIImage
 import SessionUtilitiesKit
 
 class MockFileManager: Mock<FileManagerType>, FileManagerType {
@@ -26,6 +27,10 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     
     func temporaryFilePath(fileExtension: String?) -> String {
         return mock(args: [fileExtension])
+    }
+    
+    func write(data: Data, to url: URL, options: Data.WritingOptions) throws {
+        try mockThrowingNoReturn(args: [data, url, options])
     }
     
     func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String? {
@@ -55,6 +60,7 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     }
     
     func contents(atPath: String) -> Data? { return mock(args: [atPath]) }
+    func imageContents(atPath: String) -> UIImage? { return mock(args: [atPath]) }
     func contentsOfDirectory(at url: URL) throws -> [URL] { return try mockThrowing(args: [url]) }
     func contentsOfDirectory(atPath path: String) throws -> [String] { return try mockThrowing(args: [path]) }
     func isDirectoryEmpty(at url: URL) -> Bool { return mock(args: [url]) }
@@ -110,6 +116,7 @@ extension Mock where T == FileManagerType {
         self.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
         self.when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }.thenReturn(())
         self.when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }.thenReturn(())
+        self.when { try $0.write(data: .any, to: .any, options: .any) }.thenReturn(())
         self.when { $0.fileExists(atPath: .any) }.thenReturn(false)
         self.when { $0.fileExists(atPath: .any, isDirectory: .any) }.thenReturn(false)
         self.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
@@ -134,6 +141,7 @@ extension Mock where T == FileManagerType {
         }.thenReturn(nil)
         self.when { try $0.removeItem(atPath: .any) }.thenReturn(())
         self.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+        self.when { $0.imageContents(atPath: .any) }.thenReturn(UIImage(data: TestConstants.validImageData))
         self.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
         self.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
         self.when {

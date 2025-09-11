@@ -4,7 +4,7 @@
 
 import Foundation
 import CommonCrypto
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Encryption

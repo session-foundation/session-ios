@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import UIKit.UIImage
 
 // MARK: - Singleton
 
@@ -29,6 +30,7 @@ public protocol FileManagerType {
     func protectFileOrFolder(at path: String, fileProtectionType: FileProtectionType) throws
     func fileSize(of path: String) -> UInt64?
     func temporaryFilePath(fileExtension: String?) -> String
+    func write(data: Data, to url: URL, options: Data.WritingOptions) throws
     func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String?
     
     // MARK: - Forwarded NSFileManager
@@ -46,6 +48,7 @@ public protocol FileManagerType {
     func fileExists(atPath: String) -> Bool
     func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool
     func contents(atPath: String) -> Data?
+    func imageContents(atPath: String) -> UIImage?
     func contentsOfDirectory(at url: URL) throws -> [URL]
     func contentsOfDirectory(atPath path: String) throws -> [String]
     func isDirectoryEmpty(at url: URL) -> Bool
@@ -73,6 +76,10 @@ public extension FileManagerType {
     
     func protectFileOrFolder(at path: String) throws {
         try protectFileOrFolder(at: path, fileProtectionType: .completeUntilFirstUserAuthentication)
+    }
+    
+    func write(data: Data, to url: URL) throws {
+        try write(data: data, to: url, options: [])
     }
     
     func enumerator(at url: URL, includingPropertiesForKeys keys: [URLResourceKey]?) -> FileManager.DirectoryEnumerator? {
@@ -257,6 +264,10 @@ public class SessionFileManager: FileManagerType {
             .path
     }
     
+    public func write(data: Data, to url: URL, options: Data.WritingOptions) throws {
+        try data.write(to: url, options: options)
+    }
+    
     public func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String? {
         let tempFilePath: String = temporaryFilePath(fileExtension: fileExtension)
         
@@ -299,6 +310,10 @@ public class SessionFileManager: FileManagerType {
     
     public func contents(atPath: String) -> Data? {
         return fileManager.contents(atPath: atPath)
+    }
+    
+    public func imageContents(atPath: String) -> UIImage? {
+        return UIImage(contentsOfFile: atPath)
     }
     
     public func contentsOfDirectory(at url: URL) throws -> [URL] {

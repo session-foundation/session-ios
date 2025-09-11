@@ -8,15 +8,18 @@ import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
-class SessionThreadViewModelSpec: QuickSpec {
+class SessionThreadViewModelSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            using: dependencies,
-            initialData: { db in
+            using: dependencies
+        )
+        
+        beforeEach {
+            try await mockStorage.writeAsync { db in
                 try db.create(table: "testMessage") { t in
                     t.column("body", .text).notNull()
                 }
@@ -28,7 +31,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                     t.column("body")
                 }
             }
-        )
+        }
         
         // MARK: - a SessionThreadViewModel
         describe("a SessionThreadViewModel") {

@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension LibSession {

@@ -160,7 +160,11 @@ public class DataSourceValue: DataSource {
     }
     
     public func write(to path: String) throws {
-        try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+        try dependencies[singleton: .fileManager].write(
+            data: data,
+            to: URL(fileURLWithPath: path),
+            options: .atomic
+        )
     }
     
     public static func == (lhs: DataSourceValue, rhs: DataSourceValue) -> Bool {

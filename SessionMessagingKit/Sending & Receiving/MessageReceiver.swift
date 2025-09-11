@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -175,7 +175,7 @@ public enum MessageReceiver {
         
         let proto: SNProtoContent = try (customProto ?? Result(catching: { try SNProtoContent.parseData(plaintext) })
             .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-            .successOrThrow())
+            .get())
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender, using: dependencies))
         message.sender = sender
         message.serverHash = serverHash
@@ -477,7 +477,7 @@ public enum MessageReceiver {
             .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
             .asRequest(of: Info.self)
             .fetchOne(db)
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageReceiverError.originalMessageNotFound }
         
         // If the user locally deleted the message then we don't want to process reactions for it
         guard !interactionInfo.variant.isDeletedMessage else { return }

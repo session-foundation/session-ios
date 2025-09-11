@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum GetExpirationJob: JobExecutor {
@@ -37,12 +37,11 @@ public enum GetExpirationJob: JobExecutor {
             return success(job, false)
         }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<GetExpiriesResponse> in
+        AnyPublisher
+            .lazy {
                 try SnodeAPI.preparedGetExpiries(
                     of: expirationInfo.map { $0.key },
                     authMethod: try Authentication.with(
-                        db,
                         swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                         using: dependencies
                     ),

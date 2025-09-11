@@ -6,7 +6,7 @@ import GRDB
 import SessionUtil
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -184,7 +184,6 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                         .compactMap { $0 },
                     requireAllBatchResponses: true,
                     swarmPublicKey: groupSessionId.hexString,
-                    snodeRetrievalRetryCount: 0, // Job has a built-in retry
                     using: dependencies
                 )
             }

@@ -161,6 +161,25 @@ public extension Publisher {
 
 // MARK: - Convenience
 
+private final class SubscriptionManager {
+    static let shared: SubscriptionManager = SubscriptionManager()
+
+    private let lock: NSLock = NSLock()
+    private var subscriptions: [UUID: AnyCancellable] = [:]
+    
+    func store(_ subscription: AnyCancellable, for id: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+        subscriptions[id] = subscription
+    }
+
+    func release(for id: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+        subscriptions[id] = nil
+    }
+}
+
 public extension Publisher {
     func sink(into subject: PassthroughSubject<Output, Failure>?, includeCompletions: Bool = false) -> AnyCancellable {
         guard let targetSubject: PassthroughSubject<Output, Failure> = subject else { return AnyCancellable {} }
@@ -173,18 +192,18 @@ public extension Publisher {
         receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil,
         receiveValue: ((Output) -> Void)? = nil
     ) {
-        var retainCycle: Cancellable? = nil
-        retainCycle = self
+        let id: UUID = UUID()
+        let cancellable: AnyCancellable = self
             .sink(
                 receiveCompletion: { result in
                     receiveCompletion?(result)
                     
-                    // Redundant but without reading 'retainCycle' it will warn that the variable
-                    // isn't used
-                    if retainCycle != nil { retainCycle = nil }
+                    SubscriptionManager.shared.release(for: id)
                 },
                 receiveValue: (receiveValue ?? { _ in })
             )
+        
+        SubscriptionManager.shared.store(cancellable, for: id)
     }
 }
 
@@ -202,5 +221,17 @@ public extension Publisher {
 extension AnyPublisher: @retroactive ExpressibleByArrayLiteral where Output: RangeReplaceableCollection {
     public init(arrayLiteral elements: Output.Element...) {
         self = Just(Output(elements)).setFailureType(to: Failure.self).eraseToAnyPublisher()
+    }
+}
+
+public extension AnyPublisher where Failure == Error {
+    static func lazy(_ closure: @escaping () throws -> Output) -> Self {
+        return Deferred {
+            Future { promise in
+                do { promise(.success(try closure())) }
+                catch { promise(.failure(error)) }
+            }
+        }
+        .eraseToAnyPublisher()
     }
 }

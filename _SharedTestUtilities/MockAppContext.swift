@@ -2,36 +2,47 @@
 
 import UIKit
 import SessionUtilitiesKit
+import TestUtilities
 
-class MockAppContext: Mock<AppContext>, AppContext {
-    var mainWindow: UIWindow? { mock() }
-    var frontMostViewController: UIViewController? { mock() }
+class MockAppContext: AppContext, Mockable {
+    public var handler: MockHandler<AppContext>
     
-    var isValid: Bool { mock() }
-    var appLaunchTime: Date { mock() }
-    var isMainApp: Bool { mock() }
-    var isMainAppAndActive: Bool { mock() }
-    var isShareExtension: Bool { mock() }
-    var reportedApplicationState: UIApplication.State { mock() }
-    var backgroundTimeRemaining: TimeInterval { mock() }
+    required init(handler: MockHandler<AppContext>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
+    var mainWindow: UIWindow? { handler.mock() }
+    var frontMostViewController: UIViewController? { handler.mock() }
+    
+    var isValid: Bool { handler.mock() }
+    var appLaunchTime: Date { handler.mock() }
+    var isMainApp: Bool { handler.mock() }
+    var isMainAppAndActive: Bool { handler.mock() }
+    var isShareExtension: Bool { handler.mock() }
+    var reportedApplicationState: UIApplication.State { handler.mock() }
+    var backgroundTimeRemaining: TimeInterval { handler.mock() }
     
     // Override the extension functions
-    var isInBackground: Bool { mock() }
-    var isAppForegroundAndActive: Bool { mock() }
+    var isInBackground: Bool { handler.mock() }
+    var isAppForegroundAndActive: Bool { handler.mock() }
     
     func setMainWindow(_ mainWindow: UIWindow) {
-        mockNoReturn(args: [mainWindow])
+        handler.mockNoReturn(args: [mainWindow])
     }
     
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
-        mockNoReturn(args: [shouldBeBlocking, blockingObjects])
+        handler.mockNoReturn(args: [shouldBeBlocking, blockingObjects])
     }
     
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier {
-        return mock(args: [expirationHandler])
+        return handler.mock(args: [expirationHandler])
     }
     
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {
-        mockNoReturn(args: [backgroundTaskIdentifier])
+        handler.mockNoReturn(args: [backgroundTaskIdentifier])
     }
 }

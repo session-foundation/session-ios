@@ -4,15 +4,16 @@ import UIKit
 import Combine
 import GRDB
 import SessionUtil
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
 
-class OpenGroupManagerSpec: QuickSpec {
+class OpenGroupManagerSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -110,21 +111,7 @@ class OpenGroupManagerSpec: QuickSpec {
         }()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                
-                try testGroupThread.insert(db)
-                try testOpenGroup.insert(db)
-                try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
-            }
+            using: dependencies
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
@@ -139,118 +126,16 @@ class OpenGroupManagerSpec: QuickSpec {
                     .thenReturn([:])
             }
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(MockNetwork.errorResponse())
-            }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
-        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
-                defaults.when { $0.set(.any, forKey: .any) }.thenReturn(())
-            }
-        )
-        @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: .any) }.thenReturn(false)
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
-            initialSetup: { cache in
-                cache.when { $0.pendingChanges }.thenReturn([])
-                cache.when { $0.pendingChanges = .any }.thenReturn(())
-                cache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
-                cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
-            }
-        )
-        @TestState var mockPoller: MockCommunityPoller! = MockCommunityPoller(
-            initialSetup: { poller in
-                poller.when { $0.startIfNeeded() }.thenReturn(())
-                poller.when { $0.stop() }.thenReturn(())
-            }
-        )
-        @TestState(cache: .communityPollers, in: dependencies) var mockCommunityPollerCache: MockCommunityPollerCache! = MockCommunityPollerCache(
-            initialSetup: { cache in
-                cache.when { $0.serversBeingPolled }.thenReturn([])
-                cache.when { $0.startAllPollers() }.thenReturn(())
-                cache.when { $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
-                cache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
-                cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
-            }
-        )
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
-            initialSetup: { keychain in
-                keychain
-                    .when {
-                        try $0.getOrGenerateEncryptionKey(
-                            forKey: .any,
-                            length: .any,
-                            cat: .any,
-                            legacyKey: .any,
-                            legacyService: .any
-                        )
-                    }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockAppGroupDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
+        @TestState var mockPoller: MockPoller! = .create(using: dependencies)
+        @TestState(singleton: .communityPollerManager, in: dependencies) var mockCommunityPollerManager: MockCommunityPollerManager! = .create(using: dependencies)
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
@@ -265,6 +150,124 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState var cache: OpenGroupManager.Cache! = OpenGroupManager.Cache(using: dependencies)
         @TestState var openGroupManager: OpenGroupManager! = OpenGroupManager(using: dependencies)
         
+        beforeEach {
+            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            try await mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            mockOGMCache.when { $0.pendingChanges }.thenReturn([])
+            mockOGMCache.when { $0.pendingChanges = .any }.thenReturn(())
+            mockOGMCache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+            mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
+            dependencies.set(cache: .openGroupManager, to: mockOGMCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                try testGroupThread.insert(db)
+                try testOpenGroup.insert(db)
+                try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
+            }
+            
+            try await mockCrypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                .thenReturn(Data([1, 2, 3]))
+            
+            try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
+            try await mockPoller.when { await $0.stop() }.thenReturn(())
+            
+            try await mockCommunityPollerManager.when { await $0.serversBeingPolled }.thenReturn([])
+            try await mockCommunityPollerManager.when { await $0.startAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager
+                .when { await $0.getOrCreatePoller(for: .any) }
+                .thenReturn(mockPoller)
+            try await mockCommunityPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+            try await mockCommunityPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager
+                .when { $0.syncState }
+                .thenReturn(CommunityPollerManagerSyncState())
+            
+            try await mockKeychain
+                .when {
+                    try $0.getOrGenerateEncryptionKey(
+                        forKey: .any,
+                        length: .any,
+                        cat: .any,
+                        legacyKey: .any,
+                        legacyService: .any
+                    )
+                }
+                .thenReturn(Data([1, 2, 3]))
+            
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(0)
+            dependencies.set(defaults: .standard, to: mockUserDefaults)
+            
+            try await mockAppGroupDefaults.defaultInitialSetup()
+            try await mockAppGroupDefaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+            dependencies.set(defaults: .appGroup, to: mockAppGroupDefaults)
+            
+            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.errorResponse())
+            try await mockNetwork.when { $0.syncState }.thenReturn(NetworkSyncState(isSuspended: false))
+            dependencies.set(singleton: .network, to: mockNetwork)
+        }
+        
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
             beforeEach {
@@ -275,10 +278,8 @@ class OpenGroupManagerSpec: QuickSpec {
             context("cache data") {
                 // MARK: ---- defaults the time since last open to zero
                 it("defaults the time since last open to zero") {
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(nil)
                     
                     expect(cache.getLastSuccessfulCommunityPollTimestamp()).to(equal(0))
@@ -286,10 +287,8 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 // MARK: ---- returns the time since the last poll
                 it("returns the time since the last poll") {
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567880))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
                     
@@ -299,20 +298,16 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 // MARK: ---- caches the time since the last poll in memory
                 it("caches the time since the last poll in memory") {
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567770))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
                     
                     expect(cache.getLastSuccessfulCommunityPollTimestamp())
                         .to(equal(1234567770))
                     
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                  
                     // Cached value shouldn't have been updated
@@ -324,13 +319,14 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("updates the time since the last poll in user defaults") {
                     cache.setLastSuccessfulCommunityPollTimestamp(12345)
                     
-                    expect(mockUserDefaults)
-                        .to(call(matchingParameters: .all) {
+                    await mockUserDefaults
+                        .verify {
                             $0.set(
                                 Date(timeIntervalSince1970: 12345),
                                 forKey: UserDefaults.DateKey.lastOpen.rawValue
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
             
@@ -408,7 +404,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- when there is a thread for the room and the cache has a poller
                 context("when there is a thread for the room and the cache has a poller") {
                     beforeEach {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
+                        try await mockCommunityPollerManager
+                            .when { await $0.syncState }
+                            .thenReturn(CommunityPollerManagerSyncState(
+                                serversBeingPolled: ["http://127.0.0.1"]
+                            ))
                     }
                     
                     // MARK: ------ for the no-scheme variant
@@ -551,7 +551,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("when given the legacy DNS host and there is a cached poller for the default server") {
                     // MARK: ------ returns true
                     it("returns true") {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://116.203.70.33"])
+                        try await mockCommunityPollerManager
+                            .when { await $0.serversBeingPolled }
+                            .thenReturn(["http://116.203.70.33"])
                         mockStorage.write { db in
                             try SessionThread(
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "http://116.203.70.33"),
@@ -583,7 +585,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("when given the default server and there is a cached poller for the legacy DNS host") {
                     // MARK: ------ returns true
                     it("returns true") {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://open.getsession.org"])
+                        try await mockCommunityPollerManager
+                            .when { await $0.serversBeingPolled }
+                            .thenReturn(["http://open.getsession.org"])
                         mockStorage.write { db in
                             try SessionThread(
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "http://open.getsession.org"),
@@ -627,7 +631,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 // MARK: ---- returns false if there is not a poller for the server in the cache
                 it("returns false if there is not a poller for the server in the cache") {
-                    mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
+                    try await mockCommunityPollerManager
+                        .when { await $0.serversBeingPolled }
+                        .thenReturn([])
                     
                     expect(
                         mockStorage.read { db -> Bool in
@@ -670,14 +676,21 @@ class OpenGroupManagerSpec: QuickSpec {
                         try OpenGroup.deleteAll(db)
                     }
                     
-                    mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    try await mockNetwork
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                        }
+                    try await mockUserDefaults
+                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
                 
@@ -738,22 +751,25 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockCommunityPollerCache)
-                        .to(call(matchingParameters: .all) {
-                            $0.getOrCreatePoller(
+                    await mockCommunityPollerManager
+                        .verify {
+                            await $0.getOrCreatePoller(
                                 for: CommunityPoller.Info(
                                     server: "http://127.0.0.1",
                                     pollFailureCount: 0
                                 )
                             )
-                        })
-                    expect(mockPoller).to(call { $0.startIfNeeded() })
+                        }
+                        .wasCalled(timeout: .milliseconds(50))
+                    await mockPoller.verify { await $0.startIfNeeded() }.wasCalled()
                 }
                 
                 // MARK: ---- an existing room
                 context("an existing room") {
                     beforeEach {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
+                        try await mockCommunityPollerManager
+                            .when { await $0.serversBeingPolled }
+                            .thenReturn(["http://127.0.0.1"])
                         mockStorage.write { db in
                             try testOpenGroup.insert(db)
                         }
@@ -808,14 +824,21 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- with an invalid response
                 context("with an invalid response") {
                     beforeEach {
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
-                        mockUserDefaults
-                            .when { (defaults: inout any UserDefaultsType) -> Any? in
-                                defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
-                            }
+                        try await mockUserDefaults
+                            .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
                             .thenReturn(Date(timeIntervalSince1970: 1234567890))
                     }
                 
@@ -909,8 +932,9 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockCommunityPollerCache)
-                            .to(call(matchingParameters: .all) { $0.stopAndRemovePoller(for: "http://127.0.0.1") })
+                        await mockCommunityPollerManager
+                            .verify { await $0.stopAndRemovePoller(for: "http://127.0.0.1") }
+                            .wasCalled()
                     }
                     
                     // MARK: ------ removes the open group
@@ -1945,7 +1969,7 @@ class OpenGroupManagerSpec: QuickSpec {
             // MARK: -- when handling direct messages
             context("when handling direct messages") {
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(
                                 .plaintextWithSessionBlindingProtocol(
@@ -1962,7 +1986,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             Data([UInt8](repeating: 0, count: 32)),
                             senderSessionIdHex: "05\(TestConstants.publicKey)"
                         ))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                 }
@@ -2058,7 +2082,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- for the inbox
                 context("for the inbox") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
                             .thenReturn(false)
                     }
@@ -2087,7 +2111,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ ignores a message with invalid data
                     it("ignores a message with invalid data") {
-                        mockCrypto
+                        try await mockCrypto
                             .when {
                                 $0.generate(
                                     .plaintextWithSessionBlindingProtocol(
@@ -2160,7 +2184,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- for the outbox
                 context("for the outbox") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
                             .thenReturn(false)
                     }
@@ -2243,7 +2267,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ ignores a message with invalid data
                     it("ignores a message with invalid data") {
-                        mockCrypto
+                        try await mockCrypto
                             .when {
                                 $0.generate(
                                     .plaintextWithSessionBlindingProtocol(
@@ -2502,7 +2526,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ generates and unblinded key if the key belongs to the current user
                     it("generates and unblinded key if the key belongs to the current user") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([4, 5, 6])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([4, 5, 6])
                         mockStorage.read { db in
                             openGroupManager.isUserModeratorOrAdmin(
                                 db,
@@ -2513,9 +2537,9 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockCrypto).to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.generate(.ed25519KeyPair(seed: [4, 5, 6]))
-                        })
+                        await mockCrypto
+                            .verify { $0.generate(.ed25519KeyPair(seed: [4, 5, 6])) }
+                            .wasCalled(exactly: 1)
                     }
                 }
             }
@@ -2524,7 +2548,7 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when accessing the default rooms publisher") {
                 // MARK: ---- starts a job to retrieve the default rooms if we have none
                 it("starts a job to retrieve the default rooms if we have none") {
-                    mockAppGroupDefaults
+                    try await mockAppGroupDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                         .thenReturn(true)
                     mockStorage.write { db in
@@ -2555,25 +2579,40 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     
-                    expect(mockNetwork)
-                        .to(call { network in
-                            network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: OpenGroupAPI.Endpoint.sequence,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
+                                category: .standard,
                                 requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                                overallTimeout: expectedRequest.overallTimeout
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
                 it("does not start a job to retrieve the default rooms if we already have rooms") {
-                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                    try await mockAppGroupDefaults
+                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                        .thenReturn(true)
                     cache.setDefaultRoomInfo([(room: OpenGroupAPI.Room.mock, openGroup: OpenGroup.mock)])
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     
-                    expect(mockNetwork)
-                        .toNot(call { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) })
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
+                        .wasNotCalled()
                 }
             }
         }
@@ -2650,8 +2689,17 @@ extension OpenGroupAPI.RoomPollInfo {
 
 // MARK: - Mock Types
 
-extension OpenGroup: Mocked {
-    static var mock: OpenGroup = OpenGroup(
+extension OpenGroup: @retroactive Mocked {
+    public static var any: OpenGroup = OpenGroup(
+        server: .any,
+        roomToken: .any,
+        publicKey: .any,
+        isActive: .any,
+        name: .any,
+        userCount: .any,
+        infoUpdates: .any
+    )
+    public static var mock: OpenGroup = OpenGroup(
         server: "testserver",
         roomToken: "testRoom",
         publicKey: TestConstants.serverPublicKey,
@@ -2662,12 +2710,41 @@ extension OpenGroup: Mocked {
     )
 }
 
-extension OpenGroupAPI.Capabilities: Mocked {
-    static var mock: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: [], missing: nil)
+extension OpenGroupAPI.Capabilities: @retroactive Mocked {
+    public static var any: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: .any, missing: .any)
+    public static var mock: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: [], missing: nil)
 }
 
-extension OpenGroupAPI.Room: Mocked {
-    static var mock: OpenGroupAPI.Room = OpenGroupAPI.Room(
+extension OpenGroupAPI.Room: @retroactive Mocked {
+    public static var any:  OpenGroupAPI.Room = OpenGroupAPI.Room(
+        token: .any,
+        name: .any,
+        roomDescription: .any,
+        infoUpdates: .any,
+        messageSequence: .any,
+        created: .any,
+        activeUsers: .any,
+        activeUsersCutoff: .any,
+        imageId: .any,
+        pinnedMessages: .any,
+        admin: .any,
+        globalAdmin: .any,
+        admins: .any,
+        hiddenAdmins: .any,
+        moderator: .any,
+        globalModerator: .any,
+        moderators: .any,
+        hiddenModerators: .any,
+        read: .any,
+        defaultRead: .any,
+        defaultAccessible: .any,
+        write: .any,
+        defaultWrite: .any,
+        upload: .any,
+        defaultUpload: .any
+    )
+
+    public static var mock: OpenGroupAPI.Room = OpenGroupAPI.Room(
         token: "test",
         name: "testRoom",
         roomDescription: nil,
@@ -2696,8 +2773,24 @@ extension OpenGroupAPI.Room: Mocked {
     )
 }
 
-extension OpenGroupAPI.RoomPollInfo: Mocked {
-    static var mock: OpenGroupAPI.RoomPollInfo = OpenGroupAPI.RoomPollInfo(
+extension OpenGroupAPI.RoomPollInfo: @retroactive Mocked {
+    public static var any: OpenGroupAPI.RoomPollInfo = OpenGroupAPI.RoomPollInfo(
+        token: .any,
+        activeUsers: .any,
+        admin: .any,
+        globalAdmin: .any,
+        moderator: .any,
+        globalModerator: .any,
+        read: .any,
+        defaultRead: .any,
+        defaultAccessible: .any,
+        write: .any,
+        defaultWrite: .any,
+        upload: .any,
+        defaultUpload: .any,
+        details: .any
+    )
+    public static var mock: OpenGroupAPI.RoomPollInfo = OpenGroupAPI.RoomPollInfo(
         token: "test",
         activeUsers: 1,
         admin: false,
@@ -2715,8 +2808,22 @@ extension OpenGroupAPI.RoomPollInfo: Mocked {
     )
 }
 
-extension OpenGroupAPI.Message: Mocked {
-    static var mock: OpenGroupAPI.Message = OpenGroupAPI.Message(
+extension OpenGroupAPI.Message: @retroactive Mocked {
+    public static var any: OpenGroupAPI.Message = OpenGroupAPI.Message(
+        id: .any,
+        sender: .any,
+        posted: .any,
+        edited: .any,
+        deleted: .any,
+        seqNo: .any,
+        whisper: .any,
+        whisperMods: .any,
+        whisperTo: .any,
+        base64EncodedData: .any,
+        base64EncodedSignature: .any,
+        reactions: .any
+    )
+    public static var mock: OpenGroupAPI.Message = OpenGroupAPI.Message(
         id: 100,
         sender: TestConstants.blind15PublicKey,
         posted: 1,
@@ -2732,8 +2839,15 @@ extension OpenGroupAPI.Message: Mocked {
     )
 }
 
-extension OpenGroupAPI.SendDirectMessageResponse: Mocked {
-    static var mock: OpenGroupAPI.SendDirectMessageResponse = OpenGroupAPI.SendDirectMessageResponse(
+extension OpenGroupAPI.SendDirectMessageResponse: @retroactive Mocked {
+    public static var any: OpenGroupAPI.SendDirectMessageResponse = OpenGroupAPI.SendDirectMessageResponse(
+        id: .any,
+        sender: .any,
+        recipient: .any,
+        posted: .any,
+        expires: .any
+    )
+    public static var mock: OpenGroupAPI.SendDirectMessageResponse = OpenGroupAPI.SendDirectMessageResponse(
         id: 1,
         sender: TestConstants.blind15PublicKey,
         recipient: "testRecipient",
@@ -2742,8 +2856,16 @@ extension OpenGroupAPI.SendDirectMessageResponse: Mocked {
     )
 }
 
-extension OpenGroupAPI.DirectMessage: Mocked {
-    static var mock: OpenGroupAPI.DirectMessage = OpenGroupAPI.DirectMessage(
+extension OpenGroupAPI.DirectMessage: @retroactive Mocked {
+    public static var any: OpenGroupAPI.DirectMessage = OpenGroupAPI.DirectMessage(
+        id: .any,
+        sender: .any,
+        recipient: .any,
+        posted: .any,
+        expires: .any,
+        base64EncodedMessage: .any
+    )
+    public static var mock: OpenGroupAPI.DirectMessage = OpenGroupAPI.DirectMessage(
         id: 101,
         sender: TestConstants.blind15PublicKey,
         recipient: "testRecipient",

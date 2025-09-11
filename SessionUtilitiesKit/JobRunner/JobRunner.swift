@@ -904,6 +904,8 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func scheduleRecurringJobsIfNeeded() {
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+        
         let scheduleInfo: [ScheduleInfo] = registeredRecurringJobs
         let variants: Set<Job.Variant> = Set(scheduleInfo.map { $0.variant })
         let maybeExistingJobs: [Job]? = dependencies[singleton: .storage].read { db in
@@ -1703,7 +1705,12 @@ public final class JobQueue: Hashable {
             updates: { [dependencies] db -> [Job] in
                 /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
                 /// removed so we need to retrieve these records before that happens)
-                let dependantJobs: [Job] = try job.dependantJobs.fetchAll(db)
+                let dependantJobIds: Set<Int64> = try JobDependencies
+                    .select(.jobId)
+                    .filter(JobDependencies.Columns.dependantId == job.id)
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                let dependantJobs: [Job] = try Job.fetchAll(db, ids: dependantJobIds)
                 
                 switch job.behaviour {
                     case .runOnce, .runOnceNextLaunch, .runOnceAfterConfigSyncIgnoringPermanentFailure:
@@ -1822,15 +1829,19 @@ public final class JobQueue: Hashable {
         // Get the max failure count for the job (a value of '-1' means it will retry indefinitely)
         let maxFailureCount: Int = (executorMap[job.variant]?.maxFailureCount ?? 0)
         let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
-        var dependantJobIds: [Int64] = []
+        var dependantJobIds: Set<Int64> = []
         var failureText: String = "failed due to error: \(error)"
         
         dependencies[singleton: .storage].write { db in
             /// Retrieve a list of dependant jobs so we can clear them from the queue
-            dependantJobIds = try job.dependantJobs
-                .select(.id)
+            
+            /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
+            /// removed so we need to retrieve these records before that happens)
+            dependantJobIds = try JobDependencies
+                .select(.jobId)
+                .filter(JobDependencies.Columns.dependantId == job.id)
                 .asRequest(of: Int64.self)
-                .fetchAll(db)
+                .fetchSet(db)
 
             /// Delete/update the failed jobs and any dependencies
             let updatedFailureCount: UInt = (job.failureCount + 1)
@@ -1849,9 +1860,7 @@ public final class JobQueue: Hashable {
                 
                 // If the job permanently failed or we have performed all of our retry attempts
                 // then delete the job and all of it's dependant jobs (it'll probably never succeed)
-                _ = try job.dependantJobs
-                    .deleteAll(db)
-
+                _ = try Job.deleteAll(db, ids: dependantJobIds)
                 _ = try job.delete(db)
                 return
             }
@@ -1868,7 +1877,8 @@ public final class JobQueue: Hashable {
             // Update the failureCount and nextRunTimestamp on dependant jobs as well (update the
             // 'nextRunTimestamp' value to be 1ms later so when the queue gets regenerated they'll
             // come after the dependency)
-            try job.dependantJobs
+            try Job
+                .filter(ids: dependantJobIds)
                 .updateAll(
                     db,
                     Job.Columns.failureCount.set(to: updatedFailureCount),

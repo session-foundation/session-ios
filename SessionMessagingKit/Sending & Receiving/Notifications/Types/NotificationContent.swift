@@ -3,7 +3,7 @@
 import UIKit
 import UserNotifications
 
-public struct NotificationContent {
+public struct NotificationContent: Equatable {
     public let threadId: String?
     public let threadVariant: SessionThread.Variant?
     public let identifier: String
@@ -12,7 +12,7 @@ public struct NotificationContent {
     public let body: String?
     public let delay: TimeInterval?
     public let sound: Preferences.Sound
-    public let userInfo: [AnyHashable: Any]
+    public let userInfo: [AnyHashable: AnyHashable]
     public let applicationState: UIApplication.State
     
     // MARK: - Init
@@ -26,7 +26,7 @@ public struct NotificationContent {
         body: String? = nil,
         delay: TimeInterval? = nil,
         sound: Preferences.Sound = .none,
-        userInfo: [AnyHashable: Any] = [:],
+        userInfo: [AnyHashable: AnyHashable] = [:],
         applicationState: UIApplication.State
     ) {
         self.threadId = threadId

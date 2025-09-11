@@ -575,19 +575,19 @@ public class SessionCell: UITableViewCell {
         titleTextField.accessibilityLabel = info.title?.accessibility?.label
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
+        subtitleLabel.themeTextColor = info.styling.subtitleTintColor
         subtitleLabel.themeAttributedText = info.subtitle.map { subtitle -> ThemedAttributedString? in
             ThemedAttributedString(stringWithHTMLTags: subtitle.text, font: subtitle.font)
         }
-        subtitleLabel.themeTextColor = info.styling.subtitleTintColor
         subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
         subtitleLabel.accessibilityIdentifier = info.subtitle?.accessibility?.identifier
         subtitleLabel.accessibilityLabel = info.subtitle?.accessibility?.label
         subtitleLabel.isHidden = (info.subtitle == nil)
         expandableDescriptionLabel.font = info.description?.font ?? .systemFont(ofSize: 12)
+        expandableDescriptionLabel.themeTextColor = info.styling.descriptionTintColor
         expandableDescriptionLabel.themeAttributedText = info.description.map { description -> ThemedAttributedString? in
             ThemedAttributedString(stringWithHTMLTags: description.text, font: description.font)
         }
-        expandableDescriptionLabel.themeTextColor = info.styling.descriptionTintColor
         expandableDescriptionLabel.textAlignment = (info.description?.textAlignment ?? .left)
         expandableDescriptionLabel.accessibilityIdentifier = info.description?.accessibility?.identifier
         expandableDescriptionLabel.accessibilityLabel = info.description?.accessibility?.label

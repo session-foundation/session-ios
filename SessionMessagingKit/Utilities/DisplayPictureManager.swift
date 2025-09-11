@@ -4,7 +4,7 @@ import UIKit
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton
@@ -261,7 +261,13 @@ public class DisplayPictureManager {
                 let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
                 
                 // Write the avatar to disk
-                do { try finalImageData.write(to: URL(fileURLWithPath: temporaryFilePath), options: [.atomic]) }
+                do {
+                    try dependencies[singleton: .fileManager].write(
+                        data: finalImageData,
+                        to: URL(fileURLWithPath: temporaryFilePath),
+                        options: .atomic
+                    )
+                }
                 catch {
                     Log.error(.displayPictureManager, "Updating service with profile failed.")
                     throw DisplayPictureError.writeFailed
@@ -281,7 +287,7 @@ public class DisplayPictureManager {
                 guard
                     let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
                         data: encryptedData,
-                        requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                        overallTimeout: Network.fileUploadTimeout,
                         using: dependencies
                     )
                 else {

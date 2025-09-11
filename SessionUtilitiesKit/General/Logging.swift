@@ -22,6 +22,14 @@ public extension FeatureStorage {
         )
     }
     
+    static func logLevel(group: Log.Group) -> FeatureConfig<Log.Level> {
+        return Dependencies.create(
+            identifier: "\(Log.Group.identifierPrefix)\(group.name)",
+            groupIdentifier: "logging",
+            defaultOption: group.defaultLevel
+        )
+    }
+    
     static let allLogLevels: FeatureConfig<AllLoggingCategories> = Dependencies.create(
         identifier: "allLogLevels",
         groupIdentifier: "logging"
@@ -35,7 +43,7 @@ public enum Log {
         level: Log.Level,
         categories: [Category],
         message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     )
@@ -50,33 +58,102 @@ public enum Log {
         case off
         
         case `default`
+        
+        var label: String {
+            switch self {
+                case .off: return "off"
+                case .verbose: return "verbose"
+                case .debug: return "debug"
+                case .info: return "info"
+                case .warn: return "warn"
+                case .error: return "error"
+                case .critical: return "critical"
+                case .default: return "default"
+            }
+        }
+        
+        var emoji: String {
+            switch self {
+                case .off, .default: return ""
+                case .verbose: return "💙"
+                case .debug: return "💚"
+                case .info: return "💛"
+                case .warn: return "🧡"
+                case .error: return "❤️"
+                case .critical: return "🔥"
+            }
+        }
+        
+        var ddLevel: DDLogLevel {
+            switch self {
+                case .off, .default: return .off
+                case .verbose: return .verbose
+                case .debug: return .warning
+                case .info: return .info
+                case .warn: return .warning
+                case .error: return .error
+                case .critical: return .error
+            }
+        }
+        
+        var ddFlag: DDLogFlag {
+            switch self {
+                case .off, .default: return .verbose
+                case .verbose: return .verbose
+                case .debug: return .debug
+                case .info: return .info
+                case .warn: return .warning
+                case .error: return .error
+                case .critical: return .error
+            }
+        }
+    }
+    
+    public struct Group: Hashable {
+        public let name: String
+        public let defaultLevel: Log.Level
+        
+        fileprivate static let identifierPrefix: String = "group:"
+        
+        private init(name: String, defaultLevel: Log.Level) {
+            self.name = name
+            
+            switch AllLoggingCategories.existingGroup(for: name) {
+                case .some(let existingGroup): self.defaultLevel = existingGroup.defaultLevel
+                case .none:
+                    self.defaultLevel = defaultLevel
+                    AllLoggingCategories.register(group: self)
+            }
+        }
+        
+        @discardableResult public static func create(
+            _ group: String,
+            defaultLevel: Log.Level
+        ) -> Log.Group {
+            return Log.Group(name: group, defaultLevel: defaultLevel)
+        }
     }
     
     public struct Category: Hashable {
         public let rawValue: String
-        fileprivate let customPrefix: String
+        fileprivate let group: Group?
         fileprivate let customSuffix: String
         public let defaultLevel: Log.Level
         
         fileprivate static let identifierPrefix: String = "logLevel-"
         fileprivate var identifier: String { "\(Category.identifierPrefix)\(rawValue)" }
         
-        private init(rawValue: String, customPrefix: String, customSuffix: String, defaultLevel: Log.Level) {
+        private init(rawValue: String, group: Group?, customSuffix: String, defaultLevel: Log.Level) {
+            self.rawValue = rawValue
+            self.group = group
+            self.customSuffix = customSuffix
+            
             /// If we've already registered this category then assume the original has the correct `defaultLevel` and only
             /// modify the `customPrefix` value
             switch AllLoggingCategories.existingCategory(for: rawValue) {
-                case .some(let existingCategory):
-                    self.rawValue = existingCategory.rawValue
-                    self.customPrefix = customPrefix
-                    self.customSuffix = customSuffix
-                    self.defaultLevel = existingCategory.defaultLevel
-                    
+                case .some(let existingCategory): self.defaultLevel = existingCategory.defaultLevel
                 case .none:
-                    self.rawValue = rawValue
-                    self.customPrefix = customPrefix
-                    self.customSuffix = customSuffix
                     self.defaultLevel = defaultLevel
-                    
                     AllLoggingCategories.register(category: self)
             }
         }
@@ -86,25 +163,25 @@ public enum Log {
             
             self.init(
                 rawValue: identifier.substring(from: Category.identifierPrefix.count),
-                customPrefix: "",
+                group: nil,
                 customSuffix: "",
                 defaultLevel: .default
             )
         }
         
-        public init(rawValue: String, customPrefix: String = "", customSuffix: String = "") {
-            self.init(rawValue: rawValue, customPrefix: customPrefix, customSuffix: customSuffix, defaultLevel: .default)
+        public init(rawValue: String, group: Group? = nil, customSuffix: String = "") {
+            self.init(rawValue: rawValue, group: group, customSuffix: customSuffix, defaultLevel: .default)
         }
         
         @discardableResult public static func create(
             _ rawValue: String,
-            customPrefix: String = "",
+            group: Group? = nil,
             customSuffix: String = "",
             defaultLevel: Log.Level
         ) -> Log.Category {
             return Log.Category(
                 rawValue: rawValue,
-                customPrefix: customPrefix,
+                group: group,
                 customSuffix: customSuffix,
                 defaultLevel: defaultLevel
             )
@@ -214,126 +291,126 @@ public enum Log {
     // FIXME: Would be nice to properly require a category for all logs
     public static func verbose(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cat: Category
         , _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [cat], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, cats, msg, file: file, function: function, line: line) }
     
     public static func debug(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [cat], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, cats, msg, file: file, function: function, line: line) }
     
     public static func info(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [], msg, file: file, function: function, line: line) }
     public static func info(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [cat], msg, file: file, function: function, line: line) }
     public static func info(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, cats, msg, file: file, function: function, line: line) }
     
     public static func warn(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [cat], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, cats, msg, file: file, function: function, line: line) }
     
     public static func error(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [], msg, file: file, function: function, line: line) }
     public static func error(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [cat], msg, file: file, function: function, line: line) }
     public static func error(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, cats, msg, file: file, function: function, line: line) }
     
     public static func critical(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [cat], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, cats, msg, file: file, function: function, line: line) }
@@ -341,7 +418,7 @@ public enum Log {
     public static func assert(
         _ condition: Bool,
         _ message: @autoclosure () -> String = String(),
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -356,7 +433,7 @@ public enum Log {
     }
     
     public static func assertOnMainThread(
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -371,7 +448,7 @@ public enum Log {
     }
     
     public static func assertNotOnMainThread(
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -389,7 +466,7 @@ public enum Log {
         _ level: Level,
         _ categories: [Category],
         _ message: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -418,7 +495,7 @@ public protocol LoggerType: Actor {
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     )
@@ -646,19 +723,22 @@ public actor Logger: LoggerType {
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     ) {
         let defaultLogLevel: Log.Level = dependencies[feature: .logLevel(cat: .default)]
         let lowestCatLevel: Log.Level = categories
             .reduce(into: [], { result, next in
-                guard dependencies[feature: .logLevel(cat: next)] != .default else {
-                    result.append(defaultLogLevel)
-                    return
-                }
+                let explicitLevel: Log.Level = dependencies[feature: .logLevel(cat: next)]
+                let groupLevel: Log.Level? = next.group.map { dependencies[feature: .logLevel(group: $0)] }
                 
-                result.append(dependencies[feature: .logLevel(cat: next)])
+                switch (explicitLevel, groupLevel) {
+                    case (.default, .none): result.append(defaultLogLevel)
+                    case (.default, .default): result.append(defaultLogLevel)
+                    case (_, .none): result.append(explicitLevel)
+                    case (_, .some(let groupLevel)): result.append(min(explicitLevel, groupLevel))
+                }
             })
             .min()
             .defaulting(to: defaultLogLevel)
@@ -678,16 +758,15 @@ public actor Logger: LoggerType {
                     /// No point doubling up but we want to allow categories which match the `primaryPrefix` so that we
                     /// have a mechanism for providing a different "default" log level for a specific target
                     .filter { $0.rawValue != primaryPrefix }
-                    .map { "\($0.customPrefix)\($0.rawValue)\($0.customSuffix)" }
+                    .map { "\($0.group.map { "\($0.name):" } ?? "")\($0.rawValue)\($0.customSuffix)" }
             )
             .joined(separator: ", ")
             
-            return "[\(prefixes)] "
+            return "[\(prefixes)]"
         }()
         
         /// Clean up the message if needed (replace double periods with single, trim whitespace, truncate pubkeys)
-        let logMessage: String = logPrefix
-            .appending(message)
+        let cleanedMessage: String = message
             .replacingOccurrences(of: "...", with: "|||")
             .replacingOccurrences(of: "..", with: ".")
             .replacingOccurrences(of: "|||", with: "...")
@@ -709,16 +788,27 @@ public actor Logger: LoggerType {
                 
                 return updatedText
             }
+        let ddLogMessage: String = "\(logPrefix) ".appending(cleanedMessage)
+        let consoleLogMessage: String = "\(logPrefix)[\(level)|\(file):\(line)] ".appending(cleanedMessage)
         
-        
-        switch level {
-            case .off, .default: return
-            case .verbose: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
-            case .debug: DDLogDebug("💚 \(logMessage)", file: file, function: function, line: line)
-            case .info: DDLogInfo("💛 \(logMessage)", file: file, function: function, line: line)
-            case .warn: DDLogWarn("🧡 \(logMessage)", file: file, function: function, line: line)
-            case .error: DDLogError("❤️ \(logMessage)", file: file, function: function, line: line)
-            case .critical: DDLogError("🔥 \(logMessage)", file: file, function: function, line: line)
+        /// Log the message via `DDLog` if logging is on
+        if level != .off && level != .default {
+            DDLog.log(
+                asynchronous: asyncLoggingEnabled,
+                message: DDLogMessage(
+                    format: "",
+                    formatted: "\(level.emoji) \(ddLogMessage)",
+                    level: level.ddLevel,
+                    flag: level.ddFlag,
+                    context: 0,
+                    file: file,
+                    function: String(describing: function),
+                    line: line,
+                    tag: nil,
+                    options: [.dontCopyMessage],
+                    timestamp: nil
+                )
+            )
         }
         
         let mainCategory: String = (categories.first?.rawValue ?? "General")
@@ -730,7 +820,7 @@ public actor Logger: LoggerType {
         }
         
         #if DEBUG
-        systemLogger?.log(level, logMessage)
+        systemLogger?.log(level, consoleLogMessage)
         #endif
     }
 }
@@ -858,6 +948,8 @@ extension Log.Level: FeatureOption {
 // MARK: - AllLoggingCategories
 
 public struct AllLoggingCategories: FeatureOption {
+    public static let allCases: [AllLoggingCategories] = []
+    @ThreadSafeObject private static var registeredGroupDefaults: Set<Log.Group> = []
     @ThreadSafeObject private static var registeredCategoryDefaults: Set<Log.Category> = []
     
     // MARK: - Initialization
@@ -865,7 +957,21 @@ public struct AllLoggingCategories: FeatureOption {
     public let rawValue: Int
 
     public init(rawValue: Int) {
-        self.rawValue = -1      // `0` is a protected value so can't use it
+        _ = Log.Category.default    // Access the `default` log category to ensure it exists
+        self.rawValue = -1          // `0` is a protected value so can't use it
+    }
+    
+    fileprivate static func register(group: Log.Group) {
+        guard
+            !registeredGroupDefaults.contains(where: { existingGroup in
+                /// **Note:** We only want to use the `rawValue` to distinguish between logging categories
+                /// as the `defaultLevel` can change via the dev settings and any additional metadata could
+                /// be file/class specific
+                group.name == existingGroup.name
+            })
+        else { return }
+        
+        _registeredGroupDefaults.performUpdate { $0.inserting(group) }
     }
     
     fileprivate static func register(category: Log.Category) {
@@ -881,8 +987,19 @@ public struct AllLoggingCategories: FeatureOption {
         _registeredCategoryDefaults.performUpdate { $0.inserting(category) }
     }
     
+    fileprivate static func existingGroup(for name: String) -> Log.Group? {
+        return AllLoggingCategories.registeredGroupDefaults.first(where: { $0.name == name })
+    }
+    
     fileprivate static func existingCategory(for cat: String) -> Log.Category? {
         return AllLoggingCategories.registeredCategoryDefaults.first(where: { $0.rawValue == cat })
+    }
+    
+    public func currentValues(using dependencies: Dependencies) -> [Log.Group: Log.Level] {
+        return AllLoggingCategories.registeredGroupDefaults
+            .reduce(into: [:]) { result, group in
+                result[group] = dependencies[feature: .logLevel(group: group)]
+            }
     }
     
     public func currentValues(using dependencies: Dependencies) -> [Log.Category: Log.Level] {

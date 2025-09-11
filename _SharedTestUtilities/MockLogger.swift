@@ -29,7 +29,7 @@ public actor MockLogger: LoggerType {
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     ) {

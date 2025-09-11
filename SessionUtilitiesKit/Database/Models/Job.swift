@@ -11,25 +11,6 @@ public protocol UniqueHashable {
 
 public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "job" }
-    internal static let dependencyForeignKey = ForeignKey([Columns.id], to: [JobDependencies.Columns.dependantId])
-    public static let dependantJobDependency = hasMany(
-        JobDependencies.self,
-        using: JobDependencies.jobForeignKey
-    )
-    public static let dependancyJobDependency = hasMany(
-        JobDependencies.self,
-        using: JobDependencies.dependantForeignKey
-    )
-    internal static let jobsThisJobDependsOn = hasMany(
-        Job.self,
-        through: dependantJobDependency,
-        using: JobDependencies.dependant
-    )
-    internal static let jobsThatDependOnThisJob = hasMany(
-        Job.self,
-        through: dependancyJobDependency,
-        using: JobDependencies.job
-    )
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -243,22 +224,6 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     /// Extra data which can be attached to a job that doesn't get persisted to the database (generally used for running
     /// a job directly which may need some special behaviour)
     public let transientData: Any?
-    
-    /// The other jobs which this job is dependant on
-    ///
-    /// **Note:** When completing a job the dependencies **MUST** be cleared before the job is
-    /// deleted or it will automatically delete any dependant jobs
-    public var dependencies: QueryInterfaceRequest<Job> {
-        request(for: Job.jobsThisJobDependsOn)
-    }
-    
-    /// The other jobs which depend on this job
-    ///
-    /// **Note:** When completing a job the dependencies **MUST** be cleared before the job is
-    /// deleted or it will automatically delete any dependant jobs
-    public var dependantJobs: QueryInterfaceRequest<Job> {
-        request(for: Job.jobsThatDependOnThisJob)
-    }
     
     // MARK: - Initialization
     
@@ -609,7 +574,9 @@ extension Job {
         }
         
         if !includeJobsWithDependencies {
-            query = query.having(Job.jobsThisJobDependsOn.isEmpty)
+            let dependencySubquery: QueryInterfaceRequest<JobDependencies> = JobDependencies
+                .filter(JobDependencies.Columns.jobId == Job.Columns.id)
+            query = query.filter(!dependencySubquery.exists())
         }
         
         return query

@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: Request - OpenGroupAPI
@@ -14,22 +14,28 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
-        authMethod: AuthenticationMethod
+        category: Network.RequestCategory = .standard,
+        authMethod: AuthenticationMethod,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        overallTimeout: TimeInterval? = nil
     ) throws {
         guard case .community(let server, let publicKey, _, _, _) = authMethod.info else {
             throw CryptoError.signatureGenerationFailed
         }
         
-        self = try Request(
+        self = Request(
             endpoint: endpoint,
-            destination: try .server(
+            destination: .server(
                 method: method,
                 server: server,
                 queryParameters: queryParameters,
                 headers: headers,
                 x25519PublicKey: publicKey
             ),
-            body: body
+            body: body,
+            category: category,
+            requestTimeout: requestTimeout,
+            overallTimeout: overallTimeout
         )
     }
 }

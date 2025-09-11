@@ -193,7 +193,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         }
     }
     
-    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable] {
         return [
             NotificationUserInfoKey.threadId: threadId,
             NotificationUserInfoKey.threadVariantRaw: threadVariant.rawValue

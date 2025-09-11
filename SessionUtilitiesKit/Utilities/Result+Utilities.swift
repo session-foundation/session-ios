@@ -16,11 +16,4 @@ public extension Result where Failure == Error {
         
         return self
     }
-    
-    func successOrThrow() throws -> Success {
-        switch self {
-            case .success(let value): return value
-            case .failure(let error): throw error
-        }
-    }
 }

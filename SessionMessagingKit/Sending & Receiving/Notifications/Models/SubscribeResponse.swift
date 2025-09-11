@@ -4,7 +4,7 @@ import Foundation
 
 public extension PushNotificationAPI {
     struct SubscribeResponse: Codable {
-        struct SubResponse: Codable {
+        public struct SubResponse: Codable {
             /// Flag indicating the success of the registration
             let success: Bool?
             
@@ -31,6 +31,10 @@ public extension PushNotificationAPI {
         }
         
         let subResponses: [SubResponse]
+        
+        public init(subResponses: [SubResponse]) {
+            self.subResponses = subResponses
+        }
         
         public init(from decoder: Decoder) throws {
             guard

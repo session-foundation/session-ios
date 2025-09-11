@@ -3,19 +3,14 @@
 import Foundation
 import Combine
 import SessionUtilitiesKit
-
-// MARK: - MockError
-
-public enum MockError: Error {
-    case mockedData
-}
+import TestUtilities
 
 // MARK: - Mock<T>
 
 public class Mock<T>: DependenciesSettable, InitialSetupable {
     private var _dependencies: Dependencies!
-    private let functionHandler: MockFunctionHandler
-    internal let functionConsumer: FunctionConsumer
+    private let functionHandler: MockFunctionHandler_Old
+    internal let functionConsumer: FunctionConsumer_Old
     
     public var dependencies: Dependencies { _dependencies }
     private var initialSetup: ((Mock<T>) -> ())?
@@ -23,10 +18,10 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
     // MARK: - Initialization
     
     internal required init(
-        functionHandler: MockFunctionHandler? = nil,
+        functionHandler: MockFunctionHandler_Old? = nil,
         initialSetup: ((Mock<T>) -> ())? = nil
     ) {
-        self.functionConsumer = FunctionConsumer()
+        self.functionConsumer = FunctionConsumer_Old()
         self.functionHandler = (functionHandler ?? self.functionConsumer)
         self.initialSetup = initialSetup
     }
@@ -39,12 +34,12 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
     
     // MARK: - InitialSetupable
     
-    func performInitialSetup() {
+    public func performInitialSetup() {
         self.initialSetup?(self)
         self.initialSetup = nil
     }
     
-    // MARK: - MockFunctionHandler
+    // MARK: - MockFunctionHandler_Old
     
     @discardableResult internal func mock<Output>(funcName: String = #function, generics: [Any.Type] = [], args: [Any?] = [], untrackedArgs: [Any?] = []) -> Output {
         return functionHandler.mock(
@@ -113,27 +108,27 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
     }
     
     internal func removeMocksFor<R>(_ callBlock: @escaping (inout T) throws -> R) {
-        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
+        let builder: MockFunctionBuilder_Old<T, R> = MockFunctionBuilder_Old(callBlock, mockInit: type(of: self).init)
         functionConsumer.removeBuilder(builder.build)
     }
     
-    internal func when<R>(_ callBlock: @escaping (inout T) throws -> R) -> MockFunctionBuilder<T, R> {
-        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
+    internal func when<R>(_ callBlock: @escaping (inout T) throws -> R) -> MockFunctionBuilder_Old<T, R> {
+        let builder: MockFunctionBuilder_Old<T, R> = MockFunctionBuilder_Old(callBlock, mockInit: type(of: self).init)
         functionConsumer.addBuilder(builder.build)
         
         return builder
     }
     
-    internal func when<R>(_ callBlock: @escaping (inout T) async throws -> R) -> MockFunctionBuilder<T, R> {
-        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(callBlock, mockInit: type(of: self).init)
+    internal func when<R>(_ callBlock: @escaping (inout T) async throws -> R) -> MockFunctionBuilder_Old<T, R> {
+        let builder: MockFunctionBuilder_Old<T, R> = MockFunctionBuilder_Old(callBlock, mockInit: type(of: self).init)
         functionConsumer.addBuilder(builder.build)
         
         return builder
     }
     
     internal func allCalls<R>(_ functionBlock: @escaping (inout T) async throws -> R) -> [CallDetails]? {
-        let maybeTargetFunction: MockFunction? = try? MockFunctionBuilder.mockFunctionWith(self, functionBlock)
-        let key: FunctionConsumer.Key = FunctionConsumer.Key(
+        let maybeTargetFunction: MockFunction? = try? MockFunctionBuilder_Old.mockFunctionWith(self, functionBlock)
+        let key: FunctionConsumer_Old.Key = FunctionConsumer_Old.Key(
             name: (maybeTargetFunction?.name ?? ""),
             generics: (maybeTargetFunction?.generics ?? []),
             paramCount: (maybeTargetFunction?.parameterCount ?? 0)
@@ -155,10 +150,9 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
     }
     
     private func summary(for argument: Any) -> String {
-        if
-            let customDescribable: CustomArgSummaryDescribable = argument as? CustomArgSummaryDescribable,
-            let customArgSummaryDescribable: String = customDescribable.customArgSummaryDescribable
-        { return customArgSummaryDescribable }
+        if let customSummary: String = (argument as? ArgumentDescribing)?.summary {
+            return customSummary
+        }
         
         switch argument {
             case let string as String: return string
@@ -269,9 +263,9 @@ public class Mock<T>: DependenciesSettable, InitialSetupable {
     }
 }
 
-// MARK: - MockFunctionHandler
+// MARK: - MockFunctionHandler_Old
 
-protocol MockFunctionHandler {
+protocol MockFunctionHandler_Old {
     func mock<Output>(
         _ functionName: String,
         parameterCount: Int,
@@ -380,11 +374,11 @@ internal class MockFunction {
     }
 }
 
-// MARK: - MockFunctionBuilder
+// MARK: - MockFunctionBuilder_Old
 
-internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
+internal class MockFunctionBuilder_Old<T, R>: MockFunctionHandler_Old {
     private let callBlock: (inout T) async throws -> R
-    private let mockInit: (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>
+    private let mockInit: (MockFunctionHandler_Old?, ((Mock<T>) -> ())?) -> Mock<T>
     private var functionName: String?
     private var parameterCount: Int?
     private var parameterSummary: String?
@@ -405,7 +399,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - Initialization
     
-    init(_ callBlock: @escaping (inout T) async throws -> R, mockInit: @escaping (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>) {
+    init(_ callBlock: @escaping (inout T) async throws -> R, mockInit: @escaping (MockFunctionHandler_Old?, ((Mock<T>) -> ())?) -> Mock<T>) {
         self.callBlock = callBlock
         self.mockInit = mockInit
     }
@@ -414,11 +408,11 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         _ validInstance: M,
         _ functionBlock: @escaping (inout T) async throws -> R
     ) throws -> MockFunction? where M: Mock<T> {
-        let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(functionBlock, mockInit: type(of: validInstance).init)
+        let builder: MockFunctionBuilder_Old<T, R> = MockFunctionBuilder_Old(functionBlock, mockInit: type(of: validInstance).init)
         builder.returnValueGenerator = { name, generics, parameterCount, parameterSummary, allParameterSummaryCombinations in
             validInstance.functionConsumer
                 .firstFunction(
-                    for: FunctionConsumer.Key(name: name, generics: generics, paramCount: parameterCount),
+                    for: FunctionConsumer_Old.Key(name: name, generics: generics, paramCount: parameterCount),
                     matchingParameterSummaryIfPossible: parameterSummary,
                     allParameterSummaryCombinations: allParameterSummaryCombinations
                 )?
@@ -431,25 +425,25 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     // MARK: - Behaviours
     
     /// Closure parameter is an array of arguments called by the function
-    @discardableResult func then(_ block: @escaping ([Any?]) -> Void) -> MockFunctionBuilder<T, R> {
+    @discardableResult func then(_ block: @escaping ([Any?]) -> Void) -> MockFunctionBuilder_Old<T, R> {
         actions.append({ args, _ in block(args) })
         return self
     }
     
     /// Closure parameter is an array of arguments called by the function
-    @discardableResult func then(_ block: @escaping ([Any?]) async -> Void) -> MockFunctionBuilder<T, R> {
+    @discardableResult func then(_ block: @escaping ([Any?]) async -> Void) -> MockFunctionBuilder_Old<T, R> {
         asyncActions.append({ args, _ in await block(args) })
         return self
     }
     
     /// Closure parameters are an array of arguments, followed by an array of "untracked" arguments called by the function
-    @discardableResult func then(_ block: @escaping ([Any?], [Any?]) -> Void) -> MockFunctionBuilder<T, R> {
+    @discardableResult func then(_ block: @escaping ([Any?], [Any?]) -> Void) -> MockFunctionBuilder_Old<T, R> {
         actions.append(block)
         return self
     }
     
     /// Closure parameters are an array of arguments, followed by an array of "untracked" arguments called by the function
-    @discardableResult func then(_ block: @escaping ([Any?], [Any?]) async -> Void) -> MockFunctionBuilder<T, R> {
+    @discardableResult func then(_ block: @escaping ([Any?], [Any?]) async -> Void) -> MockFunctionBuilder_Old<T, R> {
         asyncActions.append(block)
         return self
     }
@@ -475,7 +469,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         returnError = error
     }
     
-    // MARK: - MockFunctionHandler
+    // MARK: - MockFunctionHandler_Old
     
     func mock<Output>(
         _ functionName: String,
@@ -563,11 +557,11 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
                 guard
                     let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
                     let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
-                else { throw MockError.mockedData }
+                else { throw MockError.mock }
                 
                 return convertedValue
             
-            default: return try Optional<Any>.none as? Output ?? { throw MockError.mockedData }()
+            default: return try Optional<Any>.none as? Output ?? { throw MockError.mock }()
         }
     }
     
@@ -646,7 +640,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
 
 // MARK: - Combine Convenience
 
-extension MockFunctionBuilder {
+extension MockFunctionBuilder_Old {
     func thenReturn<Element>(_ value: [Element]) where R == AnyPublisher<[Element], Never> {
         returnValue = Just(value)
             .setFailureType(to: Never.self)
@@ -672,23 +666,15 @@ extension MockFunctionBuilder {
     }
 }
 
-// MARK: - DependenciesSettable
-
-protocol DependenciesSettable {
-    var dependencies: Dependencies { get }
-    
-    func setDependencies(_ dependencies: Dependencies?)
-}
-
 // MARK: - InitialSetupable
 
 protocol InitialSetupable {
     func performInitialSetup()
 }
 
-// MARK: - FunctionConsumer
+// MARK: - FunctionConsumer_Old
 
-internal class FunctionConsumer: MockFunctionHandler {
+internal class FunctionConsumer_Old: MockFunctionHandler_Old {
     internal struct Key: Equatable, Hashable {
         let name: String
         let paramCount: Int
@@ -893,12 +879,12 @@ internal class FunctionConsumer: MockFunctionHandler {
                 guard
                     let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
                     let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
-                else { throw MockError.mockedData }
+                else { throw MockError.mock }
                 
                 return convertedValue
                 
             case (_, _, .some(let closure)): return closure(args, untrackedArgs) as! Output
-            default: return try Optional<Any>.none as? Output ?? { throw MockError.mockedData }()
+            default: return try Optional<Any>.none as? Output ?? { throw MockError.mock }()
         }
     }
     
@@ -1000,7 +986,7 @@ internal class FunctionConsumer: MockFunctionHandler {
 
 // MARK: - Conversion Convenience
 
-private extension MockFunctionHandler {
+private extension MockFunctionHandler_Old {
     func convertNumeric(_ value: Any, to type: any Numeric.Type) -> (any Numeric)? {
         switch (value, type) {
             case (let x as any BinaryInteger, is Int64.Type): return Int64(x)
@@ -1034,10 +1020,4 @@ private extension MockFunctionHandler {
             default: return nil
         }
     }
-}
-
-// MARK: - CustomArgSummaryDescribable
-
-protocol CustomArgSummaryDescribable {
-    var customArgSummaryDescribable: String? { get }
 }

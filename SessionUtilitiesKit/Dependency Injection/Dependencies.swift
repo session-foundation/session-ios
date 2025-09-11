@@ -5,7 +5,7 @@
 import Foundation
 import Combine
 
-public class Dependencies {
+public class Dependencies: FeatureStorageType {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "session.dependencies.codingOptions")!
     
     /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
@@ -13,15 +13,15 @@ public class Dependencies {
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
-    private typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
-    private let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
+    fileprivate typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
+    fileprivate let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
 
     // MARK: - Subscript Access
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I { getOrCreate(cache).immutable(cache: cache, using: self) }
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType { getOrCreate(defaults) }
-    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(using: self) }
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(in: self) }
     
     // MARK: - Global Values, Timing and Async Handling
     
@@ -117,7 +117,18 @@ public class Dependencies {
     
     // MARK: - Instance management
     
-    public func warmCache<M, I>(cache: CacheConfig<M, I>) {
+    public func has<S>(singleton: SingletonConfig<S>) -> Bool {
+        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.singleton
+            .key(singleton.identifier)
+        
+        return (_storage.performMap({ $0.instances[key]?.value(as: S.self) }) != nil)
+    }
+    
+    public func warm<S>(singleton: SingletonConfig<S>) {
+        _ = getOrCreate(singleton)
+    }
+    
+    public func warm<M, I>(cache: CacheConfig<M, I>) {
         _ = getOrCreate(cache)
     }
     
@@ -128,6 +139,10 @@ public class Dependencies {
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
         let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
         setValue(value, typedStorage: .cache(value), key: cache.identifier)
+    }
+    
+    public func remove<S>(singleton: SingletonConfig<S>) {
+        removeValue(singleton.identifier, of: .singleton)
     }
     
     public func remove<M, I>(cache: CacheConfig<M, I>) {
@@ -156,6 +171,19 @@ public class Dependencies {
     
     public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async throws {
         try await waitUntilInitialised(targetKey: DependencyStorage.Key.Variant.cache.key(cache.identifier))
+    }
+    
+    // MARK: - FeatureStorageType
+
+    public var hardfork: Int { self[defaults: .standard, key: .hardfork] }
+    public var softfork: Int { self[defaults: .standard, key: .hardfork] }
+    
+    public func rawFeatureValue(forKey defaultName: String) -> Any? {
+        return self[defaults: .appGroup].object(forKey: defaultName)
+    }
+    
+    public func storeFeatureValue(_ value: Any?, forKey defaultName: String) {
+        return self[defaults: .appGroup].set(value, forKey: defaultName)
     }
 }
 
@@ -196,7 +224,7 @@ public extension Dependencies {
             typedValue?.value(as: Feature<T>.self) ??
             feature.createInstance(self)
         )
-        instance.setValue(to: updatedFeature, using: self)
+        instance.setValue(to: updatedFeature, in: self)
         setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
         
         /// Notify observers
@@ -214,13 +242,11 @@ public extension Dependencies {
         _storage.perform { storage in
             storage.instances[key]?
                 .value(as: Feature<T>.self)?
-                .setValue(to: nil, using: self)
+                .setValue(to: nil, in: self)
         }
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
-        
-        Task { await dependencyChangeStream.send((key, nil)) }
         notifyAsync(events: [
             ObservedEvent(key: .feature(feature), value: nil),
             ObservedEvent(key: .featureGroup(feature), value: nil)
@@ -443,5 +469,51 @@ private extension Dependencies.DependencyStorage {
                 return (.feature(instance), instance)
             }
         }
+    }
+}
+
+// MARK: - Async/Await
+
+public extension Dependencies {
+    private func stream<T>(key: DependencyStorage.Key, initialValueRetriever: () -> T?) -> AsyncStream<T> {
+        return AsyncStream { continuation in
+            if let initialValue: T = initialValueRetriever() {
+                continuation.yield(initialValue)
+            }
+            
+            let observationTask = Task { [weak self] in
+                guard let self else { return continuation.finish() }
+                
+                for await (changedKey, changedValue) in self.dependencyChangeStream.stream {
+                    guard changedKey == key else { continue }
+                    
+                    if let newInstance = changedValue?.value(as: T.self) {
+                        continuation.yield(newInstance)
+                    }
+                }
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                observationTask.cancel()
+            }
+        }
+    }
+    
+    func stream<S>(singleton: SingletonConfig<S>) -> AsyncStream<S> {
+        let key = DependencyStorage.Key.Variant.singleton.key(singleton.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[singleton: singleton] })
+    }
+    
+    func stream<M, I>(cache: CacheConfig<M, I>) -> AsyncStream<I> {
+        let key = DependencyStorage.Key.Variant.cache.key(cache.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[cache: cache] })
+    }
+    
+    func stream<T: FeatureOption>(feature: FeatureConfig<T>) -> AsyncStream<T> {
+        let key = DependencyStorage.Key.Variant.feature.key(feature.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[feature: feature] })
     }
 }

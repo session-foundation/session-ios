@@ -41,6 +41,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
     var progressiveSearchTimer: Timer?
     
+    private var networkObservationTask: Task<Void, Never>?
     private var disposables: Set<AnyCancellable> = Set()
 
     // MARK: - Initialization
@@ -64,6 +65,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
     deinit {
         NotificationCenter.default.removeObserver(self)
 
+        networkObservationTask?.cancel()
         progressiveSearchTimer?.invalidate()
     }
 
@@ -104,13 +106,12 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
         createViews()
         
-        dependencies[cache: .libSessionNetwork].networkStatus
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(receiveValue: { [weak self] _ in
+        networkObservationTask = Task { [weak self, dependencies] in
+            for await status in dependencies[singleton: .network].networkStatus {
                 // Prod cells to try to load when connectivity changes.
                 self?.ensureCellState()
-            })
-            .store(in: &disposables)
+            }
+        }
 
         NotificationCenter.default.addObserver(
             self,

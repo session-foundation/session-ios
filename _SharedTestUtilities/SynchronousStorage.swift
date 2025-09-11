@@ -2,60 +2,17 @@
 
 import Combine
 import GRDB
+import TestUtilities
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
-    public var dependencies: Dependencies
-    private let initialData: ((ObservingDatabase) throws -> ())?
+class SynchronousStorage: Storage {
+    public let dependencies: Dependencies
     
-    public init(
-        customWriter: DatabaseWriter? = nil,
-        migrationTargets: [MigratableTarget.Type]? = nil,
-        migrations: [Storage.KeyedMigration]? = nil,
-        using dependencies: Dependencies,
-        initialData: ((ObservingDatabase) throws -> ())? = nil
-    ) {
+    public override init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.initialData = initialData
         
         super.init(customWriter: customWriter, using: dependencies)
-        
-        // Process any migration targets first
-        if let migrationTargets: [MigratableTarget.Type] = migrationTargets {
-            perform(
-                migrationTargets: migrationTargets,
-                async: false,
-                onProgressUpdate: nil,
-                onComplete: { _ in }
-            )
-        }
-        
-        // Then process any provided migration info
-        if let migrations: [Storage.KeyedMigration] = migrations {
-            perform(
-                sortedMigrations: migrations,
-                async: false,
-                onProgressUpdate: nil,
-                onComplete: { _ in }
-            )
-        }
-    }
-    
-    // MARK: - DependenciesSettable
-    
-    func setDependencies(_ dependencies: Dependencies?) {
-        guard let dependencies: Dependencies = dependencies else { return }
-        
-        self.dependencies = dependencies
-    }
-    
-    // MARK: - InitialSetupable
-    
-    func performInitialSetup() {
-        guard let closure: ((ObservingDatabase) throws -> ()) = initialData else { return }
-        
-        write { db in try closure(db) }
     }
     
     // MARK: - Overwritten Functions
