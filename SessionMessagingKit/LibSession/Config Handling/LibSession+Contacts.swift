@@ -512,7 +512,8 @@ internal extension LibSession {
                     try cache.updateProfile(
                         displayName: updatedUserProfile.name,
                         displayPictureUrl: updatedUserProfile.displayPictureUrl,
-                        displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey
+                        displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey,
+                        isReupload: (updatedUserProfile.profileLastUpdated == dependencies[cache: .libSession].lastReuploadDisplayPictureTimestamp)
                     )
                 }
             }

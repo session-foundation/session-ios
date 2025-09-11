@@ -85,7 +85,6 @@ public extension Profile {
                             displayNameUpdate: displayNameUpdate,
                             displayPictureUpdate: displayPictureUpdate,
                             profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
-                            isReuploadingCurrentUserProfilePicture: false,
                             using: dependencies
                         )
                         Log.info(.profile, "Successfully updated user profile.")
@@ -95,10 +94,15 @@ public extension Profile {
                 
             case .currentUserUploadImageData(let data, let isReupload):
                 return dependencies[singleton: .displayPictureManager]
-                    .prepareAndUploadDisplayPicture(imageData: data)
+                    .prepareAndUploadDisplayPicture(imageData: data, compression: !isReupload)
                     .mapError { $0 as Error }
                     .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
-                        let profileUpdateTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        let profileUpdateTimestamp: TimeInterval = dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                        if isReupload {
+                            dependencies.mutate(cache: .libSession) {
+                                $0.setLastReuploadDisplayPictureTimestamp(timestamp: profileUpdateTimestamp)
+                            }
+                        }
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
@@ -109,8 +113,7 @@ public extension Profile {
                                 filePath: result.filePath,
                                 sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() }
                             ),
-                            profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
-                            isReuploadingCurrentUserProfilePicture: isReupload,
+                            profileUpdateTimestamp: profileUpdateTimestamp,
                             using: dependencies
                         )
                         
@@ -135,7 +138,6 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
         profileUpdateTimestamp: TimeInterval,
-        isReuploadingCurrentUserProfilePicture: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
@@ -216,7 +218,7 @@ public extension Profile {
         }
         
         // Persist any changes
-        if !profileChanges.isEmpty || isReuploadingCurrentUserProfilePicture {
+        if !profileChanges.isEmpty {
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
             try profile.upsert(db)
