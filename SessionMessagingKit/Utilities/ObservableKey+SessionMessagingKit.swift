@@ -11,6 +11,8 @@ public extension ObservableKey {
     static func setting(_ key: Setting.BoolKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     static func setting(_ key: Setting.EnumKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     
+    static func setting(_ key: KeyValueStore.IntKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
+    
     static func loadPage(_ screenType: Any.Type) -> ObservableKey {
         ObservableKey("loadPage-\(screenType)", .loadPage)
     }

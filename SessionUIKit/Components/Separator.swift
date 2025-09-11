@@ -25,7 +25,7 @@ public final class Separator: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result = UILabel()
-        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.font = Fonts.Body.baseRegular
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         
@@ -72,8 +72,8 @@ public final class Separator: UIView {
         titleLabel.center(.vertical, in: self)
         roundedLine.pin(.top, to: .top, of: self)
         roundedLine.pin(.top, to: .top, of: titleLabel, withInset: -6)
-        roundedLine.pin(.leading, to: .leading, of: titleLabel, withInset: -10)
-        roundedLine.pin(.trailing, to: .trailing, of: titleLabel, withInset: 10)
+        roundedLine.pin(.leading, to: .leading, of: titleLabel, withInset: -30)
+        roundedLine.pin(.trailing, to: .trailing, of: titleLabel, withInset: 30)
         roundedLine.pin(.bottom, to: .bottom, of: titleLabel, withInset: 6)
         roundedLine.pin(.bottom, to: .bottom, of: self)
         leftLine.pin(.leading, to: .leading, of: self)

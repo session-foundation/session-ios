@@ -178,7 +178,7 @@ public enum ThemeManager {
         // Will use the 'primary' style for all other cases
         guard
             let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
-            let navigationBackground: ThemeValue = (navController.viewControllers.first as? ThemedNavigation)?.navigationBackground
+            let navigationBackground: ThemeValue = (viewController as? ThemedNavigation)?.navigationBackground
         else { return }
         
         let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentTheme, with: primaryColor)

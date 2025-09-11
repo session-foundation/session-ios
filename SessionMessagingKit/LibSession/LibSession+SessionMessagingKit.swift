@@ -744,7 +744,7 @@ public extension LibSession {
                                     
                                 case .contacts(let conf):
                                     return try LibSession
-                                        .extractContacts(from: conf, serverTimestampMs: -1, using: dependencies)
+                                        .extractContacts(from: conf, using: dependencies)
                                         .reduce(into: [:]) { result, next in
                                             result[.contact(next.key)] = next.value.contact
                                             result[.profile(next.key)] = next.value.profile
@@ -794,16 +794,14 @@ public extension LibSession {
                         try handleUserProfileUpdate(
                             db,
                             in: config,
-                            oldState: oldState,
-                            serverTimestampMs: latestServerTimestampMs
+                            oldState: oldState
                         )
                         
                     case .contacts:
                         try handleContactsUpdate(
                             db,
                             in: config,
-                            oldState: oldState,
-                            serverTimestampMs: latestServerTimestampMs
+                            oldState: oldState
                         )
                         
                     case .convoInfoVolatile:
@@ -815,8 +813,7 @@ public extension LibSession {
                     case .userGroups:
                         try handleUserGroupsUpdate(
                             db,
-                            in: config,
-                            serverTimestampMs: latestServerTimestampMs
+                            in: config
                         )
                         
                     case .groupInfo:
