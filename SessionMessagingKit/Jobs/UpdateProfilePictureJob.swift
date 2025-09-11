@@ -44,7 +44,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
             let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
                 .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                 .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
-                .map { .currentUserUploadImageData(data: $0)}
+                .map { .currentUserUploadImageData(data: $0, isReupload: true)}
                 .defaulting(to: .none)
             
             Profile

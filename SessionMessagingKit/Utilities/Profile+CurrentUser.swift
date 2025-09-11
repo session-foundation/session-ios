@@ -85,6 +85,7 @@ public extension Profile {
                             displayNameUpdate: displayNameUpdate,
                             displayPictureUpdate: displayPictureUpdate,
                             profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
+                            isReuploadingCurrentUserProfilePicture: false,
                             using: dependencies
                         )
                         Log.info(.profile, "Successfully updated user profile.")
@@ -92,7 +93,7 @@ public extension Profile {
                     .mapError { _ in DisplayPictureError.databaseChangesFailed }
                     .eraseToAnyPublisher()
                 
-            case .currentUserUploadImageData(let data):
+            case .currentUserUploadImageData(let data, let isReupload):
                 return dependencies[singleton: .displayPictureManager]
                     .prepareAndUploadDisplayPicture(imageData: data)
                     .mapError { $0 as Error }
@@ -109,6 +110,7 @@ public extension Profile {
                                 sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() }
                             ),
                             profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
+                            isReuploadingCurrentUserProfilePicture: isReupload,
                             using: dependencies
                         )
                         
@@ -133,6 +135,7 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
         profileUpdateTimestamp: TimeInterval,
+        isReuploadingCurrentUserProfilePicture: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
@@ -213,7 +216,7 @@ public extension Profile {
         }
         
         // Persist any changes
-        if !profileChanges.isEmpty {
+        if !profileChanges.isEmpty || isReuploadingCurrentUserProfilePicture {
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
             try profile.upsert(db)
