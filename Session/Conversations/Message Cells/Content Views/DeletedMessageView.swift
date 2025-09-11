@@ -31,19 +31,15 @@ final class DeletedMessageView: UIView {
     }
     
     private func setUpViewHierarchy(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
-        // Image view
-        let imageContainerView: UIView = UIView()
-        imageContainerView.set(.width, to: DeletedMessageView.iconImageViewSize)
-        imageContainerView.set(.height, to: DeletedMessageView.iconImageViewSize)
+        let trashIcon = Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?
+            .withRenderingMode(.alwaysTemplate)
         
-        let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
+        let imageView = UIImageView(image: trashIcon)
         imageView.themeTintColor = textColor
         imageView.alpha = Values.highOpacity
         imageView.contentMode = .scaleAspectFit
         imageView.set(.width, to: DeletedMessageView.iconSize)
         imageView.set(.height, to: DeletedMessageView.iconSize)
-        imageContainerView.addSubview(imageView)
-        imageView.center(in: imageContainerView)
         
         // Body label
         let titleLabel = UILabel()
@@ -64,9 +60,13 @@ final class DeletedMessageView: UIView {
         titleLabel.numberOfLines = 2
         
         // Stack view
-        let stackView = UIStackView(arrangedSubviews: [ imageContainerView, titleLabel ])
+        let stackView = UIStackView(arrangedSubviews: [
+            imageView,
+            titleLabel
+        ])
         stackView.axis = .horizontal
         stackView.alignment = .center
+        stackView.spacing = Values.smallSpacing
         stackView.isLayoutMarginsRelativeArrangement = true
         stackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 6)
         addSubview(stackView)
