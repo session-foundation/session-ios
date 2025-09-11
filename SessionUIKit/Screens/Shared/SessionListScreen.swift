@@ -81,7 +81,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         .padding(.horizontal, Values.mediumSpacing)
                                 }
                                 case .logoWithPro:
-                                    ListItemLogWithPro()
+                                    ListItemLogoWithPro()
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(info: info)
                                         .background(

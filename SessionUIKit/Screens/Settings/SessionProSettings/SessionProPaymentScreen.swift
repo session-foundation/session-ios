@@ -34,7 +34,9 @@ public struct SessionProPaymentScreen: View {
         GeometryReader { geometry in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: Values.mediumSmallSpacing) {
-                    ListItemLogWithPro()
+                    ListItemLogoWithPro(
+                        style: [.refund, .cancel].contains(dataModel.flow) ? .disabled : .normal
+                    )
                     
                     if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow {
                         if originatingPlatform == .iOS {

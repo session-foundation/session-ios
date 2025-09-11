@@ -89,7 +89,7 @@ struct ListItemCell: View {
     }
 }
 
-struct ListItemLogWithPro: View {
+struct ListItemLogoWithPro: View {
     enum ThemeStyle {
         case normal
         case disabled
