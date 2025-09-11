@@ -752,7 +752,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 }
                             
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(data: imageData),
+                                    displayPictureUpdate: .currentUserUploadImageData(data: imageData, isReupload: false),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                             

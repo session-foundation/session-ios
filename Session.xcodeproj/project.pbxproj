@@ -10423,7 +10423,7 @@
 			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
 			requirement = {
 				kind = exactVersion;
-				version = 1.5.2;
+				version = 1.5.5;
 			};
 		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {

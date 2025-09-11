@@ -11,7 +11,8 @@ internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
         Profile.Columns.name,
         Profile.Columns.displayPictureUrl,
-        Profile.Columns.displayPictureEncryptionKey
+        Profile.Columns.displayPictureEncryptionKey,
+        Profile.Columns.profileLastUpdated
     ]
     
     static let syncedSettings: [String] = [
@@ -25,8 +26,7 @@ internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        oldState: [ObservableKey: Any],
-        serverTimestampMs: Int64
+        oldState: [ObservableKey: Any]
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .userProfile(let conf) = config else {
@@ -39,10 +39,12 @@ internal extension LibSessionCacheType {
         let profileName: String = String(cString: profileNamePtr)
         let displayPic: user_profile_pic = user_profile_get_pic(conf)
         let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
+        let profileLastUpdateTimestamp: TimeInterval = TimeInterval(user_profile_get_profile_updated(conf))
         let updatedProfile: Profile = Profile(
             id: userSessionId.hexString,
             name: profileName,
-            displayPictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.displayPictureUrl
+            displayPictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.displayPictureUrl,
+            profileLastUpdated: profileLastUpdateTimestamp
         )
         
         if let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile {
@@ -74,7 +76,7 @@ internal extension LibSessionCacheType {
                     sessionProProof: getCurrentUserProProof() // TODO: double check if this is needed after Pro Proof is implemented
                 )
             }(),
-            profileUpdateTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
+            profileUpdateTimestamp: profileLastUpdateTimestamp,
             using: dependencies
         )
         
@@ -234,7 +236,13 @@ public extension LibSession.Cache {
         var profilePic: user_profile_pic = user_profile_pic()
         profilePic.set(\.url, to: displayPictureUrl)
         profilePic.set(\.key, to: displayPictureEncryptionKey)
-        user_profile_set_pic(conf, profilePic)
+        let isReupload: Bool = (displayPictureUrl != oldDisplayPictureUrl)
+        if isReupload {
+            user_profile_set_reupload_pic(conf, profilePic)
+        } else {
+            user_profile_set_pic(conf, profilePic)
+        }
+        
         try LibSessionError.throwIfNeeded(conf)
         
         /// Add a pending observation to notify any observers of the change once it's committed

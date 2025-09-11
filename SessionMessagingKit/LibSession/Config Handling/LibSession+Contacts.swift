@@ -37,8 +37,7 @@ internal extension LibSessionCacheType {
     func handleContactsUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        oldState: [ObservableKey: Any],
-        serverTimestampMs: Int64
+        oldState: [ObservableKey: Any]
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .contacts(let conf) = config else {
@@ -49,7 +48,6 @@ internal extension LibSessionCacheType {
         // actually a bug)
         let targetContactData: [String: ContactData] = try LibSession.extractContacts(
             from: conf,
-            serverTimestampMs: serverTimestampMs,
             using: dependencies
         ).filter { $0.key != userSessionId.hexString }
         
@@ -850,7 +848,6 @@ internal struct ContactData {
 internal extension LibSession {
     static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
-        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws -> [String: ContactData] {
         var infiniteLoopGuard: Int = 0
