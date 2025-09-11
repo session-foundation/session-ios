@@ -203,7 +203,7 @@
 		94AAB1602E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94B6BAF62E30A88800E718BB /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAF52E30A88800E718BB /* SessionProState.swift */; };
-		94B6BAFE2E39F51800E718BB /* UserProfileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAFD2E39F50E00E718BB /* UserProfileModel.swift */; };
+		94B6BAFE2E39F51800E718BB /* UserProfileModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */; };
 		94B6BB002E3AE83C00E718BB /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAFF2E3AE83500E718BB /* QRCodeView.swift */; };
 		94B6BB022E3AE85C00E718BB /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BB012E3AE85800E718BB /* QRCode.swift */; };
 		94B6BB042E3B208C00E718BB /* Seperator+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BB032E3B208200E718BB /* Seperator+SwiftUI.swift */; };
@@ -1586,7 +1586,7 @@
 		94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTA.webp; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94B6BAF52E30A88800E718BB /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
-		94B6BAFD2E39F50E00E718BB /* UserProfileModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileModel.swift; sourceTree = "<group>"; };
+		94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileModal.swift; sourceTree = "<group>"; };
 		94B6BAFF2E3AE83500E718BB /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		94B6BB012E3AE85800E718BB /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
 		94B6BB032E3B208200E718BB /* Seperator+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Seperator+SwiftUI.swift"; sourceTree = "<group>"; };
@@ -2853,7 +2853,7 @@
 				94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */,
 				94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */,
 				94AAB14C2E1F39AB00A6FA18 /* ProCTAModal.swift */,
-				94B6BAFD2E39F50E00E718BB /* UserProfileModel.swift */,
+				94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */,
 				94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */,
 				FD8A5B1F2DC03332004C689B /* AdaptiveText.swift */,
 				FD8A5B212DC0489B004C689B /* AdaptiveHStack.swift */,
@@ -6171,7 +6171,7 @@
 				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,
 				942256942C23F8DD00C0FDBF /* ActivityView.swift in Sources */,
 				FD42ECD22E3071DE002D03EA /* ThemeText.swift in Sources */,
-				94B6BAFE2E39F51800E718BB /* UserProfileModel.swift in Sources */,
+				94B6BAFE2E39F51800E718BB /* UserProfileModal.swift in Sources */,
 				FD52090328B4680F006098F6 /* RadioButton.swift in Sources */,
 				94B6BB022E3AE85C00E718BB /* QRCode.swift in Sources */,
 				C331FFE82558FB0000070591 /* SNTextView.swift in Sources */,

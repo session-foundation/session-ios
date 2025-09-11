@@ -325,6 +325,8 @@ public struct UserProfileModal: View {
     }
     
     private func copySessionId(_ sessionId: String) {
+        guard !isSessionIdCopied else { return }
+        
         UIPasteboard.general.string = sessionId
         
         // Ensure we are on the main thread just in case
@@ -332,7 +334,8 @@ public struct UserProfileModal: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 isSessionIdCopied.toggle()
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(4250)) {
+            // 4 seconds delay + the animation duration above
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4) + .milliseconds(250)) {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     isSessionIdCopied.toggle()
                 }
