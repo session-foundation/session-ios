@@ -298,7 +298,16 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 font: .title,
                                 accessibility: Accessibility(
                                     identifier: "Contact"
-                                )
+                                ),
+                                extraViewGenerator: (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: memberInfo.profile) }) ?
+                                    {
+                                        let result: UIView = UIView()
+                                        let probadge: SessionProBadge = SessionProBadge(size: .small)
+                                        result.addSubview(probadge)
+                                        probadge.pin(to: result, withInset: 4)
+                                        return result
+                                    }
+                                    : nil
                             ),
                             subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(
                                 memberInfo.value.statusDescription,

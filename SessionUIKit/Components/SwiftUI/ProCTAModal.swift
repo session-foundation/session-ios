@@ -8,9 +8,9 @@ public struct ProCTAModal: View {
     public enum Variant {
         case generic
         case longerMessages
-        case animatedProfileImage
+        case animatedProfileImage(isSessionProActivated: Bool)
         case morePinnedConvos(isGrandfathered: Bool)
-        case groupLimit(isAdmin: Bool)
+        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool)
 
         // stringlint:ignore_contents
         public var backgroundImageName: String {
@@ -20,19 +20,36 @@ public struct ProCTAModal: View {
                 case .longerMessages:
                     return "HigherCharLimitCTA.webp"
                 case .animatedProfileImage:
-                    return "session_pro_modal_background_animated_profile_image"
+                    return "AnimatedProfileCTA.webp"
                 case .morePinnedConvos:
                     return "PinnedConversationsCTA.webp"
-                case .groupLimit(let isAdmin):
-                    return isAdmin ? "" : ""
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    switch (isAdmin, isSessionProActivated) {
+                        case (false, false):
+                            return "GroupNonAdminCTA.webp"
+                        default:
+                            return "GroupAdminCTA.webp"
+                    }
             }
         }
         // stringlint:ignore_contents
         public var animatedAvatarImageURL: URL? {
             switch self {
-                case .generic:
-                    return Bundle.main.url(forResource: "GenericCTAAnimation", withExtension: "webp")
+                case .generic, .animatedProfileImage:
+                    return Bundle.main.url(forResource: "AnimatedProfileCTAAnimationCropped", withExtension: "webp")
                 default: return nil
+            }
+        }
+        /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
+        /// animated webp. These coordinates are based on the full size image and get scaled during rendering based on the actual size
+        /// of the modal.
+        public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
+            switch self {
+                case .generic:
+                return (1313.5, 753)
+                case .animatedProfileImage:
+                return (690, 363)
+                default: return (0, 0)
             }
         }
 
@@ -47,10 +64,12 @@ public struct ProCTAModal: View {
                     return "proCallToActionLongerMessages"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .localized()
-                case .animatedProfileImage:
-                    return "proAnimatedDisplayPictureCallToActionDescription"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .localized()
+                case .animatedProfileImage(let isSessionProActivated):
+                    return isSessionProActivated ?
+                        "proAnimatedDisplayPicture".localized() :
+                        "proAnimatedDisplayPictureCallToActionDescription"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
                 case .morePinnedConvos(let isGrandfathered):
                     return isGrandfathered ?
                         "proCallToActionPinnedConversations"
@@ -59,11 +78,19 @@ public struct ProCTAModal: View {
                         "proCallToActionPinnedConversationsMoreThan"
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localized()
-                case .groupLimit:
-                    return "proUserProfileModalCallToAction"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "app_name", value: Constants.app_name)
-                        .localized()
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    switch (isAdmin, isSessionProActivated) {
+                        case (_, true):
+                            return "proGroupActivatedDescription".localized()
+                        case (true, false):
+                            return "proUserProfileModalCallToAction"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized()
+                        case (false, false):
+                            return "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro" // TODO: Localised
+                    }
+                    
             }
         }
         
@@ -93,18 +120,22 @@ public struct ProCTAModal: View {
                         "proFeatureListLargerGroups".localized(),
                         "proFeatureListLoadsMore".localized()
                     ]
-                case .groupLimit(let isAdmin):
-                    return !isAdmin ? [] :
-                        [
-                            "proFeatureListLargerGroups".localized(),
-                            "proFeatureListLongerMessages".localized(),
-                            "proFeatureListLoadsMore".localized()
-                        ]
+                case .groupLimit(let isAdmin, let isSessionProActivated):
+                    switch (isAdmin, isSessionProActivated) {
+                        case (true, false):
+                            return [
+                                "proFeatureListLargerGroups".localized(),
+                                "proFeatureListLongerMessages".localized(),
+                                "proFeatureListLoadsMore".localized()
+                            ]
+                        default: return []
+                    }
             }
         }
     }
     
     @EnvironmentObject var host: HostWrapper
+    @State var proCTAImageHeight: CGFloat = 0
     
     private var delegate: SessionProManagerType?
     private let variant: ProCTAModal.Variant
@@ -137,29 +168,45 @@ public struct ProCTAModal: View {
             afterClosed: afterClosed
         ) { close in
             VStack(spacing: 0) {
+                // Background images
                 ZStack {
-                    SessionAsyncImage(
-                        source: (
-                            variant.animatedAvatarImageURL.map { .url($0) } ??
-                            .image(
-                                variant.backgroundImageName,
-                                UIImage(named: variant.backgroundImageName) ??
-                                UIImage()
+                    if let animatedAvatarImageURL = variant.animatedAvatarImageURL {
+                        GeometryReader { geometry in
+                            let size: CGFloat = geometry.size.width / 1522.0 * 187.0
+                            let scale: CGFloat = geometry.size.width / 1522.0
+                            SessionAsyncImage(
+                                source: .url(animatedAvatarImageURL),
+                                dataManager: dataManager,
+                                content: { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(1, contentMode: .fit)
+                                        .frame(width: size, height: size)
+                                },
+                                placeholder: {
+                                    if let data = try? Data(contentsOf: animatedAvatarImageURL) {
+                                        Image(uiImage: UIImage(data: data) ?? UIImage())
+                                            .resizable()
+                                            .aspectRatio(1, contentMode: .fit)
+                                            .frame(width: size, height: size)
+                                    } else {
+                                        EmptyView()
+                                    }
+                                }
                             )
-                        ),
-                        dataManager: dataManager,
-                        content: { image in
-                            image
-                                .resizable()
-                                .aspectRatio((1522.0/1258.0), contentMode: .fit)
-                                .frame(maxWidth: .infinity)
-                        },
-                        placeholder: {
-                            ThemeColor(.alert_background)
-                                .aspectRatio((1522.0/1258.0), contentMode: .fit)
-                                .frame(maxWidth: .infinity)
+                            .padding(.leading, variant.animatedAvatarImagePadding.leading * scale)
+                            .padding(.top, variant.animatedAvatarImagePadding.top * scale)
+                            .onAppear {
+                                proCTAImageHeight = geometry.size.width / 1522.0 * 1258.0
+                            }
                         }
-                    )
+                        .frame(height: proCTAImageHeight)
+                    }
+                    
+                    Image(uiImage: UIImage(named: variant.backgroundImageName) ?? UIImage())
+                        .resizable()
+                        .aspectRatio((1522.0/1258.0), contentMode: .fit)
+                        .frame(maxWidth: .infinity)
                 }
                 .backgroundColor(themeColor: .primary)
                 .overlay(alignment: .bottom, content: {
@@ -180,82 +227,138 @@ public struct ProCTAModal: View {
                     maxWidth: .infinity,
                     alignment: .bottom
                 )
-            
+                // Content
                 VStack(spacing: Values.largeSpacing) {
                     // Title
-                    HStack(spacing: Values.smallSpacing) {
-                        Text("upgradeTo".localized())
-                            .font(.system(size: Values.largeFontSize))
-                            .bold()
-                            .foregroundColor(themeColor: .textPrimary)
-                        
-                        SessionProBadge_SwiftUI(size: .large)
+                    if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated {
+                        HStack(spacing: Values.smallSpacing) {
+                            SessionProBadge_SwiftUI(size: .large)
+                            
+                            Text("proActivated".localized())
+                                .font(.Headings.H4)
+                                .foregroundColor(themeColor: .textPrimary)
+                        }
+                    } else if case .groupLimit(_, let isSessionProActivated) = variant, isSessionProActivated {
+                        HStack(spacing: Values.smallSpacing) {
+                            SessionProBadge_SwiftUI(size: .large)
+                            
+                            Text("proGroupActivated".localized())
+                                .font(.Headings.H4)
+                                .foregroundColor(themeColor: .textPrimary)
+                        }
+                    } else {
+                        HStack(spacing: Values.smallSpacing) {
+                            Text("upgradeTo".localized())
+                                .font(.Headings.H4)
+                                .foregroundColor(themeColor: .textPrimary)
+                            
+                            SessionProBadge_SwiftUI(size: .large)
+                        }
                     }
+                    
                     // Description, Subtitle
-                    VStack(spacing: Values.smallSpacing) {
-                        Text(variant.subtitle)
-                            .font(.system(size: Values.smallFontSize))
-                            .foregroundColor(themeColor: .textSecondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    // Benefits
-                    VStack(alignment: .leading, spacing: Values.mediumSmallSpacing) {
-                        ForEach(
-                            0..<variant.benefits.count,
-                            id: \.self
-                        ) { index in
-                            HStack(spacing: Values.smallSpacing) {
-                                if index < variant.benefits.count - 1 {
-                                    AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
-                                        .font(.system(size: 17))
-                                        .foregroundColor(themeColor: .primary)
-                                } else {
-                                    CyclicGradientView {
-                                        AttributedText(Lucide.Icon.sparkles.attributedString(size: 17))
-                                            .font(.system(size: 17))
-                                    }
-                                }
+                    VStack(spacing: 0) {
+                        if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated {
+                            HStack(spacing: Values.verySmallSpacing) {
+                                Text("proAlreadyPurchased".localized())
+                                    .font(.Body.largeRegular)
+                                    .foregroundColor(themeColor: .textSecondary)
                                 
-                                Text(variant.benefits[index])
-                                    .font(.system(size: Values.smallFontSize))
-                                    .foregroundColor(themeColor: .textPrimary)
+                                SessionProBadge_SwiftUI(size: .medium)
+                            }
+                        }
+                        
+                        if
+                            case .groupLimit(_, let isSessionProActivated) = variant, isSessionProActivated,
+                            let proBadgeImage: UIImage = SessionProBadge(size: .small).toImage()
+                        {
+                            (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))").baselineOffset(-2))
+                                .font(.Body.largeRegular)
+                                .foregroundColor(themeColor: .textSecondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text(variant.subtitle)
+                                .font(.Body.largeRegular)
+                                .foregroundColor(themeColor: .textSecondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    
+                    // Benefits
+                    if !variant.benefits.isEmpty {
+                        VStack(alignment: .leading, spacing: Values.mediumSmallSpacing) {
+                            ForEach(
+                                0..<variant.benefits.count,
+                                id: \.self
+                            ) { index in
+                                HStack(spacing: Values.smallSpacing) {
+                                    if index < variant.benefits.count - 1 {
+                                        AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
+                                            .font(.system(size: 17))
+                                            .foregroundColor(themeColor: .primary)
+                                    } else {
+                                        CyclicGradientView {
+                                            AttributedText(Lucide.Icon.sparkles.attributedString(size: 17))
+                                                .font(.system(size: 17))
+                                        }
+                                    }
+                                    
+                                    Text(variant.benefits[index])
+                                        .font(.Body.largeRegular)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                }
                             }
                         }
                     }
+                    
                     // Buttons
-                    HStack(spacing: Values.smallSpacing) {
-                        if case .groupLimit(let isAdmin) = variant, !isAdmin {
-                            Button {
-                                close()
-                            } label: {
-                                GeometryReader { geometry in
+                    let onlyShowCloseButton: Bool = {
+                        if case .groupLimit(let isAdmin, let isSessionProActivated) = variant, (!isAdmin || isSessionProActivated) { return true }
+                        if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated { return true }
+                        return false
+                    }()
+                    
+                    if onlyShowCloseButton {
+                        GeometryReader { geometry in
+                            HStack {
+                                Button {
+                                    close(nil)
+                                } label: {
                                     Text("close".localized())
-                                        .font(.system(size: Values.mediumFontSize))
+                                        .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textPrimary)
-                                        .frame(
-                                            width: (geometry.size.width - Values.smallSpacing) / 2,
-                                            height: Values.largeButtonHeight
-                                        )
                                 }
-                                .frame(height: Values.largeButtonHeight)
+                                .frame(
+                                    width: (geometry.size.width - Values.smallSpacing) / 2,
+                                    height: Values.largeButtonHeight
+                                )
+                                .backgroundColor(themeColor: .inputButton_background)
+                                .cornerRadius(6)
+                                .clipped()
+                                .buttonStyle(PlainButtonStyle())
                             }
-                            .backgroundColor(themeColor: .inputButton_background)
-                            .cornerRadius(6)
-                            .clipped()
-                            .buttonStyle(PlainButtonStyle())
-                        } else {
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height,
+                                alignment: .center
+                            )
+                        }
+                        .frame(height: Values.largeButtonHeight)
+                    } else {
+                        HStack(spacing: Values.smallSpacing) {
                             // Upgrade Button
                             ShineButton {
                                 delegate?.upgradeToPro { result in
                                     if result {
                                         afterUpgrade?()
                                     }
-                                    close()
+                                    close(nil)
                                 }
                             } label: {
                                 Text("theContinue".localized())
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                     .framing(
                                         maxWidth: .infinity,
@@ -270,10 +373,10 @@ public struct ProCTAModal: View {
 
                             // Cancel Button
                             Button {
-                                close()
+                                close(nil)
                             } label: {
                                 Text("cancel".localized())
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                                     .framing(
                                         maxWidth: .infinity,
@@ -296,6 +399,7 @@ public struct ProCTAModal: View {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: AnyObject {
+    var isSessionProSubject: CurrentValueSubject<Bool, Never> { get }
     var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
 }

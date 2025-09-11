@@ -72,7 +72,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
     public let dependencies: Dependencies
     
-    public var isSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
+    public var isCurrentUserSessionPro: Bool { dependencies[cache: .libSession].isSessionPro }
     
     public let legacyGroupsBannerFont: UIFont = .systemFont(ofSize: Values.miniFontSize)
     public lazy var legacyGroupsBannerMessage: ThemedAttributedString = {
@@ -742,7 +742,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
             linkPreviewUrl: linkPreviewDraft?.urlString,
-            isProMessage: dependencies[cache: .libSession].isSessionPro,
+            isProMessage: (text.defaulting(to: "").utf16.count > LibSession.CharacterLimit),
             using: dependencies
         )
         let optimisticAttachments: [Attachment]? = attachments
@@ -772,6 +772,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             body: interaction.body,
             expiresStartedAtMs: interaction.expiresStartedAtMs,
             expiresInSeconds: interaction.expiresInSeconds,
+            isProMessage: interaction.isProMessage,
             isSenderModeratorOrAdmin: {
                 switch threadData.threadVariant {
                     case .group, .legacyGroup:

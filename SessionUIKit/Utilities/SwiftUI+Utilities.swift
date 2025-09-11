@@ -92,15 +92,17 @@ public struct MaxWidthEqualizer: ViewModifier {
 
 public struct Line: View {
     let color: ThemeValue
+    let lineWidth: CGFloat
     
-    public init(color: ThemeValue) {
+    public init(color: ThemeValue, lineWidth: CGFloat = 1) {
         self.color = color
+        self.lineWidth = lineWidth
     }
     
     public var body: some View {
         Rectangle()
             .fill(themeColor: color)
-            .frame(height: 1)
+            .frame(height: lineWidth)
     }
 }
 
