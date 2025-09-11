@@ -4,7 +4,7 @@ import SwiftUI
 import Lucide
 import Combine
 
-public struct UserProfileModel: View {
+public struct UserProfileModal: View {
     @EnvironmentObject var host: HostWrapper
     @State private var isProfileImageToggled: Bool = true
     @State private var isProfileImageExpanding: Bool = false
@@ -12,8 +12,8 @@ public struct UserProfileModel: View {
     @State private var isShowingTooltip: Bool = false
     @State private var tooltipContentFrame: CGRect = CGRect.zero
     
-    private let tooltipViewId: String = "UserProfileModelToolTip" // stringlint:ignore
-    private let coordinateSpaceName: String = "UserProfileModel" // stringlint:ignore
+    private let tooltipViewId: String = "UserProfileModalToolTip" // stringlint:ignore
+    private let coordinateSpaceName: String = "UserProfileModal" // stringlint:ignore
     
     private var info: Info
     private var dataManager: ImageDataManagerType
@@ -167,11 +167,12 @@ public struct UserProfileModel: View {
                         switch (info.sessionId, info.blindedId) {
                             case (.some(let sessionId), .none):
                                 return ("accountId".localized(), sessionId)
-                            case (.some(let sessionId), .some(_)):
+                            case (.some(let sessionId), .some):
                                 return ("accountId".localized(), sessionId.splitIntoLines(charactersForLines: [23, 23, 20]))
                             case (.none, .some(let blindedId)):
                                 return ("blindedId".localized(), blindedId)
-                            default : return ("", "") // Shouldn't happen
+                            case (.none, .none):
+                                return ("", "") // Shouldn't happen
                         }
                     }()
                     
@@ -375,11 +376,9 @@ public struct UserProfileModel: View {
         viewController.modalPresentationStyle = .fullScreen
         self.host.controller?.present(viewController, animated: true)
     }
-    
-    
 }
 
-public extension UserProfileModel {
+public extension UserProfileModal {
     struct Info {
         let sessionId: String?
         let blindedId: String?
@@ -415,25 +414,5 @@ public extension UserProfileModel {
             self.onStartThread = onStartThread
             self.onProBadgeTapped = onProBadgeTapped
         }
-    }
-}
-
-struct ConditionalTruncation: ViewModifier {
-    let shouldTruncate: Bool
-
-    func body(content: Content) -> some View {
-        if shouldTruncate {
-            content
-                .lineLimit(1)
-                .truncationMode(.middle)
-        } else {
-            content
-        }
-    }
-}
-
-extension View {
-    func shouldTruncate(_ condition: Bool) -> some View {
-        modifier(ConditionalTruncation(shouldTruncate: condition))
     }
 }

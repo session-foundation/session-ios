@@ -28,7 +28,9 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 Spacer()
                 
                 VStack(spacing: 0) {
-                    content { completion in close(completion: completion) }
+                    content { internalAfterClosed in
+                        close(internalAfterClosed)
+                    }
                 }
                 .backgroundColor(themeColor: .alert_background)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -56,14 +58,11 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                     }
                 }
         )
-        .onDisappear {
-            afterClosed?()
-        }
     }
 
     // MARK: - Dismiss Logic
 
-    private func close(completion: (() -> Void)? = nil) {
+    private func close(_ internalAfterClosed: (() -> Void)? = nil) {
         // Recursively dismiss all modals (ie. find the first modal presented by a non-modal
         // and get that to dismiss it's presented view controller)
         var targetViewController: UIViewController? = host.controller
@@ -76,7 +75,13 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 }
         }
         
-        targetViewController?.presentingViewController?.dismiss(animated: true, completion: completion)
+        targetViewController?.presentingViewController?.dismiss(
+            animated: true,
+            completion: {
+                afterClosed?()
+                internalAfterClosed?()
+            }
+        )
     }
 }
 

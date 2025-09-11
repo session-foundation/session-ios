@@ -85,14 +85,14 @@ public enum QRCode {
     ) -> UIImage {
         var backgroundColor: UIColor {
             switch themeStyle {
-                case .light: return #colorLiteral(red: 0.1058823529, green: 0.1058823529, blue: 0.1058823529, alpha: 1)
+            case .light: return .classicDark1
                 default: return .white
             }
         }
         var tintColor: UIColor {
             switch themeStyle {
                 case .light: return .white
-                default: return #colorLiteral(red: 0.1058823529, green: 0.1058823529, blue: 0.1058823529, alpha: 1)
+                default: return .classicDark1
             }
         }
         
