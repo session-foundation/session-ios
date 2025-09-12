@@ -282,3 +282,25 @@ public extension View {
         }
     }
 }
+
+// MARK: Conditional Truncation
+
+struct ConditionalTruncation: ViewModifier {
+    let shouldTruncate: Bool
+
+    func body(content: Content) -> some View {
+        if shouldTruncate {
+            content
+                .lineLimit(1)
+                .truncationMode(.middle)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func shouldTruncate(_ condition: Bool) -> some View {
+        modifier(ConditionalTruncation(shouldTruncate: condition))
+    }
+}
