@@ -35,6 +35,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
+        case customTTL
         case sessionPro
         case sessionNetwork
         case general
@@ -48,6 +49,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         var title: String? {
             switch self {
                 case .developerMode: return nil
+                case .customTTL: return "Custom TTL"
                 case .sessionPro: return "Session Pro"
                 case .sessionNetwork: return "Session Network"
                 case .general: return "General"
@@ -70,10 +72,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
-        
-        case enableSessionPro
-        case proStatus
-        case proIncomingMessages
         
         case versionBlindedID
         case scheduleLocalNotification
@@ -108,6 +106,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsAllowInviteById
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
+        
+        case shortenFileTTL
+        
+        case enableSessionPro
+        case proStatus
+        case proIncomingMessages
         
         case createMockContacts
         case forceSlowDatabaseQueries
@@ -154,6 +158,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .versionBlindedID: return "versionBlindedID"
                 case .scheduleLocalNotification: return "scheduleLocalNotification"
+                
+                case .shortenFileTTL: return "shortenFileTTL"
                 
                 case .enableSessionPro: return "enableSessionPro"
                 case .proStatus: return "proStatus"
@@ -209,6 +215,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .versionBlindedID: result.append(.versionBlindedID); fallthrough
                 case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
                 
+                case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
+                
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                 case .proStatus: result.append(.proStatus); fallthrough
                 case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
@@ -254,6 +262,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsAllowInviteById: Bool
         let updatedGroupsDeleteBeforeNow: Bool
         let updatedGroupsDeleteAttachmentsBeforeNow: Bool
+        
+        let shortenFileTTL: Bool
         
         let sessionProEnabled: Bool
         let mockCurrentUserSessionPro: Bool
@@ -311,6 +321,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById],
                 updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
                 updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow],
+                
+                shortenFileTTL: dependencies[feature: .shortenFileTTL],
                 
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
@@ -898,6 +910,26 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        let customTTL: SectionModel = SectionModel(
+            model: .customTTL,
+            elements: [
+                SessionCell.Info(
+                    id: .shortenFileTTL,
+                    title: "Shorten File TTL",
+                    subtitle: "Set the TTL for files in the cache to 1 minute",
+                    trailingAccessory: .toggle(
+                        current.shortenFileTTL,
+                        oldValue: previous?.shortenFileTTL
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .shortenFileTTL,
+                            to: !current.shortenFileTTL
+                        )
+                    }
+                )
+            ]
+        )
         let sessionPro: SectionModel = SectionModel(
             model: .sessionPro,
             elements: [
@@ -999,6 +1031,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             disappearingMessages,
             communities,
             groups,
+            customTTL,
             sessionPro,
             sessionNetwork,
             database
@@ -1121,6 +1154,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
+                
+                case .shortenFileTTL:
+                    guard dependencies.hasSet(feature: .shortenFileTTL) else { return }
+                    
+                    updateFlag(for: .shortenFileTTL, to: nil)
                 
                 case .enableSessionPro:
                     guard dependencies.hasSet(feature: .sessionProEnabled) else { return }
