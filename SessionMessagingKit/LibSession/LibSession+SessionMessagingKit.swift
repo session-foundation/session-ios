@@ -1038,10 +1038,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
+    
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?
+        displayPictureEncryptionKey: Data?,
+        isReuploadProfilePicture: Bool
     ) throws
     
     func canPerformChange(
@@ -1181,7 +1183,12 @@ public extension LibSessionCacheType {
     }
     
     func updateProfile(displayName: String) throws {
-        try updateProfile(displayName: displayName, displayPictureUrl: nil, displayPictureEncryptionKey: nil)
+        try updateProfile(
+            displayName: displayName,
+            displayPictureUrl: nil,
+            displayPictureEncryptionKey: nil,
+            isReuploadProfilePicture: false
+        )
     }
     
     var profile: Profile {
@@ -1316,7 +1323,8 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?
+        displayPictureEncryptionKey: Data?,
+        isReuploadProfilePicture: Bool
     ) throws {}
     
     func canPerformChange(
