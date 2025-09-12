@@ -505,19 +505,6 @@ internal extension LibSession {
                 existingContactIds.contains($0.id)
             }
         
-        // Update the user profile first (if needed)
-        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
-            try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                    try cache.updateProfile(
-                        displayName: updatedUserProfile.name,
-                        displayPictureUrl: updatedUserProfile.displayPictureUrl,
-                        displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey
-                    )
-                }
-            }
-        }
-        
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
                 try LibSession

@@ -182,7 +182,7 @@ public class DisplayPictureManager {
     
     // MARK: - Uploading
     
-    public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
+    public func prepareAndUploadDisplayPicture(imageData: Data, compression: Bool) -> AnyPublisher<UploadResult, DisplayPictureError> {
         return Just(())
             .setFailureType(to: DisplayPictureError.self)
             .tryMap { [dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data) in
@@ -223,7 +223,7 @@ public class DisplayPictureManager {
                         image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
                     }
                     
-                    guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
+                    guard let data: Data = image.jpegData(compressionQuality: (compression ? 0.95 : 1.0)) else {
                         Log.error(.displayPictureManager, "Updating service with profile failed.")
                         throw DisplayPictureError.writeFailed
                     }

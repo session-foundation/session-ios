@@ -1851,7 +1851,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     case .groupUploadImageData(let data):
                         /// Show a blocking loading indicator while uploading but not while updating or syncing the group configs
                         return dependencies[singleton: .displayPictureManager]
-                            .prepareAndUploadDisplayPicture(imageData: data)
+                            .prepareAndUploadDisplayPicture(imageData: data, compression: true)
                             .showingBlockingLoading(in: self?.navigatableState)
                             .map { url, filePath, key, _ -> DisplayPictureManager.Update in
                                 .groupUpdateTo(url: url, key: key, filePath: filePath)

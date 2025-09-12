@@ -33,7 +33,7 @@ public extension String {
 
         for count in charactersForLines {
             let end = self.index(start, offsetBy: count, limitedBy: self.endIndex) ?? self.endIndex
-            var line = String(self[start..<end])
+            let line = String(self[start..<end])
             result.append(line)
             start = end
             if start == self.endIndex { break }
