@@ -574,7 +574,7 @@ struct MessageInfoScreen: View {
         }()
         
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModel(
+            modal: UserProfileModal(
                 info: .init(
                     sessionId: sessionId,
                     blindedId: blindedId,
