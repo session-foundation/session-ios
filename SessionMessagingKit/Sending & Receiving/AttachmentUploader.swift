@@ -97,7 +97,7 @@ public final class AttachmentUploader {
                 return (
                     attachment,
                     try Network.PreparedRequest<FileUploadResponse>.cached(
-                        FileUploadResponse(id: fileId),
+                        FileUploadResponse(id: fileId, expires: nil),
                         endpoint: endpoint,
                         using: dependencies
                     ),
@@ -125,7 +125,7 @@ public final class AttachmentUploader {
                 return (
                     attachment,
                     try Network.PreparedRequest.cached(
-                        FileUploadResponse(id: fileId),
+                        FileUploadResponse(id: fileId, expires: nil),
                         endpoint: endpoint,
                         using: dependencies
                     ),

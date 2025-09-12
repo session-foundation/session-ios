@@ -25,38 +25,38 @@ public extension Log.Category {
 // MARK: - DisplayPictureManager
 
 public class DisplayPictureManager {
-    public typealias UploadResult = (downloadUrl: String, filePath: String, encryptionKey: Data)
+    public typealias UploadResult = (downloadUrl: String, filePath: String, encryptionKey: Data, expries: Date?)
     
     public enum Update {
         case none
         
         case contactRemove
-        case contactUpdateTo(url: String, key: Data, filePath: String)
+        case contactUpdateTo(url: String, key: Data, filePath: String, contactProProof: String?)
         
         case currentUserRemove
-        case currentUserUploadImageData(Data)
-        case currentUserUpdateTo(url: String, key: Data, filePath: String)
+        case currentUserUploadImageData(data: Data, isReupload: Bool)
+        case currentUserUpdateTo(url: String, key: Data, filePath: String, sessionProProof: String?)
         
         case groupRemove
         case groupUploadImageData(Data)
         case groupUpdateTo(url: String, key: Data, filePath: String)
         
         static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback, using: dependencies)
+            return from(profile.profilePictureUrl, key: profile.profileKey, contactProProof: profile.sessionProProof, fallback: fallback, using: dependencies)
         }
         
         public static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback, using: dependencies)
+            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, contactProProof: profile.sessionProProof, fallback: fallback, using: dependencies)
         }
         
-        static func from(_ url: String?, key: Data?, fallback: Update, using dependencies: Dependencies) -> Update {
+        static func from(_ url: String?, key: Data?, contactProProof: String?, fallback: Update, using dependencies: Dependencies) -> Update {
             guard
                 let url: String = url,
                 let key: Data = key,
                 let filePath: String = try? dependencies[singleton: .displayPictureManager].path(for: url)
             else { return fallback }
             
-            return .contactUpdateTo(url: url, key: key, filePath: filePath)
+            return .contactUpdateTo(url: url, key: key, filePath: filePath, contactProProof: contactProProof)
         }
     }
     
@@ -182,7 +182,7 @@ public class DisplayPictureManager {
     
     // MARK: - Uploading
     
-    public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
+    public func prepareAndUploadDisplayPicture(imageData: Data, compression: Bool) -> AnyPublisher<UploadResult, DisplayPictureError> {
         return Just(())
             .setFailureType(to: DisplayPictureError.self)
             .tryMap { [dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data) in
@@ -223,7 +223,7 @@ public class DisplayPictureManager {
                         image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
                     }
                     
-                    guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
+                    guard let data: Data = image.jpegData(compressionQuality: (compression ? 0.95 : 1.0)) else {
                         Log.error(.displayPictureManager, "Updating service with profile failed.")
                         throw DisplayPictureError.writeFailed
                     }
@@ -298,12 +298,13 @@ public class DisplayPictureManager {
                     }
                     .eraseToAnyPublisher()
             }
-            .tryMap { [dependencies] fileUploadResponse, temporaryFilePath, newEncryptionKey -> (String, String, Data) in
+            .tryMap { [dependencies] fileUploadResponse, temporaryFilePath, newEncryptionKey -> (String, Date?, String, Data) in
                 let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
+                let expries: Date? = fileUploadResponse.expires.map { Date(timeIntervalSince1970: $0)}
                 let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
                 try dependencies[singleton: .fileManager].moveItem(atPath: temporaryFilePath, toPath: finalFilePath)
                 
-                return (downloadUrl, finalFilePath, newEncryptionKey)
+                return (downloadUrl, expries, finalFilePath, newEncryptionKey)
             }
             .mapError { error in
                 Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
@@ -314,7 +315,7 @@ public class DisplayPictureManager {
                     default: return DisplayPictureError.uploadFailed
                 }
             }
-            .map { [dependencies] downloadUrl, finalFilePath, newEncryptionKey -> UploadResult in
+            .map { [dependencies] downloadUrl, expires, finalFilePath, newEncryptionKey -> UploadResult in
                 /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
                 Task(priority: .userInitiated) {
                     await dependencies[singleton: .imageDataManager].load(
@@ -323,7 +324,7 @@ public class DisplayPictureManager {
                 }
                 
                 Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
-                return (downloadUrl, finalFilePath, newEncryptionKey)
+                return (downloadUrl, finalFilePath, newEncryptionKey, expires)
             }
             .eraseToAnyPublisher()
     }
