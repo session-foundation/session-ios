@@ -62,6 +62,15 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         return result
     }()
 
+    private lazy var swipeGestureRecognizer: UISwipeGestureRecognizer = {
+        let result: UISwipeGestureRecognizer = UISwipeGestureRecognizer()
+        result.direction = .down
+        result.addTarget(self, action: #selector(didSwipeDown))
+        result.isEnabled = false
+        
+        return result
+    }()
+    
     private var bottomStackView: UIStackView?
     private lazy var attachmentsButton: ExpandingAttachmentsButton = {
         let result = ExpandingAttachmentsButton(delegate: delegate)
@@ -227,6 +236,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         autoresizingMask = .flexibleHeight
         
         addGestureRecognizer(tapGestureRecognizer)
+        addGestureRecognizer(swipeGestureRecognizer)
         
         // Background & blur
         let backgroundView = UIView()
@@ -454,6 +464,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         self.accessibilityIdentifier = updatedInputState.accessibility?.identifier
         self.accessibilityLabel = updatedInputState.accessibility?.label
         tapGestureRecognizer.isEnabled = (updatedInputState.allowedInputTypes == .none)
+        swipeGestureRecognizer.isEnabled = (updatedInputState.allowedInputTypes != .none)
         inputState = updatedInputState
         disabledInputLabel.text = (updatedInputState.message ?? "")
         disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier
@@ -629,6 +640,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     @objc private func characterLimitLabelTapped() {
         delegate?.handleCharacterLimitLabelTapped()
+    }
+    
+    @objc private func didSwipeDown() {
+        inputTextView.resignFirstResponder()
     }
 
     // MARK: - Convenience

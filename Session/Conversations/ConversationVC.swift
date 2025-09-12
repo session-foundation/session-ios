@@ -1567,7 +1567,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // value will break things)
         let tableViewBottom: CGFloat = (tableView.contentSize.height - tableView.bounds.height + tableView.contentInset.bottom)
         
-        if tableView.contentOffset.y < (tableViewBottom - 5) {
+        // Added `insetDifference > 0` to remove sudden table collapse and overscroll
+        if tableView.contentOffset.y < (tableViewBottom - 5) && insetDifference > 0 {
             tableView.contentOffset.y += insetDifference
         }
         
