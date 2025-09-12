@@ -196,7 +196,6 @@ public extension LibSession {
         public let userSessionId: SessionId
         public var isEmpty: Bool { configStore.isEmpty }
         public var allDumpSessionIds: Set<SessionId> { configStore.allIds }
-        public var lastReuploadDisplayPictureTimestamp: TimeInterval?
         
         // MARK: - Initialization
         
@@ -935,8 +934,6 @@ public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var allDumpSessionIds: Set<SessionId> { get }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
-    
-    var lastReuploadDisplayPictureTimestamp: TimeInterval? { get }
 }
 
 /// The majority `libSession` functions can only be accessed via the mutable cache because `libSession` isn't thread safe so if we try
@@ -1041,14 +1038,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
-    var lastReuploadDisplayPictureTimestamp: TimeInterval? { get }
-    func setLastReuploadDisplayPictureTimestamp(timestamp: TimeInterval)
     
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?,
-        isReupload: Bool
+        isReuploadProfilePicture: Bool
     ) throws
     
     func canPerformChange(
@@ -1192,7 +1187,7 @@ public extension LibSessionCacheType {
             displayName: displayName,
             displayPictureUrl: nil,
             displayPictureEncryptionKey: nil,
-            isReupload: false
+            isReuploadProfilePicture: false
         )
     }
     
@@ -1322,8 +1317,6 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     // MARK: - State Access
     
     var displayName: String? { return nil }
-    var lastReuploadDisplayPictureTimestamp: TimeInterval? { return nil }
-    func setLastReuploadDisplayPictureTimestamp(timestamp: TimeInterval) {}
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
@@ -1331,7 +1324,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
         displayName: String,
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?,
-        isReupload: Bool
+        isReuploadProfilePicture: Bool
     ) throws {}
     
     func canPerformChange(

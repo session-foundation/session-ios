@@ -98,11 +98,6 @@ public extension Profile {
                     .mapError { $0 as Error }
                     .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
                         let profileUpdateTimestamp: TimeInterval = dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
-                        if isReupload {
-                            dependencies.mutate(cache: .libSession) {
-                                $0.setLastReuploadDisplayPictureTimestamp(timestamp: profileUpdateTimestamp)
-                            }
-                        }
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
@@ -114,6 +109,7 @@ public extension Profile {
                                 sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() }
                             ),
                             profileUpdateTimestamp: profileUpdateTimestamp,
+                            isReuploadCurrentUserProfilePicture: isReupload,
                             using: dependencies
                         )
                         
@@ -138,6 +134,7 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
         profileUpdateTimestamp: TimeInterval,
+        isReuploadCurrentUserProfilePicture: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
@@ -230,6 +227,20 @@ public extension Profile {
                     profileChanges,
                     using: dependencies
                 )
+                
+            
+            if isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
+                        try cache.updateProfile(
+                            displayName: updatedProfile.name,
+                            displayPictureUrl: updatedProfile.displayPictureUrl,
+                            displayPictureEncryptionKey: updatedProfile.displayPictureEncryptionKey,
+                            isReuploadProfilePicture: isReuploadCurrentUserProfilePicture
+                        )
+                    }
+                }
+            }
         }
     }
 }

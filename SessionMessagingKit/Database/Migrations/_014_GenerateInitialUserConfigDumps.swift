@@ -65,7 +65,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             displayName: (userProfile?["name"] ?? ""),
             displayPictureUrl: userProfile?["profilePictureUrl"],
             displayPictureEncryptionKey: userProfile?["profileEncryptionKey"],
-            isReupload: false
+            isReuploadProfilePicture: false
         )
         
         try LibSession.updateNoteToSelf(

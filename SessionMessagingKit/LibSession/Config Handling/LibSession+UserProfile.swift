@@ -208,15 +208,11 @@ public extension LibSession.Cache {
         return String(cString: profileNamePtr)
     }
     
-    public func setLastReuploadDisplayPictureTimestamp(timestamp: TimeInterval) {
-        lastReuploadDisplayPictureTimestamp = timestamp
-    }
-    
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
         displayPictureEncryptionKey: Data?,
-        isReupload: Bool
+        isReuploadProfilePicture: Bool
     ) throws {
         guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
             throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: nil)
@@ -241,8 +237,7 @@ public extension LibSession.Cache {
         var profilePic: user_profile_pic = user_profile_pic()
         profilePic.set(\.url, to: displayPictureUrl)
         profilePic.set(\.key, to: displayPictureEncryptionKey)
-        let isReupload: Bool = (displayPictureUrl != oldDisplayPictureUrl)
-        if isReupload {
+        if isReuploadProfilePicture {
             user_profile_set_reupload_pic(conf, profilePic)
         } else {
             user_profile_set_pic(conf, profilePic)
