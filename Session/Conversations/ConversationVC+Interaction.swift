@@ -2257,8 +2257,12 @@ extension ConversationVC:
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
             
-            _ = self?.snInputView.becomeFirstResponder()
-            
+            if self?.checkIfEventWasTriggerWhileNotVisible() == true {
+                self?.hasPendingInputKeyboardPresentationEvent = true
+            } else {
+                _ = self?.snInputView.becomeFirstResponder()
+            }
+
             completion?()
         }
     }

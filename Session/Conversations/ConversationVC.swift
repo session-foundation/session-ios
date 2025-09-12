@@ -29,6 +29,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
     private var hasReloadedThreadDataAfterDisappearance: Bool = true
     
+    /// This flag indicates that a need for inputview keyboard presentation is needed, this is in events
+    /// where a delegate action is trigger before poping back into `ConversationVC`
+    var hasPendingInputKeyboardPresentationEvent: Bool = false
+    
     var focusedInteractionInfo: Interaction.TimestampInfo?
     var focusBehaviour: ConversationViewModel.FocusBehaviour = .none
     
@@ -581,6 +585,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self?.didFinishInitialLayout = true
             self?.viewIsAppearing = false
             self?.lastPresentedViewController = nil
+
+            // Show inputview keyboard
+            if self?.hasPendingInputKeyboardPresentationEvent == true {
+                self?.makeInputViewFirstResponder()
+                self?.hasPendingInputKeyboardPresentationEvent = false
+            }
         }
     }
 
@@ -1646,6 +1656,22 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.snInputView.text = self.snInputView.text
             completion?()
         }
+    }
+    
+    private func makeInputViewFirstResponder() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.inputAccessoryView?.becomeFirstResponder()
+        }
+    }
+    
+    func checkIfEventWasTriggerWhileNotVisible() -> Bool {
+        // Delegate reply action triggered by MessageInfoViewController
+        if let navigationStack = self.navigationController?.viewControllers {
+            if navigationStack.contains(where: { $0 is ConversationVC }) && navigationStack.last is MessageInfoViewController {
+                return true
+            }
+        }
+        return false
     }
 
     // MARK: - UITableViewDataSource
