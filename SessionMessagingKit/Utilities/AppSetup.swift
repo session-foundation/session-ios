@@ -96,7 +96,7 @@ public enum AppSetup {
             )
             
             Task.detached(priority: .medium) {
-                dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
+                await dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
                     userSessionId: userInfo.sessionId,
                     allDumpSessionIds: userInfo.dumpSessionIds
                 )

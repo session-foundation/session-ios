@@ -278,23 +278,3 @@ protocol DependenciesSettable {
     
     func setDependencies(_ dependencies: Dependencies?)
 }
-
-// MARK: - TestState Convenience
-
-internal extension TestState {
-    init<S>(
-        wrappedValue: @escaping @autoclosure () -> T?,
-        singleton: SingletonConfig<S>,
-        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
-    ) {
-        self.init(wrappedValue: {
-            let dependencies: TestDependencies? = dependenciesRetriever()
-            let value: T? = wrappedValue()
-            (value as? DependenciesSettable)?.setDependencies(dependencies)
-            dependencies?[singleton: singleton] = (value as! S)
-            (value as? (any InitialSetupable))?.performInitialSetup()
-            
-            return value
-        }())
-    }
-}

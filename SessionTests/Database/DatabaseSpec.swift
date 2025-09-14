@@ -23,13 +23,11 @@ class DatabaseSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var libSessionCache: LibSession.Cache! = LibSession.Cache(
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
@@ -62,9 +60,13 @@ class DatabaseSpec: AsyncSpec {
         }
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            try await mockFileManager.defaultInitialSetup()
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
             
             dependencies.set(cache: .libSession, to: libSessionCache)
         }

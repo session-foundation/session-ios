@@ -175,7 +175,7 @@ final class PathVC: BaseVC {
                     switch path.category {
                         case .standard: return true
                         case .download, .upload: return false
-                        case .none:
+                        case .none, .invalid:
                             guard let pubkey: String = path.destinationPubkey else {
                                 return false
                             }

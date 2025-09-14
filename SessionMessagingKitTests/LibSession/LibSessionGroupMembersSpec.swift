@@ -21,29 +21,16 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
@@ -64,12 +51,24 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                    using: dependencies
                 )
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             
             var conf: UnsafeMutablePointer<config_object>!
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
             _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
             
-            mockLibSessionCache.defaultInitialSetup(
+            try await mockLibSessionCache.defaultInitialSetup(
                 configs: [
                     .userGroups: .userGroups(conf),
                     .groupInfo: createGroupOutput.groupState[.groupInfo],
@@ -115,7 +114,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         try createGroupOutput.group.insert(db)
                         try createGroupOutput.members.forEach { try $0.insert(db) }
                     }
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
                     createGroupOutput.groupState[.groupMembers]?.conf.map {
                         var cMemberId: [CChar] = "05\(TestConstants.publicKey)".cString(using: .utf8)!
                         var member: config_group_member = config_group_member()
@@ -130,7 +129,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if there are no changes
                 it("does nothing if there are no changes") {
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                     
                     mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(

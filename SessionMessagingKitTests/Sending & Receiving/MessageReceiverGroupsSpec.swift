@@ -94,8 +94,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 )
                             }
                             
-                            expect(fixture.mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            await fixture.mockJobRunner
+                                .verify {
                                     $0.add(
                                         .any,
                                         job: Job(
@@ -113,7 +113,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                         ),
                                         canStartJob: true
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                         
                         // MARK: ------ schedules but does not start a displayPictureDownload job when not the main app
@@ -137,8 +138,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 )
                             }
                             
-                            expect(fixture.mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            await fixture.mockJobRunner
+                                .verify {
                                     $0.add(
                                         .any,
                                         job: Job(
@@ -156,7 +157,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                         ),
                                         canStartJob: false
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                     }
                 }
@@ -220,7 +222,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- from a sender that is not approved
                 context("from a sender that is not approved") {
                     beforeEach {
-                        fixture.mockLibSessionCache
+                        try await fixture.mockLibSessionCache
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(true)
                         fixture.mockStorage.write { db in
@@ -300,7 +302,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         try await fixture.mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                             .thenReturn(true)
-                        fixture.mockLibSessionCache
+                        try await fixture.mockLibSessionCache
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(true)
                         
@@ -345,7 +347,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- from a sender that is approved
                 context("from a sender that is approved") {
                     beforeEach {
-                        fixture.mockLibSessionCache
+                        try await fixture.mockLibSessionCache
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(false)
                         fixture.mockStorage.write { db in
@@ -379,7 +381,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ creates the group state
                     it("creates the group state") {
-                        fixture.mockLibSessionCache
+                        try await fixture.mockLibSessionCache
                             .when { $0.hasConfig(for: .any, sessionId: .any) }
                             .thenReturn(false)
                         fixture.mockStorage.write { db in
@@ -394,18 +396,15 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) {
-                                $0.setConfig(for: .groupInfo, sessionId: fixture.groupId, to: .any)
-                            })
-                        expect(fixture.mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) {
-                                $0.setConfig(for: .groupMembers, sessionId: fixture.groupId, to: .any)
-                            })
-                        expect(fixture.mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) {
-                                $0.setConfig(for: .groupKeys, sessionId: fixture.groupId, to: .any)
-                            })
+                        await fixture.mockLibSessionCache
+                            .verify { $0.setConfig(for: .groupInfo, sessionId: fixture.groupId, to: .any) }
+                            .wasCalled(exactly: 1)
+                        await fixture.mockLibSessionCache
+                            .verify { $0.setConfig(for: .groupMembers, sessionId: fixture.groupId, to: .any) }
+                            .wasCalled(exactly: 1)
+                        await fixture.mockLibSessionCache
+                            .verify { $0.setConfig(for: .groupKeys, sessionId: fixture.groupId, to: .any) }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ adds the group to USER_GROUPS with the invited flag set to false
@@ -833,13 +832,14 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             using: fixture.dependencies
                         )
                     }
-                    
-                    expect(fixture.mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.loadAdminKey(
-                            groupIdentitySeed: fixture.groupSeed,
-                            groupSessionId: SessionId(.group, publicKey: [1, 2, 3])
-                        )
-                    })
+                    await fixture.mockLibSessionCache
+                        .verify {
+                            try $0.loadAdminKey(
+                                groupIdentitySeed: fixture.groupSeed,
+                                groupSessionId: SessionId(.group, publicKey: [1, 2, 3])
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- replaces the memberAuthData with the admin key in the database
@@ -1660,8 +1660,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockJobRunner)
-                            .to(call(matchingParameters: .all) {
+                        await fixture.mockJobRunner
+                            .verify {
                                 $0.add(
                                     .any,
                                     job: Job(
@@ -1673,7 +1673,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                     ),
                                     canStartJob: true
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ does not schedule a member change control message to be sent
@@ -1690,8 +1691,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockJobRunner)
-                            .toNot(call(.exactly(times: 1), matchingParameters: .all) {
+                        await fixture.mockJobRunner
+                            .verify {
                                 $0.add(
                                     .any,
                                     job: Job(
@@ -1717,7 +1718,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                     ),
                                     canStartJob: true
                                 )
-                            })
+                            }
+                            .wasNotCalled()
                     }
                 }
             }
@@ -2800,10 +2802,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(fixture.mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.removeConfigs(for: fixture.groupId)
-                        })
+                    await fixture.mockLibSessionCache
+                        .verify { $0.removeConfigs(for: fixture.groupId) }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- removes the cached libSession state dumps
@@ -2817,10 +2818,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(fixture.mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.removeConfigs(for: fixture.groupId)
-                        })
+                    await fixture.mockLibSessionCache
+                        .verify { $0.removeConfigs(for: fixture.groupId) }
+                        .wasCalled(exactly: 1)
                     
                     let dumps: [ConfigDump]? = fixture.mockStorage.read { db in
                         try ConfigDump
@@ -3027,9 +3027,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(fixture.mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                            try $0.markAsKicked(groupSessionIds: [fixture.groupId.hexString])
-                        })
+                        await fixture.mockLibSessionCache
+                            .verify { try $0.markAsKicked(groupSessionIds: [fixture.groupId.hexString]) }
+                            .wasCalled(exactly: 1)
                     }
                 }
                 
@@ -3251,17 +3251,17 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         }
     }
     var mockNetwork: MockNetwork { mock(for: .network) }
-    var mockJobRunner: MockJobRunner { mock(for: .jobRunner) { MockJobRunner() } }
+    var mockJobRunner: MockJobRunner { mock(for: .jobRunner) }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     var mockKeychain: MockKeychain { mock(for: .keychain) }
-    var mockFileManager: MockFileManager { mock(for: .fileManager) { MockFileManager() } }
+    var mockFileManager: MockFileManager { mock(for: .fileManager) }
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) }
     var mockGroupPollerManager: MockGroupPollerManager { mock(for: .groupPollerManager) }
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
-    var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) { MockLibSessionCache() } }
+    var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
     var mockSnodeAPICache: MockSnodeAPICache { mock(cache: .snodeAPI) }
     var mockPoller: MockPoller { mock() }
     
@@ -3536,17 +3536,17 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     private func applyBaselineStubs() async throws {
         try await applyBaselineStorage()
         try await applyBaselineNetwork()
-        await applyBaselineJobRunner()
+        try await applyBaselineJobRunner()
         try await applyBaselineAppContext()
         try await applyBaselineUserDefaults()
         try await applyBaselineCrypto()
         try await applyBaselineKeychain()
-        await applyBaselineFileManager()
+        try await applyBaselineFileManager()
         try await applyBaselineExtensionHelper()
         try await applyBaselineGroupPollerManager()
         try await applyBaselineNotificationsManager()
         try await applyBaselineGeneralCache()
-        await applyBaselineLibSessionCache()
+        try await applyBaselineLibSessionCache()
         try await applyBaselineSnodeAPICache()
         try await applyBaselinePoller()
     }
@@ -3609,11 +3609,19 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             ])
     }
     
-    private func applyBaselineJobRunner() async {
-        mockJobRunner.when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }.thenReturn([:])
-        mockJobRunner.when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }.thenReturn(nil)
-        mockJobRunner.when { $0.upsert(.any, job: .any, canStartJob: .any) }.thenReturn(nil)
-        mockJobRunner.when { $0.manuallyTriggerResult(.any, result: .any) }.thenReturn(())
+    private func applyBaselineJobRunner() async throws {
+        try await mockJobRunner
+            .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+            .thenReturn([:])
+        try await mockJobRunner
+            .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+            .thenReturn(nil)
+        try await mockJobRunner
+            .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+            .thenReturn(nil)
+        try await mockJobRunner
+            .when { $0.manuallyTriggerResult(.any, result: .any) }
+            .thenReturn(())
     }
     
     private func applyBaselineAppContext() async throws {
@@ -3674,8 +3682,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
     }
     
-    private func applyBaselineFileManager() async {
-        mockFileManager.defaultInitialSetup()
+    private func applyBaselineFileManager() async throws {
+        try await mockFileManager.defaultInitialSetup()
     }
     
     private func applyBaselineExtensionHelper() async throws {
@@ -3707,8 +3715,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
     }
     
-    private func applyBaselineLibSessionCache() async {
-        mockLibSessionCache.defaultInitialSetup(
+    private func applyBaselineLibSessionCache() async throws {
+        try await mockLibSessionCache.defaultInitialSetup(
             configs: [
                 .userGroups: userGroupsConfig,
                 .convoInfoVolatile: convoInfoVolatileConfig,

@@ -13,7 +13,7 @@ class GeneralCacheSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         
         beforeEach {
             try await mockCrypto
@@ -27,6 +27,7 @@ class GeneralCacheSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                 .thenReturn(Array(Data(hex: TestConstants.publicKey)))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
         }
         
         // MARK: - a General Cache

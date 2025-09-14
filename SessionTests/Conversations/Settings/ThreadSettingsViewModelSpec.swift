@@ -28,26 +28,14 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             dependencies[singleton: .scheduler] = .immediate
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
@@ -84,11 +72,10 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         }
 
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             var timestampMs: Int64 = 1234567890000
@@ -113,10 +100,23 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 try Profile(id: userPubkey, name: "TestMe").insert(db)
                 try Profile(id: user2Pubkey, name: "TestUser").insert(db)
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             
             try await mockCrypto
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
         }
 
         // MARK: - a ThreadSettingsViewModel
@@ -742,8 +742,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             onChange2?("TestNewGroupName", "")
                             await modal?.confirmationPressed()
                             
-                            await expect(mockJobRunner)
-                                .toEventually(call(matchingParameters: .all) {
+                            await mockJobRunner
+                                .verify {
                                     $0.add(
                                         .any,
                                         job: Job(
@@ -769,36 +769,39 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         dependantJob: nil,
                                         canStartJob: false
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                         
                         // MARK: -------- triggers a libSession change
                         it("triggers a libSession change") {
-                            mockLibSessionCache
+                            try await mockLibSessionCache
                                 .when { $0.isAdmin(groupSessionId: .any) }
                                 .thenReturn(true)
                             
                             onChange2?("Test", "TestNewGroupDescription")
                             await modal?.confirmationPressed()
                             
-                            await expect(mockLibSessionCache)
-                                .toEventually(call(matchingParameters: .all) {
+                            await mockLibSessionCache
+                                .verify {
                                     try $0.performAndPushChange(
                                         .any,
                                         for: .userGroups,
                                         sessionId: SessionId(.standard, hex: userPubkey),
                                         change: { _ in }
                                     )
-                                })
-                            expect(mockLibSessionCache)
-                                .to(call(matchingParameters: .all) {
+                                }
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                            await mockLibSessionCache
+                                .verify {
                                     try $0.performAndPushChange(
                                         .any,
                                         for: .groupInfo,
                                         sessionId: SessionId(.group, hex: groupPubkey),
                                         change: { _ in }
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                     }
                 }

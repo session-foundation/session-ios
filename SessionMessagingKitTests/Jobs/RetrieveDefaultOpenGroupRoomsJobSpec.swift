@@ -19,26 +19,14 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
-        @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockOGMCache: MockOGMCache! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
@@ -46,11 +34,10 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         @TestState var wasDeferred: Bool! = false
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
+            try await mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
             dependencies.set(cache: .openGroupManager, to: mockOGMCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
@@ -60,6 +47,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
@@ -103,6 +91,17 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     )
                 )
             dependencies.set(singleton: .network, to: mockNetwork)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
         }
         
         // MARK: - a RetrieveDefaultOpenGroupRoomsJob
@@ -145,7 +144,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- defers the job if there is an existing job running
             it("defers the job if there is an existing job running") {
-                mockJobRunner
+                try await mockJobRunner
                     .when { $0.jobInfoFor(jobs: .any, state: .running, variant: .retrieveDefaultOpenGroupRooms) }
                     .thenReturn([
                         101: JobRunner.JobInfo(
@@ -170,7 +169,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- does not defer the job when there is no existing job
             it("does not defer the job when there is no existing job") {
-                mockJobRunner
+                try await mockJobRunner
                     .when { $0.jobInfoFor(jobs: .any, state: .running, variant: .retrieveDefaultOpenGroupRooms) }
                     .thenReturn([:])
                 
@@ -496,8 +495,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockJobRunner)
-                    .to(call(matchingParameters: .all) {
+                await mockJobRunner
+                    .verify {
                         $0.add(
                             .any,
                             job: Job(
@@ -515,7 +514,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             dependantJob: nil,
                             canStartJob: true
                         )
-                    })
+                    }
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- schedules a display picture download if the imageId has changed
@@ -543,8 +543,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockJobRunner)
-                    .to(call(matchingParameters: .all) {
+                await mockJobRunner
+                    .verify {
                         $0.add(
                             .any,
                             job: Job(
@@ -562,7 +562,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             dependantJob: nil,
                             canStartJob: true
                         )
-                    })
+                    }
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- does not schedule a display picture download if there is no imageId
@@ -611,8 +612,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockJobRunner)
-                    .toNot(call { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) })
+                await mockJobRunner
+                    .verify { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                    .wasNotCalled()
             }
             
             // MARK: -- does not schedule a display picture download if the imageId matches and the image has already been downloaded
@@ -641,8 +643,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockJobRunner)
-                    .toNot(call { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) })
+                await mockJobRunner
+                    .verify { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                    .wasNotCalled()
             }
             
             // MARK: -- updates the cache with the default rooms
@@ -656,8 +659,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                expect(mockOGMCache)
-                    .toNot(call(matchingParameters: .all) {
+                await mockOGMCache
+                    .verify {
                         $0.setDefaultRoomInfo([
                             (
                                 room: OpenGroupAPI.Room.mock.with(
@@ -693,7 +696,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                 )
                             )
                         ])
-                    })
+                    }
+                    .wasNotCalled()
             }
         }
     }

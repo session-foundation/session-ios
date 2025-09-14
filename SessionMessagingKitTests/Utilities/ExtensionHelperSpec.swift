@@ -22,34 +22,38 @@ class ExtensionHelperSpec: AsyncSpec {
                 dependencies.forceSynchronous = true
             }
         )
-        @TestState(singleton: .extensionHelper, in: dependencies) var extensionHelper: ExtensionHelper! = ExtensionHelper(using: dependencies)
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var extensionHelper: ExtensionHelper! = ExtensionHelper(using: dependencies)
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
+        @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockLogger: MockLogger! = MockLogger()
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            dependencies.set(singleton: .extensionHelper, to: extensionHelper)
+            
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
+            try await mockFileManager.defaultInitialSetup()
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
+            
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
             try await mockCrypto
                 .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                 .thenReturn(Data([4, 5, 6]))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             try await mockKeychain
                 .when {
@@ -62,6 +66,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(Data([1, 2, 3]))
+            dependencies.set(singleton: .keychain, to: mockKeychain)
         }
         
         // MARK: - an ExtensionHelper - File Management
@@ -70,9 +75,9 @@ class ExtensionHelperSpec: AsyncSpec {
             it("can delete the entire cache") {
                 extensionHelper.deleteCache()
                 
-                expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    try? $0.removeItem(atPath: "/test/extensionCache")
-                })
+                await mockFileManager
+                    .verify { try? $0.removeItem(atPath: "/test/extensionCache") }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- when writing an encrypted file
@@ -84,9 +89,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.ensureDirectoryExists(at: "/test/extensionCache/conversations/010203/dedupe")
-                    })
+                    await mockFileManager
+                        .verify {
+                            try? $0.ensureDirectoryExists(at: "/test/extensionCache/conversations/010203/dedupe")
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- protects the write directory
@@ -96,9 +103,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.protectFileOrFolder(at: "/test/extensionCache/conversations/010203/dedupe")
-                    })
+                    await mockFileManager
+                        .verify {
+                            try? $0.protectFileOrFolder(at: "/test/extensionCache/conversations/010203/dedupe")
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- generates a temporary file path
@@ -108,9 +117,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.temporaryFilePath(fileExtension: nil)
-                    })
+                    await mockFileManager
+                        .verify {
+                            $0.temporaryFilePath(fileExtension: nil)
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- writes the encrypted data to the temporary file path
@@ -120,9 +131,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data([4, 5, 6]))
-                    })
+                    await mockFileManager
+                        .verify {
+                            $0.createFile(atPath: "tmpFile", contents: Data([4, 5, 6]))
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- replaces the destination path with the temporary file
@@ -132,12 +145,14 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- throws when failing to retrieve the encryption key
@@ -182,7 +197,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when it fails to write to disk
                 it("throws when it fails to write to disk") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.createFile(atPath: .any, contents: .any) }
                         .thenReturn(false)
                     
@@ -196,7 +211,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does not throw when attempting to remove an existing item at the destination fails
                 it("does not throw when attempting to remove an existing item at the destination fails") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.removeItem(atPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -210,7 +225,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when it fails to move the temp file to the final location
                 it("throws when it fails to move the temp file to the final location") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -237,20 +252,24 @@ class ExtensionHelperSpec: AsyncSpec {
                             unreadCount: 1
                         )
                     }.toNot(throwError())
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
-                    })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/metadata",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/metadata",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -268,7 +287,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when loading user metadata") {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -292,7 +311,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if there is no file
                 it("returns null if there is no file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
                     
@@ -301,7 +320,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
@@ -313,7 +332,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -332,12 +351,12 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns true when at least one record exists that is newer than the last cleared timestamp
                 it("returns true when at least one record exists that is newer than the last cleared timestamp") {
                     try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
-                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
+                    try await mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -354,10 +373,14 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns false when a record does not exist
                 it("returns false when a record does not exist") {
                     try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
-                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
-                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                    try await mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
+                        .when {
+                            try $0.attributesOfItem(
+                                atPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                            )
+                        }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
                     
                     expect(extensionHelper.hasDedupeRecordSinceLastCleared(threadId: "threadId")).to(beFalse())
@@ -366,12 +389,16 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns false when a record exists but is too old
                 it("returns false when a record exists but is too old") {
                     try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
-                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
-                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                    try await mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
+                        .when {
+                            try $0.attributesOfItem(
+                                atPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                            )
+                        }
                         .thenReturn([FileAttributeKey.modificationDate: Date(timeIntervalSince1970: 1234567900)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
                     
@@ -381,11 +408,11 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- ignores the lastCleared file when comparing dedupe records
                 it("ignores the lastCleared file when comparing dedupe records") {
                     try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: .any) }
                         .thenReturn(["010203"])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -395,12 +422,16 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- returns true when at least one record exists and there is no last cleared timestamp
                 it("returns true when at least one record exists and there is no last cleared timestamp") {
                     try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
-                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
-                        .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203") }
+                    try await mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn(["Test1234"])
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
+                        .when {
+                            try $0.attributesOfItem(
+                                atPath: "/test/extensionCache/conversations/010203/dedupe/010203"
+                            )
+                        }
                         .thenReturn([:])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/010203/dedupe/Test1234") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -412,7 +443,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when checking for dedupe records") {
                 // MARK: ---- returns true when a record exists
                 it("returns true when a record exists") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     
                     expect(extensionHelper.dedupeRecordExists(
                         threadId: "threadId",
@@ -422,7 +453,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns false when a record does not exist
                 it("returns false when a record does not exist") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
                     
                     expect(extensionHelper.dedupeRecordExists(
                         threadId: "threadId",
@@ -450,12 +481,14 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- throws when failing to generate a hash
@@ -472,7 +505,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -494,9 +527,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
-                    })
+                    await mockFileManager
+                        .verify {
+                            try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- removes the parent directory if it is empty
@@ -506,23 +541,27 @@ class ExtensionHelperSpec: AsyncSpec {
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
-                    })
+                    await mockFileManager
+                        .verify {
+                            try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- leaves the parent directory if not empty
                 it("leaves the parent directory if not empty") {
-                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
+                    try await mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
                     
                     try? extensionHelper.removeDedupeRecord(
                         threadId: "threadId",
                         uniqueIdentifier: "uniqueId"
                     )
                     
-                    expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
-                    })
+                    await mockFileManager
+                        .verify {
+                            try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
+                        }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing when failing to generate a hash
@@ -535,14 +574,16 @@ class ExtensionHelperSpec: AsyncSpec {
                             uniqueIdentifier: "uniqueId"
                         )
                     }.toNot(throwError(ExtensionHelperError.failedToStoreDedupeRecord))
-                    expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
-                    })
+                    await mockFileManager
+                        .verify {
+                            try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
+                        }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- throws when failing to remove the file
                 it("throws when failing to remove the file") {
-                    mockFileManager.when { try $0.removeItem(atPath: .any) }.thenThrow(TestError.mock)
+                    try await mockFileManager.when { try $0.removeItem(atPath: .any) }.thenThrow(TestError.mock)
                     
                     expect {
                         try extensionHelper.removeDedupeRecord(
@@ -565,15 +606,17 @@ class ExtensionHelperSpec: AsyncSpec {
                         try extensionHelper.upsertLastClearedRecord(threadId: "threadId")
                     }.toNot(throwError())
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data())
-                    })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: "tmpFile", contents: Data()) }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/dedupe/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- throws when failing to generate a hash
@@ -583,16 +626,22 @@ class ExtensionHelperSpec: AsyncSpec {
                     expect {
                         try extensionHelper.upsertLastClearedRecord(threadId: "threadId")
                     }.to(throwError(ExtensionHelperError.failedToUpdateLastClearedRecord))
-                    expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
-                        try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
-                    })
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify {
+                            try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
+                        }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -613,8 +662,8 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when retrieving the last updated timestamp") {
                 // MARK: ---- returns the timestamp
                 it("returns the timestamp") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567890)])
                     
@@ -636,7 +685,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- throws when failing to retrieve file metadata
                 it("throws when failing to retrieve file metadata") {
-                    mockFileManager.when { try $0.attributesOfItem(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { try $0.attributesOfItem(atPath: .any) }.thenReturn(nil)
                     
                     expect(extensionHelper.lastUpdatedTimestamp(
                         for: SessionId(.standard, hex: TestConstants.publicKey),
@@ -658,23 +707,29 @@ class ExtensionHelperSpec: AsyncSpec {
                         ),
                         replaceExisting: true
                     )
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
-                    })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/dumps/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG")) }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/dumps/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does nothing when given a null dump
                 it("does nothing when given a null dump") {
                     extensionHelper.replicate(dump: nil, replaceExisting: true)
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing when failing to generate a hash
@@ -691,13 +746,17 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing a file already exists and we do not want to replace it
                 it("does nothing a file already exists and we do not want to replace it") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     
                     extensionHelper.replicate(
                         dump: ConfigDump(
@@ -709,13 +768,17 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: false
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- logs an error when failing to write the file
                 it("logs an error when failing to write the file") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -794,8 +857,8 @@ class ExtensionHelperSpec: AsyncSpec {
                 ]
                 
                 beforeEach {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
-                    mockFileManager
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
                     try await mockCrypto
@@ -829,85 +892,80 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- replicates successfully
                 it("replicates successfully") {
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
+                    let createFileCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasCalled(exactly: 5)
+                    let moveFileCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasCalled(exactly: 5)
                     
-                    let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
-                        .toEventually(haveCount(5))
-                        .retrieveValue()
-                    let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
-                        .toEventually(haveCount(5))
-                        .retrieveValue()
-                    
-                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
-                    expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                    let opt: String = "NSFileManagerItemReplacementOptions(rawValue: 0)"
+                    expect((createFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, Data(base64Encoded: AgME), nil]",
-                            "[tmpFile, Data(base64Encoded: AwQF), nil]",
-                            "[tmpFile, Data(base64Encoded: BAUG), nil]",
-                            "[tmpFile, Data(base64Encoded: BQYH), nil]",
-                            "[tmpFile, Data(base64Encoded: BgcI), nil]"
+                            "[\"tmpFile\", Data(base64Encoded: AgME), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: AwQF), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BAUG), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BQYH), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BgcI), nil]"
                         ]))
-                    expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                    expect((moveFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[/test/extensionCache/conversations/010203/dumps/020304, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/030405, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/040506, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/050607, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/060708, tmpFile, nil, \(emptyOptions)]"
+                            "[\"/test/extensionCache/conversations/010203/dumps/020304\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/030405\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/040506\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/050607\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/060708\", \"tmpFile\", nil, \(opt)]"
                         ]))
                 }
                 
                 // MARK: ---- replicates all user configs if they cannot be found
                 it("replicates all user configs if they cannot be found") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
-                        .toEventually(haveCount(5))
-                        .retrieveValue()
-                    let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
-                        .toEventually(haveCount(5))
-                        .retrieveValue()
+                    let createFileCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasCalled(exactly: 5)
+                    let moveFileCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasCalled(exactly: 5)
                     
-                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
-                    expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                    let opt: String = "NSFileManagerItemReplacementOptions(rawValue: 0)"
+                    expect((createFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, Data(base64Encoded: AgME), nil]",
-                            "[tmpFile, Data(base64Encoded: AwQF), nil]",
-                            "[tmpFile, Data(base64Encoded: BAUG), nil]",
-                            "[tmpFile, Data(base64Encoded: BQYH), nil]",
-                            "[tmpFile, Data(base64Encoded: BgcI), nil]"
+                            "[\"tmpFile\", Data(base64Encoded: AgME), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: AwQF), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BAUG), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BQYH), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BgcI), nil]"
                         ]))
-                    expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                    expect((moveFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[/test/extensionCache/conversations/010203/dumps/020304, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/030405, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/040506, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/050607, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/010203/dumps/060708, tmpFile, nil, \(emptyOptions)]"
+                            "[\"/test/extensionCache/conversations/010203/dumps/020304\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/030405\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/040506\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/050607\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/010203/dumps/060708\", \"tmpFile\", nil, \(opt)]"
                         ]))
                 }
                 
                 // MARK: ---- replicates all configs for a group if one cannot be found
                 it("replicates all configs for a group if one cannot be found") {
-                    mockValues.forEach { value in
+                    for value in mockValues {
                         guard let variant: ConfigDump.Variant = value.variant else { return }
                         
                         let isGroupVariant: Bool = ConfigDump.Variant.groupVariants.contains(variant)
                         let convo: String = (isGroupVariant ? "090807" : "010203")
                         let dump: String = value.hashValue.toHexString()
-                        mockFileManager
+                        try await mockFileManager
                             .when {
                                 $0.fileExists(
                                     atPath: "/test/extensionCache/conversations/\(convo)/dumps/\(dump)"
@@ -916,7 +974,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             .thenReturn(!isGroupVariant)
                     }
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [
                             SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
@@ -924,27 +982,25 @@ class ExtensionHelperSpec: AsyncSpec {
                         ]
                     )
                     
-                    let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
-                        .toEventually(haveCount(3))
-                        .retrieveValue()
-                    let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
-                        .toEventually(haveCount(3))
-                        .retrieveValue()
+                    let createFileCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasCalled(exactly: 3)
+                    let moveFileCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasCalled(exactly: 3)
                 
-                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
-                    expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                    let opt: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
+                    expect((createFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, Data(base64Encoded: BgUE), nil]",
-                            "[tmpFile, Data(base64Encoded: BwYF), nil]",
-                            "[tmpFile, Data(base64Encoded: CAcG), nil]"
+                            "[\"tmpFile\", Data(base64Encoded: BgUE), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: BwYF), nil]",
+                            "[\"tmpFile\", Data(base64Encoded: CAcG), nil]"
                         ]))
-                    expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
+                    expect((moveFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[/test/extensionCache/conversations/090807/dumps/060504, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/090807/dumps/070605, tmpFile, nil, \(emptyOptions)]",
-                            "[/test/extensionCache/conversations/090807/dumps/080706, tmpFile, nil, \(emptyOptions)]"
+                            "[\"/test/extensionCache/conversations/090807/dumps/060504\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/090807/dumps/070605\", \"tmpFile\", nil, \(opt)]",
+                            "[\"/test/extensionCache/conversations/090807/dumps/080706\", \"tmpFile\", nil, \(opt)]"
                         ]))
                 }
                 
@@ -956,84 +1012,103 @@ class ExtensionHelperSpec: AsyncSpec {
                             .thenReturn(nil)
                     }
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if valid dumps already exist
                 it("does nothing if valid dumps already exist") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if there are no dumps in the database
                 it("does nothing if there are no dumps in the database") {
                     mockStorage.write { db in try ConfigDump.deleteAll(db) }
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: []
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if the existing replicated dump was newer than the fetched one
                 it("does nothing if the existing replicated dump was newer than the fetched one") {
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567891)])
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if it fails to replicate
                 it("does nothing if it fails to replicate") {
-                    try await mockCrypto
-                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([2, 3, 4]), encKey: .any)) }
-                        .thenThrow(TestError.mock)
-                    try await mockCrypto
-                        .when { $0.generate(.ciphertextWithXChaCha20(plaintext: Data([5, 6, 7]), encKey: .any)) }
-                        .thenThrow(TestError.mock)
+                    for value in mockValues {
+                        try await mockCrypto
+                            .when { $0.generate(.ciphertextWithXChaCha20(plaintext: value.plaintext, encKey: .any)) }
+                            .thenThrow(TestError.mock)
+                    }
                     
-                    extensionHelper.replicateAllConfigDumpsIfNeeded(
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
             }
 
             // MARK: -- when refreshing the dump modified date
             context("when refreshing the dump modified date") {
                 beforeEach {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                 }
                 
                 // MARK: ---- updates the modified date
@@ -1043,12 +1118,14 @@ class ExtensionHelperSpec: AsyncSpec {
                         variant: .userProfile
                     )
                     
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.setAttributes(
-                            [.modificationDate: Date(timeIntervalSince1970: 1234567890)],
-                            ofItemAtPath: "/test/extensionCache/conversations/010203/dumps/010203"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            try $0.setAttributes(
+                                [.modificationDate: Date(timeIntervalSince1970: 1234567890)],
+                                ofItemAtPath: "/test/extensionCache/conversations/010203/dumps/010203"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does nothing when it fails to generate a hash
@@ -1060,19 +1137,23 @@ class ExtensionHelperSpec: AsyncSpec {
                         variant: .userProfile
                     )
                     
-                    expect(mockFileManager).toNot(call { try $0.setAttributes(.any, ofItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { try $0.setAttributes(.any, ofItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if the file does not exist
                 it("does nothing if the file does not exist") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
                     
                     extensionHelper.refreshDumpModifiedDate(
                         sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         variant: .userProfile
                     )
                     
-                    expect(mockFileManager).toNot(call { try $0.setAttributes(.any, ofItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { try $0.setAttributes(.any, ofItemAtPath: .any) }
+                        .wasNotCalled()
                 }
             }
             
@@ -1090,8 +1171,8 @@ class ExtensionHelperSpec: AsyncSpec {
                     let configs: [LibSession.Config] = [
                         .userProfile(ptr), .userGroups(ptr), .contacts(ptr), .convoInfoVolatile(ptr)
                     ]
-                    configs.forEach { config in
-                        mockLibSessionCache
+                    for config in configs {
+                        try await mockLibSessionCache
                             .when {
                                 try $0.loadState(
                                     for: config.variant,
@@ -1109,41 +1190,49 @@ class ExtensionHelperSpec: AsyncSpec {
                         userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
                         userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .userProfile,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            to: .userProfile(ptr)
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .userGroups,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            to: .userGroups(ptr)
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .contacts,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            to: .contacts(ptr)
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .convoInfoVolatile,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            to: .convoInfoVolatile(ptr)
-                        )
-                    })
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .userProfile,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                to: .userProfile(ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .userGroups,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                to: .userGroups(ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .contacts,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                to: .contacts(ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .convoInfoVolatile,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                to: .convoInfoVolatile(ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                     
                     ptr.deallocate()
                 }
                 
                 // MARK: ---- loads the default states when failing to load config data
                 it("loads the default states when failing to load config data") {
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when {
                             try $0.loadState(
                                 for: .any,
@@ -1160,38 +1249,46 @@ class ExtensionHelperSpec: AsyncSpec {
                         userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
                         userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.loadDefaultStateFor(
-                            variant: .userProfile,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                            groupEd25519SecretKey: nil
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.loadDefaultStateFor(
-                            variant: .userGroups,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                            groupEd25519SecretKey: nil
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.loadDefaultStateFor(
-                            variant: .contacts,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                            groupEd25519SecretKey: nil
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.loadDefaultStateFor(
-                            variant: .convoInfoVolatile,
-                            sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                            userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                            groupEd25519SecretKey: nil
-                        )
-                    })
+                    await mockLibSessionCache
+                        .verify {
+                            $0.loadDefaultStateFor(
+                                variant: .userProfile,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                groupEd25519SecretKey: nil
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.loadDefaultStateFor(
+                                variant: .userGroups,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                groupEd25519SecretKey: nil
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.loadDefaultStateFor(
+                                variant: .contacts,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                groupEd25519SecretKey: nil
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.loadDefaultStateFor(
+                                variant: .convoInfoVolatile,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                groupEd25519SecretKey: nil
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
             
@@ -1210,8 +1307,8 @@ class ExtensionHelperSpec: AsyncSpec {
                     let configs: [LibSession.Config] = [
                         .groupKeys(keysPtr, info: ptr, members: ptr), .groupMembers(ptr), .groupInfo(ptr)
                     ]
-                    configs.forEach { config in
-                        mockLibSessionCache
+                    for config in configs {
+                        try await mockLibSessionCache
                             .when {
                                 try $0.loadState(
                                     for: config.variant,
@@ -1231,27 +1328,33 @@ class ExtensionHelperSpec: AsyncSpec {
                             userEd25519SecretKey: [1, 2, 3]
                         )
                     }.toNot(throwError())
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .groupKeys,
-                            sessionId: SessionId(.group, hex: TestConstants.publicKey),
-                            to: .groupKeys(keysPtr, info: ptr, members: ptr)
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .groupMembers,
-                            sessionId: SessionId(.group, hex: TestConstants.publicKey),
-                            to: .groupMembers(ptr)
-                        )
-                    })
-                    expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.setConfig(
-                            for: .groupInfo,
-                            sessionId: SessionId(.group, hex: TestConstants.publicKey),
-                            to: .groupInfo(ptr)
-                        )
-                    })
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .groupKeys,
+                                sessionId: SessionId(.group, hex: TestConstants.publicKey),
+                                to: .groupKeys(keysPtr, info: ptr, members: ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .groupMembers,
+                                sessionId: SessionId(.group, hex: TestConstants.publicKey),
+                                to: .groupMembers(ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
+                            $0.setConfig(
+                                for: .groupInfo,
+                                sessionId: SessionId(.group, hex: TestConstants.publicKey),
+                                to: .groupInfo(ptr)
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                     
                     keysPtr.deallocate()
                     ptr.deallocate()
@@ -1267,7 +1370,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     await mockCrypto.removeMocksFor { $0.generate(.hash(message: .any)) }
                     for config in configs {
-                        mockLibSessionCache
+                        try await mockLibSessionCache
                             .when {
                                 try $0.loadState(
                                     for: config.variant,
@@ -1311,7 +1414,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if it cannot get a dump for the config
                 it("does nothing if it cannot get a dump for the config") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.loadGroupConfigStateIfNeeded(
@@ -1320,9 +1423,9 @@ class ExtensionHelperSpec: AsyncSpec {
                             userEd25519SecretKey: [1, 2, 3]
                         )
                     }.toNot(throwError())
-                    expect(mockLibSessionCache).toNot(call {
-                        $0.setConfig(for: .any, sessionId: .any, to: .any)
-                    })
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .any, sessionId: .any, to: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if the provided public key is not for a group
@@ -1334,9 +1437,9 @@ class ExtensionHelperSpec: AsyncSpec {
                             userEd25519SecretKey: [1, 2, 3]
                         )
                     }.toNot(throwError())
-                    expect(mockLibSessionCache).toNot(call {
-                        $0.setConfig(for: .any, sessionId: .any, to: .any)
-                    })
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .any, sessionId: .any, to: .any) }
+                        .wasNotCalled()
                 }
             }
         }
@@ -1352,8 +1455,8 @@ class ExtensionHelperSpec: AsyncSpec {
             // MARK: -- when replicating notification settings
             context("when replicating notification settings") {
                 beforeEach {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
-                    mockFileManager
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
                     try await mockCrypto
@@ -1377,15 +1480,17 @@ class ExtensionHelperSpec: AsyncSpec {
                         ],
                         replaceExisting: true
                     )
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
-                    })
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/notificationSettings",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG")) }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/notificationSettings",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- excludes values with default settings
@@ -1430,7 +1535,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if the settings already exist and we do not want to replace existing
                 it("does nothing if the settings already exist and we do not want to replace existing") {
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     
                     try? extensionHelper.replicate(
                         settings: [
@@ -1444,8 +1549,12 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: false
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does nothing if it fails to replicate
@@ -1466,8 +1575,12 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
             }
             
@@ -1475,7 +1588,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when loading notification settings") {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -1516,7 +1629,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if there is no file
                 it("returns null if there is no file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
                         previewType: .nameAndPreview,
@@ -1528,7 +1641,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
@@ -1543,7 +1656,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -1568,10 +1681,10 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when retrieving the unread message count") {
                 // MARK: ---- returns the count
                 it("returns the count") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
@@ -1589,13 +1702,13 @@ class ExtensionHelperSpec: AsyncSpec {
                         "/test/extensionCache/conversations/a/unread/e",
                         "/test/extensionCache/conversations/a/unread/f"
                     ]
-                    validPaths.forEach { path in
-                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    for path in validPaths {
+                        try await mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
                         .thenReturn(false)
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -1604,17 +1717,17 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- adds the total from multiple conversations
                 it("adds the total from multiple conversations") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a", "b"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
                             )
                         }
                         .thenReturn(["c", "d", "e"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/b/unread"
@@ -1631,13 +1744,13 @@ class ExtensionHelperSpec: AsyncSpec {
                         "/test/extensionCache/conversations/b/unread/g",
                         "/test/extensionCache/conversations/b/unread/h"
                     ]
-                    validPaths.forEach { path in
-                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    for path in validPaths {
+                        try await mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
                         .thenReturn(false)
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -1646,18 +1759,18 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- only counts message requests as a single item even with multiple unread messages
                 it("only counts message requests as a single item even with multiple unread messages") {
-                    mockFileManager.removeMocksFor { try $0.contentsOfDirectory(atPath: .any) }
-                    mockFileManager
+                    await mockFileManager.removeMocksFor { try $0.contentsOfDirectory(atPath: .any) }
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
                             )
                         }
                         .thenReturn(["030405", "b", "c", "d"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/dedupe"
@@ -1667,7 +1780,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     try await mockCrypto
                         .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     let validPaths: [String] = [
                         "/test/extensionCache/conversations/a/unread/b",
                         "/test/extensionCache/conversations/a/unread/c",
@@ -1679,12 +1792,12 @@ class ExtensionHelperSpec: AsyncSpec {
                         "/test/extensionCache/conversations/a/dedupe/d1",
                         "/test/extensionCache/conversations/a/dedupe/d1-legacy"
                     ]
-                    validPaths.forEach { path in
-                        mockFileManager
+                    for path in validPaths  {
+                        try await mockFileManager
                             .when { try $0.attributesOfItem(atPath: path) }
                             .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/030405") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234560000)])
                     
@@ -1693,10 +1806,10 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- ignores hidden files in the conversations directory
                 it("ignores hidden files in the conversations directory") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn([".test", "a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
@@ -1712,13 +1825,13 @@ class ExtensionHelperSpec: AsyncSpec {
                         "/test/extensionCache/conversations/a/unread/f",
                         "/test/extensionCache/conversations/a/unread/g"
                     ]
-                    validPaths.forEach { path in
-                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    for path in validPaths {
+                        try await mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
                         .thenReturn(false)
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -1727,10 +1840,10 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- ignores hidden files in the unread directory
                 it("ignores hidden files in the unread directory") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
@@ -1746,13 +1859,13 @@ class ExtensionHelperSpec: AsyncSpec {
                         "/test/extensionCache/conversations/a/unread/f",
                         "/test/extensionCache/conversations/a/unread/g"
                     ]
-                    validPaths.forEach { path in
-                        mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
+                    for path in validPaths {
+                        try await mockFileManager.when { $0.fileExists(atPath: path) }.thenReturn(true)
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread/030405") }
                         .thenReturn(false)
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567890)])
                     
@@ -1761,30 +1874,30 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- ignores conversations without an unread directory
                 it("ignores conversations without an unread directory") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a", "b"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
                             )
                         }
                         .thenReturn(["c", "d", "e"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/b/unread"
                             )
                         }
                         .thenReturn(["f", "g", "h"])
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/a/unread") }
                         .thenReturn(true)
-                    mockFileManager
+                    try await mockFileManager
                         .when { $0.fileExists(atPath: "/test/extensionCache/conversations/b/unread") }
                         .thenReturn(false)
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -1793,10 +1906,10 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- ignores message request conversations if the user has seen the message requests stub
                 it("ignores message request conversations if the user has seen the message requests stub") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
@@ -1806,23 +1919,23 @@ class ExtensionHelperSpec: AsyncSpec {
                     try await mockCrypto
                         .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/b") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567600)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/c") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567700)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/d") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567800)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/e") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/f") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234568000)])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: "/test/extensionCache/conversations/a/unread/030405") }
                         .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
                     
@@ -1831,7 +1944,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if retrieving the conversation hashes throws
                 it("returns null if retrieving the conversation hashes throws") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -1840,12 +1953,12 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if retrieving the conversation hashes throws
                 it("returns null if retrieving the conversation hashes throws") {
-                    mockFileManager.removeMocksFor { try $0.contentsOfDirectory(atPath: .any) }
-                    mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                    mockFileManager
+                    await mockFileManager.removeMocksFor { try $0.contentsOfDirectory(atPath: .any) }
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/a/unread"
@@ -1901,12 +2014,14 @@ class ExtensionHelperSpec: AsyncSpec {
                             isMessageRequest: false
                         )
                     }.toNot(throwError())
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/config/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/config/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- saves unread standard messages to the correct path
@@ -1929,12 +2044,14 @@ class ExtensionHelperSpec: AsyncSpec {
                             isMessageRequest: false
                         )
                     }.toNot(throwError())
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        _ = try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/unread/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/unread/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- writes the message request stub file for unread message request messages
@@ -1969,14 +2086,14 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
-                    expect(mockFileManager
-                        .allCalls { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }?
-                        .map { $0.parameterSummary }
-                    )
-                    .to(equal([
-                        "[/test/extensionCache/conversations/010203/unread/030405, tmpFile, nil, \(emptyOptions)]",
-                        "[/test/extensionCache/conversations/010203/unread/020304, tmpFile, nil, \(emptyOptions)]"
+                    let opt: String = "NSFileManagerItemReplacementOptions(rawValue: 0)"
+                    let replaceItemCallInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasCalled(exactly: 2)
+                    
+                    expect(replaceItemCallInfo?.matchingCalls.map { $0.parameterSummary }).to(equal([
+                        "[\"/test/extensionCache/conversations/010203/unread/030405\", \"tmpFile\", nil, \(opt)]",
+                        "[\"/test/extensionCache/conversations/010203/unread/020304\", \"tmpFile\", nil, \(opt)]"
                     ]))
                 }
                 
@@ -2000,12 +2117,14 @@ class ExtensionHelperSpec: AsyncSpec {
                             isMessageRequest: false
                         )
                     }.toNot(throwError())
-                    expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.replaceItem(
-                            atPath: "/test/extensionCache/conversations/010203/read/010203",
-                            withItemAtPath: "tmpFile"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/read/010203",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- does nothing when failing to generate a hash
@@ -2030,12 +2149,14 @@ class ExtensionHelperSpec: AsyncSpec {
                             isMessageRequest: false
                         )
                     }.toNot(throwError())
-                    expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
+                    await mockFileManager
+                        .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- throws when failing to write the file
                 it("throws when failing to write the file") {
-                    mockFileManager
+                    try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -2095,8 +2216,8 @@ class ExtensionHelperSpec: AsyncSpec {
                 ]
                 
                 beforeEach {
-                    mockValues.forEach { key, value in
-                        mockFileManager
+                    for (key, value) in mockValues {
+                        try await mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
                             .thenReturn([value])
                     }
@@ -2107,7 +2228,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ))
                         }
                         .thenReturn([1, 2, 3])
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -2160,106 +2281,51 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
                     await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
-                    expect(mockFileManager).to(call(matchingParameters: .all) {
-                        try $0.contentsOfDirectory(
-                            atPath: "/test/extensionCache/conversations/0000550000/config"
-                        )
-                    })
-                    expect(mockFileManager).to(call(matchingParameters: .all) {
-                        try $0.contentsOfDirectory(
-                            atPath: "/test/extensionCache/conversations/0000550000/read"
-                        )
-                    })
-                    expect(mockFileManager).to(call(matchingParameters: .all) {
-                        try $0.contentsOfDirectory(
-                            atPath: "/test/extensionCache/conversations/0000550000/unread"
-                        )
-                    })
+                    await mockFileManager
+                        .verify {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/0000550000/config"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/0000550000/read"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/0000550000/unread"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- loads config messages before other messages
                 it("loads config messages before other messages") {
                     await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     
-                    let key: FunctionConsumer_Old.Key = FunctionConsumer_Old.Key(
-                        name: "contentsOfDirectory(atPath:)",
-                        generics: [],
-                        paramCount: 1
-                    )
-                    expect(mockFileManager.functionConsumer.calls[key]).to(equal([
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(count: 1, summary: "[/test/extensionCache/conversations]")
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/010203/config]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/010203/config]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/010203/read]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/010203/read]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/010203/unread]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/010203/unread]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/a/config]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/a/config]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/a/read]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/a/read]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/a/unread]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/a/unread]"
-                                )
-                            ]
-                        )
+                    let callInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { try $0.contentsOfDirectory(atPath: .any) }
+                        .wasCalled(exactly: 7)
+                    expect(callInfo?.matchingCalls.map { $0.parameterSummary }).to(equal([
+                        "[\"/test/extensionCache/conversations\"]",
+                        "[\"/test/extensionCache/conversations/010203/config\"]",
+                        "[\"/test/extensionCache/conversations/010203/read\"]",
+                        "[\"/test/extensionCache/conversations/010203/unread\"]",
+                        "[\"/test/extensionCache/conversations/a/config\"]",
+                        "[\"/test/extensionCache/conversations/a/read\"]",
+                        "[\"/test/extensionCache/conversations/a/unread\"]"
                     ]))
                 }
                 
                 // MARK: ---- removes messages from disk
                 it("removes messages from disk") {
-                    mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
+                    mockFileManager.handler.clearCalls()
+                    try await mockFileManager.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
                     try await mockCrypto
                         .when {
                             $0.generate(.hash(
@@ -2269,35 +2335,29 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
                     await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
-                    expect(mockFileManager).to(call(matchingParameters: .all) {
-                        try $0.removeItem(
-                            atPath: "/test/extensionCache/conversations/0000550000/config"
-                        )
-                    })
-                    expect(mockFileManager).to(call(matchingParameters: .all) {
-                        try $0.removeItem(
-                            atPath: "/test/extensionCache/conversations/0000550000/read"
-                        )
-                    })
-                    expect(mockFileManager).to(call(matchingParameters: .all) {
-                        try $0.removeItem(
-                            atPath: "/test/extensionCache/conversations/0000550000/unread"
-                        )
-                    })
+                    let callInfo: RecordedCallInfo? = await mockFileManager
+                        .verify { try $0.removeItem(atPath: .any) }
+                        .wasCalled(exactly: 3)
+                    
+                    expect(callInfo?.matchingCalls.map { $0.parameterSummary }).to(equal([
+                        "[\"/test/extensionCache/conversations/0000550000/config\"]",
+                        "[\"/test/extensionCache/conversations/0000550000/read\"]",
+                        "[\"/test/extensionCache/conversations/0000550000/unread\"]"
+                    ]))
                 }
                 
                 // MARK: ---- logs when finished
                 it("logs when finished") {
                     await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
-                    mockValues.forEach { key, value in
-                        mockFileManager
+                    for key in mockValues.keys {
+                        try await mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
                             .thenReturn([])
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
                     
@@ -2323,15 +2383,15 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- logs an error when failing to process a config message
                 it("logs an error when failing to process a config message") {
                     await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
-                    mockValues.forEach { key, value in
-                        mockFileManager
+                    for key in mockValues.keys {
+                        try await mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
                             .thenReturn([])
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/config") }
                         .thenReturn(["b"])
                     try await mockCrypto
@@ -2376,15 +2436,15 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- logs an error when failing to process a standard message
                 it("logs an error when failing to process a standard message") {
                     await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
-                    mockValues.forEach { key, value in
-                        mockFileManager
+                    for key in mockValues.keys {
+                        try await mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
                             .thenReturn([])
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
                     try await mockCrypto
@@ -2429,18 +2489,18 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- succeeds even if it fails to remove files after processing
                 it("succeeds even if it fails to remove files after processing") {
                     await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
-                    mockValues.forEach { key, value in
-                        mockFileManager
+                    for key in mockValues.keys {
+                        try await mockFileManager
                             .when { try $0.contentsOfDirectory(atPath: key) }
                             .thenReturn([])
                     }
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
                         .thenReturn(["a"])
-                    mockFileManager
+                    try await mockFileManager
                         .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/a/read") }
                         .thenReturn(["c"])
-                    mockFileManager.when { try $0.removeItem(atPath: .any) }.thenThrow(TestError.mock)
+                    try await mockFileManager.when { try $0.removeItem(atPath: .any) }.thenThrow(TestError.mock)
                     try await mockCrypto
                         .when {
                             $0.generate(.hash(

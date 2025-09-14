@@ -14,11 +14,12 @@ class CryptoSMKSpec: AsyncSpec {
         // MARK: Configuration
 
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto(using: dependencies)
+        @TestState var crypto: Crypto! = Crypto(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
+            dependencies.set(singleton: .crypto, to: crypto)
+            
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
         }

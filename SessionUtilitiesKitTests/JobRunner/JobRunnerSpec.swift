@@ -46,11 +46,11 @@ class JobRunnerSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 0)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .jobRunner, in: dependencies) var jobRunner: JobRunnerType! = JobRunner(
+        @TestState var jobRunner: JobRunnerType! = JobRunner(
             isTestingJobRunner: true,
             executors: [
                 .messageSend: TestJob.self,
@@ -68,6 +68,9 @@ class JobRunnerSpec: AsyncSpec {
                     _020_AddJobUniqueHash.self
                 ]
             )
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            dependencies.set(singleton: .jobRunner, to: jobRunner)
         }
         
         // MARK: - a JobRunner

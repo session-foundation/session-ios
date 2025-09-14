@@ -6,18 +6,24 @@ import TestUtilities
 @testable import SessionNetworkingKit
 
 extension NoResponse: @retroactive Mocked {
-    public static var any: NoResponse = NoResponse()
-    public static var mock: NoResponse = NoResponse()
+    public static let any: NoResponse = NoResponse()
+    public static let mock: NoResponse = NoResponse()
 }
 
-extension Network.BatchSubResponse: @retroactive MockedGeneric where T: Mocked {
-    public typealias Generic = T
-    
-    public static func mock(type: T.Type) -> Network.BatchSubResponse<T> {
-        return Network.BatchSubResponse(
+extension Network.BatchSubResponse: @retroactive Mocked where T: Mocked {
+    public static var any: Network.BatchSubResponse<T> {
+        Network.BatchSubResponse(
+            code: .any,
+            headers: .any,
+            body: T.any,
+            failedToParseBody: .any
+        )
+    }
+    public static var mock: Network.BatchSubResponse<T> {
+        Network.BatchSubResponse(
             code: 200,
             headers: [:],
-            body: Generic.mock,
+            body: T.mock,
             failedToParseBody: false
         )
     }
@@ -48,6 +54,6 @@ extension Network.Destination: @retroactive Mocked {
 }
 
 extension Network.RequestCategory: @retroactive Mocked {
-    public static var any: Network.RequestCategory = .upload
+    public static var any: Network.RequestCategory = .invalid
     public static var mock: Network.RequestCategory = .standard
 }

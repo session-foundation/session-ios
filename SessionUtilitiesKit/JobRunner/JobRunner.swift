@@ -61,10 +61,12 @@ public protocol JobRunnerType: AnyObject {
 // MARK: - JobRunnerType Convenience
 
 public extension JobRunnerType {
-    func allJobInfo() -> [Int64: JobRunner.JobInfo] { return jobInfoFor(jobs: nil, state: .any, variant: nil) }
+    func allJobInfo() -> [Int64: JobRunner.JobInfo] {
+        return jobInfoFor(jobs: nil, state: .anyState, variant: nil)
+    }
     
     func jobInfoFor(jobs: [Job]) -> [Int64: JobRunner.JobInfo] {
-        return jobInfoFor(jobs: jobs, state: .any, variant: nil)
+        return jobInfoFor(jobs: jobs, state: .anyState, variant: nil)
     }
 
     func jobInfoFor(jobs: [Job], state: JobRunner.JobState) -> [Int64: JobRunner.JobInfo] {
@@ -80,7 +82,7 @@ public extension JobRunnerType {
     }
 
     func jobInfoFor(variant: Job.Variant) -> [Int64: JobRunner.JobInfo] {
-        return jobInfoFor(jobs: nil, state: .any, variant: variant)
+        return jobInfoFor(jobs: nil, state: .anyState, variant: variant)
     }
     
     func isCurrentlyRunning(_ job: Job?) -> Bool {
@@ -91,7 +93,7 @@ public extension JobRunnerType {
     
     func hasJob<T: Encodable>(
         of variant: Job.Variant? = nil,
-        inState state: JobRunner.JobState = .any,
+        inState state: JobRunner.JobState = .anyState,
         with jobDetails: T
     ) -> Bool {
         guard
@@ -116,7 +118,7 @@ public extension JobRunnerType {
     }
     
     func afterJob(_ job: Job?) -> AnyPublisher<JobRunner.JobResult, Never> {
-        return afterJob(job, state: .any)
+        return afterJob(job, state: .anyState)
     }
 }
 
@@ -167,7 +169,7 @@ public final class JobRunner: JobRunnerType {
         public static let pending: JobState = JobState(rawValue: 1 << 0)
         public static let running: JobState = JobState(rawValue: 1 << 1)
         
-        public static let any: JobState = [ .pending, .running ]
+        public static let anyState: JobState = [ .pending, .running ]
     }
     
     public enum JobResult: Equatable {

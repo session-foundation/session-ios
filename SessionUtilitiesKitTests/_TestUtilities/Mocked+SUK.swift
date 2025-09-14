@@ -24,7 +24,7 @@ extension Dependencies {
     }
 }
 
-extension ObservingDatabase: @retroactive Mocked {
+extension ObservingDatabase: @retroactive Mocked, @retroactive ArgumentDescribing {
     public static var any: Self {
         var result: Database!
         try! DatabaseQueue().read { result = $0 }
@@ -35,6 +35,8 @@ extension ObservingDatabase: @retroactive Mocked {
         try! DatabaseQueue().read { result = $0 }
         return ObservingDatabase.create(result!, id: .mock, using: .any) as! Self
     }
+    
+    public var summary: String? { "ObservingDatabase(\(id)" }
 }
 
 extension ObservableKey: @retroactive Mocked {
@@ -70,6 +72,11 @@ extension JobRunner.JobResult: @retroactive Mocked {
     public static var mock: JobRunner.JobResult = .succeeded
 }
 
+extension JobRunner.JobState: @retroactive Mocked {
+    public static var any: JobRunner.JobState = JobRunner.JobState(rawValue: .any)
+    public static var mock: JobRunner.JobState = .pending
+}
+
 extension Log.Category: @retroactive Mocked {
     public static var any: Log.Category = .create(.any, defaultLevel: .debug)
     public static var mock: Log.Category = .create("mock", defaultLevel: .debug)
@@ -88,12 +95,6 @@ extension Setting.EnumKey: @retroactive Mocked {
 // MARK: - Encodable Convenience
 
 extension Mocked where Self: Encodable {
-    func encoded(using dependencies: Dependencies) -> Data {
-        try! JSONEncoder(using: dependencies).with(outputFormatting: .sortedKeys).encode(self)
-    }
-}
-
-extension MockedGeneric where Self: Encodable {
     func encoded(using dependencies: Dependencies) -> Data {
         try! JSONEncoder(using: dependencies).with(outputFormatting: .sortedKeys).encode(self)
     }

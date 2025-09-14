@@ -28,27 +28,15 @@ class MessageSenderGroupsSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-            }
-        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
         @TestState var groupEdPK: [UInt8]! = groupKeyPair.publicKey
@@ -82,23 +70,20 @@ class MessageSenderGroupsSpec: AsyncSpec {
         @TestState var groupKeysConfig: LibSession.Config! = {
             return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
         }()
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
         @TestState var mockPoller: MockPoller! = .create(using: dependencies)
-        @TestState(singleton: .groupPollerManager, in: dependencies) var mockGroupPollerManager: MockGroupPollerManager! = .create(using: dependencies)
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockGroupPollerManager: MockGroupPollerManager! = .create(using: dependencies)
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         @TestState var thread: SessionThread?
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSessionCache.defaultInitialSetup(
+            try await mockLibSessionCache.defaultInitialSetup(
                 configs: [
                     .userGroups: userGroupsConfig,
                     .groupInfo: groupInfoConfig,
@@ -106,13 +91,27 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .groupKeys: groupKeysConfig
                 ]
             )
-            mockLibSessionCache
+            try await mockLibSessionCache
                 .when { try $0.pendingPushes(swarmPublicKey: .any) }
                 .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockSnodeAPICache.defaultInitialSetup()
             dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
+            
+            try await mockFileManager.defaultInitialSetup()
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
+            
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             
             try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
             try await mockNetwork
@@ -180,6 +179,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             try await mockKeychain
                 .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
                 .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+            dependencies.set(singleton: .keychain, to: mockKeychain)
             
             try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
             
@@ -187,6 +187,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             try await mockGroupPollerManager.when { await $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
             try await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
             try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+            dependencies.set(singleton: .groupPollerManager, to: mockGroupPollerManager)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
@@ -200,6 +201,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     name: "TestCurrentUser"
                 ).insert(db)
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockCrypto
                 .when { $0.generate(.ed25519KeyPair()) }
@@ -244,6 +246,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.hash(message: .any)) }
                 .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
@@ -255,7 +258,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             // MARK: -- when creating a group
             context("when creating a group") {
                 beforeEach {
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when { try $0.pendingPushes(swarmPublicKey: .any) }
                         .thenReturn(LibSession.PendingPushes())
                 }
@@ -274,18 +277,15 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
-                            cache.setConfig(for: .groupInfo, sessionId: groupId, to: .any)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
-                            cache.setConfig(for: .groupMembers, sessionId: groupId, to: .any)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
-                            cache.setConfig(for: .groupKeys, sessionId: groupId, to: .any)
-                        })
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .groupInfo, sessionId: groupId, to: .any) }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .groupMembers, sessionId: groupId, to: .any) }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .groupKeys, sessionId: groupId, to: .any) }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- returns the created thread
@@ -421,7 +421,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- syncs the group configuration messages
                 it("syncs the group configuration messages") {
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when { try $0.pendingPushes(swarmPublicKey: .any) }
                         .thenReturn(
                             LibSession.PendingPushes(
@@ -556,10 +556,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        await expect(mockLibSessionCache)
-                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) { cache in
-                                cache.removeConfigs(for: groupId)
-                            })
+                        await mockLibSessionCache
+                            .verify { $0.removeConfigs(for: groupId) }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ removes the data from the database
@@ -590,7 +589,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 // MARK: ------ does not upload an image if none is provided
                 it("does not upload an image if none is provided") {
                     // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                    mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                    try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                     
                     MessageSender
                         .createGroup(
@@ -681,7 +680,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     // MARK: ------ saves the image info to the group
                     it("saves the image info to the group") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                        try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         try await mockNetwork
                             .when {
                                 $0.send(
@@ -761,9 +760,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .groupInviteMember,
@@ -779,7 +778,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 dependantJob: nil,
                                 canStartJob: true
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ------ and trying to subscribe for push notifications
@@ -886,7 +886,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     // MARK: ---- does not subscribe if push notifications are disabled
                     it("does not subscribe if push notifications are disabled") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                        try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
@@ -923,7 +923,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     // MARK: ---- does not subscribe if there is no push token
                     it("does not subscribe if there is no push token") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                        try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(nil)
@@ -1208,9 +1208,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             using: dependencies
                         ).sinkUntilComplete()
                         
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                jobRunner.add(
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
                                     .any,
                                     job: Job(
                                         variant: .groupInviteMember,
@@ -1226,7 +1226,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     dependantJob: nil,
                                     canStartJob: true
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ---- adds a member change control message
@@ -1265,9 +1266,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             using: dependencies
                         ).sinkUntilComplete()
                         
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                jobRunner.add(
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
                                     .any,
                                     job: Job(
                                         variant: .messageSend,
@@ -1294,7 +1295,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     dependantJob: nil,
                                     canStartJob: false
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                 }
                 
@@ -1410,9 +1412,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .groupInviteMember,
@@ -1428,7 +1430,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 dependantJob: nil,
                                 canStartJob: true
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- adds a member change control message
@@ -1467,9 +1470,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .messageSend,
@@ -1496,7 +1499,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 dependantJob: nil,
                                 canStartJob: false
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- sorts the members in the control message deterministically
@@ -1512,9 +1516,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .messageSend,
@@ -1543,7 +1547,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 dependantJob: nil,
                                 canStartJob: false
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
         }

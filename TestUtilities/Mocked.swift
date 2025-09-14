@@ -19,15 +19,50 @@ public extension Mocked {
     static var skipTypeMatchForAnyComparison: Bool { false }
 }
 
-public protocol MockedGeneric {
-    associatedtype Generic
+public enum MockHelper {
+    /// This function is a hack to force Swift to think it has received a value, if we try to use the value it will crash but becasue this is only
+    /// ever used for constructing stub calls (as opposed to calling mocked functions) the result will never be used so won't crash
+    internal static func unsafePlaceholder<V>() -> V {
+        let pointer = UnsafeMutablePointer<V>.allocate(capacity: 1)
+        defer { pointer.deallocate() }
+        return pointer.move()
+    }
     
-    static func mock(type: Generic.Type) -> Self
+    /// This function is similar to the above but can be used for `Bool` to generate an "invalid" value for the `any` case, using the value
+    /// returned by this function outside of constructing stub calls will result in undefined behaviour or crashes
+    ///
+    /// This doesn't cause a crash because Swift essentially doesn't check that the underlying data matches (whereas for primitive-backed
+    /// enum values it does, and structs must have the right memory size and alignment so we can't use this approach for them)
+    public static func unsafeBoolValue() -> Bool {
+        var rawValueToLoad: UInt8 = .any
+        
+        return withUnsafeBytes(of: &rawValueToLoad) {
+            $0.load(as: Bool.self)
+        }
+    }
 }
 
 // MARK: - DSL
 
-public func anyAny() -> Any { 0 }
+public func anyAny() -> Any { AnyValue.any }
+
+/// This type is here to allow us to have some ability to match something passed to a function expecting an `Any` against a `.any` value,
+/// since we can't extend `Any` this type will be returned by `anyAny` and will match regardless of what the parameter type is
+public final class AnyValue: Mocked {
+    public static var any: AnyValue { AnyValue(id: .any) }
+    public static var mock: AnyValue { AnyValue(id: .mock) }
+    public static var skipTypeMatchForAnyComparison: Bool { true }
+    
+    private let id: UUID
+    private init(id: UUID) {
+        self.id = id
+    }
+}
+
+extension Optional: Mocked where Wrapped: Mocked {
+    public static var any: Self { Wrapped.any }
+    public static var mock: Self { Wrapped.mock }
+}
 
 extension Int: Mocked {
     public static let any: Int = (Int.max - 123)
@@ -86,7 +121,7 @@ extension Data: Mocked {
     public static let mock: Data = Data()
 }
 extension Bool: Mocked {
-    public static let any: Bool = false
+    public static let any: Bool = MockHelper.unsafeBoolValue()
     public static let mock: Bool = false
 }
 
@@ -134,13 +169,33 @@ extension Set: Mocked {
 }
 
 extension UIApplication.State: Mocked {
-    public static let any: UIApplication.State = UIApplication.State(rawValue: .any)!
+    public static let any: UIApplication.State = .inactive
     public static let mock: UIApplication.State = .active
 }
-extension UnsafeMutablePointer<ObjCBool>?: Mocked {
-    public static var any: UnsafeMutablePointer<ObjCBool>? { nil }
-    public static var mock: UnsafeMutablePointer<ObjCBool>? { nil }
+
+private final class MockPointerHolder {
+    static let anyObjCBoolPointer: UnsafeMutablePointer<ObjCBool> = {
+        let pointer = UnsafeMutablePointer<ObjCBool>.allocate(capacity: 1)
+        pointer.initialize(to: ObjCBool(false))
+        return pointer
+    }()
+    static let mockObjCBoolPointer: UnsafeMutablePointer<ObjCBool> = {
+        let pointer = UnsafeMutablePointer<ObjCBool>.allocate(capacity: 1)
+        pointer.initialize(to: ObjCBool(false))
+        return pointer
+    }()
 }
+
+extension UnsafeMutablePointer: Mocked where Pointee == ObjCBool {
+    public static var any: UnsafeMutablePointer<ObjCBool> {
+        return MockPointerHolder.anyObjCBoolPointer
+    }
+    
+    public static var mock: UnsafeMutablePointer<ObjCBool> {
+        return MockPointerHolder.mockObjCBoolPointer
+    }
+}
+
 
 extension UUID: Mocked {
     public static let any: UUID = UUID(uuidString: "12300099-0099-0000-0000-990099000321")!
@@ -157,14 +212,9 @@ extension URLRequest: Mocked {
     public static let mock: URLRequest = URLRequest(url: URL(fileURLWithPath: "mock"))
 }
 
-extension AnyPublisher: MockedGeneric where Failure == Error {
-    public typealias Generic = Output
-    
-    public static func any(type: Output.Type) -> AnyPublisher<Output, Error> { mock(type: type) }
-    
-    public static func mock(type: Output.Type) -> AnyPublisher<Output, Error> {
-        return Fail(error: MockError.mock).eraseToAnyPublisher()
-    }
+extension AnyPublisher: Mocked where Failure == Error {
+    public static var any: AnyPublisher<Output, Error> { Fail(error: MockError.any).eraseToAnyPublisher() }
+    public static var mock: AnyPublisher<Output, Error> { Fail(error: MockError.mock).eraseToAnyPublisher() }
 }
 
 extension AsyncStream: Mocked {

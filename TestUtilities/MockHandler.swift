@@ -83,13 +83,7 @@ public final class MockHandler<T> {
         )
     }
     
-    typealias CallInfo = (
-        expected: RecordedCall,
-        matching: [RecordedCall],
-        all: [RecordedCall]
-    )
-    
-    func recordedCallInfo<R>(for functionBlock: @escaping (inout T) async throws -> R) async -> CallInfo? {
+    func recordedCallInfo<R>(for functionBlock: @escaping (inout T) async throws -> R) async -> RecordedCallInfo? {
         let builder: MockFunctionBuilder<T, R> = createBuilder(for: functionBlock)
         
         guard let builtFunction = try? await builder.build() else {
@@ -103,14 +97,18 @@ public final class MockHandler<T> {
         )
         let allCalls: [RecordedCall] = (locked { calls[expectedCall.key] } ?? [])
         
-        return (
-            expectedCall,
-            allCalls.filter { expectedCall.matches(args: $0.arguments) },
-            allCalls
+        return RecordedCallInfo(
+            expectedCall: expectedCall,
+            matchingCalls: allCalls.filter { expectedCall.matches(args: $0.arguments) },
+            allCalls: allCalls
         )
     }
     
     // MARK: - Test Lifecycle
+    
+    public func clearCalls() {
+        locked { calls.removeAll() }
+    }
     
     public func reset() {
         locked {
@@ -151,11 +149,11 @@ public final class MockHandler<T> {
         }
         
         guard let callMatches: CallMatches = maybeCallMatches else {
-            return .failure(MockError.noStubFound(function: funcName, args: args))
+            return .failure(MockError.noStubFound(function: recordedCall.key.nameWithGenerics, args: args))
         }
         guard let matchingCall: MockFunction = callMatches.matchingCall else {
             return .failure(MockError.noMatchingStubFound(
-                function: funcName,
+                function: recordedCall.key.nameWithGenerics,
                 expectedArgs: args,
                 mockedArgs: callMatches.allCalls.map { $0.arguments }
             ))
@@ -190,7 +188,7 @@ public final class MockHandler<T> {
         }
         
         return .failure(MockError.stubbedValueIsWrongType(
-            function: stub.name,
+            function: stub.asCall.key.nameWithGenerics,
             expected: Output.self,
             actual: type(of: stub.returnValue)
         ))

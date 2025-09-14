@@ -23,13 +23,13 @@ class OnboardingSpec: AsyncSpec {
             dependencies.uuid = .mock
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockLibSession: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
@@ -38,12 +38,11 @@ class OnboardingSpec: AsyncSpec {
         @TestState var manager: Onboarding.Manager!
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSession.defaultInitialSetup()
-            mockLibSession
+            try await mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache
                 .when {
                     $0.profile(
                         contactId: .any,
@@ -53,12 +52,13 @@ class OnboardingSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(nil)
-            dependencies.set(cache: .libSession, to: mockLibSession)
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockSnodeAPICache.defaultInitialSetup()
             dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
@@ -88,6 +88,7 @@ class OnboardingSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             try await mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
                 LibSession.Snode(
@@ -183,7 +184,7 @@ class OnboardingSpec: AsyncSpec {
         // MARK: - an Onboarding Cache - Initialization
         describe("an Onboarding Cache when initialising") {
             beforeEach {
-                mockLibSession
+                try await mockLibSessionCache
                     .when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }
                     .thenReturn(nil)
             }
@@ -355,7 +356,7 @@ class OnboardingSpec: AsyncSpec {
                         try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
-                        mockLibSession
+                        try await mockLibSessionCache
                             .when {
                                 $0.profile(
                                     contactId: .any,
@@ -369,14 +370,16 @@ class OnboardingSpec: AsyncSpec {
                     
                     // MARK: ------ loads from libSession
                     it("loads from libSession") {
-                        expect(mockLibSession).to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.profile(
-                                contactId: "05\(TestConstants.publicKey)",
-                                threadId: nil,
-                                threadVariant: nil,
-                                visibleMessage: nil
-                            )
-                        })
+                        await mockLibSessionCache
+                            .verify {
+                                $0.profile(
+                                    contactId: "05\(TestConstants.publicKey)",
+                                    threadId: nil,
+                                    threadVariant: nil,
+                                    visibleMessage: nil
+                                )
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ stores the loaded displayName

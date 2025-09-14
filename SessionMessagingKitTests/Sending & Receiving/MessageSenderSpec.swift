@@ -15,15 +15,14 @@ class MessageSenderSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
@@ -32,6 +31,7 @@ class MessageSenderSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockCrypto
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
@@ -47,6 +47,7 @@ class MessageSenderSpec: AsyncSpec {
                         secretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
                 )
+            dependencies.set(singleton: .crypto, to: mockCrypto)
         }
         
         // MARK: - a MessageSender

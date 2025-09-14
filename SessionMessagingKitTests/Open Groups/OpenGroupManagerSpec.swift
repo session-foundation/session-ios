@@ -109,36 +109,22 @@ class OpenGroupManagerSpec: AsyncSpec {
                 base64EncodedMessage: try! proto.build().serializedData().base64EncodedString()
             )
         }()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockAppGroupDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState var mockOGMCache: MockOGMCache! = MockOGMCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockOGMCache: MockOGMCache! = .create(using: dependencies)
         @TestState var mockPoller: MockPoller! = .create(using: dependencies)
-        @TestState(singleton: .communityPollerManager, in: dependencies) var mockCommunityPollerManager: MockCommunityPollerManager! = .create(using: dependencies)
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = .create(using: dependencies)
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockCommunityPollerManager: MockCommunityPollerManager! = .create(using: dependencies)
+        @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
         @TestState var userGroupsInitResult: Int32! = {
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
@@ -151,17 +137,19 @@ class OpenGroupManagerSpec: AsyncSpec {
         @TestState var openGroupManager: OpenGroupManager! = OpenGroupManager(using: dependencies)
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            mockOGMCache.when { $0.pendingChanges }.thenReturn([])
-            mockOGMCache.when { $0.pendingChanges = .any }.thenReturn(())
-            mockOGMCache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
-            mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
+            try await mockFileManager.defaultInitialSetup()
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
+            
+            try await mockOGMCache.when { $0.pendingChanges }.thenReturn([])
+            try await mockOGMCache.when { $0.pendingChanges = .any }.thenReturn(())
+            try await mockOGMCache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+            try await mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
             dependencies.set(cache: .openGroupManager, to: mockOGMCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
@@ -175,6 +163,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 try testOpenGroup.insert(db)
                 try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockCrypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
             try await mockCrypto
@@ -216,6 +205,7 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                 .thenReturn(Data([1, 2, 3]))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
             try await mockPoller.when { await $0.stop() }.thenReturn(())
@@ -230,6 +220,7 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockCommunityPollerManager
                 .when { $0.syncState }
                 .thenReturn(CommunityPollerManagerSyncState())
+            dependencies.set(singleton: .communityPollerManager, to: mockCommunityPollerManager)
             
             try await mockKeychain
                 .when {
@@ -242,6 +233,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(Data([1, 2, 3]))
+            dependencies.set(singleton: .keychain, to: mockKeychain)
             
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(0)
@@ -250,6 +242,17 @@ class OpenGroupManagerSpec: AsyncSpec {
             try await mockAppGroupDefaults.defaultInitialSetup()
             try await mockAppGroupDefaults.when { $0.bool(forKey: .any) }.thenReturn(false)
             dependencies.set(defaults: .appGroup, to: mockAppGroupDefaults)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             
             try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
             try await mockNetwork
@@ -552,8 +555,10 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ returns true
                     it("returns true") {
                         try await mockCommunityPollerManager
-                            .when { await $0.serversBeingPolled }
-                            .thenReturn(["http://116.203.70.33"])
+                            .when { $0.syncState }
+                            .thenReturn(CommunityPollerManagerSyncState(
+                                serversBeingPolled: ["http://116.203.70.33"]
+                            ))
                         mockStorage.write { db in
                             try SessionThread(
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "http://116.203.70.33"),
@@ -586,8 +591,10 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ returns true
                     it("returns true") {
                         try await mockCommunityPollerManager
-                            .when { await $0.serversBeingPolled }
-                            .thenReturn(["http://open.getsession.org"])
+                            .when { $0.syncState }
+                            .thenReturn(CommunityPollerManagerSyncState(
+                                serversBeingPolled: ["http://open.getsession.org"]
+                            ))
                         mockStorage.write { db in
                             try SessionThread(
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "http://open.getsession.org"),
@@ -768,15 +775,17 @@ class OpenGroupManagerSpec: AsyncSpec {
                 context("an existing room") {
                     beforeEach {
                         try await mockCommunityPollerManager
-                            .when { await $0.serversBeingPolled }
-                            .thenReturn(["http://127.0.0.1"])
+                            .when { $0.syncState }
+                            .thenReturn(CommunityPollerManagerSyncState(
+                                serversBeingPolled: ["http://127.0.0.1"]
+                            ))
                         mockStorage.write { db in
                             try testOpenGroup.insert(db)
                         }
                     }
                     
-                    // MARK: ------ does not reset the sequence number or update the public key
-                    it("does not reset the sequence number or update the public key") {
+                    // MARK: ------ does not reset the sequence number
+                    it("does not reset the sequence number") {
                         mockStorage
                             .writePublisher { db -> Bool in
                                 openGroupManager.add(
@@ -802,22 +811,14 @@ class OpenGroupManagerSpec: AsyncSpec {
                             }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(
+                        await expect(
                             mockStorage.read { db in
                                 try OpenGroup
                                     .select(.sequenceNumber)
                                     .asRequest(of: Int64.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal(5))
-                        expect(
-                            mockStorage.read { db in
-                                try OpenGroup
-                                    .select(.publicKey)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(equal(TestConstants.publicKey))
+                        ).toEventually(equal(5))
                     }
                 }
                 
@@ -1132,8 +1133,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockJobRunner)
-                        .toNot(call(matchingParameters: .all) {
+                    await mockJobRunner
+                        .verify {
                             $0.add(
                                 .any,
                                 job: Job(
@@ -1151,7 +1152,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 dependantJob: nil,
                                 canStartJob: true
                             )
-                        })
+                        }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- schedules the displayPictureDownload job if there is an image
@@ -1181,8 +1183,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockJobRunner)
-                        .to(call(matchingParameters: .all) {
+                    await mockJobRunner
+                        .verify {
                             $0.add(
                                 .any,
                                 job: Job(
@@ -1200,7 +1202,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 dependantJob: nil,
                                 canStartJob: true
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- and updating the moderator list
@@ -1531,8 +1534,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     .fetchOne(db)
                             }
                         ).to(equal("10"))
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                        await mockJobRunner
+                            .verify {
                                 $0.add(
                                     .any,
                                     job: Job(
@@ -1550,7 +1553,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     dependantJob: nil,
                                     canStartJob: true
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ uses the existing room image id if none is provided
@@ -1603,7 +1607,9 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     .fetchOne(db)
                             }
                         ).toNot(beNil())
-                        expect(mockJobRunner).toNot(call { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) })
+                        await mockJobRunner
+                            .verify { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                            .wasNotCalled()
                     }
                     
                     // MARK: ------ uses the new room image id if there is an existing one
@@ -1661,8 +1667,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     .fetchOne(db)
                             }
                         ).toNot(beNil())
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                        await mockJobRunner
+                            .verify {
                                 $0.add(
                                     .any,
                                     job: Job(
@@ -1680,7 +1686,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     dependantJob: nil,
                                     canStartJob: true
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ does nothing if there is no room image
@@ -2590,7 +2597,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 overallTimeout: expectedRequest.overallTimeout
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms

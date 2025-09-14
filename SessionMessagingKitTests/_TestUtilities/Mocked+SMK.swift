@@ -14,7 +14,10 @@ extension Message.Destination: @retroactive Mocked {
 }
 
 extension LibSession.Config: @retroactive Mocked {
-    public static var any: LibSession.Config = .mock
+    public static var any: LibSession.Config = {
+        var conf = config_object()
+        return withUnsafeMutablePointer(to: &conf) { .local($0) }
+    }()
     public static var mock: LibSession.Config = {
         var conf = config_object()
         return withUnsafeMutablePointer(to: &conf) { .contacts($0) }
@@ -22,12 +25,12 @@ extension LibSession.Config: @retroactive Mocked {
 }
 
 extension ConfigDump.Variant: @retroactive Mocked {
-    public static var any: ConfigDump.Variant = .local
+    public static var any: ConfigDump.Variant = .invalid
     public static var mock: ConfigDump.Variant = .userProfile
 }
 
 extension LibSession.CacheBehaviour: @retroactive Mocked {
-    public static var any: LibSession.CacheBehaviour = .skipAutomaticConfigSync
+    public static var any: LibSession.CacheBehaviour = .skipGroupAdminCheck
     public static var mock: LibSession.CacheBehaviour = .skipAutomaticConfigSync
 }
 
@@ -77,7 +80,7 @@ extension SessionThread: @retroactive Mocked {
 }
 
 extension SessionThread.Variant: @retroactive Mocked {
-    public static var any: SessionThread.Variant = .contact
+    public static var any: SessionThread.Variant = .legacyGroup
     public static var mock: SessionThread.Variant = .contact
 }
 
@@ -148,7 +151,7 @@ extension KeychainStorage.DataKey: @retroactive Mocked {
 }
 
 extension NotificationCategory: @retroactive Mocked {
-    public static var any: NotificationCategory = .threadlessErrorMessage
+    public static var any: NotificationCategory = .deprecatedIncomingMessage
     public static var mock: NotificationCategory = .incomingMessage
 }
 
@@ -212,7 +215,7 @@ extension Preferences.Sound: @retroactive Mocked {
 }
 
 extension Preferences.NotificationPreviewType: @retroactive Mocked {
-    public static var any: Preferences.NotificationPreviewType = .noNameNoPreview
+    public static var any: Preferences.NotificationPreviewType = .nameNoPreview
     public static var mock: Preferences.NotificationPreviewType = .defaultPreviewType
 }
 

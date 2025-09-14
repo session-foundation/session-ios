@@ -19,9 +19,9 @@ class NotificationsManagerSpec: AsyncSpec {
                 $0.dateNow = Date(timeIntervalSince1970: 1234567890)
             }
         )
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
+        @TestState var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
         @TestState var message: Message! = VisibleMessage(
             sender: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
             sentTimestampMs: 1234567892,
@@ -36,9 +36,8 @@ class NotificationsManagerSpec: AsyncSpec {
         )
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockLibSessionCache.defaultInitialSetup()
-            mockLibSessionCache.when {
+            try await mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.when {
                 $0.conversationLastRead(
                     threadId: .any,
                     threadVariant: .any,
@@ -48,6 +47,7 @@ class NotificationsManagerSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockNotificationsManager.defaultInitialSetup()
+            dependencies.set(singleton: .notificationsManager, to: mockNotificationsManager)
             
             try await mockExtensionHelper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
             dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
@@ -598,11 +598,11 @@ class NotificationsManagerSpec: AsyncSpec {
             
             // MARK: -- throws if the sender is blocked
             it("throws if the sender is blocked") {
+                try await mockLibSessionCache
+                    .when { $0.isContactBlocked(contactId: .any) }
+                    .thenReturn(true)
+                
                 expect {
-                    mockLibSessionCache
-                        .when { $0.isContactBlocked(contactId: .any) }
-                        .thenReturn(true)
-                    
                     try mockNotificationsManager.ensureWeShouldShowNotification(
                         message: message,
                         threadId: threadId,
@@ -620,17 +620,17 @@ class NotificationsManagerSpec: AsyncSpec {
             
             // MARK: -- throws if the message was already read
             it("throws if the message was already read") {
+                try await mockLibSessionCache
+                    .when {
+                        $0.conversationLastRead(
+                            threadId: .any,
+                            threadVariant: .any,
+                            openGroupUrlInfo: .any
+                        )
+                    }
+                    .thenReturn(1234567899)
+                
                 expect {
-                    mockLibSessionCache
-                        .when {
-                            $0.conversationLastRead(
-                                threadId: .any,
-                                threadVariant: .any,
-                                openGroupUrlInfo: .any
-                            )
-                        }
-                        .thenReturn(1234567899)
-                    
                     try mockNotificationsManager.ensureWeShouldShowNotification(
                         message: message,
                         threadId: threadId,
@@ -838,7 +838,9 @@ class NotificationsManagerSpec: AsyncSpec {
                     
                     // MARK: ---- returns the formatted string containing the truncated id and group name when the displayNameRetriever returns null
                     it("returns the formatted string containing the truncated id and group name when the displayNameRetriever returns null") {
-                        mockLibSessionCache.when { $0.groupName(groupSessionId: .any) }.thenReturn("TestGroup")
+                        try await mockLibSessionCache
+                            .when { $0.groupName(groupSessionId: .any) }
+                            .thenReturn("TestGroup")
                         
                         expect {
                             try mockNotificationsManager.notificationTitle(
@@ -1258,9 +1260,11 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { false }
                     )
                 }.toNot(throwError())
-                expect(mockLibSessionCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                    $0.isMessageRequest(threadId: "05\(TestConstants.publicKey)", threadVariant: .contact)
-                })
+                await mockLibSessionCache
+                    .verify {
+                        $0.isMessageRequest(threadId: "05\(TestConstants.publicKey)", threadVariant: .contact)
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- retrieves notification settings from the notification maanager
@@ -1294,7 +1298,7 @@ class NotificationsManagerSpec: AsyncSpec {
             // MARK: -- checks whether it should show for messages requests if the message is a message request
             it("checks whether it should show for messages requests if the message is a message request") {
                 var didCallShouldShowForMessageRequest: Bool = false
-                mockLibSessionCache
+                try await mockLibSessionCache
                     .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                     .thenReturn(true)
                 

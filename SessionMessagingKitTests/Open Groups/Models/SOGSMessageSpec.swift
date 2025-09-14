@@ -29,8 +29,12 @@ class SOGSMessageSpec: AsyncSpec {
         """
         @TestState var messageData: Data! = messageJson.data(using: .utf8)!
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var decoder: JSONDecoder! = JSONDecoder(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+        }
         
         // MARK: - a SOGSMessage
         describe("a SOGSMessage") {

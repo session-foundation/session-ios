@@ -187,14 +187,16 @@ public final class OpenGroupManager {
         
         // Set the group to active and reset the sequenceNumber (handle groups which have
         // been deactivated)
-        _ = try? OpenGroup
-            .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
-            .updateAllAndConfig(
-                db,
-                OpenGroup.Columns.isActive.set(to: true),
-                OpenGroup.Columns.sequenceNumber.set(to: 0),
-                using: dependencies
-            )
+        if (try? OpenGroup.select(.isActive).filter(id: threadId).asRequest(of: Bool.self).fetchOne(db)) != true {
+            _ = try? OpenGroup
+                .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
+                .updateAllAndConfig(
+                    db,
+                    OpenGroup.Columns.isActive.set(to: true),
+                    OpenGroup.Columns.sequenceNumber.set(to: 0),
+                    using: dependencies
+                )
+        }
         
         return true
     }

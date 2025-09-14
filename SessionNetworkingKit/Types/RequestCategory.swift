@@ -4,10 +4,11 @@ import Foundation
 import SessionUtil
 
 public extension Network {
-    enum RequestCategory: Codable {
+    enum RequestCategory: Int, Codable, CaseIterable {
         case standard
         case upload
         case download
+        case invalid
     }
 }
 
@@ -17,6 +18,7 @@ extension Network.RequestCategory {
             case .standard: return SESSION_NETWORK_REQUEST_CATEGORY_STANDARD
             case .upload: return SESSION_NETWORK_REQUEST_CATEGORY_UPLOAD
             case .download: return SESSION_NETWORK_REQUEST_CATEGORY_DOWNLOAD
+            case .invalid: return SESSION_NETWORK_REQUEST_CATEGORY_STANDARD
         }
     }
     

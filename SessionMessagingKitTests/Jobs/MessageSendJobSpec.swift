@@ -2,16 +2,13 @@
 
 import Foundation
 import GRDB
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
-
-extension Job: @retroactive MutableIdentifiable {
-    public mutating func setId(_ id: Int64?) { self.id = id }
-}
 
 class MessageSendJobSpec: AsyncSpec {
     override class func spec() {
@@ -30,38 +27,15 @@ class MessageSendJobSpec: AsyncSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when {
-                        $0.jobInfoFor(
-                            jobs: nil,
-                            state: .running,
-                            variant: .attachmentUpload
-                        )
-                    }
-                    .thenReturn([:])
-                jobRunner
-                    .when { $0.insert(.any, job: .any, before: .any) }
-                    .then { args, untrackedArgs in
-                        let db: ObservingDatabase = untrackedArgs[0] as! ObservingDatabase
-                        var job: Job = args[0] as! Job
-                        job.id = 1000
-                        
-                        try! job.insert(db)
-                    }
-                    .thenReturn((1000, Job(variant: .messageSend)))
-            }
-        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
@@ -78,6 +52,28 @@ class MessageSendJobSpec: AsyncSpec {
                     using: dependencies
                 )
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockJobRunner
+                .when {
+                    $0.jobInfoFor(
+                        jobs: nil,
+                        state: .anyState,
+                        variant: .attachmentUpload
+                    )
+                }
+                .thenReturn([:])
+            try await mockJobRunner
+                .when { $0.insert(.any, job: .any, before: .any) }
+                .then { args in
+                    let db: ObservingDatabase = args[0] as! ObservingDatabase
+                    var job: Job = args[1] as! Job
+                    job.id = 1000
+                    
+                    try! job.insert(db)
+                }
+                .thenReturn((1000, Job(variant: .messageSend)))
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
         }
         
         // MARK: - a MessageSendJob
@@ -207,7 +203,8 @@ class MessageSendJobSpec: AsyncSpec {
                     
                     mockStorage.write { db in
                         try interaction.insert(db)
-                        try job.insert(db, withRowId: 54321)
+                        job.id = 54321
+                        try job.insert(db)
                     }
                 }
                 
@@ -289,7 +286,10 @@ class MessageSendJobSpec: AsyncSpec {
                             )
                         )
                     )
-                    mockStorage.write { db in try job.insert(db, withRowId: 54321) }
+                    mockStorage.write { db in
+                        job.id = 54321
+                        try job.insert(db)
+                    }
                     
                     var error: Error? = nil
                     var permanentFailure: Bool = false
@@ -406,7 +406,7 @@ class MessageSendJobSpec: AsyncSpec {
                         
                         // MARK: -------- inserts an attachment upload job before the message send job
                         it("inserts an attachment upload job before the message send job") {
-                            mockJobRunner
+                            try await mockJobRunner
                                 .when {
                                     $0.jobInfoFor(
                                         jobs: nil,
@@ -425,8 +425,8 @@ class MessageSendJobSpec: AsyncSpec {
                                 using: dependencies
                             )
                             
-                            expect(mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            await mockJobRunner
+                                .verify {
                                     $0.insert(
                                         .any,
                                         job: Job(
@@ -443,7 +443,8 @@ class MessageSendJobSpec: AsyncSpec {
                                         ),
                                         before: job
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                         
                         // MARK: -------- creates a dependency between the new job and the existing one

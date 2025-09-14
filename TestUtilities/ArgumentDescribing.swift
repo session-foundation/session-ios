@@ -11,16 +11,49 @@ public protocol ArgumentDescribing {
 internal func summary(for argument: Any?) -> String {
     guard let argument: Any = argument else { return "nil" }
     
+    /// Custom handle the `any` types
     if isAnyValue(argument) {
         return "<any \(String(describing: type(of: argument)))>"
     }
+    
+    /// Otherwise generate a summary
+    return generateSummary(for: argument)
+}
+
+private func isEquatableMatch<E: Equatable>(lhs: E, rhs: Any) -> Bool {
+    if let rhs = rhs as? E {
+        return lhs == rhs
+    }
+    
+    return false
+}
+
+internal func isAnyValue(_ value: Any) -> Bool {
+    func open<T: Mocked>(value: T) -> Bool {
+        /// Try a single equality check (this could result in a false positive because the value is a legitimate value)
+        if let mockedEquatable = value as? any Equatable {
+            return isEquatableMatch(lhs: mockedEquatable, rhs: T.any)
+        }
+        
+        /// Compare using the `summary` as a fallback
+        return generateSummary(for: value) == generateSummary(for: T.any)
+    }
+    
+    if let mockedValue = value as? any Mocked {
+        return open(value: mockedValue)
+    }
+    
+    return false
+}
+
+private func generateSummary(for argument: Any?) -> String {
+    guard let argument: Any = argument else { return "nil" }
     
     /// Then handle any `ArgumentDescribing` values
     if let customSummary: String = (argument as? ArgumentDescribing)?.summary {
         return customSummary
     }
     
-    /// Finally try to process standard types
     switch argument {
         case let string as String: return string.debugDescription
         case let array as [Any]: return "[\(array.map { summary(for: $0) }.joined(separator: ", "))]"
@@ -36,18 +69,6 @@ internal func summary(for argument: Any?) -> String {
         case let data as Data: return "Data(base64Encoded: \(data.base64EncodedString()))"
         default: return recursiveSummary(for: argument)
     }
-}
-
-private func isAnyValue(_ value: Any) -> Bool {
-    func open<T: Mocked & Equatable>(value: T) -> Bool {
-        return value == T.any
-    }
-    
-    if let mockedEquatableValue = value as? any (Mocked & Equatable) {
-        return open(value: mockedEquatableValue)
-    }
-    
-    return false
 }
 
 private func recursiveSummary(for subject: Any) -> String {

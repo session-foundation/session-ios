@@ -3,28 +3,39 @@
 import Foundation
 import Combine
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionMessagingKit
 
-class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
+class MockOGMCache: OGMCacheType, Mockable {
+    public var handler: MockHandler<OGMCacheType>
+    
+    required init(handler: MockHandler<OGMCacheType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> {
-        mock()
+        handler.mock()
     }
     
     var pendingChanges: [OpenGroupAPI.PendingChange] {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
+        get { return handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     
     func getLastSuccessfulCommunityPollTimestamp() -> TimeInterval {
-        return mock()
+        return handler.mock()
     }
     
     func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) {
-        mockNoReturn(args: [timestamp])
+        handler.mockNoReturn(args: [timestamp])
     }
     
     func setDefaultRoomInfo(_ info: [OpenGroupManager.DefaultRoomInfo]) {
-        mockNoReturn(args: [info])
+        handler.mockNoReturn(args: [info])
     }
 }

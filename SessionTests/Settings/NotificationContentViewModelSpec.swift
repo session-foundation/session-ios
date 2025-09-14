@@ -9,6 +9,7 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import Session
 
@@ -19,7 +20,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
@@ -30,14 +31,13 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             return .local(conf)
         }()
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var viewModel: NotificationContentViewModel!
         @TestState var dataChangeCancellable: AnyCancellable?
         @TestState var dismissCancellable: AnyCancellable?
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
-            mockLibSessionCache.defaultInitialSetup(
+            try await mockLibSessionCache.defaultInitialSetup(
                 configs: [
                     .local: localConfig
                 ]
@@ -45,6 +45,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             viewModel = await NotificationContentViewModel(using: dependencies)
             dataChangeCancellable = viewModel.tableDataPublisher
@@ -73,6 +74,16 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
+                try await mockLibSessionCache
+                    .when { $0.get(.preferencesNotificationPreviewType) }
+                    .thenReturn(Preferences.NotificationPreviewType.defaultPreviewType)
+                viewModel = await NotificationContentViewModel(using: dependencies)
+                dataChangeCancellable = viewModel.tableDataPublisher
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+                try await require { viewModel.tableData.count }.toEventually(beGreaterThan(0))
                 await expect(viewModel.tableData.first?.elements)
                     .toEventually(
                         equal([
@@ -82,7 +93,8 @@ class NotificationContentViewModelSpec: AsyncSpec {
                                 title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: true
-                                )
+                                ),
+                                onTap: {}
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
@@ -90,7 +102,8 @@ class NotificationContentViewModelSpec: AsyncSpec {
                                 title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
-                                )
+                                ),
+                                onTap: {}
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
@@ -98,7 +111,8 @@ class NotificationContentViewModelSpec: AsyncSpec {
                                 title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
-                                )
+                                ),
+                                onTap: {}
                             )
                         ])
                     )
@@ -106,7 +120,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
-                mockLibSessionCache
+                try await mockLibSessionCache
                     .when { $0.get(.preferencesNotificationPreviewType) }
                     .thenReturn(Preferences.NotificationPreviewType.nameNoPreview)
                 viewModel = await NotificationContentViewModel(using: dependencies)
@@ -154,9 +168,11 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 it("updates the saved preference") {
                     await viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    await expect(mockLibSessionCache).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
-                    })
+                    await mockLibSessionCache
+                        .verify {
+                            $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.noNameNoPreview)
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- dismisses the screen

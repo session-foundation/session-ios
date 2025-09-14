@@ -13,7 +13,7 @@ class SessionThreadViewModelSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
@@ -31,6 +31,7 @@ class SessionThreadViewModelSpec: AsyncSpec {
                     t.column("body")
                 }
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
         }
         
         // MARK: - a SessionThreadViewModel

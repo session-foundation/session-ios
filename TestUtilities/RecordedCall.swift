@@ -5,11 +5,18 @@
 import Foundation
 
 public struct RecordedCall {
-    let name: String
-    let generics: [Any.Type]
-    let arguments: [Any?]
+    public let name: String
+    internal let generics: [Any.Type]
+    internal let arguments: [Any?]
     
     internal var key: Key { Key(name: name, generics: generics, paramCount: arguments.count) }
+    public var parameterSummary: String { "[\(arguments.map { summary(for: $0) }.joined(separator: ", "))]" }
+}
+
+public struct RecordedCallInfo {
+    public let expectedCall: RecordedCall
+    public let matchingCalls: [RecordedCall]
+    public let allCalls: [RecordedCall]
 }
 
 internal extension RecordedCall {
@@ -17,6 +24,19 @@ internal extension RecordedCall {
         let name: String
         let generics: [String]
         let paramCount: Int
+        
+        var nameWithGenerics: String {
+            guard !generics.isEmpty else { return name }
+            
+            let splitName: [String] = name.split(separator: "(").map { String($0) }
+            let genericsString: String = "<\(generics.map { "\($0)" }.joined(separator: ", "))>"
+            
+            switch (generics.count, splitName.count) {
+                case (1..., 1): return "\(splitName[0])\(genericsString)"
+                case (1..., 2): return "\(splitName[0])\(genericsString)(\(splitName[1])"
+                default: return name
+            }
+        }
         
         init(name: String, generics: [Any.Type], paramCount: Int) {
             self.name = name
@@ -45,22 +65,6 @@ internal extension RecordedCall {
         return false
     }
     
-    private func isAnyValue(_ value: Any) -> Bool {
-        func open<T: Mocked>(value: T) -> Bool {
-            if let mockedEquatable = value as? any Equatable {
-                return isEquatableMatch(lhs: mockedEquatable, rhs: T.any)
-            }
-            
-            /// Compare using the `summary` as a fallback
-            return summary(for: value) == summary(for: T.any)
-        }
-        
-        if let mockedValue = value as? any Mocked {
-            return open(value: mockedValue)
-        }
-        
-        return false
-    }
     
     private func argumentMatches(stubArg: Any?, callArg: Any?) -> Bool {
         func isWildcardMatch<T: Mocked>(_ value: T) -> Bool {

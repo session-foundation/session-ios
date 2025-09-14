@@ -336,7 +336,7 @@ public class ExtensionHelper: ExtensionHelperType {
     public func replicateAllConfigDumpsIfNeeded(
         userSessionId: SessionId,
         allDumpSessionIds: Set<SessionId>
-    ) {
+    ) async {
         struct ReplicatedDumpInfo {
             struct DumpState {
                 let variant: ConfigDump.Variant
@@ -401,37 +401,29 @@ public class ExtensionHelper: ExtensionHelperType {
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
         
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { db in
-                try ConfigDump
-                    .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
-                    .fetchAll(db)
-            },
-            completion: { [weak self] result in
-                guard
-                    let self = self,
-                    let dumps: [ConfigDump] = try? result.get()
-                else { return }
-                
-                /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
-                /// the database)
-                ///
-                /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
-                /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
-                /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
-                dumps.forEach { dump in
-                    let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
-                        for: dump.sessionId,
-                        variant: dump.variant
-                    )
-                    
-                    self.replicate(
-                        dump: dump,
-                        replaceExisting: (dumpLastUpdated < fetchTimestamp)
-                    )
-                }
-            }
-        )
+        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].readAsync { db in
+            try ConfigDump
+                .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
+                .fetchAll(db)
+        }) ?? [])
+        
+        /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
+        /// the database)
+        ///
+        /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
+        /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
+        /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
+        dumps.forEach { dump in
+            let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
+                for: dump.sessionId,
+                variant: dump.variant
+            )
+            
+            replicate(
+                dump: dump,
+                replaceExisting: (dumpLastUpdated < fetchTimestamp)
+            )
+        }
     }
     
     public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
@@ -977,7 +969,7 @@ public protocol ExtensionHelperType {
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
-    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>)
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,

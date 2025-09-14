@@ -17,7 +17,7 @@ class MessageDeduplicationSpec: AsyncSpec {
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
         
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
@@ -31,6 +31,7 @@ class MessageDeduplicationSpec: AsyncSpec {
         
         beforeEach {
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockExtensionHelper.when { $0.deleteCache() }.thenReturn(())
             try await mockExtensionHelper

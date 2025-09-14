@@ -182,7 +182,7 @@ public extension LibSession {
         dump: ConfigDump?
     )
     
-    enum CacheBehaviour {
+    enum CacheBehaviour: Int, CaseIterable {
         case skipAutomaticConfigSync
         case skipGroupAdminCheck
     }

@@ -96,15 +96,7 @@ extension MockFunctionBuilder: MockFunctionHandler {
         self.capturedGenerics = generics
         self.capturedArguments = args
         
-        /// This is a hack to force Swift to think it has received a value, if we try to use the value it will crash but becasue this is only
-        /// ever used for constructing stub calls (as opposed to calling mocked functions) the result will never be used so won't crash
-        func createPlaceholder<V>() -> V {
-            let pointer = UnsafeMutablePointer<V>.allocate(capacity: 1)
-            defer { pointer.deallocate() }
-            return pointer.move()
-        }
-        
-        return createPlaceholder()
+        return MockHelper.unsafePlaceholder()
     }
 }
 

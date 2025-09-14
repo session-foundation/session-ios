@@ -21,18 +21,17 @@ class OpenGroupAPISpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockCrypto
@@ -75,6 +74,7 @@ class OpenGroupAPISpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Seckey: .any)) }
                 .thenReturn(Array(Data(hex: TestConstants.privateKey)))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             dependencies.set(singleton: .network, to: mockNetwork)
         }
@@ -290,7 +290,9 @@ class OpenGroupAPISpec: AsyncSpec {
                 // MARK: ---- when blinded and checking for message requests
                 context("when blinded and checking for message requests") {
                     beforeEach {
-                        mockLibSessionCache.when { $0.get(.checkForCommunityMessageRequests) }.thenReturn(true)
+                        try await mockLibSessionCache
+                            .when { $0.get(.checkForCommunityMessageRequests) }
+                            .thenReturn(true)
                     }
                 
                     // MARK: ------ includes the inbox and outbox endpoints
@@ -453,7 +455,9 @@ class OpenGroupAPISpec: AsyncSpec {
                 // MARK: ---- when blinded and not checking for message requests
                 context("when blinded and not checking for message requests") {
                     beforeEach {
-                        mockLibSessionCache.when { $0.get(.checkForCommunityMessageRequests) }.thenReturn(false)
+                        try await mockLibSessionCache
+                            .when { $0.get(.checkForCommunityMessageRequests) }
+                            .thenReturn(false)
                     }
                     
                     // MARK: ------ includes the inbox and outbox endpoints

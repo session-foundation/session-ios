@@ -23,8 +23,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
@@ -41,20 +41,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             "f2761e3bb6ee837a26b24b5"
         )
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState(singleton: .imageDataManager, in: dependencies) var mockImageDataManager: MockImageDataManager! = .create(using: dependencies)
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockImageDataManager: MockImageDataManager! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            mockLibSessionCache.defaultInitialSetup()
+            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockFileManager.defaultInitialSetup()
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
@@ -63,6 +63,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             try await mockCrypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
             try await mockCrypto
@@ -83,6 +84,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                 .thenReturn("TestSogsSignature".bytes)
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             try await mockNetwork
                 .when {
@@ -101,6 +103,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             try await mockImageDataManager
                 .when { await $0.load(.any) }
                 .thenReturn(nil)
+            dependencies.set(singleton: .imageDataManager, to: mockImageDataManager)
         }
         
         // MARK: - a DisplayPictureDownloadJob
@@ -635,8 +638,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
-                        expect(mockFileManager)
-                            .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                        await mockFileManager
+                            .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                            .wasNotCalled()
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
                             .wasNotCalled(timeout: .milliseconds(50))
@@ -654,8 +658,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
-                        expect(mockFileManager)
-                            .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                        await mockFileManager
+                            .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                            .wasNotCalled()
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
                             .wasNotCalled(timeout: .milliseconds(50))
@@ -666,7 +671,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 // MARK: ---- when it fails to write to disk
                 context("when it fails to write to disk") {
                     beforeEach {
-                        mockFileManager
+                        try await mockFileManager
                             .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
                             .thenReturn(false)
                     }
@@ -682,14 +687,15 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 
                 // MARK: ---- writes the file to disk
                 it("writes the file to disk") {
-                    expect(mockFileManager)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { mockFileManager in
-                            mockFileManager.createFile(
+                    await mockFileManager
+                        .verify {
+                            $0.createFile(
                                 atPath: "/test/DisplayPictures/5465737448617368",
                                 contents: imageData,
                                 attributes: nil
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- adds the image data to the displayPicture cache
@@ -743,8 +749,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled()
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -770,8 +777,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled()
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -806,8 +814,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled()
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -841,14 +850,15 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasCalled(exactly: 1)
-                            expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.createFile(
-                                    atPath: "/test/DisplayPictures/5465737448617368",
-                                    contents: imageData,
-                                    attributes: nil
-                                )
-                            })
-                            
+                            await mockFileManager
+                                .verify {
+                                    $0.createFile(
+                                        atPath: "/test/DisplayPictures/5465737448617368",
+                                        contents: imageData,
+                                        attributes: nil
+                                    )
+                                }
+                                .wasCalled(exactly: 1)
                             await mockImageDataManager
                                 .verify {
                                     await $0.load(
@@ -938,8 +948,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled()
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -964,8 +975,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled()
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -1004,8 +1016,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             await mockCrypto
                                 .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled()
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -1111,8 +1124,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -1134,8 +1148,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
-                            expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(50))
@@ -1169,13 +1184,15 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- saves the picture
                         it("saves the picture") {
-                            expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.createFile(
-                                    atPath: "/test/DisplayPictures/5465737448617368",
-                                    contents: imageData,
-                                    attributes: nil
-                                )
-                            })
+                            await mockFileManager
+                                .verify {
+                                    $0.createFile(
+                                        atPath: "/test/DisplayPictures/5465737448617368",
+                                        contents: imageData,
+                                        attributes: nil
+                                    )
+                                }
+                                .wasCalled(exactly: 1)
                             await mockImageDataManager
                                 .verify {
                                     await $0.load(

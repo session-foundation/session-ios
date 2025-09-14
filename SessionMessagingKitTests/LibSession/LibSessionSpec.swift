@@ -21,17 +21,16 @@ class LibSessionSpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
-        @TestState var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache()
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var userGroupsConfig: LibSession.Config!
         
         beforeEach {
-            /// The compiler kept crashing when doing this via `@TestState` so need to do it here instead
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
@@ -62,6 +61,7 @@ class LibSessionSpec: AsyncSpec {
                 .thenReturn(
                     Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
                 )
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
@@ -80,12 +80,13 @@ class LibSessionSpec: AsyncSpec {
                     using: dependencies
                  )
             }
+            dependencies.set(singleton: .storage, to: mockStorage)
             
             var conf: UnsafeMutablePointer<config_object>!
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
             _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
             
-            mockLibSessionCache.defaultInitialSetup(
+            try await mockLibSessionCache.defaultInitialSetup(
                 configs: [
                     .userGroups: .userGroups(conf),
                     .groupInfo: createGroupOutput.groupState[.groupInfo],
@@ -313,7 +314,7 @@ class LibSessionSpec: AsyncSpec {
                     _ = user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
                     userGroupsConfig = .userGroups(userGroupsConf)
                     
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when { $0.config(for: .userGroups, sessionId: .any) }
                         .thenReturn(userGroupsConfig)
                 }
@@ -558,11 +559,11 @@ class LibSessionSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockLibSessionCache).to(call(.exactly(times: 3)) {
-                        $0.setConfig(for: .any, sessionId: .any, to: .any)
-                    })
-                    expect(mockLibSessionCache)
-                        .to(call(matchingParameters: .atLeast(2)) {
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .any, sessionId: .any, to: .any) }
+                        .wasCalled(exactly: 3)
+                    await mockLibSessionCache
+                        .verify {
                             $0.setConfig(
                                 for: .groupInfo,
                                 sessionId: SessionId(
@@ -571,9 +572,10 @@ class LibSessionSpec: AsyncSpec {
                                 ),
                                 to: .any
                             )
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(matchingParameters: .atLeast(2)) {
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
                             $0.setConfig(
                                 for: .groupMembers,
                                 sessionId: SessionId(
@@ -582,9 +584,10 @@ class LibSessionSpec: AsyncSpec {
                                 ),
                                 to: .any
                             )
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(matchingParameters: .atLeast(2)) {
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify {
                             $0.setConfig(
                                 for: .groupKeys,
                                 sessionId: SessionId(
@@ -593,15 +596,16 @@ class LibSessionSpec: AsyncSpec {
                                 ),
                                 to: .any
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
             
             // MARK: -- when saving a created a group
             context("when saving a created a group") {
                 beforeEach {
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
-                    mockLibSessionCache
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
+                    try await mockLibSessionCache
                         .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
                         .then { args in
                             mockStorage.write { db in
@@ -680,15 +684,16 @@ class LibSessionSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await mockLibSessionCache
+                        .verify {
                             try $0.performAndPushChange(
                                 .any,
                                 for: .userGroups,
                                 sessionId: SessionId(.standard, hex: TestConstants.publicKey),
                                 change: { _ in }
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
         }

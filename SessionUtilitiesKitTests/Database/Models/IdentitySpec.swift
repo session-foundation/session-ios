@@ -13,13 +13,14 @@ class IdentitySpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
         
         beforeEach {
             try await mockStorage.perform(migrations: [_001_SUK_InitialSetupMigration.self])
+            dependencies.set(singleton: .storage, to: mockStorage)
         }
         
         // MARK: - an Identity
