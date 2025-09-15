@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension SnodeAPI {
-    public class RevokeSubaccountRequest: SnodeAuthenticatedRequestBody {
+extension Network.SnodeAPI {
+    class RevokeSubaccountRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case subaccountsToRevoke = "revoke"
         }
@@ -14,7 +14,7 @@ extension SnodeAPI {
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("revoke_subaccount" || timestamp || SUBACCOUNT_TAG_BYTES...)`; this
             /// signs the subaccount token, using `pubkey` to sign. Must be base64 encoded for json requests; binary for OMQ requests.
-            SnodeAPI.Endpoint.revokeSubaccount.path.bytes
+            Network.SnodeAPI.Endpoint.revokeSubaccount.path.bytes
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
                 .appending(contentsOf: Array(subaccountsToRevoke.joined()))
         }

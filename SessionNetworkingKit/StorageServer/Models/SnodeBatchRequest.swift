@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-internal extension SnodeAPI {
+extension Network.SnodeAPI {
     struct BatchRequest: Encodable {
         let requests: [Child]
         
@@ -38,7 +38,7 @@ internal extension SnodeAPI {
                 case params
             }
             
-            let endpoint: SnodeAPI.Endpoint
+            let endpoint: Network.SnodeAPI.Endpoint
             
             /// The `jsonBodyEncoder` is used to avoid having to make `BatchSubRequest` a generic type (haven't found
             /// a good way to keep `BatchSubRequest` encodable using protocols unfortunately so need this work around)

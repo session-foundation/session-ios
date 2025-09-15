@@ -352,7 +352,7 @@ public extension MessageSendJob {
             .compactMap { info in
                 guard
                     let attachment: Attachment = attachments[info.attachmentId],
-                    let fileId: String = Attachment.fileId(for: info.downloadUrl)
+                    let fileId: String = Network.FileServer.fileId(for: info.downloadUrl)
                 else { return nil }
                 
                 return (attachment, fileId)

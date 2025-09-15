@@ -2,8 +2,8 @@
 
 import Foundation
 
-extension OpenGroupAPI {
-    public struct SendDirectMessageResponse: Codable, Equatable {
+public extension Network.SOGS {
+    struct SendDirectMessageResponse: Codable, Equatable {
         enum CodingKeys: String, CodingKey {
             case id
             case sender

@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension SnodeAPI {
-    public class DeleteMessagesRequest: SnodeAuthenticatedRequestBody {
+extension Network.SnodeAPI {
+    class DeleteMessagesRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case messageHashes = "messages"
             case requireSuccessfulDeletion = "required"
@@ -17,7 +17,7 @@ extension SnodeAPI {
             /// Ed25519 signature of `("delete" || messages...)`; this signs the value constructed
             /// by concatenating "delete" and all `messages` values, using `pubkey` to sign.  Must be base64
             /// encoded for json requests; binary for OMQ requests.
-            SnodeAPI.Endpoint.deleteMessages.path.bytes
+            Network.SnodeAPI.Endpoint.deleteMessages.path.bytes
                 .appending(contentsOf: messageHashes.joined().bytes)
         }
         

@@ -201,7 +201,7 @@ final class NukeDataModal: Modal {
                                 try communityAuth.compactMap { authMethod in
                                     switch authMethod.info {
                                         case .community(let server, _, _, _, _):
-                                            return try OpenGroupAPI.preparedClearInbox(
+                                            return try Network.SOGS.preparedClearInbox(
                                                 requestAndPathBuildTimeout: Network.defaultTimeout,
                                                 authMethod: authMethod,
                                                 using: dependencies
@@ -218,7 +218,7 @@ final class NukeDataModal: Modal {
                             .eraseToAnyPublisher()
                     }
                     .tryFlatMap { authMethod, clearedServers in
-                        try SnodeAPI
+                        try Network.SnodeAPI
                             .preparedDeleteAllMessages(
                                 namespace: .all,
                                 requestAndPathBuildTimeout: Network.defaultTimeout,
@@ -296,7 +296,7 @@ final class NukeDataModal: Modal {
             UIApplication.shared.unregisterForRemoteNotifications()
             
             if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].isValid {
-                PushNotificationAPI
+                Network.PushNotification
                     .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
                     .sinkUntilComplete()
             }

@@ -39,7 +39,7 @@ public enum GetExpirationJob: JobExecutor {
         
         dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<GetExpiriesResponse> in
-                try SnodeAPI.preparedGetExpiries(
+                try Network.SnodeAPI.preparedGetExpiries(
                     of: expirationInfo.map { $0.key },
                     authMethod: try Authentication.with(
                         db,

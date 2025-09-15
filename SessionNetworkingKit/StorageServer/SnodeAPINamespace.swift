@@ -6,7 +6,7 @@ import Foundation
 import SessionUtil
 import SessionUtilitiesKit
 
-public extension Network.StorageServer {
+public extension Network.SnodeAPI {
     enum Namespace: Int, Codable, Hashable, CustomStringConvertible {
         /// Messages sent to one-to-one conversations are stored in this namespace
         case `default` = 0

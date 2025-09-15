@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension OpenGroupAPI {
+extension Network.SOGS {
     struct UserModeratorRequest: Codable {
         /// List of room tokens to which the moderator status should be applied. The invoking user must be an admin of all of the given rooms.
         ///

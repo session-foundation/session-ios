@@ -2,15 +2,15 @@
 
 import Foundation
 
-extension SnodeAPI {
+extension Network.SnodeAPI {
     /// This is the legacy unauthenticated message store request
-    public struct LegacySendMessagesRequest: Encodable {
+    struct LegacySendMessagesRequest: Encodable {
         enum CodingKeys: String, CodingKey {
             case namespace
         }
         
         let message: SnodeMessage
-        let namespace: SnodeAPI.Namespace
+        let namespace: Network.SnodeAPI.Namespace
         
         // MARK: - Coding
         

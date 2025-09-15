@@ -164,38 +164,6 @@ public extension Crypto.Generator {
         }
     }
 
-    static func plaintextWithPushNotificationPayload(
-        payload: Data,
-        encKey: Data
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "plaintextWithPushNotificationPayload",
-            args: [payload, encKey]
-        ) {
-            var cPayload: [UInt8] = Array(payload)
-            var cEncKey: [UInt8] = Array(encKey)
-            var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
-            var plaintextLen: Int = 0
-
-            guard
-                cEncKey.count == 32,
-                session_decrypt_push_notification(
-                    &cPayload,
-                    cPayload.count,
-                    &cEncKey,
-                    &maybePlaintext,
-                    &plaintextLen
-                ),
-                plaintextLen > 0,
-                let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
-
-            free(UnsafeMutableRawPointer(mutating: maybePlaintext))
-
-            return plaintext
-        }
-    }
-
     static func plaintextWithMultiEncrypt(
         ciphertext: Data,
         senderSessionId: SessionId,
@@ -231,7 +199,7 @@ public extension Crypto.Generator {
     
     static func messageServerHash(
         swarmPubkey: String,
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         data: Data
     ) -> Crypto.Generator<String> {
         return Crypto.Generator(

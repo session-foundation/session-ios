@@ -882,7 +882,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         )
                     }
                     
-                    let expectedRequest: Network.PreparedRequest<[String: Bool]> = try SnodeAPI.preparedDeleteMessages(
+                    let expectedRequest: Network.PreparedRequest<[String: Bool]> = try Network.SnodeAPI.preparedDeleteMessages(
                         serverHashes: ["1234"],
                         requireSuccessfulDeletion: false,
                         authMethod: Authentication.groupAdmin(

@@ -55,7 +55,7 @@ public extension SnodeReceivedMessageInfo {
     init(
         snode: LibSession.Snode,
         swarmPublicKey: String,
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         hash: String,
         expirationDateMs: Int64?
     ) {
@@ -75,7 +75,7 @@ public extension SnodeReceivedMessageInfo {
     static func fetchLastNotExpired(
         _ db: ObservingDatabase,
         for snode: LibSession.Snode,
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {

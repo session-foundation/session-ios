@@ -5,22 +5,22 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension SnodeAPI {
-    public final class DeleteAllBeforeRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
+extension Network.SnodeAPI {
+    final class DeleteAllBeforeRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
         enum CodingKeys: String, CodingKey {
             case beforeMs = "before"
             case namespace
         }
         
         let beforeMs: UInt64
-        let namespace: SnodeAPI.Namespace?
+        let namespace: Network.SnodeAPI.Namespace?
         
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("delete_before" || namespace || before)`, signed by
             /// `pubkey`.  Must be base64 encoded (json) or bytes (OMQ).  `namespace` is the stringified
             /// version of the given non-default namespace parameter (i.e. "-42" or "all"), or the empty
             /// string for the default namespace (whether explicitly given or not).
-            SnodeAPI.Endpoint.deleteAllBefore.path.bytes
+            Network.SnodeAPI.Endpoint.deleteAllBefore.path.bytes
                 .appending(
                     contentsOf: (namespace == nil ?
                         "all" :
@@ -34,7 +34,7 @@ extension SnodeAPI {
         
         public init(
             beforeMs: UInt64,
-            namespace: SnodeAPI.Namespace?,
+            namespace: Network.SnodeAPI.Namespace?,
             authMethod: AuthenticationMethod,
             timestampMs: UInt64
         ) {

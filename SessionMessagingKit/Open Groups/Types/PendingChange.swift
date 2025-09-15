@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension OpenGroupAPI {
+extension OpenGroupManager {
     public struct PendingChange: Equatable {
         public enum ChangeType {
             case reaction
@@ -24,23 +24,23 @@ extension OpenGroupAPI {
         var seqNo: Int64?
         let metadata: Metadata
         
-        public static func == (lhs: OpenGroupAPI.PendingChange, rhs: OpenGroupAPI.PendingChange) -> Bool {
-            guard lhs.server == rhs.server &&
-                    lhs.room == rhs.room &&
-                    lhs.changeType == rhs.changeType &&
-                    lhs.seqNo == rhs.seqNo
-            else {
-                return false
-            }
+        public static func == (lhs: OpenGroupManager.PendingChange, rhs: OpenGroupManager.PendingChange) -> Bool {
+            guard
+                lhs.server == rhs.server &&
+                lhs.room == rhs.room &&
+                lhs.changeType == rhs.changeType &&
+                lhs.seqNo == rhs.seqNo
+            else { return false }
             
             switch lhs.changeType {
                 case .reaction:
                     if case .reaction(let lhsMessageId, let lhsEmoji, let lhsAction) = lhs.metadata,
-                       case .reaction(let rhsMessageId, let rhsEmoji, let rhsAction) = rhs.metadata {
+                       case .reaction(let rhsMessageId, let rhsEmoji, let rhsAction) = rhs.metadata
+                    {
                         return lhsMessageId == rhsMessageId && lhsEmoji == rhsEmoji && lhsAction == rhsAction
-                    } else {
-                        return false
                     }
+                    
+                    return false
             }
         }
     }

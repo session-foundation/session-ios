@@ -112,7 +112,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 switch maybeRoomToken {
                     case .some(let roomToken):
-                        return try OpenGroupAPI
+                        return try Network.SOGS
                             .preparedDownload(
                                 url: info.downloadUrl,
                                 roomToken: roomToken,

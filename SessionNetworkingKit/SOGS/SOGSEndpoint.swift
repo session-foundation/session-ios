@@ -3,10 +3,9 @@
 // stringlint:disable
 
 import Foundation
-import SessionNetworkingKit
 
-extension OpenGroupAPI {
-    public enum Endpoint: EndpointType {
+public extension Network.SOGS {
+    enum Endpoint: EndpointType {
         // Utility
         
         case onion
@@ -61,7 +60,7 @@ extension OpenGroupAPI {
         case userUnban(String)
         case userModerator(String)
         
-        public static var name: String { "OpenGroupAPI.Endpoint" }
+        public static var name: String { "SOGS.Endpoint" }
         public static var batchRequestVariant: Network.BatchRequest.Child.Variant = .sogs
         public static var excludedSubRequestHeaders: [HTTPHeader] = [
             .sogsPubKey, .sogsTimestamp, .sogsNonce, .sogsSignature

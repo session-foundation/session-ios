@@ -3,14 +3,14 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension SnodeAPI {
-    public class SendMessageRequest: SnodeAuthenticatedRequestBody {
+extension Network.SnodeAPI {
+    class SendMessageRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case namespace
         }
         
         let message: SnodeMessage
-        let namespace: SnodeAPI.Namespace
+        let namespace: Network.SnodeAPI.Namespace
         
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("store" || namespace || timestamp)`, where namespace and
@@ -18,7 +18,7 @@ extension SnodeAPI {
             /// base64 encoded for json requests; binary for OMQ requests.  For non-05 type pubkeys (i.e. non
             /// session ids) the signature will be verified using `pubkey`.  For 05 pubkeys, see the following
             /// option.
-            SnodeAPI.Endpoint.sendMessage.path.bytes
+            Network.SnodeAPI.Endpoint.sendMessage.path.bytes
                 .appending(contentsOf: namespace.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
         }
@@ -27,7 +27,7 @@ extension SnodeAPI {
         
         public init(
             message: SnodeMessage,
-            namespace: SnodeAPI.Namespace,
+            namespace: Network.SnodeAPI.Namespace,
             authMethod: AuthenticationMethod,
             timestampMs: UInt64
         ) {

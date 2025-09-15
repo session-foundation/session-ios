@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum OpenGroupAPIError: Error, CustomStringConvertible {
+public enum SOGSError: Error, CustomStringConvertible {
     case decryptionFailed
     case signingFailed
     case noPublicKey

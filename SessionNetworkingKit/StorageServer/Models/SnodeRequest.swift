@@ -9,13 +9,13 @@ public struct SnodeRequest<T: Encodable>: Encodable {
         case body = "params"
     }
     
-    internal let endpoint: SnodeAPI.Endpoint
+    internal let endpoint: Network.SnodeAPI.Endpoint
     internal let body: T
     
     // MARK: - Initialization
     
     public init(
-        endpoint: SnodeAPI.Endpoint,
+        endpoint: Network.SnodeAPI.Endpoint,
         body: T
     ) {
         self.endpoint = endpoint

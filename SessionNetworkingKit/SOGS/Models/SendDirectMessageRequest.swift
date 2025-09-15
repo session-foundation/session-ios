@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension OpenGroupAPI {
+extension Network.SOGS {
     public struct SendDirectMessageRequest: Codable {
         let message: Data
         

@@ -704,7 +704,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             self?.startPollersIfNeeded()
             
-            SessionNetworkAPI.client.initialize(using: dependencies)
+            Network.SessionNetwork.client.initialize(using: dependencies)
 
             if dependencies[singleton: .appContext].isMainApp {
                 DispatchQueue.main.async {

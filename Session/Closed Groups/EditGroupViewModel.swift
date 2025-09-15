@@ -534,7 +534,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             case (.some(let inviteByIdValue), _):
                                 // This could be an ONS name
                                 let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
-                                    SnodeAPI
+                                    Network.SnodeAPI
                                         .getSessionID(for: inviteByIdValue, using: dependencies)
                                         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                                         .receive(on: DispatchQueue.main, using: dependencies)

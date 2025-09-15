@@ -2,9 +2,9 @@
 
 import Foundation
 
-extension SnodeAPI {
+extension Network.SnodeAPI {
     /// This is the legacy unauthenticated message retrieval request
-    public struct LegacyGetMessagesRequest: Encodable {
+    struct LegacyGetMessagesRequest: Encodable {
         enum CodingKeys: String, CodingKey {
             case pubkey
             case lastHash = "last_hash"
@@ -15,7 +15,7 @@ extension SnodeAPI {
         
         let pubkey: String
         let lastHash: String
-        let namespace: SnodeAPI.Namespace?
+        let namespace: Network.SnodeAPI.Namespace?
         let maxCount: Int64?
         let maxSize: Int64?
         

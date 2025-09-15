@@ -1,10 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionNetworkingKit
 import SessionUtilitiesKit
 
-extension OpenGroupAPI {
+extension Network.SOGS {
     public struct Message: Codable, Equatable {
         enum CodingKeys: String, CodingKey {
             case id
@@ -56,7 +55,7 @@ extension OpenGroupAPI {
 
 // MARK: - Decoder
 
-extension OpenGroupAPI.Message {
+extension Network.SOGS.Message {
     public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
     
@@ -102,7 +101,7 @@ extension OpenGroupAPI.Message {
             }
         }
         
-        self = OpenGroupAPI.Message(
+        self = Network.SOGS.Message(
             id: try container.decode(Int64.self, forKey: .id),
             sender: try container.decodeIfPresent(String.self, forKey: .sender),
             posted: try container.decodeIfPresent(TimeInterval.self, forKey: .posted),
@@ -119,11 +118,11 @@ extension OpenGroupAPI.Message {
     }
 }
 
-extension OpenGroupAPI.Message.Reaction {
+extension Network.SOGS.Message.Reaction {
     public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
 
-        self = OpenGroupAPI.Message.Reaction(
+        self = Network.SOGS.Message.Reaction(
             count: try container.decode(Int64.self, forKey: .count),
             reactors: try container.decodeIfPresent([String].self, forKey: .reactors),
             you: ((try container.decodeIfPresent(Bool.self, forKey: .you)) ?? false),

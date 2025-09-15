@@ -5,7 +5,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public extension Request where Endpoint == Network.StorageServer.Endpoint {
+public extension Request where Endpoint == Network.SnodeAPI.Endpoint {
     init<B: Encodable>(
         endpoint: Endpoint,
         snode: LibSession.Snode,
@@ -29,7 +29,7 @@ public extension Request where Endpoint == Network.StorageServer.Endpoint {
         endpoint: Endpoint,
         swarmPublicKey: String,
         body: B,
-        snodeRetrievalRetryCount: Int = Network.StorageServer.maxRetryCount
+        snodeRetrievalRetryCount: Int = Network.SnodeAPI.maxRetryCount
     ) throws where T == SnodeRequest<B> {
         self = try Request(
             endpoint: endpoint,
@@ -49,7 +49,7 @@ public extension Request where Endpoint == Network.StorageServer.Endpoint {
         swarmPublicKey: String,
         requiresLatestNetworkTime: Bool,
         body: B,
-        snodeRetrievalRetryCount: Int = Network.StorageServer.maxRetryCount
+        snodeRetrievalRetryCount: Int = Network.SnodeAPI.maxRetryCount
     ) throws where T == SnodeRequest<B>, B: Encodable & UpdatableTimestamp {
         self = try Request(
             endpoint: endpoint,

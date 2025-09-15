@@ -86,7 +86,7 @@ public extension ConfigDump.Variant {
         .groupInfo, .groupMembers, .groupKeys
     ]
     
-    init(namespace: SnodeAPI.Namespace) {
+    init(namespace: Network.SnodeAPI.Namespace) {
         switch namespace {
             case .configUserProfile: self = .userProfile
             case .configContacts: self = .contacts
@@ -104,19 +104,19 @@ public extension ConfigDump.Variant {
     /// Config messages should last for 30 days rather than the standard 14
     var ttl: UInt64 { 30 * 24 * 60 * 60 * 1000 }
     
-    var namespace: SnodeAPI.Namespace {
+    var namespace: Network.SnodeAPI.Namespace {
         switch self {
-            case .userProfile: return SnodeAPI.Namespace.configUserProfile
-            case .contacts: return SnodeAPI.Namespace.configContacts
-            case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
-            case .userGroups: return SnodeAPI.Namespace.configUserGroups
-            case .local: return SnodeAPI.Namespace.configLocal
+            case .userProfile: return Network.SnodeAPI.Namespace.configUserProfile
+            case .contacts: return Network.SnodeAPI.Namespace.configContacts
+            case .convoInfoVolatile: return Network.SnodeAPI.Namespace.configConvoInfoVolatile
+            case .userGroups: return Network.SnodeAPI.Namespace.configUserGroups
+            case .local: return Network.SnodeAPI.Namespace.configLocal
             
-            case .groupInfo: return SnodeAPI.Namespace.configGroupInfo
-            case .groupMembers: return SnodeAPI.Namespace.configGroupMembers
-            case .groupKeys: return SnodeAPI.Namespace.configGroupKeys
+            case .groupInfo: return Network.SnodeAPI.Namespace.configGroupInfo
+            case .groupMembers: return Network.SnodeAPI.Namespace.configGroupMembers
+            case .groupKeys: return Network.SnodeAPI.Namespace.configGroupKeys
                 
-            case .invalid: return SnodeAPI.Namespace.unknown
+            case .invalid: return Network.SnodeAPI.Namespace.unknown
         }
     }
     

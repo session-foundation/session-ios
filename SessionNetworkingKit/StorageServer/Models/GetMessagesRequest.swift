@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension SnodeAPI {
-    public class GetMessagesRequest: SnodeAuthenticatedRequestBody {
+extension Network.SnodeAPI {
+    class GetMessagesRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case lastHash = "last_hash"
             case namespace
@@ -13,7 +13,7 @@ extension SnodeAPI {
         }
         
         let lastHash: String
-        let namespace: SnodeAPI.Namespace?
+        let namespace: Network.SnodeAPI.Namespace?
         let maxCount: Int64?
         let maxSize: Int64?
         
@@ -22,7 +22,7 @@ extension SnodeAPI {
             /// namespace), or `("retrieve" || timestamp)` when fetching from the default namespace.  Both
             /// namespace and timestamp are the base10 expressions of the relevant values.  Must be base64
             /// encoded for json requests; binary for OMQ requests.
-            SnodeAPI.Endpoint.getMessages.path.bytes
+            Network.SnodeAPI.Endpoint.getMessages.path.bytes
                 .appending(contentsOf: namespace?.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
         }
@@ -31,7 +31,7 @@ extension SnodeAPI {
         
         public init(
             lastHash: String,
-            namespace: SnodeAPI.Namespace?,
+            namespace: Network.SnodeAPI.Namespace?,
             authMethod: AuthenticationMethod,
             timestampMs: UInt64,
             maxCount: Int64? = nil,

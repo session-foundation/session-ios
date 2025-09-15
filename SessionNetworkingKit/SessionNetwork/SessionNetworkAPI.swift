@@ -17,20 +17,20 @@ public extension Network.SessionNetwork {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Info> {
         return try Network.PreparedRequest(
-            request: Request<NoBody, Network.NetworkAPI.Endpoint>(
-                endpoint: Network.NetworkAPI.Endpoint.info,
+            request: Request<NoBody, Network.SessionNetwork.Endpoint>(
+                endpoint: Network.SessionNetwork.Endpoint.info,
                 destination: .server(
                     method: .get,
-                    server: Network.NetworkAPI.networkAPIServer,
+                    server: Network.SessionNetwork.networkAPIServer,
                     queryParameters: [:],
-                    x25519PublicKey: Network.NetworkAPI.networkAPIServerPublicKey
+                    x25519PublicKey: Network.SessionNetwork.networkAPIServerPublicKey
                 )
             ),
             responseType: Info.self,
             requestAndPathBuildTimeout: Network.defaultTimeout,
             using: dependencies
         )
-        .signed(with: SessionNetworkAPI.signRequest, using: dependencies)
+        .signed(with: Network.SessionNetwork.signRequest, using: dependencies)
     }
     
     // MARK: - Authentication

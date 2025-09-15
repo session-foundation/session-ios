@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension SnodeAPI {
-    public final class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
+extension Network.SnodeAPI {
+    final class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
         enum CodingKeys: String, CodingKey {
             case namespace
         }
@@ -14,7 +14,7 @@ extension SnodeAPI {
         ///
         /// **Note:** If omitted when sending the request, messages are deleted from the default namespace
         /// only (namespace 0)
-        let namespace: SnodeAPI.Namespace
+        let namespace: Network.SnodeAPI.Namespace
         
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `( "delete_all" || namespace || timestamp )`, where
@@ -22,7 +22,7 @@ extension SnodeAPI {
             /// not), and otherwise the stringified version of the namespace parameter (i.e. "99" or "-42" or "all").
             /// The signature must be signed by the ed25519 pubkey in `pubkey` (omitting the leading prefix).
             /// Must be base64 encoded for json requests; binary for OMQ requests.
-            SnodeAPI.Endpoint.deleteAll.path.bytes
+            Network.SnodeAPI.Endpoint.deleteAll.path.bytes
                 .appending(contentsOf: namespace.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
         }
@@ -30,7 +30,7 @@ extension SnodeAPI {
         // MARK: - Init
         
         public init(
-            namespace: SnodeAPI.Namespace,
+            namespace: Network.SnodeAPI.Namespace,
             authMethod: AuthenticationMethod,
             timestampMs: UInt64
         ) {

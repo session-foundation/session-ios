@@ -2,8 +2,8 @@
 
 import Foundation
 
-extension SnodeAPI {
-    public struct GetNetworkTimestampResponse: Decodable {
+public extension Network.SnodeAPI {
+    struct GetNetworkTimestampResponse: Decodable {
         enum CodingKeys: String, CodingKey {
             case timestamp
             case version

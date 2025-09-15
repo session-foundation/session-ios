@@ -3,13 +3,13 @@
 import Foundation
 
 extension Network.SOGS {
-    public struct Capabilities: Codable, Equatable {
-        public let capabilities: [Network.SOGS.Capability.Variant]
-        public let missing: [Network.SOGS.Capability.Variant]?
+    public struct CapabilitiesResponse: Codable, Equatable {
+        public let capabilities: [String]
+        public let missing: [String]?
 
         // MARK: - Initialization
 
-        public init(capabilities: [Network.SOGS.Capability.Variant], missing: [Network.SOGS.Capability.Variant]? = nil) {
+        public init(capabilities: [String], missing: [String]? = nil) {
             self.capabilities = capabilities
             self.missing = missing
         }

@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum StorageServerError: Error, CustomStringConvertible {
+public enum SnodeAPIError: Error, CustomStringConvertible {
     case clockOutOfSync
     case snodePoolUpdatingFailed
     case inconsistentSnodePools

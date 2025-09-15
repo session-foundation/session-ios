@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension OpenGroupAPI {
+extension Network.SOGS {
     struct UserBanRequest: Codable {
         /// List of one or more room tokens from which the user should be banned (the invoking user must be a `moderator`
         /// of all of the given rooms

@@ -15,7 +15,7 @@ public struct SnodeReceivedMessage: Codable, CustomDebugStringConvertible {
     
     public let snode: LibSession.Snode?
     public let swarmPublicKey: String
-    public let namespace: SnodeAPI.Namespace
+    public let namespace: Network.SnodeAPI.Namespace
     public let hash: String
     public let timestampMs: Int64
     public let expirationTimestampMs: Int64
@@ -36,7 +36,7 @@ public struct SnodeReceivedMessage: Codable, CustomDebugStringConvertible {
     public init?(
         snode: LibSession.Snode?,
         publicKey: String,
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         rawMessage: GetMessagesResponse.RawMessage
     ) {
         guard let data: Data = Data(base64Encoded: rawMessage.base64EncodedDataString) else {

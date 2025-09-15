@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class SnodeAuthenticatedRequestBody: Encodable {
+class SnodeAuthenticatedRequestBody: Encodable {
     private enum CodingKeys: String, CodingKey {
         case pubkey
         case subaccount

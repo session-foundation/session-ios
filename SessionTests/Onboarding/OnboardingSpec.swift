@@ -121,7 +121,7 @@ class OnboardingSpec: AsyncSpec {
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
-                                SnodeAPI.Endpoint.getMessages,
+                                Network.SnodeAPI.Endpoint.getMessages,
                                 GetMessagesResponse(
                                     messages: (pendingPushes?
                                         .pushData

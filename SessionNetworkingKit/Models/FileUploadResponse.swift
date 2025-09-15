@@ -1,5 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+import Foundation
+
 public struct FileUploadResponse: Codable {
     public let id: String
     

@@ -1,13 +1,9 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
-import SessionNetworkingKit
 import SessionUtilitiesKit
 
-// MARK: Request - OpenGroupAPI
-
-public extension Request where Endpoint == OpenGroupAPI.Endpoint {
+public extension Request where Endpoint == Network.SOGS.Endpoint {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
