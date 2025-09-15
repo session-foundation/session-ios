@@ -21,12 +21,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNNetworkingKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try SessionThread(

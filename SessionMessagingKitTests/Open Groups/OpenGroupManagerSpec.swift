@@ -4,13 +4,13 @@ import UIKit
 import Combine
 import GRDB
 import SessionUtil
-import SessionNetworkingKit
 import SessionUtilitiesKit
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
+@testable import SessionNetworkingKit
 
 class OpenGroupManagerSpec: QuickSpec {
     override class func spec() {
@@ -61,12 +61,12 @@ class OpenGroupManagerSpec: QuickSpec {
             infoUpdates: 10,
             sequenceNumber: 5
         )
-        @TestState var testPollInfo: OpenGroupAPI.RoomPollInfo! = OpenGroupAPI.RoomPollInfo.mock.with(
+        @TestState var testPollInfo: Network.SOGS.RoomPollInfo! = Network.SOGS.RoomPollInfo.mock.with(
             token: "testRoom",
             activeUsers: 10,
             details: .mock
         )
-        @TestState var testMessage: OpenGroupAPI.Message! = OpenGroupAPI.Message(
+        @TestState var testMessage: Network.SOGS.Message! = Network.SOGS.Message(
             id: 127,
             sender: "05\(TestConstants.publicKey)",
             posted: 123,
@@ -92,14 +92,14 @@ class OpenGroupManagerSpec: QuickSpec {
             base64EncodedSignature: nil,
             reactions: nil
         )
-        @TestState var testDirectMessage: OpenGroupAPI.DirectMessage! = {
+        @TestState var testDirectMessage: Network.SOGS.DirectMessage! = {
             let proto = SNProtoContent.builder()
             let protoDataBuilder = SNProtoDataMessage.builder()
             proto.setSigTimestamp(1234567890000)
             protoDataBuilder.setBody("TestMessage")
             proto.setDataMessage(try! protoDataBuilder.build())
             
-            return OpenGroupAPI.DirectMessage(
+            return Network.SOGS.DirectMessage(
                 id: 128,
                 sender: "15\(TestConstants.blind15PublicKey)",
                 recipient: "15\(TestConstants.blind15PublicKey)",
@@ -110,10 +110,7 @@ class OpenGroupManagerSpec: QuickSpec {
         }()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -972,7 +969,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
-                                server: OpenGroupAPI.defaultServer,
+                                server: Network.SOGS.defaultServer,
                                 roomToken: "testRoom",
                                 publicKey: TestConstants.publicKey,
                                 isActive: true,
@@ -986,7 +983,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 outboxLatestMessageId: 0
                             ).insert(db)
                             try OpenGroup(
-                                server: OpenGroupAPI.defaultServer,
+                                server: Network.SOGS.defaultServer,
                                 roomToken: "testRoom1",
                                 publicKey: TestConstants.publicKey,
                                 isActive: true,
@@ -1007,7 +1004,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try openGroupManager.delete(
                                 db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: Network.SOGS.defaultServer),
                                 skipLibSessionUpdate: true
                             )
                         }
@@ -1021,7 +1018,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try openGroupManager.delete(
                                 db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: Network.SOGS.defaultServer),
                                 skipLibSessionUpdate: true
                             )
                         }
@@ -1030,7 +1027,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             mockStorage.read { db in
                                 try OpenGroup
                                     .select(.isActive)
-                                    .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer))
+                                    .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: Network.SOGS.defaultServer))
                                     .asRequest(of: Bool.self)
                                     .fetchOne(db)
                             }
@@ -1046,7 +1043,10 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager
                             .handleCapabilities(
                                 db,
-                                capabilities: OpenGroupAPI.Capabilities(capabilities: [.sogs], missing: []),
+                                capabilities: Network.SOGS.CapabilitiesResponse(
+                                    capabilities: ["sogs"],
+                                    missing: []
+                                ),
                                 on: "http://127.0.0.1"
                             )
                     }
@@ -1183,10 +1183,10 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("and updating the moderator list") {
                     // MARK: ------ successfully updates
                     it("successfully updates") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mock.with(
+                            details: Network.SOGS.Room.mock.with(
                                 moderators: ["TestMod"],
                                 hiddenModerators: [],
                                 admins: [],
@@ -1230,10 +1230,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ updates for hidden moderators
                     it("updates for hidden moderators") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mock.with(
+                            details: Network.SOGS.Room.mock.with(
                                 moderators: [],
                                 hiddenModerators: ["TestMod2"],
                                 admins: [],
@@ -1277,7 +1277,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ does not insert mods if no moderators are provided
                     it("does not insert mods if no moderators are provided") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10
                         )
@@ -1302,10 +1302,10 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("and updating the admin list") {
                     // MARK: ------ successfully updates
                     it("successfully updates") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mock.with(
+                            details: Network.SOGS.Room.mock.with(
                                 moderators: [],
                                 hiddenModerators: [],
                                 admins: ["TestAdmin"],
@@ -1349,10 +1349,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ updates for hidden admins
                     it("updates for hidden admins") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mock.with(
+                            details: Network.SOGS.Room.mock.with(
                                 moderators: [],
                                 hiddenModerators: [],
                                 admins: [],
@@ -1396,7 +1396,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ does not insert an admin if no admins are provided
                     it("does not insert an admin if no admins are provided") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
                             details: nil
@@ -1478,10 +1478,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ schedules a download for the room image
                     it("schedules a download for the room image") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mock.with(
+                            details: Network.SOGS.Room.mock.with(
                                 token: "test",
                                 name: "test",
                                 imageId: "10"
@@ -1546,7 +1546,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             ).insert(db)
                         }
                         
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
                             details: nil
@@ -1599,10 +1599,10 @@ class OpenGroupManagerSpec: QuickSpec {
                             ).insert(db)
                         }
                         
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mock.with(
+                            details: Network.SOGS.Room.mock.with(
                                 token: "test",
                                 name: "test",
                                 infoUpdates: 10,
@@ -1703,7 +1703,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.handleMessages(
                             db,
                             messages: [
-                                OpenGroupAPI.Message(
+                                Network.SOGS.Message(
                                     id: 1,
                                     sender: nil,
                                     posted: 123,
@@ -1766,7 +1766,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.handleMessages(
                             db,
                             messages: [
-                                OpenGroupAPI.Message(
+                                Network.SOGS.Message(
                                     id: 1,
                                     sender: nil,
                                     posted: 123,
@@ -1800,7 +1800,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.handleMessages(
                             db,
                             messages: [
-                                OpenGroupAPI.Message(
+                                Network.SOGS.Message(
                                     id: 1,
                                     sender: "05\(TestConstants.publicKey)",
                                     posted: 123,
@@ -1845,7 +1845,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.handleMessages(
                             db,
                             messages: [
-                                OpenGroupAPI.Message(
+                                Network.SOGS.Message(
                                     id: 2,
                                     sender: "05\(TestConstants.publicKey)",
                                     posted: 122,
@@ -1886,7 +1886,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.handleMessages(
                                 db,
                                 messages: [
-                                    OpenGroupAPI.Message(
+                                    Network.SOGS.Message(
                                         id: 127,
                                         sender: "05\(TestConstants.publicKey)",
                                         posted: 123,
@@ -1916,7 +1916,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.handleMessages(
                                 db,
                                 messages: [
-                                    OpenGroupAPI.Message(
+                                    Network.SOGS.Message(
                                         id: 127,
                                         sender: "05\(TestConstants.publicKey)",
                                         posted: 123,
@@ -2033,7 +2033,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 // MARK: ---- ignores messages with non base64 encoded data
                 it("ignores messages with non base64 encoded data") {
-                    testDirectMessage = OpenGroupAPI.DirectMessage(
+                    testDirectMessage = Network.SOGS.DirectMessage(
                         id: testDirectMessage.id,
                         sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
                         recipient: testDirectMessage.recipient,
@@ -2137,7 +2137,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.handleDirectMessages(
                                 db,
                                 messages: [
-                                    OpenGroupAPI.DirectMessage(
+                                    Network.SOGS.DirectMessage(
                                         id: testDirectMessage.id,
                                         sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
                                         recipient: testDirectMessage.recipient,
@@ -2293,7 +2293,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.handleDirectMessages(
                                 db,
                                 messages: [
-                                    OpenGroupAPI.DirectMessage(
+                                    Network.SOGS.DirectMessage(
                                         id: testDirectMessage.id,
                                         sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
                                         recipient: testDirectMessage.recipient,
@@ -2529,9 +2529,9 @@ class OpenGroupManagerSpec: QuickSpec {
                         .thenReturn(true)
                     mockStorage.write { db in
                         try OpenGroup(
-                            server: OpenGroupAPI.defaultServer,
+                            server: Network.SOGS.defaultServer,
                             roomToken: "",
-                            publicKey: OpenGroupAPI.defaultServerPublicKey,
+                            publicKey: Network.SOGS.defaultServerPublicKey,
                             isActive: false,
                             name: "TestExisting",
                             userCount: 0,
@@ -2539,13 +2539,13 @@ class OpenGroupManagerSpec: QuickSpec {
                         )
                         .insert(db)
                     }
-                    let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
-                        try OpenGroupAPI.preparedCapabilitiesAndRooms(
+                    let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 info: LibSession.OpenGroupCapabilityInfo(
                                     roomToken: "",
-                                    server: OpenGroupAPI.defaultServer,
-                                    publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                    server: Network.SOGS.defaultServer,
+                                    publicKey: Network.SOGS.defaultServerPublicKey,
                                     capabilities: []
                                 ),
                                 forceBlinded: false
@@ -2569,7 +2569,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
                 it("does not start a job to retrieve the default rooms if we already have rooms") {
                     mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
-                    cache.setDefaultRoomInfo([(room: OpenGroupAPI.Room.mock, openGroup: OpenGroup.mock)])
+                    cache.setDefaultRoomInfo([(room: Network.SOGS.Room.mock, openGroup: OpenGroup.mock)])
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     
                     expect(mockNetwork)
@@ -2582,7 +2582,7 @@ class OpenGroupManagerSpec: QuickSpec {
 
 // MARK: - Convenience Extensions
 
-extension OpenGroupAPI.Room {
+extension Network.SOGS.Room {
     func with(
         token: String? = nil,
         name: String? = nil,
@@ -2592,8 +2592,8 @@ extension OpenGroupAPI.Room {
         hiddenModerators: [String]? = nil,
         admins: [String]? = nil,
         hiddenAdmins: [String]? = nil
-    ) -> OpenGroupAPI.Room {
-        return OpenGroupAPI.Room(
+    ) -> Network.SOGS.Room {
+        return Network.SOGS.Room(
             token: (token ?? self.token),
             name: (name ?? self.name),
             roomDescription: self.roomDescription,
@@ -2623,13 +2623,13 @@ extension OpenGroupAPI.Room {
     }
 }
 
-extension OpenGroupAPI.RoomPollInfo {
+extension Network.SOGS.RoomPollInfo {
     func with(
         token: String? = nil,
         activeUsers: Int64? = nil,
-        details: OpenGroupAPI.Room? = .mock
-    ) -> OpenGroupAPI.RoomPollInfo {
-        return OpenGroupAPI.RoomPollInfo(
+        details: Network.SOGS.Room? = .mock
+    ) -> Network.SOGS.RoomPollInfo {
+        return Network.SOGS.RoomPollInfo(
             token: (token ?? self.token),
             activeUsers: (activeUsers ?? self.activeUsers),
             admin: self.admin,
@@ -2661,133 +2661,49 @@ extension OpenGroup: Mocked {
         infoUpdates: 0
     )
 }
-
-extension OpenGroupAPI.Capabilities: Mocked {
-    static var mock: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: [], missing: nil)
-}
-
-extension OpenGroupAPI.Room: Mocked {
-    static var mock: OpenGroupAPI.Room = OpenGroupAPI.Room(
-        token: "test",
-        name: "testRoom",
-        roomDescription: nil,
-        infoUpdates: 1,
-        messageSequence: 1,
-        created: 1,
-        activeUsers: 1,
-        activeUsersCutoff: 1,
-        imageId: nil,
-        pinnedMessages: nil,
-        admin: false,
-        globalAdmin: false,
-        admins: [],
-        hiddenAdmins: nil,
-        moderator: false,
-        globalModerator: false,
-        moderators: [],
-        hiddenModerators: nil,
-        read: true,
-        defaultRead: nil,
-        defaultAccessible: nil,
-        write: true,
-        defaultWrite: nil,
-        upload: true,
-        defaultUpload: nil
-    )
-}
-
-extension OpenGroupAPI.RoomPollInfo: Mocked {
-    static var mock: OpenGroupAPI.RoomPollInfo = OpenGroupAPI.RoomPollInfo(
-        token: "test",
-        activeUsers: 1,
-        admin: false,
-        globalAdmin: false,
-        moderator: false,
-        globalModerator: false,
-        read: true,
-        defaultRead: nil,
-        defaultAccessible: nil,
-        write: true,
-        defaultWrite: nil,
-        upload: true,
-        defaultUpload: false,
-        details: .mock
-    )
-}
-
-extension OpenGroupAPI.Message: Mocked {
-    static var mock: OpenGroupAPI.Message = OpenGroupAPI.Message(
-        id: 100,
-        sender: TestConstants.blind15PublicKey,
-        posted: 1,
-        edited: nil,
-        deleted: nil,
-        seqNo: 1,
-        whisper: false,
-        whisperMods: false,
-        whisperTo: nil,
-        base64EncodedData: nil,
-        base64EncodedSignature: nil,
-        reactions: nil
-    )
-}
-
-extension OpenGroupAPI.SendDirectMessageResponse: Mocked {
-    static var mock: OpenGroupAPI.SendDirectMessageResponse = OpenGroupAPI.SendDirectMessageResponse(
-        id: 1,
-        sender: TestConstants.blind15PublicKey,
-        recipient: "testRecipient",
-        posted: 1122,
-        expires: 2233
-    )
-}
-
-extension OpenGroupAPI.DirectMessage: Mocked {
-    static var mock: OpenGroupAPI.DirectMessage = OpenGroupAPI.DirectMessage(
-        id: 101,
-        sender: TestConstants.blind15PublicKey,
-        recipient: "testRecipient",
-        posted: 1212,
-        expires: 2323,
-        base64EncodedMessage: "TestMessage".data(using: .utf8)!.base64EncodedString()
-    )
-}
                         
 extension Network.BatchResponse {
     static let mockUnblindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.roomPollInfo("testRoom", 0), OpenGroupAPI.RoomPollInfo.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.roomMessagesRecent("testRoom"), [OpenGroupAPI.Message].mockBatchSubResponse())
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomMessagesRecent("testRoom"), [Network.SOGS.Message].mockBatchSubResponse())
         ]
     )
     
     static let mockBlindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.roomPollInfo("testRoom", 0), OpenGroupAPI.RoomPollInfo.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.roomMessagesRecent("testRoom"), OpenGroupAPI.Message.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.inboxSince(id: 0), OpenGroupAPI.DirectMessage.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.outboxSince(id: 0), OpenGroupAPI.DirectMessage.self.mockBatchSubResponse())
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomMessagesRecent("testRoom"), Network.SOGS.Message.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.inboxSince(id: 0), Network.SOGS.DirectMessage.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.outboxSince(id: 0), Network.SOGS.DirectMessage.self.mockBatchSubResponse())
         ]
     )
     
     static let mockCapabilitiesResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse())
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse())
         ]
     )
     
     static let mockRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Room.mockBatchSubResponse())
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
     static let mockBanAndDeleteAllResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (OpenGroupAPI.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
-            (OpenGroupAPI.Endpoint.roomDeleteMessages("testRoon", sessionId: ""), NoResponse.mockBatchSubResponse())
+            (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomDeleteMessages("testRoon", sessionId: ""), NoResponse.mockBatchSubResponse())
+        ]
+    )
+    
+    static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
 }

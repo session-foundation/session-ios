@@ -24,12 +24,7 @@ class OnboardingSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNNetworkingKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -126,7 +121,7 @@ class OnboardingSpec: AsyncSpec {
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
-                                SnodeAPI.Endpoint.getMessages,
+                                Network.SnodeAPI.Endpoint.getMessages,
                                 GetMessagesResponse(
                                     messages: (pendingPushes?
                                         .pushData

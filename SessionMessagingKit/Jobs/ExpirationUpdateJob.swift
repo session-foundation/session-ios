@@ -26,7 +26,7 @@ public enum ExpirationUpdateJob: JobExecutor {
         
         dependencies[singleton: .storage]
             .readPublisher { db in
-                try SnodeAPI
+                try Network.SnodeAPI
                     .preparedUpdateExpiry(
                         serverHashes: details.serverHashes,
                         updatedExpiryMs: details.expirationTimestampMs,

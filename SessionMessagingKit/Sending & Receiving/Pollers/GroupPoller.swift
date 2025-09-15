@@ -23,7 +23,7 @@ public final class GroupPoller: SwarmPoller {
     private let minPollInterval: Double = 3
     private let maxPollInterval: Double = 30
     
-    public static func namespaces(swarmPublicKey: String) -> [SnodeAPI.Namespace] {
+    public static func namespaces(swarmPublicKey: String) -> [Network.SnodeAPI.Namespace] {
         guard (try? SessionId.Prefix(from: swarmPublicKey)) == .group else {
             return [.legacyClosedGroup]
         }
@@ -62,7 +62,7 @@ public final class GroupPoller: SwarmPoller {
             .flatMap { [receivedPollResponse] _ in receivedPollResponse }
             .first()
             .map { $0.filter { $0.isConfigMessage } }
-            .filter { !$0.contains(where: { $0.namespace == SnodeAPI.Namespace.configGroupKeys }) }
+            .filter { !$0.contains(where: { $0.namespace == Network.SnodeAPI.Namespace.configGroupKeys }) }
             .sinkUntilComplete(
                 receiveValue: { [pollerDestination, pollerName, dependencies] configMessages in
                     Log.error(.poller, "\(pollerName) received no config messages in it's first poll, flagging as expired.")

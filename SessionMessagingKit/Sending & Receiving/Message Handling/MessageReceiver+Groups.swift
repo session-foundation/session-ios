@@ -307,7 +307,7 @@ extension MessageReceiver {
         // devices that had the group before they were promoted
         try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == SnodeAPI.Namespace.groupMessages.rawValue)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.SnodeAPI.Namespace.groupMessages.rawValue)
             .updateAllAndConfig(
                 db,
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
@@ -753,7 +753,7 @@ extension MessageReceiver {
             )
         else { return }
         
-        try? SnodeAPI
+        try? Network.SnodeAPI
             .preparedDeleteMessages(
                 serverHashes: Array(hashes),
                 requireSuccessfulDeletion: false,
@@ -921,7 +921,7 @@ extension MessageReceiver {
                 db.afterCommit {
                     dependencies[singleton: .storage]
                         .readPublisher { db in
-                            try SnodeAPI.preparedDeleteMessages(
+                            try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: [serverHash],
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(

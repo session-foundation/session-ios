@@ -35,7 +35,7 @@ public extension Log.Category {
 // MARK: - OpenGroupManager
 
 public final class OpenGroupManager {
-    public typealias DefaultRoomInfo = (room: OpenGroupAPI.Room, openGroup: OpenGroup)
+    public typealias DefaultRoomInfo = (room: Network.SOGS.Room, openGroup: OpenGroup)
     
     private let dependencies: Dependencies
     
@@ -79,8 +79,8 @@ public final class OpenGroupManager {
                     .replacingOccurrences(of: serverPort, with: "")
             )
         let options: Set<String> = Set([
-            OpenGroupAPI.legacyDefaultServerIP,
-            OpenGroupAPI.defaultServer
+            Network.SOGS.legacyDefaultServerIP,
+            Network.SOGS.defaultServer
                 .replacingOccurrences(of: "http://", with: "")
                 .replacingOccurrences(of: "https://", with: "")
         ])
@@ -103,7 +103,7 @@ public final class OpenGroupManager {
                     .lowercased()
                     .replacingOccurrences(of: serverPort, with: "")
             )
-        let defaultServerHost: String = OpenGroupAPI.defaultServer
+        let defaultServerHost: String = Network.SOGS.defaultServer
             .replacingOccurrences(of: "http://", with: "")
             .replacingOccurrences(of: "https://", with: "")
         var serverOptions: Set<String> = Set([
@@ -119,9 +119,9 @@ public final class OpenGroupManager {
             serverOptions.insert(defaultServerHost)
             serverOptions.insert("http://\(defaultServerHost)")
             serverOptions.insert("https://\(defaultServerHost)")
-            serverOptions.insert(OpenGroupAPI.legacyDefaultServerIP)
-            serverOptions.insert("http://\(OpenGroupAPI.legacyDefaultServerIP)")
-            serverOptions.insert("https://\(OpenGroupAPI.legacyDefaultServerIP)")
+            serverOptions.insert(Network.SOGS.legacyDefaultServerIP)
+            serverOptions.insert("http://\(Network.SOGS.legacyDefaultServerIP)")
+            serverOptions.insert("https://\(Network.SOGS.legacyDefaultServerIP)")
         }
         
         // First check if there is no poller for the specified server
@@ -161,7 +161,7 @@ public final class OpenGroupManager {
                 return server.lowercased()
             }
             
-            return OpenGroupAPI.defaultServer
+            return Network.SOGS.defaultServer
         }()
         let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: targetServer)
         
@@ -223,11 +223,11 @@ public final class OpenGroupManager {
                 return server.lowercased()
             }
             
-            return OpenGroupAPI.defaultServer
+            return Network.SOGS.defaultServer
         }()
         
         return Result {
-            try OpenGroupAPI
+            try Network.SOGS
                 .preparedCapabilitiesAndRoom(
                     roomToken: roomToken,
                     authMethod: Authentication.community(
@@ -243,7 +243,7 @@ public final class OpenGroupManager {
             }
             .publisher
             .flatMap { [dependencies] in $0.send(using: dependencies) }
-            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: ObservingDatabase, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
+            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: ObservingDatabase, response: (info: ResponseInfoType, value: Network.SOGS.CapabilitiesAndRoomResponse)) -> Void in
                 // Add the new open group to libSession
                 try LibSession.add(
                     db,
@@ -263,7 +263,7 @@ public final class OpenGroupManager {
                 // Then the room
                 try OpenGroupManager.handlePollInfo(
                     db,
-                    pollInfo: OpenGroupAPI.RoomPollInfo(room: response.value.room.data),
+                    pollInfo: Network.SOGS.RoomPollInfo(room: response.value.room.data),
                     publicKey: publicKey,
                     for: roomToken,
                     on: targetServer,
@@ -334,7 +334,7 @@ public final class OpenGroupManager {
         try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)
         
         // Remove the open group (no foreign key to the thread so it won't auto-delete)
-        if server?.lowercased() != OpenGroupAPI.defaultServer.lowercased() {
+        if server?.lowercased() != Network.SOGS.defaultServer.lowercased() {
             _ = try? OpenGroup
                 .filter(id: openGroupId)
                 .deleteAll(db)
@@ -359,7 +359,7 @@ public final class OpenGroupManager {
     
     internal static func handleCapabilities(
         _ db: ObservingDatabase,
-        capabilities: OpenGroupAPI.Capabilities,
+        capabilities: Network.SOGS.CapabilitiesResponse,
         on server: String
     ) {
         // Remove old capabilities first
@@ -371,7 +371,7 @@ public final class OpenGroupManager {
         capabilities.capabilities.forEach { capability in
             try? Capability(
                 openGroupServer: server.lowercased(),
-                variant: capability,
+                variant: Capability.Variant(from: capability),
                 isMissing: false
             )
             .upsert(db)
@@ -379,7 +379,7 @@ public final class OpenGroupManager {
         capabilities.missing?.forEach { capability in
             try? Capability(
                 openGroupServer: server.lowercased(),
-                variant: capability,
+                variant: Capability.Variant(from: capability),
                 isMissing: true
             )
             .upsert(db)
@@ -388,7 +388,7 @@ public final class OpenGroupManager {
     
     internal static func handlePollInfo(
         _ db: ObservingDatabase,
-        pollInfo: OpenGroupAPI.RoomPollInfo,
+        pollInfo: Network.SOGS.RoomPollInfo,
         publicKey maybePublicKey: String?,
         for roomToken: String,
         on server: String,
@@ -431,7 +431,7 @@ public final class OpenGroupManager {
             .updateAllAndConfig(db, changes, using: dependencies)
         
         // Update the admin/moderator group members
-        if let roomDetails: OpenGroupAPI.Room = pollInfo.details {
+        if let roomDetails: Network.SOGS.Room = pollInfo.details {
             _ = try? GroupMember
                 .filter(GroupMember.Columns.groupId == threadId)
                 .deleteAll(db)
@@ -531,7 +531,7 @@ public final class OpenGroupManager {
     
     internal static func handleMessages(
         _ db: ObservingDatabase,
-        messages: [OpenGroupAPI.Message],
+        messages: [Network.SOGS.Message],
         for roomToken: String,
         on server: String,
         using dependencies: Dependencies
@@ -543,7 +543,7 @@ public final class OpenGroupManager {
         
         // Sorting the messages by server ID before importing them fixes an issue where messages
         // that quote older messages can't find those older messages
-        let sortedMessages: [OpenGroupAPI.Message] = messages
+        let sortedMessages: [Network.SOGS.Message] = messages
             .filter { $0.deleted != true }
             .sorted { lhs, rhs in lhs.id < rhs.id }
         var messageServerInfoToRemove: [(id: Int64, seqNo: Int64)] = messages
@@ -684,7 +684,7 @@ public final class OpenGroupManager {
     
     internal static func handleDirectMessages(
         _ db: ObservingDatabase,
-        messages: [OpenGroupAPI.DirectMessage],
+        messages: [Network.SOGS.DirectMessage],
         fromOutbox: Bool,
         on server: String,
         using dependencies: Dependencies
@@ -698,7 +698,7 @@ public final class OpenGroupManager {
         
         // Sorting the messages by server ID before importing them fixes an issue where messages
         // that quote older messages can't find those older messages
-        let sortedMessages: [OpenGroupAPI.DirectMessage] = messages
+        let sortedMessages: [Network.SOGS.DirectMessage] = messages
             .sorted { lhs, rhs in lhs.id < rhs.id }
         let latestMessageId: Int64 = sortedMessages[sortedMessages.count - 1].id
         var lookupCache: [String: BlindedIdLookup] = [:]  // Only want this cache to exist for the current loop
@@ -829,9 +829,9 @@ public final class OpenGroupManager {
         id: Int64,
         in roomToken: String,
         on server: String,
-        type: OpenGroupAPI.PendingChange.ReactAction
-    ) -> OpenGroupAPI.PendingChange {
-        let pendingChange = OpenGroupAPI.PendingChange(
+        type: OpenGroupManager.PendingChange.ReactAction
+    ) -> OpenGroupManager.PendingChange {
+        let pendingChange = OpenGroupManager.PendingChange(
             server: server,
             room: roomToken,
             changeType: .reaction,
@@ -849,7 +849,7 @@ public final class OpenGroupManager {
         return pendingChange
     }
     
-    public func updatePendingChange(_ pendingChange: OpenGroupAPI.PendingChange, seqNo: Int64?) {
+    public func updatePendingChange(_ pendingChange: OpenGroupManager.PendingChange, seqNo: Int64?) {
         dependencies.mutate(cache: .openGroupManager) {
             if let index = $0.pendingChanges.firstIndex(of: pendingChange) {
                 $0.pendingChanges[index].seqNo = seqNo
@@ -857,7 +857,7 @@ public final class OpenGroupManager {
         }
     }
     
-    public func removePendingChange(_ pendingChange: OpenGroupAPI.PendingChange) {
+    public func removePendingChange(_ pendingChange: OpenGroupManager.PendingChange) {
         dependencies.mutate(cache: .openGroupManager) {
             if let index = $0.pendingChanges.firstIndex(of: pendingChange) {
                 $0.pendingChanges.remove(at: index)
@@ -989,7 +989,7 @@ public extension OpenGroupManager {
         private let dependencies: Dependencies
         private let defaultRoomsSubject: CurrentValueSubject<[DefaultRoomInfo], Error> = CurrentValueSubject([])
         private var _lastSuccessfulCommunityPollTimestamp: TimeInterval?
-        public var pendingChanges: [OpenGroupAPI.PendingChange] = []
+        public var pendingChanges: [OpenGroupManager.PendingChange] = []
         
         public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error> {
             defaultRoomsSubject
@@ -1044,13 +1044,13 @@ public extension OpenGroupManager {
 public protocol OGMImmutableCacheType: ImmutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> { get }
     
-    var pendingChanges: [OpenGroupAPI.PendingChange] { get }
+    var pendingChanges: [OpenGroupManager.PendingChange] { get }
 }
 
 public protocol OGMCacheType: OGMImmutableCacheType, MutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> { get }
     
-    var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
+    var pendingChanges: [OpenGroupManager.PendingChange] { get set }
     
     func getLastSuccessfulCommunityPollTimestamp() -> TimeInterval
     func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval)

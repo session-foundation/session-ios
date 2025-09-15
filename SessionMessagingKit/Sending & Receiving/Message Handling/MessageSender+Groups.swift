@@ -13,7 +13,7 @@ extension MessageSender {
         thread: SessionThread,
         group: ClosedGroup,
         members: [GroupMember],
-        preparedNotificationsSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
+        preparedNotificationsSubscription: Network.PreparedRequest<Network.PushNotification.SubscribeResponse>?
     )
     
     public static func createGroup(
@@ -119,14 +119,19 @@ extension MessageSender {
                     )
                     
                     // Prepare the notification subscription
-                    var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
+                    var preparedNotificationSubscription: Network.PreparedRequest<Network.PushNotification.SubscribeResponse>?
                     
                     if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                        preparedNotificationSubscription = try? PushNotificationAPI
+                        preparedNotificationSubscription = try? Network.PushNotification
                             .preparedSubscribe(
-                                db,
                                 token: Data(hex: token),
-                                sessionIds: [createdInfo.groupSessionId],
+                                swarms: [(
+                                    createdInfo.groupSessionId,
+                                    Authentication.groupAdmin(
+                                        groupSessionId: createdInfo.groupSessionId,
+                                        ed25519SecretKey: createdInfo.identityKeyPair.secretKey
+                                    )
+                                )],
                                 using: dependencies
                             )
                     }
@@ -593,7 +598,7 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
+                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
                                     data: supplementData,
@@ -677,7 +682,7 @@ extension MessageSender {
                 /// Unrevoke the newly added members just in case they had previously gotten their access to the group
                 /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
                 /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try SnodeAPI.preparedUnrevokeSubaccounts(
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedUnrevokeSubaccounts(
                     subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: sessionId,
@@ -856,7 +861,7 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
+                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
                                     data: supplementData,
@@ -902,7 +907,7 @@ extension MessageSender {
                 
                 /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
                 /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try SnodeAPI
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI
                     .preparedUnrevokeSubaccounts(
                         subaccountsToUnrevoke: memberInfo.map { token, _ in token },
                         authMethod: Authentication.groupAdmin(

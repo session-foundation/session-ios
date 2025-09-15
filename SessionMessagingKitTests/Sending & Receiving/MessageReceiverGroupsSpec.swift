@@ -29,11 +29,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNNetworkingKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -142,7 +138,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .thenReturn(Data([1, 2, 3]))
                 keychain
                     .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-                    .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+                    .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
             }
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
@@ -841,7 +837,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(true)
-                            let expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> = mockStorage.write { db in
+                            let expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse> = mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
                                     id: groupId.hexString,
@@ -860,10 +856,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     groupIdentityPrivateKey: groupSecretKey,
                                     invited: nil
                                 ).upsert(db)
-                                let result = try PushNotificationAPI.preparedSubscribe(
-                                    db,
+                                let result = try Network.PushNotification.preparedSubscribe(
                                     token: Data([5, 4, 3, 2, 1]),
-                                    sessionIds: [groupId],
+                                    swarms: [
+                                        (
+                                            groupId,
+                                            Authentication.groupAdmin(
+                                                groupSessionId: groupId,
+                                                ed25519SecretKey: Array(groupSecretKey)
+                                            )
+                                        )
+                                    ],
                                     using: dependencies
                                 )
                                 
@@ -914,7 +917,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         // MARK: -------- subscribes for push notifications
                         it("subscribes for push notifications") {
-                            let expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> = mockStorage.write { db in
+                            let expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse> = mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
                                     id: groupId.hexString,
@@ -933,10 +936,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     authData: inviteMessage.memberAuthData,
                                     invited: nil
                                 ).upsert(db)
-                                let result = try PushNotificationAPI.preparedSubscribe(
-                                    db,
+                                let result = try Network.PushNotification.preparedSubscribe(
                                     token: Data(hex: Data([5, 4, 3, 2, 1]).toHexString()),
-                                    sessionIds: [groupId],
+                                    swarms: [
+                                        (
+                                            groupId,
+                                            Authentication.groupMember(
+                                                groupSessionId: groupId,
+                                                authData: inviteMessage.memberAuthData
+                                            )
+                                        )
+                                    ],
                                     using: dependencies
                                 )
                                 
@@ -2825,7 +2835,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
                         deleteContentMessage.sentTimestampMs = 1234567800000
                         
-                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! SnodeAPI
+                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! Network.SnodeAPI
                             .preparedDeleteMessages(
                                 serverHashes: ["TestMessageHash3"],
                                 requireSuccessfulDeletion: false,
@@ -3096,11 +3106,18 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                         .thenReturn(true)
                     
-                    let expectedRequest: Network.PreparedRequest<PushNotificationAPI.UnsubscribeResponse> = mockStorage.read { db in
-                        try PushNotificationAPI.preparedUnsubscribe(
-                            db,
+                    let expectedRequest: Network.PreparedRequest<Network.PushNotification.UnsubscribeResponse> = mockStorage.read { db in
+                        try Network.PushNotification.preparedUnsubscribe(
                             token: Data([5, 4, 3, 2, 1]),
-                            sessionIds: [groupId],
+                            swarms: [
+                                (
+                                    groupId,
+                                    Authentication.groupMember(
+                                        groupSessionId: groupId,
+                                        authData: Data([1, 2, 3])
+                                    )
+                                )
+                            ],
                             using: dependencies
                         )
                     }!

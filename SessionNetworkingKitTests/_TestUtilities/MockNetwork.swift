@@ -47,7 +47,7 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
         return mock(args: [body, destination, requestTimeout, requestAndPathBuildTimeout])
     }
     
-    func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> {
+    func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, Network.FileServer.AppVersionResponse), Error> {
         return mock(args: [ed25519SecretKey])
     }
 }

@@ -158,7 +158,7 @@ class LibSessionNetwork: NetworkType {
                 
                 return getSwarm(for: swarmPublicKey)
                     .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [weak self, dependencies] snode in
-                        try SnodeAPI
+                        try Network.SnodeAPI
                             .preparedGetNetworkTime(from: snode, using: dependencies)
                             .send(using: dependencies)
                             .tryFlatMap { _, timestampMs in
@@ -175,7 +175,7 @@ class LibSessionNetwork: NetworkType {
                                     )
                                     .map { info, response -> (ResponseInfoType, Data?) in
                                         (
-                                            SnodeAPI.LatestTimestampResponseInfo(
+                                            Network.SnodeAPI.LatestTimestampResponseInfo(
                                                 code: info.code,
                                                 headers: info.headers,
                                                 timestampMs: timestampMs
@@ -188,7 +188,7 @@ class LibSessionNetwork: NetworkType {
         }
     }
     
-    func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> {
+    func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, Network.FileServer.AppVersionResponse), Error> {
         typealias Output = (success: Bool, timeout: Bool, statusCode: Int, headers: [String: String], data: Data?)
         
         return dependencies
@@ -213,14 +213,14 @@ class LibSessionNetwork: NetworkType {
                     ctx
                 )
             }
-            .tryMap { [dependencies] success, timeout, statusCode, headers, maybeData -> (any ResponseInfoType, AppVersionResponse) in
+            .tryMap { [dependencies] success, timeout, statusCode, headers, maybeData -> (any ResponseInfoType, Network.FileServer.AppVersionResponse) in
                 try LibSessionNetwork.throwErrorIfNeeded(success, timeout, statusCode, headers, maybeData, using: dependencies)
                 
                 guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
                 
                 return (
                     Network.ResponseInfo(code: statusCode),
-                    try AppVersionResponse.decoded(from: data, using: dependencies)
+                    try Network.FileServer.AppVersionResponse.decoded(from: data, using: dependencies)
                 )
             }
             .eraseToAnyPublisher()

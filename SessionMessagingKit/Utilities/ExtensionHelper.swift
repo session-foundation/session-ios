@@ -738,7 +738,7 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadMessages() async throws {
-        typealias MessageData = (namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
         
         /// Retrieve all conversation file paths
         ///
@@ -781,7 +781,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 do {
                     let sortedMessages: [MessageData] = try configMessageHashes
-                        .reduce([SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
+                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
                             let path: String = URL(fileURLWithPath: this.conversationsPath)
                                 .appendingPathComponent(conversationHash)
                                 .appendingPathComponent(this.conversationConfigDir)

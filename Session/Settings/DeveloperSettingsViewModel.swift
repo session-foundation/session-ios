@@ -239,7 +239,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
-        let pushNotificationService: PushNotificationAPI.Service
+        let pushNotificationService: Network.PushNotification.Service
         
         let debugDisappearingMessageDurations: Bool
         
@@ -594,9 +594,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
                             SessionTableViewController(
-                                viewModel: SessionListViewModel<PushNotificationAPI.Service>(
+                                viewModel: SessionListViewModel<Network.PushNotification.Service>(
                                     title: "Push Notification Service",
-                                    options: PushNotificationAPI.Service.allCases,
+                                    options: Network.PushNotification.Service.allCases,
                                     behaviour: .autoDismiss(
                                         initialSelection: current.pushNotificationService,
                                         onOptionSelected: self?.updatePushNotificationService
@@ -1181,7 +1181,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         forceRefresh(type: .databaseQuery)
     }
     
-    private func updatePushNotificationService(to updatedService: PushNotificationAPI.Service?) {
+    private func updatePushNotificationService(to updatedService: Network.PushNotification.Service?) {
         guard
             dependencies[defaults: .standard, key: .isUsingFullAPNs],
             updatedService != dependencies[feature: .pushNotificationService]
@@ -1270,7 +1270,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
         /// layer and we don't want these to be cancelled)
         if let existingToken: String = dependencies[singleton: .storage].read({ db in db[.lastRecordedPushToken] }) {
-            PushNotificationAPI
+            Network.PushNotification
                 .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                 .sinkUntilComplete()
         }
@@ -2104,9 +2104,9 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
 extension ServiceNetwork: @retroactive ContentIdentifiable {}
 extension ServiceNetwork: @retroactive ContentEquatable {}
 extension ServiceNetwork: Listable {}
-extension PushNotificationAPI.Service: @retroactive ContentIdentifiable {}
-extension PushNotificationAPI.Service: @retroactive ContentEquatable {}
-extension PushNotificationAPI.Service: Listable {}
+extension Network.PushNotification.Service: @retroactive ContentIdentifiable {}
+extension Network.PushNotification.Service: @retroactive ContentEquatable {}
+extension Network.PushNotification.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}

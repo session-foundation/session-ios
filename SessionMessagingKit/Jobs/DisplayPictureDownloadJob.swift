@@ -39,7 +39,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 switch details.target {
                     case .profile(_, let url, _), .group(_, let url, _):
                         guard
-                            let fileId: String = Attachment.fileId(for: url),
+                            let fileId: String = Network.FileServer.fileId(for: url),
                             let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
                         else { throw NetworkError.invalidURL }
                         
@@ -54,7 +54,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                 .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
                         else { throw JobRunnerError.missingRequiredDetails }
                         
-                        return try OpenGroupAPI.preparedDownload(
+                        return try Network.SOGS.preparedDownload(
                             fileId: fileId,
                             roomToken: roomToken,
                             authMethod: Authentication.community(info: info),
@@ -235,7 +235,7 @@ extension DisplayPictureDownloadJob {
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
-                        Attachment.fileId(for: url) != nil &&
+                        Network.FileServer.fileId(for: url) != nil &&
                         encryptionKey.count == DisplayPictureManager.aes256KeyByteLength
                     )
                     

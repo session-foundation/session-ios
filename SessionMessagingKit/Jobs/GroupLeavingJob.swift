@@ -92,7 +92,7 @@ public enum GroupLeavingJob: JobExecutor {
             .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
                 switch requestType {
                     case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                        return try SnodeAPI
+                        return try Network.SnodeAPI
                             .preparedBatch(
                                 requests: [
                                     /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
