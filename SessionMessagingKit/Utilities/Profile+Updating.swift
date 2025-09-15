@@ -78,12 +78,13 @@ public extension Profile {
                             }
                         }
                         
+                        let profileUpdateTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
                             displayNameUpdate: displayNameUpdate,
                             displayPictureUpdate: displayPictureUpdate,
-                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
                             using: dependencies
                         )
                         Log.info(.profile, "Successfully updated user profile.")
@@ -91,11 +92,12 @@ public extension Profile {
                     .mapError { _ in DisplayPictureError.databaseChangesFailed }
                     .eraseToAnyPublisher()
                 
-            case .currentUserUploadImageData(let data):
+            case .currentUserUploadImageData(let data, let isReupload):
                 return dependencies[singleton: .displayPictureManager]
-                    .prepareAndUploadDisplayPicture(imageData: data)
+                    .prepareAndUploadDisplayPicture(imageData: data, compression: !isReupload)
                     .mapError { $0 as Error }
                     .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
+                        let profileUpdateTimestamp: TimeInterval = dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
@@ -103,12 +105,15 @@ public extension Profile {
                             displayPictureUpdate: .currentUserUpdateTo(
                                 url: result.downloadUrl,
                                 key: result.encryptionKey,
-                                filePath: result.filePath
+                                filePath: result.filePath,
+                                sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() }
                             ),
-                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            profileUpdateTimestamp: profileUpdateTimestamp,
+                            isReuploadCurrentUserProfilePicture: isReupload,
                             using: dependencies
                         )
                         
+                        dependencies[defaults: .standard, key: .profilePictureExpiresDate] = result.expries
                         dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
                         Log.info(.profile, "Successfully updated user profile.")
                     })
@@ -128,35 +133,24 @@ public extension Profile {
         displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
-        sentTimestamp: TimeInterval,
+        profileUpdateTimestamp: TimeInterval,
+        isReuploadCurrentUserProfilePicture: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
-        /// There were some bugs (somewhere) where some of these timestamps valid could be in seconds or milliseconds so we need to try to
-        /// detect this and convert it to proper seconds (if we don't then we will never update the profile)
-        func convertToSections(_ maybeValue: Double?) -> TimeInterval {
-            guard let value: Double = maybeValue else { return 0 }
-            
-            if value > 9_000_000_000_000 {  // Microseconds
-                return (value / 1_000_000)
-            } else if value > 9_000_000_000 {  // Milliseconds
-                return (value / 1000)
-            }
-            
-            return TimeInterval(value)  // Seconds
-        }
+        guard
+            profile.profileLastUpdated == nil ||
+            profileUpdateTimestamp > profile.profileLastUpdated.defaulting(to: 0)
+        else { return }
         
         // Name
-        // FIXME: This 'lastNameUpdate' approach is buggy - we should have a timestamp on the ConvoInfoVolatile
-        switch (displayNameUpdate, isCurrentUser, (sentTimestamp > convertToSections(profile.lastNameUpdate))) {
-            case (.none, _, _): break
-            case (.currentUserUpdate(let name), true, _), (.contactUpdate(let name), false, true):
+        switch (displayNameUpdate, isCurrentUser) {
+            case (.none, _): break
+            case (.currentUserUpdate(let name), true), (.contactUpdate(let name), false):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
-                
-                profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
                 
                 if profile.name != name {
                     profileChanges.append(Profile.Columns.name.set(to: name))
@@ -168,9 +162,8 @@ public extension Profile {
         }
         
         // Blocks community message requests flag
-        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > convertToSections(profile.lastBlocksCommunityMessageRequests) {
+        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests {
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
-            profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))
         }
         
         // Profile picture & profile key
@@ -180,8 +173,6 @@ public extension Profile {
                 preconditionFailure("Invalid options for this function")
                 
             case (.contactRemove, false), (.currentUserRemove, true):
-                profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
-                
                 if profile.displayPictureEncryptionKey != nil {
                     profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
                 }
@@ -191,8 +182,8 @@ public extension Profile {
                     db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
                 }
             
-            case (.contactUpdateTo(let url, let key, let filePath), false),
-                (.currentUserUpdateTo(let url, let key, let filePath), true):
+            case (.contactUpdateTo(let url, let key, let filePath, let proProof), false),
+                (.currentUserUpdateTo(let url, let key, let filePath, let proProof), true):
                 /// If we have already downloaded the image then no need to download it again (the database records will be updated
                 /// once the download completes)
                 if !dependencies[singleton: .fileManager].fileExists(atPath: filePath) {
@@ -203,7 +194,7 @@ public extension Profile {
                             shouldBeUnique: true,
                             details: DisplayPictureDownloadJob.Details(
                                 target: .profile(id: profile.id, url: url, encryptionKey: key),
-                                timestamp: sentTimestamp
+                                timestamp: profileUpdateTimestamp
                             )
                         ),
                         canStartJob: dependencies[singleton: .appContext].isMainApp
@@ -218,16 +209,18 @@ public extension Profile {
                     if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
                         profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                     }
-                    
-                    profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
                 }
+            
+            // TODO: Handle Pro Proof update
             
             /// Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
         }
         
-        // Persist any changes
+        /// Persist any changes
         if !profileChanges.isEmpty {
+            profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
+            
             try profile.upsert(db)
             
             try Profile
@@ -237,6 +230,21 @@ public extension Profile {
                     profileChanges,
                     using: dependencies
                 )
+                
+            /// We don't automatically update the current users profile data when changed in the database so need to manually
+            /// trigger the update
+            if isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
+                        try cache.updateProfile(
+                            displayName: updatedProfile.name,
+                            displayPictureUrl: updatedProfile.displayPictureUrl,
+                            displayPictureEncryptionKey: updatedProfile.displayPictureEncryptionKey,
+                            isReuploadProfilePicture: isReuploadCurrentUserProfilePicture
+                        )
+                    }
+                }
+            }
         }
     }
 }
