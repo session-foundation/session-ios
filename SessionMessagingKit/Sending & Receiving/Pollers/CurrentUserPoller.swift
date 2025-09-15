@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton
@@ -33,7 +33,7 @@ public extension Singleton {
 // MARK: - CurrentUserPoller
 
 public final class CurrentUserPoller: SwarmPoller {
-    public static let namespaces: [SnodeAPI.Namespace] = [
+    public static let namespaces: [Network.SnodeAPI.Namespace] = [
         .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
     ]
     private let pollInterval: TimeInterval = 1.5

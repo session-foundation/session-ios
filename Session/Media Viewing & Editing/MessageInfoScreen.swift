@@ -2,7 +2,7 @@
 
 import SwiftUI
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
@@ -183,7 +183,7 @@ struct MessageInfoScreen: View {
                                 spacing: Values.mediumSpacing
                             ) {
                                 InfoBlock(title: "attachmentsFileId".localized()) {
-                                    Text(attachment.downloadUrl.map { Attachment.fileId(for: $0) } ?? "")
+                                    Text(attachment.downloadUrl.map { Network.FileServer.fileId(for: $0) } ?? "")
                                         .font(.system(size: Values.mediumFontSize))
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
