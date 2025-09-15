@@ -25,6 +25,26 @@ enum AppIcon: String, CaseIterable {
     var previewImageName: String { "\(rawValue)-Preview" }
     
     // stringlint:ignore_contents
+    var accessibilityIdentifier: String {
+        switch self {
+        case .session:
+            "Session option"
+        case .weather:
+            "Weather option"
+        case .stocks:
+            "Stocks option"
+        case .news:
+            "News option"
+        case .notes:
+            "Notes option"
+        case .meetings:
+            "Meetings option"
+        case .calculator:
+            "Calculator option"
+        }
+    }
+    
+    // stringlint:ignore_contents
     init(name: String?) {
         switch name {
             case "AppIcon-Weather": self = .weather

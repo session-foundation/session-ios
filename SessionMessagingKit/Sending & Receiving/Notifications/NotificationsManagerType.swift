@@ -95,10 +95,16 @@ public extension NotificationsManagerType {
                     )
                 else { throw MessageReceiverError.ignorableMessage }
                 
-                /// If the message is a reaction then we only want to show notifications for `contact` conversations
+                /// If the message is a reaction then we only want to show notifications for `contact` conversations, any only if the
+                /// reaction isn't added to a message sent by the reactor
                 if visibleMessage.reaction != nil {
                     switch threadVariant {
-                        case .contact: break
+                        case .contact:
+                            guard visibleMessage.reaction?.publicKey != sender else {
+                                throw MessageReceiverError.ignorableMessage
+                            }
+                            break
+                            
                         case .legacyGroup, .group, .community: throw MessageReceiverError.ignorableMessage
                     }
                 }
@@ -245,7 +251,6 @@ public extension NotificationsManagerType {
                         )
                     }?
                     .filteredForDisplay
-                    .filteredForNotification
                     .nullIfEmpty?
                     .replacingMentions(
                         currentUserSessionIds: currentUserSessionIds,
@@ -413,7 +418,7 @@ public extension NotificationsManagerType {
 
 // MARK: - NoopNotificationsManager
 
-public struct NoopNotificationsManager: NotificationsManagerType {
+public struct NoopNotificationsManager: NotificationsManagerType, NoopDependency {
     public let dependencies: Dependencies
     
     public init(using dependencies: Dependencies) {

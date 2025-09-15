@@ -1507,7 +1507,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session, səsli və görüntülü zənglər edə bilmək üçün daxili şəbəkəyə müraciət etməlidir."
+            "value" : "Session, səsli və görüntülü zənglər edə bilmək üçün lokal şəbəkəyə erişməlidir."
           }
         },
         "ca" : {
@@ -1546,6 +1546,18 @@
             "value" : "Session bezonas aliron al loka reto por fari voĉajn kaj video vokojn."
           }
         },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session necesita acceso a la red local para realizar llamadas de voz y video."
+          }
+        },
+        "es-ES" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session necesita acceso a la red local para realizar llamadas de voz y video."
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1562,6 +1574,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A(z) Session alkalmazásnak hozzáférésre van szüksége a helyi hálózathoz a hang- és videohívások indításához."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session necessita dell'accesso alla rete locale per effettuare chiamate vocali e video."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session は音声・ビデオ通話を行うためにローカルネットワークへのアクセスが必要です。"
           }
         },
         "ko" : {
@@ -1582,6 +1606,18 @@
             "value" : "Session potrzebuje dostępu do sieci lokalnej, aby wykonywać połączenia głosowe i wideo."
           }
         },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session precisa de acesso à rede local para efetuar chamadas de voz e vídeo."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session are nevoie de acces la rețeaua locală pentru a efectua apeluri vocale și video."
+          }
+        },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1592,6 +1628,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session behöver åtkomst till det lokala nätverket för att kunna ringa röst och videosamtal."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session uygulamasının sesli ve görüntülü arama yapabilmesi için yerel ağa erişmesi gerekiyor."
           }
         },
         "uk" : {
@@ -1610,6 +1652,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session需要访问本地网络才能进行语音和视频通话。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session 需要存取本地網路以進行語音與視訊通話。"
           }
         }
       }
@@ -2117,7 +2165,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session qoşmaları və medianı saxlamaq üçün anbara müraciət etməlidir."
+            "value" : "Session qoşmaları və medianı saxlamaq üçün anbara erişməlidir."
           }
         },
         "bal" : {

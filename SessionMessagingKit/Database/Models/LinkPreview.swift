@@ -510,7 +510,7 @@ public extension LinkPreview {
             )
             .tryMap { asset, _ -> Data in
                 let type: UTType? = UTType(sessionMimeType: imageMimeType)
-                let imageSize = Data.mediaSize(
+                let imageSize = MediaUtils.unrotatedSize(
                     for: asset.filePath,
                     type: type,
                     mimeType: imageMimeType,
@@ -522,17 +522,17 @@ public extension LinkPreview {
                     throw LinkPreviewError.invalidContent
                 }
                 
+                // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
+                if type == .gif && MediaUtils.isValidImage(at: asset.filePath, type: .gif, using: dependencies) {
+                    return try Data(contentsOf: URL(fileURLWithPath: asset.filePath))
+                }
+                
                 guard let data: Data = try? Data(contentsOf: URL(fileURLWithPath: asset.filePath)) else {
                     throw LinkPreviewError.assertionFailure
                 }
 
                 guard let srcImage = UIImage(data: data) else { throw LinkPreviewError.invalidContent }
                 
-                // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
-                if type == .gif && data.isValidImage(type: .gif) {
-                    return data
-                }
-
                 let maxImageSize: CGFloat = 1024
                 let shouldResize = imageSize.width > maxImageSize || imageSize.height > maxImageSize
                 

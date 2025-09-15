@@ -106,17 +106,21 @@ extension Onboarding {
             self.id = dependencies.randomUUID()
             self.initialFlow = flow
             
-            /// Try to load the users `ed25519KeyPair` from the database and generate the `x25519KeyPair` from it
-            var ed25519KeyPair: KeyPair = .empty
-            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-            dependencies[singleton: .storage].readAsync(
-                retrieve: { db in Identity.fetchUserEd25519KeyPair(db) },
-                completion: { result in
-                    ed25519KeyPair = ((try? result.successOrThrow()) ?? .empty)
-                    semaphore.signal()
-                }
-            )
-            semaphore.wait()
+            /// Try to load the users `ed25519SecretKey` from the general cache and generate the key pairs from it
+            let ed25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            let ed25519KeyPair: KeyPair = {
+                guard
+                    !ed25519SecretKey.isEmpty,
+                    let ed25519Seed: Data = dependencies[singleton: .crypto].generate(
+                        .ed25519Seed(ed25519SecretKey: ed25519SecretKey)
+                    ),
+                    let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .ed25519KeyPair(seed: Array(ed25519Seed))
+                    )
+                else { return .empty }
+                
+                return ed25519KeyPair
+            }()
             let x25519KeyPair: KeyPair = {
                 guard
                     ed25519KeyPair != .empty,

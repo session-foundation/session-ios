@@ -21,20 +21,19 @@ extension ConversationVC:
     MessageCellDelegate,
     ContextMenuActionDelegate,
     SendMediaNavDelegate,
-    UIDocumentPickerDelegate,
     AttachmentApprovalViewControllerDelegate,
     GifPickerViewControllerDelegate
 {
     // MARK: - Open Settings
     
-    @objc func handleTitleViewTapped() {
+    @MainActor @objc func handleTitleViewTapped() {
         // Don't take the user to settings for unapproved threads
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
     }
     
-    func openSettingsFromTitleView() {
+    @MainActor func openSettingsFromTitleView() {
         // If we shouldn't be able to access settings then disable the title view shortcuts
         guard viewModel.threadData.canAccessSettings(using: viewModel.dependencies) else { return }
         
@@ -362,8 +361,73 @@ extension ConversationVC:
         // UIDocumentPickerModeImport copies to a temp file within our container.
         // It uses more memory than "open" but lets us avoid working with security scoped URLs.
         let documentPickerVC = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-        documentPickerVC.delegate = self
         documentPickerVC.modalPresentationStyle = .fullScreen
+        
+        self.documentHandler = DocumentPickerHandler(
+            didPickDocumentsAt: { [weak self, dependencies = viewModel.dependencies] _, urls in
+                defer {
+                    self?.showInputAccessoryView()
+                    self?.becomeFirstResponder()
+                    self?.documentHandler = nil
+                }
+                
+                guard let url: URL = urls.first else { return }
+                
+                let urlResourceValues: URLResourceValues
+                do {
+                    urlResourceValues = try url.resourceValues(forKeys: [ .typeIdentifierKey, .isDirectoryKey, .nameKey ])
+                }
+                catch {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
+                    }
+                    return
+                }
+                
+                let type: UTType = (urlResourceValues.typeIdentifier.map({ UTType($0) }) ?? .data)
+                guard urlResourceValues.isDirectory != true else {
+                    DispatchQueue.main.async { [weak self] in
+                        let modal: ConfirmationModal = ConfirmationModal(
+                            targetView: self?.view,
+                            info: ConfirmationModal.Info(
+                                title: "attachmentsErrorLoad".localized(),
+                                body: .text("attachmentsErrorNotSupported".localized()),
+                                cancelTitle: "okay".localized(),
+                                cancelStyle: .alert_text
+                            )
+                        )
+                        self?.present(modal, animated: true)
+                    }
+                    return
+                }
+                
+                let fileName: String = (urlResourceValues.name ?? "attachment".localized())
+                guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: urlResourceValues.name, shouldDeleteOnDeinit: false, using: dependencies) else {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
+                    }
+                    return
+                }
+                dataSource.sourceFilename = fileName
+                
+                // Although we want to be able to send higher quality attachments through the document picker
+                // it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
+                guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: type) else {
+                    self?.showAttachmentApprovalDialogAfterProcessingVideo(at: url, with: fileName)
+                    return
+                }
+                
+                // "Document picker" attachments _SHOULD NOT_ be resized
+                let attachment = SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .original, using: dependencies)
+                self?.showAttachmentApprovalDialog(for: [ attachment ])
+            },
+            wasCancelled: { [weak self] _ in
+                self?.showInputAccessoryView()
+                self?.becomeFirstResponder()
+                self?.documentHandler = nil
+            }
+        )
+        documentPickerVC.delegate = self.documentHandler
         
         present(documentPickerVC, animated: true, completion: nil)
     }
@@ -412,59 +476,6 @@ extension ConversationVC:
         showAttachmentApprovalDialog(for: [ attachment ])
     }
     
-    // MARK: - UIDocumentPickerDelegate
-    
-    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        guard let url = urls.first else { return } // TODO: Handle multiple?
-        
-        let urlResourceValues: URLResourceValues
-        do {
-            urlResourceValues = try url.resourceValues(forKeys: [ .typeIdentifierKey, .isDirectoryKey, .nameKey ])
-        }
-        catch {
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
-            }
-            return
-        }
-        
-        let type: UTType = (urlResourceValues.typeIdentifier.map({ UTType($0) }) ?? .data)
-        guard urlResourceValues.isDirectory != true else {
-            DispatchQueue.main.async { [weak self] in
-                let modal: ConfirmationModal = ConfirmationModal(
-                    targetView: self?.view,
-                    info: ConfirmationModal.Info(
-                        title: "attachmentsErrorLoad".localized(),
-                        body: .text("attachmentsErrorNotSupported".localized()),
-                        cancelTitle: "okay".localized(),
-                        cancelStyle: .alert_text
-                    )
-                )
-                self?.present(modal, animated: true)
-            }
-            return
-        }
-        
-        let fileName: String = (urlResourceValues.name ?? "attachment".localized())
-        guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: urlResourceValues.name, shouldDeleteOnDeinit: false, using: viewModel.dependencies) else {
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
-            }
-            return
-        }
-        dataSource.sourceFilename = fileName
-        
-        // Although we want to be able to send higher quality attachments through the document picker
-        // it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
-        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: type) else {
-            return showAttachmentApprovalDialogAfterProcessingVideo(at: url, with: fileName)
-        }
-        
-        // "Document picker" attachments _SHOULD NOT_ be resized
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .original, using: viewModel.dependencies)
-        showAttachmentApprovalDialog(for: [ attachment ])
-    }
-
     func showAttachmentApprovalDialog(for attachments: [SignalAttachment]) {
         guard let navController = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
@@ -1169,7 +1180,7 @@ extension ConversationVC:
                         let currentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
-                            .saved(db)
+                            .upserted(db)
                             .insertControlMessage(
                                 db,
                                 threadVariant: cellViewModel.threadVariant,
@@ -1699,6 +1710,33 @@ extension ConversationVC:
     }
     
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
+        // Dismiss current reaction sheet to present alert dialog
+        currentReactionListSheet?.dismiss(animated: true)
+        currentReactionListSheet = nil
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "clearAll".localized(),
+                body: .attributedText(
+                    "emojiReactsClearAll"
+                        .put(key: "emoji", value: emoji)
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
+                confirmTitle: "clear".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self] modal in
+                    // Call clear reaction event
+                    self?.clearAllReactions(cellViewModel, for: emoji)
+                    modal.dismiss(animated: true)
+                }
+            )
+        )
+        
+        present(modal, animated: true, completion: nil)
+    }
+    
+    func clearAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
         guard
             cellViewModel.threadVariant == .community,
             let roomToken: String = viewModel.threadData.openGroupRoomToken,
@@ -1966,7 +2004,7 @@ extension ConversationVC:
                             )
                         ),
                         to: destination,
-                        namespace: .default,
+                        namespace: destination.defaultNamespace,
                         interactionId: cellViewModel.id,
                         attachments: nil,
                         authMethod: authMethod,
@@ -2211,6 +2249,9 @@ extension ConversationVC:
             model: quoteDraft,
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
+        
+        if isShowingSearchUI { willManuallyCancelSearchUI() }
+        
         _ = snInputView.becomeFirstResponder()
         completion?()
     }
@@ -2375,12 +2416,12 @@ extension ConversationVC:
     }
 
     func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
-        guard cellViewModel.cellType == .mediaMessage else { return }
-        
-        let mediaAttachments: [(Attachment, String)] = (cellViewModel.attachments ?? [])
+        let validAttachments: [(Attachment, String)] = (cellViewModel.attachments ?? [])
             .filter { attachment in
-                attachment.isValid &&
-                attachment.isVisualMedia && (
+                attachment.isValid && (
+                    cellViewModel.cellType != .mediaMessage ||
+                    attachment.isVisualMedia
+                ) && (
                     attachment.state == .downloaded ||
                     attachment.state == .uploaded
                 )
@@ -2399,63 +2440,112 @@ extension ConversationVC:
                 return (attachment, path)
             }
         
-        guard !mediaAttachments.isEmpty else { return }
-    
-        Permissions.requestLibraryPermissionIfNeeded(
-            isSavingMedia: true,
-            presentingViewController: self,
-            using: viewModel.dependencies
-        ) { [weak self, dependencies = viewModel.dependencies] in
-            PHPhotoLibrary.shared().performChanges(
-                {
-                    mediaAttachments.forEach { attachment, path in
-                        if attachment.isImage || attachment.isAnimated {
-                            PHAssetChangeRequest.creationRequestForAssetFromImage(
-                                atFileURL: URL(fileURLWithPath: path)
-                            )
-                        }
-                        else if attachment.isVideo {
-                            PHAssetChangeRequest.creationRequestForAssetFromVideo(
-                                atFileURL: URL(fileURLWithPath: path)
-                            )
-                        }
-                    }
-                },
-                completionHandler: { [dependencies] _, _ in
-                    mediaAttachments.forEach { attachment, path in
-                        /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-                        guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
-                            return
+        guard !validAttachments.isEmpty else { return }
+        
+        switch cellViewModel.cellType {
+            case .audio, .genericAttachment:
+                let documentPicker = UIDocumentPickerViewController(
+                    forExporting: validAttachments.map { _, path in URL(fileURLWithPath: path) },
+                    asCopy: true
+                )
+                
+                self.documentHandler = DocumentPickerHandler(
+                    didPickDocumentsAt: { [weak self, dependencies = viewModel.dependencies] _, _ in
+                        validAttachments.forEach { attachment, path in
+                            /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                            guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                                return
+                            }
+                            
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: path)
                         }
                         
-                        try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                            self?.viewModel.showToast(
+                                text: "saved".localized(),
+                                backgroundColor: .toast_background,
+                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                            )
+                            
+                            // Send a 'media saved' notification if needed
+                            guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
+                                return
+                            }
+                            
+                            self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
+                        }
+                        
+                        self?.showInputAccessoryView()
+                        self?.becomeFirstResponder()
+                        self?.documentHandler = nil
+                    },
+                    wasCancelled: { [weak self] _ in
+                        self?.showInputAccessoryView()
+                        self?.becomeFirstResponder()
+                        self?.documentHandler = nil
                     }
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
-                        self?.viewModel.showToast(
-                            text: "saved".localized(),
-                            backgroundColor: .toast_background,
-                            inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
-                        )
-                    }
+                )
+                documentPicker.delegate = documentHandler
+                present(documentPicker, animated: true)
+                
+            case .mediaMessage:
+                Permissions.requestLibraryPermissionIfNeeded(
+                    isSavingMedia: true,
+                    presentingViewController: self,
+                    using: viewModel.dependencies
+                ) { [weak self, dependencies = viewModel.dependencies] in
+                    PHPhotoLibrary.shared().performChanges(
+                        {
+                            validAttachments.forEach { attachment, path in
+                                if attachment.isImage || attachment.isAnimated {
+                                    PHAssetChangeRequest.creationRequestForAssetFromImage(
+                                        atFileURL: URL(fileURLWithPath: path)
+                                    )
+                                }
+                                else if attachment.isVideo {
+                                    PHAssetChangeRequest.creationRequestForAssetFromVideo(
+                                        atFileURL: URL(fileURLWithPath: path)
+                                    )
+                                }
+                            }
+                        },
+                        completionHandler: { [weak self, dependencies] _, _ in
+                            validAttachments.forEach { attachment, path in
+                                /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                                guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                                    return
+                                }
+                                
+                                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                                self?.viewModel.showToast(
+                                    text: "saved".localized(),
+                                    backgroundColor: .toast_background,
+                                    inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                )
+                            }
+                            
+                            // Send a 'media saved' notification if needed
+                            guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
+                                return
+                            }
+                            
+                            self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
+                        }
+                    )
                 }
-            )
-            
-            // Send a 'media saved' notification if needed
-            guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
-                return
-            }
-            
-            self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
+                
+                completion?()
+                
+            default: break
         }
-        
-        completion?()
     }
 
     func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
-        let threadId: String = self.viewModel.threadData.threadId
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
@@ -2534,7 +2624,6 @@ extension ConversationVC:
     func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
-        let threadId: String = self.viewModel.threadData.threadId
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
@@ -2929,10 +3018,11 @@ extension ConversationVC {
                     .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                         /// duplicate one from inside the group history)
-                        _ = try Interaction
-                            .filter(Interaction.Columns.threadId == group.id)
+                        try Interaction.deleteWhere(
+                            db,
+                            .filter(Interaction.Columns.threadId == group.id),
                             .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-                            .deleteAll(db)
+                        )
                         
                         /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
                         /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`

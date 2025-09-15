@@ -43,6 +43,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // Context menu
     var contextMenuWindow: ContextMenuWindow?
     var contextMenuVC: ContextMenuVC?
+    var documentHandler: DocumentPickerHandler?
     
     // Mentions
     var currentMentionStartIndex: String.Index?
@@ -1708,7 +1709,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         switch section.model {
             case .loadOlder, .loadNewer:
                 let loadingIndicator: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
-                loadingIndicator.themeTintColor = .textPrimary
+                loadingIndicator.themeColor = .textPrimary
                 loadingIndicator.alpha = 0.5
                 loadingIndicator.startAnimating()
                 
@@ -1978,6 +1979,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         becomeFirstResponder()
         reloadInputViews()
     }
+    
+    // Manually cancel the search and clear the text to remove hightlights
+    func willManuallyCancelSearchUI() {
+        searchController.uiSearchController.isActive = false
+        searchController.uiSearchController.searchBar.text = ""
+    }
 
     func didDismissSearchController(_ searchController: UISearchController) {
         hideSearchUI()
@@ -2097,6 +2104,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.highlightCellIfNeeded(interactionId: interactionInfo.id, behaviour: focusBehaviour)
             self.focusedInteractionInfo = nil
             self.focusBehaviour = .none
+            
+            // Check if the last known keyboard frame exists,
+            // if it does not intersect with the target rectangle (the cell to be scrolled to),
+            if let keyboardFrame = lastKnownKeyboardFrame, !keyboardFrame.intersects(targetRect) {
+                // If all conditions are met, scroll the table view to make the target rectangle visible.
+                // This is to ensure a cell is not covered by the keyboard.
+                self.tableView.scrollRectToVisible(targetRect, animated: true)
+            }
             return
         }
         

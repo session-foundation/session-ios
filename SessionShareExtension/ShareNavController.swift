@@ -65,6 +65,7 @@ final class ShareNavController: UINavigationController {
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
+                    maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)

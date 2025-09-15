@@ -28,7 +28,7 @@ public enum MessageReceiver {
         var customProto: SNProtoContent? = nil
         var customMessage: Message? = nil
         let sender: String
-        let sentTimestampMs: UInt64
+        let sentTimestampMs: UInt64?
         let serverHash: String?
         let openGroupServerMessageId: UInt64?
         let openGroupWhisper: Bool
@@ -53,7 +53,7 @@ public enum MessageReceiver {
                 uniqueIdentifier = "\(messageServerId)"
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
-                sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                sentTimestampMs = timestamp.map { UInt64(floor($0 * 1000)) } // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 openGroupWhisper = messageWhisper
@@ -400,9 +400,9 @@ public enum MessageReceiver {
         // visible (the only other spot this flag gets set is when sending messages)
         let shouldBecomeVisible: Bool = {
             switch message {
-                case is ReadReceipt: return true
-                case is TypingIndicator: return true
-                case is UnsendRequest: return true
+                case is ReadReceipt: return false
+                case is TypingIndicator: return false
+                case is UnsendRequest: return false
                 case is CallMessage: return (threadId != dependencies[cache: .general].sessionId.hexString)
                     
                 /// These are sent to the one-to-one conversation so they shouldn't make that visible

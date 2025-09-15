@@ -243,9 +243,9 @@ public actor ImageDataManager: ImageDataManagerType {
             let sourceWidth: Int = properties[kCGImagePropertyPixelWidth as String] as? Int,
             let sourceHeight: Int = properties[kCGImagePropertyPixelHeight as String] as? Int,
             sourceWidth > 0,
-            sourceWidth < ImageDataManager.DataSource.maxValidSize,
+            sourceWidth < ImageDataManager.DataSource.maxValidDimension,
             sourceHeight > 0,
-            sourceHeight < ImageDataManager.DataSource.maxValidSize
+            sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
 
         /// Get the number of frames in the image
@@ -798,7 +798,7 @@ extension AVAsset {
 
 public extension ImageDataManager.DataSource {
     /// We need to ensure that the image size is "reasonable", otherwise trying to load it could cause out-of-memory crashes
-    fileprivate static let maxValidSize: Int = 1 << 18 // 262,144 pixels
+    static let maxValidDimension: Int = 1 << 18 // 262,144 pixels
     
     @MainActor
     var sizeFromMetadata: CGSize? {
@@ -826,9 +826,9 @@ public extension ImageDataManager.DataSource {
             let sourceWidth: Int = properties[kCGImagePropertyPixelWidth as String] as? Int,
             let sourceHeight: Int = properties[kCGImagePropertyPixelHeight as String] as? Int,
             sourceWidth > 0,
-            sourceWidth < ImageDataManager.DataSource.maxValidSize,
+            sourceWidth < ImageDataManager.DataSource.maxValidDimension,
             sourceHeight > 0,
-            sourceHeight < ImageDataManager.DataSource.maxValidSize
+            sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
         
         return CGSize(width: sourceWidth, height: sourceHeight)

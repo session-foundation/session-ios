@@ -524,7 +524,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             // Image editor has no changes.
             return attachmentItem.attachment
         }
-        guard let dstImage = ImageEditorCanvasView.renderForOutput(model: imageEditorModel, transform: imageEditorModel.currentTransform()) else {
+        guard let dstImage = ImageEditorCanvasView.renderForOutput(model: imageEditorModel, transform: imageEditorModel.currentTransform(), using: dependencies) else {
             Log.error(.cat, "Could not render for output.")
             return attachmentItem.attachment
         }
@@ -758,11 +758,39 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 
 extension SignalAttachmentItem: GalleryRailItem {
     func buildRailItemView(using dependencies: Dependencies) -> UIView {
-        let imageView = UIImageView()
-        imageView.image = getThumbnailImage(using: dependencies)
-        imageView.themeBackgroundColor = .backgroundSecondary
+        let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
+        imageView.themeBackgroundColor = .backgroundSecondary
         
+        if let path: String = (attachment.dataSource.dataPathIfOnDisk ?? attachment.dataUrl?.absoluteString) {
+            let source: ImageDataManager.DataSource = {
+                /// Can't thumbnail animated images so just load the full file in this case
+                if attachment.isAnimatedImage {
+                    return .url(URL(fileURLWithPath: path))
+                }
+                
+                /// Videos have a custom method for generating their thumbnails so use that instead
+                if attachment.isVideo {
+                    return .videoUrl(
+                        URL(fileURLWithPath: path),
+                        attachment.mimeType,
+                        attachment.sourceFilename,
+                        dependencies[singleton: .attachmentManager]
+                    )
+                }
+                
+                return .urlThumbnail(
+                    URL(fileURLWithPath: path),
+                    .small,
+                    dependencies[singleton: .attachmentManager]
+                )
+            }()
+            
+            Task(priority: .userInitiated) {
+                await imageView.loadImage(source)
+            }
+        }
+
         return imageView
     }
     
