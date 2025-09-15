@@ -309,11 +309,12 @@ public enum GarbageCollectionJob: JobExecutor {
                 
                 /// Remove interactions which should be disappearing after read but never be read within 14 days
                 if finalTypesToCollect.contains(.expiredUnreadDisappearingMessages) {
-                    _ = try Interaction
-                        .filter(Interaction.Columns.expiresInSeconds != 0)
-                        .filter(Interaction.Columns.expiresStartedAtMs == nil)
+                    try Interaction.deleteWhere(
+                        db,
+                        .filter(Interaction.Columns.expiresInSeconds != 0),
+                        .filter(Interaction.Columns.expiresStartedAtMs == nil),
                         .filter(Interaction.Columns.timestampMs < (timestampNow - fourteenDaysInSeconds) * 1000)
-                        .deleteAll(db)
+                    )
                 }
 
                 if finalTypesToCollect.contains(.expiredPendingReadReceipts) {

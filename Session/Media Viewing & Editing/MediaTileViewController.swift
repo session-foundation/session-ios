@@ -733,16 +733,12 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 )
                 
                 // Delete any interactions which had all of their attachments removed
-                try items.forEach { item in
-                    let remainingAttachmentCount: Int = try InteractionAttachment
-                        .filter(InteractionAttachment.Columns.interactionId == item.interactionId)
-                        .fetchCount(db)
-                    
-                    if remainingAttachmentCount == 0 {
-                        _ = try Interaction.deleteOne(db, id: item.interactionId)
-                        db.addMessageEvent(id: item.interactionId, threadId: threadId, type: .deleted)
-                    }
-                }
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(items.map { $0.interactionId }.contains(Interaction.Columns.id)),
+                    .filter(Interaction.Columns.threadId == threadId),
+                    .hasAttachments(false)
+                )
             }
             
             self?.endSelectMode()
@@ -878,18 +874,7 @@ class GalleryGridCellItem: PhotoGridItem {
         self.galleryItem = galleryItem
     }
 
-    var type: PhotoGridItemType {
-        if galleryItem.isVideo {
-            return .video
-        }
-        
-        if galleryItem.isAnimated {
-            return .animated
-        }
-        
-        return .photo
-    }
-    
+    var isVideo: Bool { galleryItem.isVideo }
     var source: ImageDataManager.DataSource {
         ImageDataManager.DataSource.thumbnailFrom(
             attachment: galleryItem.attachment,

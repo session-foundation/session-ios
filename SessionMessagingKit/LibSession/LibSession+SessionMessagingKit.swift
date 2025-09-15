@@ -1197,7 +1197,7 @@ public extension LibSessionCacheType {
     }
 }
 
-private final class NoopLibSessionCache: LibSessionCacheType {
+private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
     let isEmpty: Bool = true

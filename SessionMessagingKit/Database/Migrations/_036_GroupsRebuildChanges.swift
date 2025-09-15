@@ -180,7 +180,10 @@ enum _036_GroupsRebuildChanges: Migration {
                 return
             }
             
-            let filename: String = generateFilename(format: imageData.guessedImageFormat, using: dependencies)
+            let filename: String = generateFilename(
+                format: MediaUtils.guessedImageFormat(data: imageData),
+                using: dependencies
+            )
             let filePath: String = URL(fileURLWithPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath())
                 .appendingPathComponent(filename)
                 .path

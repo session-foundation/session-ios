@@ -74,8 +74,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
                 Log.info(.cat, "Setting up environment.")
                 
-                /// Create a proper `NotificationPresenter` and `SessionCallManager` for the main app (defaults to no-op versions)
-                dependencies.set(singleton: .notificationsManager, to: NotificationPresenter(using: dependencies))
+                /// Create a proper `SessionCallManager` for the main app (defaults to a no-op version)
                 dependencies.set(singleton: .callManager, to: SessionCallManager(using: dependencies))
                 
                 // Setup LibSession
@@ -85,6 +84,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
+                    maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)
@@ -167,10 +167,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         mainWindow.rootViewController = self.loadingViewController
         mainWindow.makeKeyAndVisible()
 
-        // This must happen in appDidFinishLaunching or earlier to ensure we don't
-        // miss notifications.
-        // Setting the delegate also seems to prevent us from getting the legacy notification
-        // notification callbacks upon launch e.g. 'didReceiveLocalNotification'
+        /// Create a proper `NotificationPresenter` for the main app (defaults to a no-op version)
+        ///
+        /// **Note:** This must happen in `appDidFinishLaunching` to ensure we don't miss notifications. Setting the delegate
+        /// also seems to prevent us from getting the legacy notification notification callbacks upon launch e.g. `didReceiveLocalNotification`
+        dependencies.set(singleton: .notificationsManager, to: NotificationPresenter(using: dependencies))
         dependencies[singleton: .notificationsManager].setDelegate(self)
         
         NotificationCenter.default.addObserver(
@@ -305,11 +306,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
 
-        // On every activation, clear old temp directories.
+        /// On every activation, clear old temp directories.
         dependencies[singleton: .fileManager].clearOldTemporaryDirectories()
         
-        if dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
-            Permissions.checkLocalNetworkPermission(using: dependencies)
+        /// It's likely that on a fresh launch that the `libSession` cache won't have been initialised by this point, so detatch a task to
+        /// wait for it before checking the local network permission
+        Task.detached { [dependencies] in
+            try? await dependencies.waitUntilInitialised(cache: .libSession)
+            
+            if dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
+                Permissions.checkLocalNetworkPermission(using: dependencies)
+            }
         }
     }
     
@@ -454,7 +461,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// We need to do a clean up for disappear after send messages that are received by push notifications before
         /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
         /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
-        DisappearingMessagesJob.cleanExpiredMessagesOnLaunch(using: dependencies)
+        DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
         
         /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
         /// them in this thread and create a task to _actually_ load them asynchronously

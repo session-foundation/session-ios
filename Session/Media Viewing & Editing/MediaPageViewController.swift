@@ -592,10 +592,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 )
                 
                 // Delete any interactions which had all of their attachments removed
-                _ = try Interaction
-                    .filter(id: itemToDelete.interactionId)
-                    .having(Interaction.interactionAttachments.isEmpty)
-                    .deleteAll(db)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.id == itemToDelete.interactionId),
+                    .hasAttachments(false)
+                )
             }
         }
         actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))

@@ -62,7 +62,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         do {
             let mainAppUnreadCount: Int = try performSetup(notificationInfo)
-            notificationInfo = try extractNotificationInfo(notificationInfo, mainAppUnreadCount)
+            notificationInfo = notificationInfo.with(mainAppUnreadCount: mainAppUnreadCount)
+            notificationInfo = try extractNotificationInfo(notificationInfo)
             try setupGroupIfNeeded(notificationInfo)
             
             processedNotification = try processNotification(notificationInfo)
@@ -104,12 +105,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Configure the different targets
         SNUtilitiesKit.configure(
             networkMaxFileSize: Network.maxFileSize,
+            maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
             using: dependencies
         )
         SNMessagingKit.configure(using: dependencies)
-        
-        /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
-        dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
         
         /// Cache the users secret key
         dependencies.mutate(cache: .general) {
@@ -127,6 +126,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             userEd25519SecretKey: userMetadata.ed25519SecretKey
         )
         dependencies.set(cache: .libSession, to: cache)
+        
+        /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
+        ///
+        /// **Note:** This **MUST** happen after we have loaded the `libSession` cache as the notification settings are
+        /// stored in there
+        dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
         
         return userMetadata.unreadCount
     }
@@ -151,7 +156,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Notification Handling
     
-    private func extractNotificationInfo(_ info: NotificationInfo, _ mainAppUnreadCount: Int) throws -> NotificationInfo {
+    private func extractNotificationInfo(_ info: NotificationInfo) throws -> NotificationInfo {
         let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
             notificationContent: info.content,
             using: dependencies
@@ -169,7 +174,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     contentHandler: info.contentHandler,
                     metadata: metadata,
                     data: data,
-                    mainAppUnreadCount: mainAppUnreadCount
+                    mainAppUnreadCount: info.mainAppUnreadCount
                 )
                 
             default: throw NotificationError.processingError(result, metadata)
@@ -1287,7 +1292,8 @@ private extension NotificationServiceExtension {
             requestId: String? = nil,
             content: UNMutableNotificationContent? = nil,
             contentHandler: ((UNNotificationContent) -> Void)? = nil,
-            metadata: PushNotificationAPI.NotificationMetadata? = nil
+            metadata: PushNotificationAPI.NotificationMetadata? = nil,
+            mainAppUnreadCount: Int? = nil
         ) -> NotificationInfo {
             return NotificationInfo(
                 content: (content ?? self.content),
@@ -1295,7 +1301,7 @@ private extension NotificationServiceExtension {
                 contentHandler: (contentHandler ?? self.contentHandler),
                 metadata: (metadata ?? self.metadata),
                 data: data,
-                mainAppUnreadCount: mainAppUnreadCount
+                mainAppUnreadCount: (mainAppUnreadCount ?? self.mainAppUnreadCount)
             )
         }
     }
