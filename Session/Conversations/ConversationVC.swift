@@ -588,7 +588,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
 
             // Show inputview keyboard
             if self?.hasPendingInputKeyboardPresentationEvent == true {
-                self?.makeInputViewFirstResponder()
+                // Added 0.1 delay to remove inputview stutter animation glitch while keyboard is animating up
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    _ = self?.snInputView.becomeFirstResponder()
+                }
                 self?.hasPendingInputKeyboardPresentationEvent = false
             }
         }
@@ -1656,22 +1659,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.snInputView.text = self.snInputView.text
             completion?()
         }
-    }
-    
-    private func makeInputViewFirstResponder() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.inputAccessoryView?.becomeFirstResponder()
-        }
-    }
-    
-    func checkIfEventWasTriggerWhileNotVisible() -> Bool {
-        // Delegate reply action triggered by MessageInfoViewController
-        if let navigationStack = self.navigationController?.viewControllers {
-            if navigationStack.contains(where: { $0 is ConversationVC }) && navigationStack.last is MessageInfoViewController {
-                return true
-            }
-        }
-        return false
     }
 
     // MARK: - UITableViewDataSource

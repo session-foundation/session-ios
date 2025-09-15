@@ -2250,19 +2250,24 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
+        // If the `MessageInfoViewController` is visible then we want to show the keyboard after
+        // the pop transition completes (and don't want to delay triggering the completion closure)
+        let messageInfoScreenVisible: Bool = (self.navigationController?.viewControllers.last is MessageInfoViewController)
+
+        guard !messageInfoScreenVisible else {
+            if self.isShowingSearchUI == true { self.willManuallyCancelSearchUI() }
+            self.hasPendingInputKeyboardPresentationEvent = true
+            completion?()
+            return
+        }
+        
         // Add delay before doing any ui updates
         // Delay added to give time for long press actions to dismiss
         let delay = completion == nil ? 0 : ContextMenuVC.dismissDuration
         
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
-            
-            if self?.checkIfEventWasTriggerWhileNotVisible() == true {
-                self?.hasPendingInputKeyboardPresentationEvent = true
-            } else {
-                _ = self?.snInputView.becomeFirstResponder()
-            }
-
+            _ = self?.snInputView.becomeFirstResponder()
             completion?()
         }
     }
