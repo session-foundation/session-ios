@@ -35,10 +35,7 @@ class MessageSendJobSpec: QuickSpec {
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try SessionThread.upsert(

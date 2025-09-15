@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension MessageViewModel {
@@ -415,7 +415,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try SnodeAPI.preparedBatch(
+                                    try Network.SnodeAPI.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadData.threadId,
@@ -426,7 +426,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     )
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(
-                            try SnodeAPI.preparedDeleteMessages(
+                            try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(
@@ -496,7 +496,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try SnodeAPI.preparedBatch(
+                                    try Network.SnodeAPI.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadData.threadId,
@@ -616,7 +616,7 @@ public extension MessageViewModel.DeletionBehaviours {
                         )
                     )
                     .appending(serverHashes.isEmpty ? nil :
-                        .preparedRequest(try SnodeAPI
+                            .preparedRequest(try Network.SnodeAPI
                             .preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
@@ -658,7 +658,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 let deleteRequests: [Network.PreparedRequest] = try cellViewModels
                     .compactMap { $0.openGroupServerMessageId }
                     .map { messageId in
-                        try OpenGroupAPI.preparedMessageDelete(
+                        try Network.SOGS.preparedMessageDelete(
                             id: messageId,
                             roomToken: roomToken,
                             authMethod: authMethod,
@@ -674,7 +674,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { deleteRequestsChunk in
                                 .preparedRequest(
-                                    try OpenGroupAPI.preparedBatch(
+                                    try Network.SOGS.preparedBatch(
                                         requests: deleteRequestsChunk,
                                         authMethod: authMethod,
                                         using: dependencies

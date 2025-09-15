@@ -77,8 +77,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C3C2A59E255385C100C340D1"
-            BuildableName = "SessionSnodeKit.framework"
-            BlueprintName = "SessionSnodeKit"
+            BuildableName = "SessionNetworkingKit.framework"
+            BlueprintName = "SessionNetworkingKit"
             ReferencedContainer = "container:Session.xcodeproj">
          </BuildableReference>
          <BuildableReference

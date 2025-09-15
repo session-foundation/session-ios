@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Size Restrictions
@@ -293,7 +293,7 @@ internal extension LibSessionCacheType {
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )).map { authMethod in
-                try? SnodeAPI
+                try? Network.SnodeAPI
                     .preparedDeleteMessages(
                         serverHashes: Array(messageHashesToDelete),
                         requireSuccessfulDeletion: false,

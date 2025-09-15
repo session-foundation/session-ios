@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import SessionUtilitiesKit
 import SessionMessagingKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Cache
 
