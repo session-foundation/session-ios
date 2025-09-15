@@ -141,7 +141,10 @@ public extension Profile {
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
-        guard profileUpdateTimestamp > profile.profileLastUpdated.defaulting(to: 0) else { return }
+        guard
+            profile.profileLastUpdated == nil ||
+            profileUpdateTimestamp > profile.profileLastUpdated.defaulting(to: 0)
+        else { return }
         
         // Name
         switch (displayNameUpdate, isCurrentUser) {
@@ -214,7 +217,7 @@ public extension Profile {
             default: break
         }
         
-        // Persist any changes
+        /// Persist any changes
         if !profileChanges.isEmpty {
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
@@ -228,7 +231,8 @@ public extension Profile {
                     using: dependencies
                 )
                 
-            
+            /// We don't automatically update the current users profile data when changed in the database so need to manually
+            /// trigger the update
             if isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
