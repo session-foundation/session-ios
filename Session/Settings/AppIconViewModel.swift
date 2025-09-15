@@ -137,12 +137,6 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
     lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(selectedOptionsSubject)
         .mapWithPrevious { [weak self, dependencies] previous, current -> [SectionModel] in
-            
-            if let currentIcon = current {
-                // Save latest app icon disguise selected
-                dependencies[defaults: .standard, key: .lastSelectedAppIconDisguise] = currentIcon
-            }
-            
             return [
                 SectionModel(
                     model: .appIcon,
@@ -158,9 +152,11 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                 oldValue: (previous != nil)
                             ),
                             onTap: { [weak self] in
+                                let lastSelected: String? = dependencies[defaults: .standard, key: .lastSelectedAppIconDisguise]
+                                
                                 switch current {
                                     case .some: self?.updateAppIcon(nil)
-                                    case .none: self?.restorePreviousIcon(previous) // Previous is String??
+                                    case .none: self?.updateAppIcon(lastSelected.map { AppIcon(name: $0) } ?? .weather)
                                 }
                             }
                         )
@@ -194,20 +190,11 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
         }
         
         selectedOptionsSubject.send(icon?.rawValue)
-    }
-    
-    private func restorePreviousIcon(_ identifier: String??) {
-        var previousIcon: AppIcon? {
-            if let previousIcon = identifier {
-                // Set previous app icon
-                return AppIcon(name: previousIcon)
-            } else if let previousIcon = dependencies[defaults: .standard, key: .lastSelectedAppIconDisguise] {
-                // Handles app close instance to restore previously selected
-                return AppIcon(name: previousIcon)
-            }
-            return .weather
-        }
         
-        updateAppIcon(previousIcon)
+        // Only store custom icons
+        if let currentIconName = icon?.rawValue {
+            // Save latest app icon disguise selected
+            dependencies[defaults: .standard, key: .lastSelectedAppIconDisguise] = currentIconName
+        }
     }
 }
