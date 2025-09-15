@@ -33,6 +33,11 @@ extension ConversationVC:
         openSettingsFromTitleView()
     }
     
+    // Handle taps outside of tableview cell to dismiss keyboard
+    @MainActor @objc func handleTableViewTap() {
+        _ = self.snInputView.resignFirstResponder()
+    }
+    
     @MainActor func openSettingsFromTitleView() {
         // If we shouldn't be able to access settings then disable the title view shortcuts
         guard viewModel.threadData.canAccessSettings(using: viewModel.dependencies) else { return }
@@ -1055,6 +1060,11 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
+    
+    func willHandleItemCellTapped() {
+        // Dismiss keyboard when cell is tapped
+        _ = snInputView.resignFirstResponder()
+    }
 
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
@@ -2250,10 +2260,15 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        if isShowingSearchUI { willManuallyCancelSearchUI() }
-        
-        _ = snInputView.becomeFirstResponder()
-        completion?()
+        // Add delay before doing any ui updates
+        // Delay added to give time for long press actions to dismiss
+        let delay = completion == nil ? 0 : ContextMenuVC.dismissDuration
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
+            _ = self?.snInputView.becomeFirstResponder()
+            completion?()
+        }
     }
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {

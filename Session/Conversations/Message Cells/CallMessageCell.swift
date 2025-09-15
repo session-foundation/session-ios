@@ -217,6 +217,8 @@ final class CallMessageCell: MessageCell {
     }
     
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        delegate?.willHandleItemCellTapped()
+        
         guard
             let dependencies: Dependencies = self.dependencies,
             let cellViewModel: MessageViewModel = self.viewModel,

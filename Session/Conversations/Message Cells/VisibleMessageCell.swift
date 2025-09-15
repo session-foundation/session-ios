@@ -997,6 +997,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
+        delegate?.willHandleItemCellTapped()
+        
         let location = gestureRecognizer.location(in: self)
         
         if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {

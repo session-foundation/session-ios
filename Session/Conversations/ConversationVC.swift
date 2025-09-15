@@ -382,6 +382,15 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         return result
     }()
+    
+    // Handle taps outside of tableview cell
+    private lazy var tableViewTapGesture: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.addTarget(self, action: #selector(handleTableViewTap))
+        result.cancelsTouchesInView = false
+        
+        return result
+    }()
 
     // MARK: - Settings
     
@@ -533,6 +542,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 object: nil
             )
         }
+        
+        // Gesture
+        tableView.addGestureRecognizer(tableViewTapGesture)
 
         self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         

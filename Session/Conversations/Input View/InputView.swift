@@ -66,7 +66,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         let result: UISwipeGestureRecognizer = UISwipeGestureRecognizer()
         result.direction = .down
         result.addTarget(self, action: #selector(didSwipeDown))
-        result.isEnabled = false
+        result.cancelsTouchesInView = false
         
         return result
     }()
@@ -464,7 +464,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         self.accessibilityIdentifier = updatedInputState.accessibility?.identifier
         self.accessibilityLabel = updatedInputState.accessibility?.label
         tapGestureRecognizer.isEnabled = (updatedInputState.allowedInputTypes == .none)
-        swipeGestureRecognizer.isEnabled = (updatedInputState.allowedInputTypes != .none)
+        
         inputState = updatedInputState
         disabledInputLabel.text = (updatedInputState.message ?? "")
         disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier

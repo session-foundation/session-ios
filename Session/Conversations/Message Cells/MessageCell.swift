@@ -108,6 +108,9 @@ protocol MessageCellDelegate: ReactionDelegate {
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
     func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel)
+    
+    // Handle taps events outside of `handleItemTapped` contents
+    func willHandleItemCellTapped()
 }
 
 extension MessageCellDelegate {

@@ -183,6 +183,8 @@ final class InfoMessageCell: MessageCell {
     @objc func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
+        delegate?.willHandleItemCellTapped()
+        
         if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
             delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
         }
