@@ -9,7 +9,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import Session
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class OnboardingSpec: AsyncSpec {
@@ -26,7 +26,7 @@ class OnboardingSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
                 SNUtilitiesKit.self,
-                SNSnodeKit.self,
+                SNNetworkingKit.self,
                 SNMessagingKit.self,
                 DeprecatedUIKitMigrationTarget.self
             ],

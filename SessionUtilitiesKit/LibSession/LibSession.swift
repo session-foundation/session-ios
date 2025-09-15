@@ -17,6 +17,10 @@ public extension Log.Category {
     static let libSession: Log.Category = .create("LibSession", defaultLevel: .info)
 }
 
+public extension Log.Group {
+    static let libSession: Log.Group = .create("libSession", defaultLevel: .info)
+}
+
 // MARK: - Logging
 
 extension LibSession {
@@ -29,7 +33,13 @@ extension LibSession {
         ObservationBuilder.observe(.featureGroup(.allLogLevels), using: dependencies) { [dependencies] _ in
             let currentLogLevels: [Log.Category: Log.Level] = dependencies[feature: .allLogLevels]
                 .currentValues(using: dependencies)
-            let cDefaultLevel: LOG_LEVEL = (currentLogLevels[.default]?.libSession ?? LOG_LEVEL_OFF)
+            let currentGroupLogLevels: [Log.Group: Log.Level] = dependencies[feature: .allLogLevels]
+                .currentValues(using: dependencies)
+            let targetDefault: Log.Level? = min(
+                (currentLogLevels[.default] ?? .off),
+                (currentGroupLogLevels[.libSession] ?? .off)
+            )
+            let cDefaultLevel: LOG_LEVEL = (targetDefault?.libSession ?? LOG_LEVEL_OFF)
             session_logger_set_level_default(cDefaultLevel)
             session_logger_reset_level(cDefaultLevel)
             
@@ -57,20 +67,45 @@ extension LibSession {
             DispatchQueue.global(qos: .background).async {
                 /// Logs from libSession come through in the format:
                 /// `[yyyy-MM-dd hh:mm:ss] [+{lifetime}s] [{cat}:{lvl}|log.hpp:{line}] {message}`
-                /// We want to remove the extra data because it doesn't help the logs
+                ///
+                /// We want to simplify the message because our logging already includes category and timestamp information:
+                /// `[+{lifetime}s] {message}`
                 let processedMessage: String = {
-                    let logParts: [String] = msg.components(separatedBy: "] ")
+                    let trimmedMsg = msg.trimmingCharacters(in: .whitespacesAndNewlines)
                     
-                    guard logParts.count == 4 else { return msg.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    guard
+                        let timestampRegex: NSRegularExpression = LibSession.timestampRegex,
+                        let messageStartRegex: NSRegularExpression = LibSession.messageStartRegex
+                    else { return trimmedMsg }
                     
-                    let message: String = String(logParts[3]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let fullRange = NSRange(trimmedMsg.startIndex..<trimmedMsg.endIndex, in: trimmedMsg)
+                    let timestamp: String? = {
+                        if let match = timestampRegex.firstMatch(in: trimmedMsg, range: fullRange),
+                           let swiftRange = Range(match.range, in: trimmedMsg) {
+                            return String(trimmedMsg[swiftRange])
+                        }
+                        return nil
+                    }()
+                    let message: String? = {
+                        if let match = messageStartRegex.firstMatch(in: trimmedMsg, range: fullRange),
+                           match.numberOfRanges == 2, // Ensure our capture group (1) was found
+                           let swiftRange = Range(match.range(at: 1), in: trimmedMsg) {
+                            return String(trimmedMsg[swiftRange])
+                        }
+                        return nil
+                    }()
                     
-                    return "\(logParts[1])] \(message)"
+                    switch (timestamp, message) {
+                        case (.some(let timestamp), .some(let message)) where !timestamp.isEmpty && !message.isEmpty:
+                            return "\(timestamp) \(message)"
+                            
+                        default: return trimmedMsg
+                    }
                 }()
                 
                 Log.custom(
                     Log.Level(lvl),
-                    [Log.Category(rawValue: cat, customPrefix: "libSession:")],
+                    [Log.Category(rawValue: cat, group: .libSession)],
                     processedMessage
                 )
             }
@@ -83,6 +118,16 @@ extension LibSession {
 }
 
 // MARK: - Convenience
+
+fileprivate extension LibSession {
+    static let timestampRegex: NSRegularExpression? = try? NSRegularExpression(
+        pattern: "\\[\\+(?:(?:\\d+w)?(?:\\d+d)?(?:\\d+h)?(?:\\d+m)?)?\\d+(?:\\.\\d+)?s\\]"
+    )
+    static let messageStartRegex: NSRegularExpression? = try? NSRegularExpression(
+        pattern: "\\[.*?\\|.*?\\.(?:c|cpp|h|hpp):\\d+\\]\\s*(.*)",
+        options: .dotMatchesLineSeparators
+    )
+}
 
 fileprivate extension Log.Level {
     var libSession: LOG_LEVEL? {

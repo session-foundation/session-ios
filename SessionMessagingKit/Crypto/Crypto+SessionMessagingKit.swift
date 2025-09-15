@@ -4,7 +4,7 @@
 
 import Foundation
 import CryptoKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtil
 import SessionUtilitiesKit
 
