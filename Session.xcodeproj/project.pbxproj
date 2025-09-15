@@ -586,7 +586,7 @@
 		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
 		FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */; };
 		FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
-		FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift */; };
+		FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */; };
 		FD336F632CAA28CF00C0B51B /* MockOGMCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5D2CAA28CF00C0B51B /* MockOGMCache.swift */; };
 		FD336F642CAA28CF00C0B51B /* MockCommunityPollerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */; };
 		FD336F652CAA28CF00C0B51B /* MockDisplayPictureCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */; };
@@ -671,7 +671,7 @@
 		FD481A972CAE0AE000ECC4CF /* MockAppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481A932CAE0ADD00ECC4CF /* MockAppContext.swift */; };
 		FD481A992CB4CAAA00ECC4CF /* MockLibSessionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */; };
 		FD481A9A2CB4CAE500ECC4CF /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */; };
-		FD481A9B2CB4CAF100ECC4CF /* CustomArgSummaryDescribable+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift */; };
+		FD481A9B2CB4CAF100ECC4CF /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */; };
 		FD481A9C2CB4D58300ECC4CF /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
 		FD481AA32CB889AE00ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */; };
 		FD49E2462B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
@@ -779,7 +779,7 @@
 		FD6B92DE2E77BDE2004463B5 /* Authentication+SOGS.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92DC2E77BB7E004463B5 /* Authentication+SOGS.swift */; };
 		FD6B92E12E77C1E1004463B5 /* PushNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92E02E77C1DC004463B5 /* PushNotification.swift */; };
 		FD6B92E22E77C21D004463B5 /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
-		FD6B92E42E77C256004463B5 /* PushNotificationAPI+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92E32E77C250004463B5 /* PushNotificationAPI+SMK.swift */; };
+		FD6B92E42E77C256004463B5 /* PushNotificationAPI+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92E32E77C250004463B5 /* PushNotificationAPI+SessionMessagingKit.swift */; };
 		FD6B92E62E77C5A2004463B5 /* Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D482A16EC20007267C7 /* Service.swift */; };
 		FD6B92E72E77C5A2004463B5 /* Request+PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */; };
 		FD6B92E82E77C5B7004463B5 /* PushNotificationEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D4F2A16EE50007267C7 /* PushNotificationEndpoint.swift */; };
@@ -1041,6 +1041,7 @@
 		FDE521A22E0D23AB00061B8E /* ObservableKey+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */; };
 		FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
+		FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */; };
 		FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */; };
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
 		FDE754A12C9A60A6002A2623 /* Crypto+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */; };
@@ -1079,7 +1080,7 @@
 		FDE754F82C9BB0B0002A2623 /* UserNotificationConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754F32C9BB0AF002A2623 /* UserNotificationConfig.swift */; };
 		FDE754F92C9BB0B0002A2623 /* NotificationActionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754F42C9BB0AF002A2623 /* NotificationActionHandler.swift */; };
 		FDE754FA2C9BB0B0002A2623 /* NotificationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754F52C9BB0AF002A2623 /* NotificationPresenter.swift */; };
-		FDE754FE2C9BB0D0002A2623 /* Threading+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754FD2C9BB0D0002A2623 /* Threading+SMK.swift */; };
+		FDE754FE2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754FD2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift */; };
 		FDE755002C9BB0FA002A2623 /* SessionEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */; };
 		FDE755022C9BB122002A2623 /* _025_AddPendingReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE755012C9BB122002A2623 /* _025_AddPendingReadReceipts.swift */; };
 		FDE755052C9BB4EE002A2623 /* BencodeDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE755032C9BB4ED002A2623 /* BencodeDecoder.swift */; };
@@ -1934,7 +1935,7 @@
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonSMKMockExtensions.swift; sourceTree = "<group>"; };
-		FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomArgSummaryDescribable+SMK.swift"; sourceTree = "<group>"; };
+		FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomArgSummaryDescribable+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityPollerCache.swift; sourceTree = "<group>"; };
 		FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDisplayPictureCache.swift; sourceTree = "<group>"; };
 		FD336F5A2CAA28CF00C0B51B /* MockGroupPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGroupPollerCache.swift; sourceTree = "<group>"; };
@@ -2066,7 +2067,7 @@
 		FD6B92DA2E77B592004463B5 /* CryptoSOGSAPISpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoSOGSAPISpec.swift; sourceTree = "<group>"; };
 		FD6B92DC2E77BB7E004463B5 /* Authentication+SOGS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Authentication+SOGS.swift"; sourceTree = "<group>"; };
 		FD6B92E02E77C1DC004463B5 /* PushNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotification.swift; sourceTree = "<group>"; };
-		FD6B92E32E77C250004463B5 /* PushNotificationAPI+SMK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PushNotificationAPI+SMK.swift"; sourceTree = "<group>"; };
+		FD6B92E32E77C250004463B5 /* PushNotificationAPI+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PushNotificationAPI+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD6B92F62E77C6D3004463B5 /* Crypto+PushNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+PushNotification.swift"; sourceTree = "<group>"; };
 		FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopSessionCallManager.swift; sourceTree = "<group>"; };
 		FD6DF00A2ACFE40D0084BA4C /* _021_AddSnodeReveivedMessageInfoPrimaryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _021_AddSnodeReveivedMessageInfoPrimaryKey.swift; sourceTree = "<group>"; };
@@ -2307,6 +2308,7 @@
 		FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationManager.swift; sourceTree = "<group>"; };
 		FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FDE6E99729F8E63A00F93C5D /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
+		FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionNetworkingKit.swift"; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
 		FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageViewModel+DeletionActions.swift"; sourceTree = "<group>"; };
@@ -2348,7 +2350,7 @@
 		FDE754F32C9BB0AF002A2623 /* UserNotificationConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UserNotificationConfig.swift; sourceTree = "<group>"; };
 		FDE754F42C9BB0AF002A2623 /* NotificationActionHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationActionHandler.swift; sourceTree = "<group>"; };
 		FDE754F52C9BB0AF002A2623 /* NotificationPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationPresenter.swift; sourceTree = "<group>"; };
-		FDE754FD2C9BB0D0002A2623 /* Threading+SMK.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Threading+SMK.swift"; sourceTree = "<group>"; };
+		FDE754FD2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Threading+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionEnvironment.swift; sourceTree = "<group>"; };
 		FDE755012C9BB122002A2623 /* _025_AddPendingReadReceipts.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _025_AddPendingReadReceipts.swift; sourceTree = "<group>"; };
 		FDE755032C9BB4ED002A2623 /* BencodeDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BencodeDecoder.swift; sourceTree = "<group>"; };
@@ -3581,7 +3583,7 @@
 			children = (
 				FDC13D4E2A16EE41007267C7 /* Types */,
 				FDF0B7502807BA56004C14C5 /* NotificationsManagerType.swift */,
-				FD6B92E32E77C250004463B5 /* PushNotificationAPI+SMK.swift */,
+				FD6B92E32E77C250004463B5 /* PushNotificationAPI+SessionMessagingKit.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
@@ -3674,7 +3676,7 @@
 				C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */,
 				FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */,
 				C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */,
-				FDE754FD2C9BB0D0002A2623 /* Threading+SMK.swift */,
+				FDE754FD2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift */,
 				FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */,
 			);
 			path = Utilities;
@@ -3711,6 +3713,7 @@
 			isa = PBXGroup;
 			children = (
 				C3C2A5D82553860B00C340D1 /* Data+Utilities.swift */,
+				FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */,
 				FD2272BD2C34B710004D8A6C /* Publisher+Utilities.swift */,
 				FD83DCDC2A739D350065FFAE /* RetryWithDependencies.swift */,
 				C3C2A5D22553860900C340D1 /* String+Trimming.swift */,
@@ -5019,7 +5022,7 @@
 			isa = PBXGroup;
 			children = (
 				FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */,
-				FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift */,
+				FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */,
 				FD336F6E2CAA37CB00C0B51B /* MockCommunityPoller.swift */,
 				FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */,
 				FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */,
@@ -6371,6 +6374,7 @@
 				FD6B92B32E77AA03004463B5 /* Personalization.swift in Sources */,
 				FD6B929B2E77A084004463B5 /* NetworkInfo.swift in Sources */,
 				FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */,
+				FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */,
 				FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */,
 				FDF848D629405C5B007DCAE5 /* SnodeMessage.swift in Sources */,
 				FD02CC162C3681EF009AB976 /* RevokeSubaccountResponse.swift in Sources */,
@@ -6803,12 +6807,12 @@
 				FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */,
 				FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */,
 				FDD23AED2E4590A10057E853 /* _041_RenameTableSettingToKeyValueStore.swift in Sources */,
-				FDE754FE2C9BB0D0002A2623 /* Threading+SMK.swift in Sources */,
+				FDE754FE2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift in Sources */,
 				FDF0B75E280AAF35004C14C5 /* Preferences.swift in Sources */,
 				FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyClosedGroups.swift in Sources */,
 				FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */,
 				FD22726E2C32911C004D8A6C /* FailedMessageSendsJob.swift in Sources */,
-				FD6B92E42E77C256004463B5 /* PushNotificationAPI+SMK.swift in Sources */,
+				FD6B92E42E77C256004463B5 /* PushNotificationAPI+SessionMessagingKit.swift in Sources */,
 				FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */,
 				FDB5DAE22A95D8A0002C8721 /* GroupUpdateInviteResponseMessage.swift in Sources */,
 				FDB11A522DCC6B0000BEF49F /* OpenGroupUrlInfo.swift in Sources */,
@@ -7075,7 +7079,7 @@
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
 				FD01503A2CA24328005B08A1 /* MockJobRunner.swift in Sources */,
 				FD23EA5E28ED00FD0058676E /* NimbleExtensions.swift in Sources */,
-				FD481A9B2CB4CAF100ECC4CF /* CustomArgSummaryDescribable+SMK.swift in Sources */,
+				FD481A9B2CB4CAF100ECC4CF /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */,
 				FD23EA5D28ED00FA0058676E /* TestConstants.swift in Sources */,
 				FD71161A28D00E1100B47552 /* NotificationContentViewModelSpec.swift in Sources */,
 				FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */,
@@ -7203,7 +7207,7 @@
 				FD981BCD2DC81ABF00564172 /* MockExtensionHelper.swift in Sources */,
 				FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */,
 				FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */,
-				FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift in Sources */,
+				FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */,
 				FD336F632CAA28CF00C0B51B /* MockOGMCache.swift in Sources */,
 				FD481A922CAD17DE00ECC4CF /* LibSessionGroupMembersSpec.swift in Sources */,
 				FD336F642CAA28CF00C0B51B /* MockCommunityPollerCache.swift in Sources */,
