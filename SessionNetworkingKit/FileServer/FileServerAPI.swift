@@ -12,11 +12,18 @@ public extension Network.FileServer {
         requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<FileUploadResponse> {
+        var headers: [HTTPHeader: String] = [:]
+        
+        if dependencies[feature: .shortenFileTTL] {
+            headers = [.fileCustomTTL : "60"]
+        }
+        
         return try Network.PreparedRequest(
             request: Request<Data, Endpoint>(
                 endpoint: .file,
                 destination: .serverUpload(
                     server: FileServer.fileServer,
+                    headers: headers,
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),

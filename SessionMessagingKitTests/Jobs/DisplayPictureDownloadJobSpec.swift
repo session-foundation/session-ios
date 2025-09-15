@@ -587,7 +587,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         name: "test",
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil
+                        profileLastUpdated: nil
                     )
                     mockStorage.write { db in try profile.insert(db) }
                     job = Job(
@@ -705,7 +705,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             name: "test",
                             displayPictureUrl: "http://oxen.io/100/",
                             displayPictureEncryptionKey: encryptionKey,
-                            displayPictureLastUpdated: 1234567890
+                            profileLastUpdated: 1234567890
                         )
                         mockStorage.write { db in
                             _ = try Profile.deleteAll(db)
@@ -754,7 +754,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     .updateAll(
                                         db,
                                         Profile.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3])),
-                                        Profile.Columns.displayPictureLastUpdated.set(to: 9999999999)
+                                        Profile.Columns.profileLastUpdated.set(to: 9999999999)
                                     )
                             }
                         }
@@ -777,7 +777,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         name: "test",
                                         displayPictureUrl: "http://oxen.io/100/",
                                         displayPictureEncryptionKey: encryptionKey,
-                                        displayPictureLastUpdated: 1234567891
+                                        profileLastUpdated: 1234567891
                                     )
                                 ))
                         }
@@ -791,7 +791,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     .updateAll(
                                         db,
                                         Profile.Columns.displayPictureUrl.set(to: "testUrl"),
-                                        Profile.Columns.displayPictureLastUpdated.set(to: 9999999999)
+                                        Profile.Columns.profileLastUpdated.set(to: 9999999999)
                                     )
                             }
                         }
@@ -814,7 +814,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         name: "test",
                                         displayPictureUrl: "http://oxen.io/100/",
                                         displayPictureEncryptionKey: encryptionKey,
-                                        displayPictureLastUpdated: 1234567891
+                                        profileLastUpdated: 1234567891
                                     )
                                 ))
                         }
@@ -827,7 +827,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 try Profile
                                     .updateAll(
                                         db,
-                                        Profile.Columns.displayPictureLastUpdated.set(to: 9999999999)
+                                        Profile.Columns.profileLastUpdated.set(to: 9999999999)
                                     )
                             }
                         }
@@ -859,7 +859,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         name: "test",
                                         displayPictureUrl: "http://oxen.io/100/",
                                         displayPictureEncryptionKey: encryptionKey,
-                                        displayPictureLastUpdated: 1234567891
+                                        profileLastUpdated: 1234567891
                                     )
                                 ))
                         }
@@ -874,7 +874,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     name: "test",
                                     displayPictureUrl: "http://oxen.io/100/",
                                     displayPictureEncryptionKey: encryptionKey,
-                                    displayPictureLastUpdated: 1234567891
+                                    profileLastUpdated: 1234567891
                                 )
                             ))
                     }
