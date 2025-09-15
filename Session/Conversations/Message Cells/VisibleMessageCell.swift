@@ -25,6 +25,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     override var contextSnapshotView: UIView? { return snContentView }
     
+    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
+        return [
+            .tap,
+            .longPress,
+            .doubleTap
+        ]
+    }
+    
     // Constraints
     internal lazy var authorLabelTopConstraint = authorLabel.pin(.top, to: .top, of: self)
     private lazy var authorLabelHeightConstraint = authorLabel.set(.height, to: 0)
@@ -270,21 +278,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
         messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
     }
-
-    override func setUpGestureRecognizers() {
-        let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
-        addGestureRecognizer(longPressRecognizer)
-        
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        tapGestureRecognizer.numberOfTapsRequired = 1
-        addGestureRecognizer(tapGestureRecognizer)
-        
-        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
-        doubleTapGestureRecognizer.numberOfTapsRequired = 2
-        addGestureRecognizer(doubleTapGestureRecognizer)
-        tapGestureRecognizer.require(toFail: doubleTapGestureRecognizer)
-    }
-
+    
     // MARK: - Updating
     
     override func update(
@@ -968,7 +962,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
     
-    @objc func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -994,11 +988,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         isHandlingLongPress = true
     }
 
-    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
-        
-        delegate?.willHandleItemCellTapped()
-        
+
         let location = gestureRecognizer.location(in: self)
         
         if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {
@@ -1064,7 +1056,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
 
-    @objc private func handleDoubleTap() {
+    override func handleDoubleTap() {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         delegate?.handleItemDoubleTapped(cellViewModel)

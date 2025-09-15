@@ -22,7 +22,8 @@ extension ConversationVC:
     ContextMenuActionDelegate,
     SendMediaNavDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    UIGestureRecognizerDelegate
 {
     // MARK: - Open Settings
     
@@ -34,7 +35,7 @@ extension ConversationVC:
     }
     
     // Handle taps outside of tableview cell to dismiss keyboard
-    @MainActor @objc func handleTableViewTap() {
+    @MainActor @objc func dismissKeyboardOnTap() {
         _ = self.snInputView.resignFirstResponder()
     }
     
@@ -257,6 +258,11 @@ extension ConversationVC:
         )
         present(sessionProModal, animated: true, completion: nil)
         
+        return true
+    }
+    
+    // MARK: - UIGestureRecognizerDelegate
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 
@@ -1061,11 +1067,6 @@ extension ConversationVC:
 
     // MARK: MessageCellDelegate
     
-    func willHandleItemCellTapped() {
-        // Dismiss keyboard when cell is tapped
-        _ = snInputView.resignFirstResponder()
-    }
-
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
         guard self.viewModel.threadData.threadIsBlocked != true else {
@@ -2260,15 +2261,10 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        // Add delay before doing any ui updates
-        // Delay added to give time for long press actions to dismiss
-        let delay = completion == nil ? 0 : ContextMenuVC.dismissDuration
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
-            _ = self?.snInputView.becomeFirstResponder()
-            completion?()
-        }
+        if isShowingSearchUI == true { willManuallyCancelSearchUI() }
+        _ = snInputView.becomeFirstResponder()
+        
+        completion?()
     }
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
