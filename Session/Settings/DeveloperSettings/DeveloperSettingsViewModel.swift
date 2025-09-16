@@ -71,13 +71,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
         
-        case enableSessionPro
-        case proStatus
-        case proIncomingMessages
-        
-        case versionBlindedID
-        case scheduleLocalNotification
-        
         case animationsEnabled
         case showStringKeys
         case truncatePubkeysInLogs
@@ -99,15 +92,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case communityPollLimit
         
-        case updatedGroupsDisableAutoApprove
-        case updatedGroupsRemoveMessagesOnKick
-        case updatedGroupsAllowHistoricAccessOnInvite
-        case updatedGroupsAllowDisplayPicture
-        case updatedGroupsAllowDescriptionEditing
-        case updatedGroupsAllowPromotions
-        case updatedGroupsAllowInviteById
-        case updatedGroupsDeleteBeforeNow
-        case updatedGroupsDeleteAttachmentsBeforeNow
+        case groupConfig
+        case proConfig
+        
+        case versionBlindedID
+        case scheduleLocalNotification
         
         case createMockContacts
         case forceSlowDatabaseQueries
@@ -142,22 +131,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .communityPollLimit: return "communityPollLimit"
                 
-                case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
-                case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
-                case .updatedGroupsAllowHistoricAccessOnInvite: return "updatedGroupsAllowHistoricAccessOnInvite"
-                case .updatedGroupsAllowDisplayPicture: return "updatedGroupsAllowDisplayPicture"
-                case .updatedGroupsAllowDescriptionEditing: return "updatedGroupsAllowDescriptionEditing"
-                case .updatedGroupsAllowPromotions: return "updatedGroupsAllowPromotions"
-                case .updatedGroupsAllowInviteById: return "updatedGroupsAllowInviteById"
-                case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
-                case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
+                case .groupConfig: return "groupConfig"
+                case .proConfig: return "proConfig"
                 
                 case .versionBlindedID: return "versionBlindedID"
                 case .scheduleLocalNotification: return "scheduleLocalNotification"
-                
-                case .enableSessionPro: return "enableSessionPro"
-                case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
 
                 case .createMockContacts: return "createMockContacts"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
@@ -195,23 +173,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .communityPollLimit: result.append(.communityPollLimit); fallthrough
                 
-                case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
-                case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
-                case .updatedGroupsAllowHistoricAccessOnInvite:
-                    result.append(.updatedGroupsAllowHistoricAccessOnInvite); fallthrough
-                case .updatedGroupsAllowDisplayPicture: result.append(.updatedGroupsAllowDisplayPicture); fallthrough
-                case .updatedGroupsAllowDescriptionEditing: result.append(.updatedGroupsAllowDescriptionEditing); fallthrough
-                case .updatedGroupsAllowPromotions: result.append(.updatedGroupsAllowPromotions); fallthrough
-                case .updatedGroupsAllowInviteById: result.append(.updatedGroupsAllowInviteById); fallthrough
-                case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
-                case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
+                case .groupConfig: result.append(.groupConfig); fallthrough
+                case .proConfig: result.append(.proConfig); fallthrough
                 
                 case .versionBlindedID: result.append(.versionBlindedID); fallthrough
                 case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
-                
-                case .enableSessionPro: result.append(.enableSessionPro); fallthrough
-                case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
                 
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
@@ -244,20 +210,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let debugDisappearingMessageDurations: Bool
         
         let communityPollLimit: Int
-        
-        let updatedGroupsDisableAutoApprove: Bool
-        let updatedGroupsRemoveMessagesOnKick: Bool
-        let updatedGroupsAllowHistoricAccessOnInvite: Bool
-        let updatedGroupsAllowDisplayPicture: Bool
-        let updatedGroupsAllowDescriptionEditing: Bool
-        let updatedGroupsAllowPromotions: Bool
-        let updatedGroupsAllowInviteById: Bool
-        let updatedGroupsDeleteBeforeNow: Bool
-        let updatedGroupsDeleteAttachmentsBeforeNow: Bool
-        
-        let sessionProEnabled: Bool
-        let mockCurrentUserSessionPro: Bool
-        let treatAllIncomingMessagesAsProMessages: Bool
         
         let forceSlowDatabaseQueries: Bool
         
@@ -301,20 +253,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 
                 communityPollLimit: dependencies[feature: .communityPollLimit],
-                
-                updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
-                updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
-                updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
-                updatedGroupsAllowDisplayPicture: dependencies[feature: .updatedGroupsAllowDisplayPicture],
-                updatedGroupsAllowDescriptionEditing: dependencies[feature: .updatedGroupsAllowDescriptionEditing],
-                updatedGroupsAllowPromotions: dependencies[feature: .updatedGroupsAllowPromotions],
-                updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById],
-                updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
-                updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow],
-                
-                sessionProEnabled: dependencies[feature: .sessionProEnabled],
-                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
                 updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit]
@@ -663,173 +601,39 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .groups,
             elements: [
                 SessionCell.Info(
-                    id: .updatedGroupsDisableAutoApprove,
-                    title: "Disable Auto Approve",
+                    id: .groupConfig,
+                    title: "Group Configuration",
                     subtitle: """
-                    Prevents a group from automatically getting approved if the admin is already approved.
-                    
-                    <b>Note:</b> The default behaviour is to automatically approve new groups if the admin that sent the invitation is an approved contact.
+                    Configure settings related to Groups.
                     """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsDisableAutoApprove,
-                        oldValue: previous?.updatedGroupsDisableAutoApprove
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsDisableAutoApprove,
-                            to: !current.updatedGroupsDisableAutoApprove
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsGroupsViewModel(using: dependencies)
+                            )
                         )
                     }
-                ),
+                )
+            ]
+        )
+        let sessionPro: SectionModel = SectionModel(
+            model: .sessionPro,
+            elements: [
                 SessionCell.Info(
-                    id: .updatedGroupsRemoveMessagesOnKick,
-                    title: "Remove Messages on Kick",
+                    id: .proConfig,
+                    title: "Session Pro",
                     subtitle: """
-                    Controls whether a group members messages should be removed when they are kicked from an updated group.
+                    Configure settings related to Session Pro.
                     
-                    <b>Note:</b> In a future release we will offer this as an option when removing members but for the initial release it can be controlled via this flag for testing purposes.
+                    <b>Session Pro:</b> <span>\(dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")</span>
                     """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsRemoveMessagesOnKick,
-                        oldValue: previous?.updatedGroupsRemoveMessagesOnKick
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsRemoveMessagesOnKick,
-                            to: !current.updatedGroupsRemoveMessagesOnKick
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsAllowHistoricAccessOnInvite,
-                    title: "Allow Historic Message Access",
-                    subtitle: """
-                    Controls whether members should be granted access to historic messages when invited to an updated group.
-                    
-                    <b>Note:</b> In a future release we will offer this as an option when inviting members but for the initial release it can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsAllowHistoricAccessOnInvite,
-                        oldValue: previous?.updatedGroupsAllowHistoricAccessOnInvite
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsAllowHistoricAccessOnInvite,
-                            to: !current.updatedGroupsAllowHistoricAccessOnInvite
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsAllowDisplayPicture,
-                    title: "Custom Display Pictures",
-                    subtitle: """
-                    Controls whether the UI allows group admins to set a custom display picture for a group.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsAllowDisplayPicture,
-                        oldValue: previous?.updatedGroupsAllowDisplayPicture
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsAllowDisplayPicture,
-                            to: !current.updatedGroupsAllowDisplayPicture
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsAllowDescriptionEditing,
-                    title: "Edit Group Descriptions",
-                    subtitle: """
-                    Controls whether the UI allows group admins to modify the descriptions of updated groups.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsAllowDescriptionEditing,
-                        oldValue: previous?.updatedGroupsAllowDescriptionEditing
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsAllowDescriptionEditing,
-                            to: !current.updatedGroupsAllowDescriptionEditing
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsAllowPromotions,
-                    title: "Allow Group Promotions",
-                    subtitle: """
-                    Controls whether the UI allows group admins to promote other group members to admin within an updated group.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsAllowPromotions,
-                        oldValue: previous?.updatedGroupsAllowPromotions
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsAllowPromotions,
-                            to: !current.updatedGroupsAllowPromotions
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsAllowInviteById,
-                    title: "Allow Invite by ID",
-                    subtitle: """
-                    Controls whether the UI allows group admins to invite other group members directly by their Account ID.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsAllowInviteById,
-                        oldValue: previous?.updatedGroupsAllowInviteById
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsAllowInviteById,
-                            to: !current.updatedGroupsAllowInviteById
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsDeleteBeforeNow,
-                    title: "Show button to delete messages before now",
-                    subtitle: """
-                    Controls whether the UI allows group admins to delete all messages in the group that were sent before the button was pressed.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsDeleteBeforeNow,
-                        oldValue: previous?.updatedGroupsDeleteBeforeNow
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsDeleteBeforeNow,
-                            to: !current.updatedGroupsDeleteBeforeNow
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .updatedGroupsDeleteAttachmentsBeforeNow,
-                    title: "Show button to delete attachments before now",
-                    subtitle: """
-                    Controls whether the UI allows group admins to delete all attachments (and their associated messages) in the group that were sent before the button was pressed.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroupsDeleteAttachmentsBeforeNow,
-                        oldValue: previous?.updatedGroupsDeleteAttachmentsBeforeNow
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroupsDeleteAttachmentsBeforeNow,
-                            to: !current.updatedGroupsDeleteAttachmentsBeforeNow
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsProViewModel(using: dependencies)
+                            )
                         )
                     }
                 )
@@ -898,63 +702,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
-        let sessionPro: SectionModel = SectionModel(
-            model: .sessionPro,
-            elements: [
-                SessionCell.Info(
-                    id: .enableSessionPro,
-                    title: "Enable Session Pro",
-                    subtitle: """
-                    Enable Post Pro Release mode.
-                    Turning on this Settings will show Pro badge and CTA if needed.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.sessionProEnabled,
-                        oldValue: previous?.sessionProEnabled
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateSessionProEnabled(current: current.sessionProEnabled)
-                    }
-                )
-            ].appending(
-                contentsOf: current.sessionProEnabled ? [
-                    SessionCell.Info(
-                        id: .proStatus,
-                        title: "Pro Status",
-                        subtitle: """
-                        Mock current user a Session Pro user locally.
-                        """,
-                        trailingAccessory: .toggle(
-                            current.mockCurrentUserSessionPro,
-                            oldValue: previous?.mockCurrentUserSessionPro
-                        ),
-                        onTap: { [weak self] in
-                            self?.updateFlag(
-                                for: .mockCurrentUserSessionPro,
-                                to: !current.mockCurrentUserSessionPro
-                            )
-                        }
-                    ),
-                    SessionCell.Info(
-                        id: .proIncomingMessages,
-                        title: "All Pro Incoming Messages",
-                        subtitle: """
-                        Treat all incoming messages as Pro messages.
-                        """,
-                        trailingAccessory: .toggle(
-                            current.treatAllIncomingMessagesAsProMessages,
-                            oldValue: previous?.treatAllIncomingMessagesAsProMessages
-                        ),
-                        onTap: { [weak self] in
-                            self?.updateFlag(
-                                for: .treatAllIncomingMessagesAsProMessages,
-                                to: !current.treatAllIncomingMessagesAsProMessages
-                            )
-                        }
-                    )
-                ] : nil
-            )
-        )
         let sessionNetwork: SectionModel = SectionModel(
             model: .sessionNetwork,
             elements: [
@@ -1012,9 +759,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// then we will get a compile error if it doesn't get resetting instructions added)
         TableItem.allCases.forEach { item in
             switch item {
-                case .developerMode: break      // Not a feature
-                case .versionBlindedID: break               // Not a feature
-                case .scheduleLocalNotification: break      // Not a feature
+                case .developerMode, .versionBlindedID, .scheduleLocalNotification, .copyDocumentsPath,
+                    .copyAppGroupPath, .resetSnodeCache, .createMockContacts, .exportDatabase,
+                    .importDatabase, .advancedLogging, .resetAppReviewPrompt:
+                    break   /// These are actions rather than values stored as "features" so no need to do anything
                 
                 case .animationsEnabled:
                     guard dependencies.hasSet(feature: .animationsEnabled) else { return }
@@ -1031,18 +779,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .truncatePubkeysInLogs, to: nil)
                     
-                case .copyDocumentsPath: break   // Not a feature
-                case .copyAppGroupPath: break   // Not a feature
-                case .resetAppReviewPrompt: break
                 case .simulateAppReviewLimit:
                     guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
                     
                     updateFlag(for: .simulateAppReviewLimit, to: nil)
-                case .resetSnodeCache: break    // Not a feature
-                case .createMockContacts: break // Not a feature
-                case .exportDatabase: break     // Not a feature
-                case .importDatabase: break     // Not a feature
-                case .advancedLogging: break    // Not a feature
                     
                 case .defaultLogLevel: updateDefaulLogLevel(to: nil)    // Always reset
                 case .loggingCategory: resetLoggingCategories()         // Always reset
@@ -1073,71 +813,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     dependencies.set(feature: .communityPollLimit, to: nil)
                     forceRefresh(type: .databaseQuery)
                     
-                case .updatedGroupsDisableAutoApprove:
-                    guard dependencies.hasSet(feature: .updatedGroupsDisableAutoApprove) else { return }
-                    
-                    updateFlag(for: .updatedGroupsDisableAutoApprove, to: nil)
-                    
-                case .updatedGroupsRemoveMessagesOnKick:
-                    guard dependencies.hasSet(feature: .updatedGroupsRemoveMessagesOnKick) else { return }
-                    
-                    updateFlag(for: .updatedGroupsRemoveMessagesOnKick, to: nil)
-
-                case .updatedGroupsAllowHistoricAccessOnInvite:
-                    guard dependencies.hasSet(feature: .updatedGroupsAllowHistoricAccessOnInvite) else {
-                        return
-                    }
-                    
-                    updateFlag(for: .updatedGroupsAllowHistoricAccessOnInvite, to: nil)
-                    
-                case .updatedGroupsAllowDisplayPicture:
-                    guard dependencies.hasSet(feature: .updatedGroupsAllowDisplayPicture) else { return }
-                    
-                    updateFlag(for: .updatedGroupsAllowDisplayPicture, to: nil)
-                    
-                case .updatedGroupsAllowDescriptionEditing:
-                    guard dependencies.hasSet(feature: .updatedGroupsAllowDescriptionEditing) else { return }
-                    
-                    updateFlag(for: .updatedGroupsAllowDescriptionEditing, to: nil)
-                    
-                case .updatedGroupsAllowPromotions:
-                    guard dependencies.hasSet(feature: .updatedGroupsAllowPromotions) else { return }
-                    
-                    updateFlag(for: .updatedGroupsAllowPromotions, to: nil)
-                    
-                case .updatedGroupsAllowInviteById:
-                    guard dependencies.hasSet(feature: .updatedGroupsAllowInviteById) else { return }
-                    
-                    updateFlag(for: .updatedGroupsAllowInviteById, to: nil)
-                    
-                case .updatedGroupsDeleteBeforeNow:
-                    guard dependencies.hasSet(feature: .updatedGroupsDeleteBeforeNow) else { return }
-                    
-                    updateFlag(for: .updatedGroupsDeleteBeforeNow, to: nil)
-                    
-                case .updatedGroupsDeleteAttachmentsBeforeNow:
-                    guard dependencies.hasSet(feature: .updatedGroupsDeleteAttachmentsBeforeNow) else {
-                        return
-                    }
-                    
-                    updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
-                
-                case .enableSessionPro:
-                    guard dependencies.hasSet(feature: .sessionProEnabled) else { return }
-                    
-                    updateFlag(for: .sessionProEnabled, to: nil)
-                
-                case .proStatus:
-                    guard dependencies.hasSet(feature: .mockCurrentUserSessionPro) else { return }
-                    
-                    updateFlag(for: .mockCurrentUserSessionPro, to: nil)
-                    
-                case .proIncomingMessages:
-                    guard dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) else {
-                        return
-                    }
-                    
-                    updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
+                case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
+                case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }
@@ -1345,16 +1022,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
         forceRefresh(type: .databaseQuery)
-    }
-    
-    private func updateSessionProEnabled(current: Bool) {
-        updateFlag(for: .sessionProEnabled, to: !current)
-        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
-            updateFlag(for: .mockCurrentUserSessionPro, to: nil)
-        }
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            updateFlag(for: .treatAllIncomingMessagesAsProMessages, to: nil)
-        }
     }
     
     private func updateForceOffline(current: Bool) {
