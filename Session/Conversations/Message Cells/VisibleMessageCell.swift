@@ -962,7 +962,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
     
-    override func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return

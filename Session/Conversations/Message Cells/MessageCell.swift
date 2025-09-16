@@ -46,30 +46,31 @@ public class MessageCell: UITableViewCell {
     }
 
     func setUpGestureRecognizers() {
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        tapGestureRecognizer.numberOfTapsRequired = 1
+        var tapGestureRecognizer: UITapGestureRecognizer?
+        var doubleTapGestureRecognizer: UITapGestureRecognizer?
         
-        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
-        doubleTapGestureRecognizer.numberOfTapsRequired = 2
-        
-        // Only set the dependency if both gestures are allowed
-        let isTapAndDoubleTapAllowed = allowedGestureRecognizers.contains(.tap) && allowedGestureRecognizers.contains(.doubleTap)
-        
-        if isTapAndDoubleTapAllowed {
-            tapGestureRecognizer.require(toFail: doubleTapGestureRecognizer)
+        if allowedGestureRecognizers.contains(.tap) {
+            let tapGesture: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+            tapGesture.numberOfTapsRequired = 1
+            addGestureRecognizer(tapGesture)
+            tapGestureRecognizer = tapGesture
         }
-
+        
+        if allowedGestureRecognizers.contains(.doubleTap) {
+            let doubleTapGesture: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+            doubleTapGesture.numberOfTapsRequired = 2
+            addGestureRecognizer(doubleTapGesture)
+            doubleTapGestureRecognizer = doubleTapGesture
+        }
+        
         if allowedGestureRecognizers.contains(.longPress) {
             let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
             addGestureRecognizer(longPressGesture)
         }
         
-        if allowedGestureRecognizers.contains(.tap) {
-            addGestureRecognizer(tapGestureRecognizer)
-        }
-        
-        if allowedGestureRecognizers.contains(.doubleTap) {
-            addGestureRecognizer(doubleTapGestureRecognizer)
+        // If we have both tap and double tap gestures then the single tap should fail if a double tap occurs
+        if let tapGesture: UITapGestureRecognizer = tapGestureRecognizer, let doubleTapGesture: UITapGestureRecognizer = doubleTapGestureRecognizer {
+            tapGesture.require(toFail: doubleTapGesture)
         }
     }
 
@@ -125,7 +126,7 @@ public class MessageCell: UITableViewCell {
     
     // MARK: - Gesture events
     @objc
-    func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {}
+    func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {}
 
     @objc
     func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {}
