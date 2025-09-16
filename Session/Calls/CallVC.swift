@@ -18,7 +18,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
     var shouldRestartCamera = true
-    var didFinishPreparingCamera = false
     weak var conversationVC: ConversationVC? = nil
     
     lazy var cameraManager: CameraManager = {
@@ -731,26 +730,19 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             call.isVideoEnabled = false
         }
         else {
-            Permissions.requestCameraPermissionIfNeeded(presentingViewController: self, using: dependencies) { isAuthorized in
-                DispatchQueue.main.async { [weak self] in
-                    guard isAuthorized else { return }
-                    
-                    var previewDelay = 0.0
-                    
-                    // Check if camera has already been prepared should only be called once
-                    // this was removed from viewDidLoad so camera permission will only be requested when needed
-                    if self?.shouldRestartCamera == true && self?.didFinishPreparingCamera == false {
-                        self?.cameraManager.prepare()
-                        self?.didFinishPreparingCamera = true
-                        previewDelay = 0.5
-                    }
-                    
-                    // Added a small delay in presenting preview due to camera manager preparations
-                    DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
-                        let previewVC = VideoPreviewVC()
-                        previewVC.delegate = self
-                        self?.present(previewVC, animated: true, completion: nil)
-                    }
+            
+            // Added delay of preview due to permission dialog alert dismissal on allow.
+            // It causes issue on `VideoPreviewVC` presentation animation,
+            // If camera permission is already allowed no animation delay is needed
+            var previewDelay = Permissions.camera == .undetermined ? 0.5 : 0
+            
+            Permissions.requestCameraPermissionIfNeeded(presentingViewController: self, using: dependencies) { [weak self] isAuthorized in
+                guard isAuthorized else { return }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
+                    let previewVC = VideoPreviewVC()
+                    previewVC.delegate = self
+                    self?.present(previewVC, animated: true, completion: nil)
                 }
             }
         }
@@ -758,10 +750,14 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
 
     func cameraDidConfirmTurningOn() {
         floatingViewContainer.isHidden = false
+        
         let localVideoView: LocalVideoView = self.floatingViewVideoSource == .local ? self.floatingLocalVideoView : self.fullScreenLocalVideoView
         localVideoView.alpha = 1
+        
+        // Camera preparation
         cameraManager.prepare()
         cameraManager.start()
+        
         videoButton.themeTintColor = .backgroundSecondary
         videoButton.themeBackgroundColor = .textPrimary
         switchCameraButton.isEnabled = true
