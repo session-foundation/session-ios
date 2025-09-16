@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let ip2Country: SingletonConfig<IP2CountryType> = Dependencies.create(
         identifier: "ip2Country",
-        createInstance: { dependencies in IP2Country(using: dependencies) }
+        createInstance: { dependencies, _ in IP2Country(using: dependencies) }
     )
 }
 

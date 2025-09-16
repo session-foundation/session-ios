@@ -74,6 +74,7 @@ public actor BackgroundPoller {
             namespaces: CurrentUserPoller.namespaces,
             shouldStoreMessages: true,
             logStartAndStopCalls: false,
+            key: nil,
             using: dependencies
         )
         let groupPollers: [GroupPoller] = data.groupIds.map { groupId in
@@ -84,6 +85,7 @@ public actor BackgroundPoller {
                 namespaces: GroupPoller.namespaces(swarmPublicKey: groupId),
                 shouldStoreMessages: true,
                 logStartAndStopCalls: false,
+                key: nil,
                 using: dependencies
             )
         }

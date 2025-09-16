@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let appReadiness: SingletonConfig<AppReadiness> = Dependencies.create(
         identifier: "appReadiness",
-        createInstance: { _ in AppReadiness() }
+        createInstance: { _, _ in AppReadiness() }
     )
 }
 

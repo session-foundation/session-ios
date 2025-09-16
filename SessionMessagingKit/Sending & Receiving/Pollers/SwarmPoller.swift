@@ -23,6 +23,7 @@ public protocol SwarmPollerType: PollerType where PollResponse == SwarmPoller.Po
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     )
 }
@@ -38,6 +39,7 @@ extension SwarmPollerType {
         failureCount: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         self.init(
@@ -49,6 +51,7 @@ extension SwarmPollerType {
             shouldStoreMessages: shouldStoreMessages,
             logStartAndStopCalls: logStartAndStopCalls,
             customAuthMethod: nil,
+            key: key,
             using: dependencies
         )
     }

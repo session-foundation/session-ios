@@ -107,7 +107,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         createViews()
         
         networkObservationTask = Task { [weak self, dependencies] in
-            for await status in dependencies[singleton: .network].networkStatus {
+            for await _ in dependencies.networkStatusUpdates {
                 // Prod cells to try to load when connectivity changes.
                 self?.ensureCellState()
             }

@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let communityPollerManager: SingletonConfig<CommunityPollerManagerType> = Dependencies.create(
         identifier: "communityPollers",
-        createInstance: { dependencies in CommunityPollerManager(using: dependencies) }
+        createInstance: { dependencies, _ in CommunityPollerManager(using: dependencies) }
     )
 }
 
@@ -36,6 +36,7 @@ public extension PollerType where PollResponse == CommunityPoller.PollResponse {
             shouldStoreMessages: shouldStoreMessages,
             logStartAndStopCalls: logStartAndStopCalls,
             customAuthMethod: customAuthMethod,
+            key: nil,
             using: dependencies
         )
     }
@@ -68,6 +69,7 @@ public actor CommunityPoller: PollerType {
     // MARK: - PollerType
     
     public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key? = nil
     public let pollerName: String
     public let destination: PollerDestination
     public let logStartAndStopCalls: Bool
@@ -93,6 +95,7 @@ public actor CommunityPoller: PollerType {
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies

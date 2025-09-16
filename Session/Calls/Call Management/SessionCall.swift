@@ -482,12 +482,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         // Register a callback to get the current network status then remove it immediately as we only
         // care about the current status
         networkObservationTask = Task { [weak self, dependencies] in
-            for await status in dependencies[singleton: .network].networkStatus {
-                guard status != .connected else { return }
-                
-                self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
-                    self?.tryToReconnect()
-                }
+            guard await dependencies.currentNetworkStatus != .connected else { return }
+            
+            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
+                self?.tryToReconnect()
             }
         }
         

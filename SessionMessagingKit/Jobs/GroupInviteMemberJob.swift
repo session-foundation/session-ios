@@ -304,7 +304,7 @@ public extension GroupInviteMemberJob {
 public extension Cache {
     static let groupInviteMemberJob: CacheConfig<GroupInviteMemberJobCacheType, GroupInviteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupInviteMemberJob",
-        createInstance: { dependencies in GroupInviteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupInviteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

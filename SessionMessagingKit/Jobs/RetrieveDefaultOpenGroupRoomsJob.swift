@@ -59,15 +59,11 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .upserted(db)
         }
         
-        /// Don't bother trying to fetch if we don't have a network connection, just wait for one to be established
         Task {
-            let networkStatus: NetworkStatus? = await dependencies[singleton: .network].networkStatus
-                .first()
-            
-            if networkStatus != .connected {
-                Log.info(.cat, "Waiting for network to connect before fetching.")
-                _ = await dependencies[singleton: .network].networkStatus.first(where: { $0 == .connected })
-            }
+            /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
+            try await dependencies.waitUntilConnected(onWillStartWaiting: {
+                Log.info(.cat, "Waiting for network to connect.")
+            })
             
             dependencies[singleton: .storage]
                 .readPublisher { [dependencies] db -> AuthenticationMethod in

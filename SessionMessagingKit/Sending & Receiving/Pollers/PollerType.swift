@@ -53,6 +53,7 @@ public protocol PollerType: Actor {
     associatedtype PollResponse
     
     var dependencies: Dependencies { get }
+    var dependenciesKey: Dependencies.Key? { get }
     var pollerName: String { get }
     var destination: PollerDestination { get }
     var logStartAndStopCalls: Bool { get }
@@ -72,6 +73,7 @@ public protocol PollerType: Actor {
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     )
     
@@ -105,7 +107,20 @@ public extension PollerType {
         
         guard pollTask == nil else { return }
         
-        await pollRecursively()
+        pollTask = Task { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await self.pollRecursively() }
+                    group.addTask { try await self.listenForReplacement() }
+                    
+                    /// Wait until one of the groups completes or errors
+                    for try await _ in group {}
+                }
+            }
+            catch { await stop() }
+        }
         
         if logStartAndStopCalls {
             Log.info(.poller, "Started \(pollerName).")
@@ -125,95 +140,104 @@ public extension PollerType {
         pollerDidStop()
     }
     
-    internal func pollRecursively() async {
+    private func pollRecursively() async throws {
         typealias TimeInfo = (
             duration: TimeUnit,
             nextPollDelay: TimeInterval,
             nextPollInterval: TimeUnit
         )
         
-        pollTask = Task {
-            /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-            let networkStatus: NetworkStatus? = await dependencies[singleton: .network].networkStatus
-                .first()
-            
-            if networkStatus != .connected {
+        /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
+        try await dependencies.waitUntilConnected(
+            onWillStartWaiting: { [pollerName] in
                 Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")
-                _ = await dependencies[singleton: .network].networkStatus.first(where: { $0 == .connected })
+            },
+            retryDelayProvider: self.nextPollDelay
+        )
+        
+        /// Now that we have a connection just poll indefinitely
+        while true {
+            try Task.checkCancellation()
+            
+            guard
+                !dependencies[singleton: .storage].isSuspended,
+                await dependencies[singleton: .network].isSuspended == false
+            else {
+                let suspendedDependency: String = {
+                    guard !dependencies[singleton: .storage].isSuspended else {
+                        return "storage"
+                    }
+                    
+                    return "network"
+                }()
+                Log.warn(.poller, "Stopped \(pollerName) due to \(suspendedDependency) being suspended.")
+                stop()
+                return
             }
             
-            /// Now that we have a connection just poll indefinitely
-            while true {
+            lastPollStart = dependencies.dateNow.timeIntervalSince1970
+            let getTimeInfo: (TimeInterval, Dependencies) async throws -> TimeInfo = { lastPollStart, dependencies in
+                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                let duration: TimeUnit = .seconds(endTime - lastPollStart)
+                let nextPollDelay: TimeInterval = await self.nextPollDelay()
+                let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
+                
+                return (duration, nextPollDelay, nextPollInterval)
+            }
+            var timeInfo: TimeInfo = try await getTimeInfo(lastPollStart, dependencies)
+            
+            do {
+                let result: PollResult<PollResponse> = try await poll(forceSynchronousProcessing: false)
                 try Task.checkCancellation()
                 
-                guard
-                    !dependencies[singleton: .storage].isSuspended,
-                    await dependencies[singleton: .network].isSuspended == false
-                else {
-                    let suspendedDependency: String = {
-                        guard !dependencies[singleton: .storage].isSuspended else {
-                            return "storage"
-                        }
+                /// Notify any observers that we got a result
+                await pollerReceivedResponse(result.response)
+                
+                /// Reset the failure count
+                failureCount = 0
+                timeInfo = try await getTimeInfo(lastPollStart, dependencies)
+                
+                /// Log the poll result
+                switch (result.rawMessageCount, result.validMessageCount, result.hadValidHashUpdate) {
+                    case (0, _, _):
+                        Log.info(.poller, "Received no new messages in \(pollerName) after \(timeInfo.duration, unit: .s). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
                         
-                        return "network"
-                    }()
-                    Log.warn(.poller, "Stopped \(pollerName) due to \(suspendedDependency) being suspended.")
-                    self.stop()
-                    return
+                    case (_, 0, false):
+                        Log.info(.poller, "Received \(result.rawMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s), all duplicates - marked the hash we polled with as invalid. Next poll in \(timeInfo.nextPollInterval, unit: .s).")
+                        
+                    default:
+                        Log.info(.poller, "Received \(result.validMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s) (duplicates: \(result.rawMessageCount - result.validMessageCount)). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
                 }
+            }
+            catch is CancellationError {
+                /// If we were cancelled then we don't want to continue
+                break
+            }
+            catch {
+                try Task.checkCancellation()
                 
-                lastPollStart = dependencies.dateNow.timeIntervalSince1970
-                let getTimeInfo: () async throws -> TimeInfo = { [lastPollStart, dependencies] in
-                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                    let duration: TimeUnit = .seconds(endTime - lastPollStart)
-                    let nextPollDelay: TimeInterval = await self.nextPollDelay()
-                    let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
-                    
-                    return (duration, nextPollDelay, nextPollInterval)
-                }
-                var timeInfo: TimeInfo = try await getTimeInfo()
+                /// Increment the failure count and log the error
+                failureCount = failureCount + 1
+                timeInfo = try await getTimeInfo(lastPollStart, dependencies)
+                Log.error(.poller, "\(pollerName) failed to process any messages after \(timeInfo.duration, unit: .s) due to error: \(error). Setting failure count to \(failureCount). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
                 
-                do {
-                    let result: PollResult<PollResponse> = try await poll(forceSynchronousProcessing: false)
-                    try Task.checkCancellation()
-                    
-                    /// Notify any observers that we got a result
-                    await pollerReceivedResponse(result.response)
-                    
-                    /// Reset the failure count
-                    failureCount = 0
-                    timeInfo = try await getTimeInfo()
-                    
-                    /// Log the poll result
-                    switch (result.rawMessageCount, result.validMessageCount, result.hadValidHashUpdate) {
-                        case (0, _, _):
-                            Log.info(.poller, "Received no new messages in \(pollerName) after \(timeInfo.duration, unit: .s). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
-                            
-                        case (_, 0, false):
-                            Log.info(.poller, "Received \(result.rawMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s), all duplicates - marked the hash we polled with as invalid. Next poll in \(timeInfo.nextPollInterval, unit: .s).")
-                            
-                        default:
-                            Log.info(.poller, "Received \(result.validMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s) (duplicates: \(result.rawMessageCount - result.validMessageCount)). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
-                    }
-                }
-                catch is CancellationError {
-                    /// If we were cancelled then we don't want to continue
-                    break
-                }
-                catch {
-                    try Task.checkCancellation()
-                    
-                    /// Increment the failure count and log the error
-                    failureCount = (failureCount + 1)
-                    timeInfo = try await getTimeInfo()
-                    Log.error(.poller, "\(pollerName) failed to process any messages after \(timeInfo.duration, unit: .s) due to error: \(error). Setting failure count to \(failureCount). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
-                    
-                    /// Perform any custom error handling
-                    await handlePollError(error)
-                }
-                
-                /// Sleep until the next poll
-                try await Task.sleep(for: .milliseconds(Int(timeInfo.nextPollDelay * 1000)))
+                /// Perform any custom error handling
+                await handlePollError(error)
+            }
+            
+            /// Sleep until the next poll
+            try await Task.sleep(for: .milliseconds(Int(timeInfo.nextPollDelay * 1000)))
+        }
+    }
+    
+    private func listenForReplacement() async throws {
+        guard let key: Dependencies.Key = dependenciesKey else { return }
+        
+        for await changedValue in dependencies.stream(key: key, of: (any PollerType).self) {
+            if ObjectIdentifier(changedValue as AnyObject) != ObjectIdentifier(self as AnyObject) {
+                Log.info(.poller, "\(pollerName) has been replaced in dependencies, shutting down old instance.")
+                pollTask?.cancel()
+                break
             }
         }
     }

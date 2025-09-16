@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let sessionNetworkApiClient: SingletonConfig<SessionNetworkAPI.HTTPClient> = Dependencies.create(
         identifier: "sessionNetworkApiClient",
-        createInstance: { dependencies in SessionNetworkAPI.HTTPClient(using: dependencies) }
+        createInstance: { dependencies, _ in SessionNetworkAPI.HTTPClient(using: dependencies) }
     )
 }
 

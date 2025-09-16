@@ -290,7 +290,7 @@ actor LibSessionNetwork: NetworkType {
                     let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                     CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                 }
-                let request: LibSessionNetwork.Request<Data?> = LibSessionNetwork.Request(
+                let request: LibSessionNetwork.Request<Data> = LibSessionNetwork.Request(
                     endpoint: endpoint,
                     body: finalRequestInfo.body,
                     category: category,
@@ -972,7 +972,7 @@ private extension LibSessionNetwork {
         _ callback: (UnsafePointer<session_request_params>) -> Result
     ) throws -> Result {
         return try withBodyPointer(request.body) { cBodyPtr, bodySize in
-            let pathWithParams: String = try Network.Destination.generatePathWithParams(
+            let pathWithParams: String = Network.Destination.generatePathWithParams(
                 endpoint: request.endpoint,
                 queryParameters: info.queryParameters
             )

@@ -304,7 +304,7 @@ public extension GroupPromoteMemberJob {
 public extension Cache {
     static let groupPromoteMemberJob: CacheConfig<GroupPromoteMemberJobCacheType, GroupPromoteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupPromoteMemberJob",
-        createInstance: { dependencies in GroupPromoteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupPromoteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

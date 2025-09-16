@@ -143,17 +143,8 @@ final class PathVC: BaseVC {
     private func startObservingNetwork() {
         statusObservationTask?.cancel()
         statusObservationTask = Task { [weak self, dependencies] in
-            var specificNetworkObservationTask: Task<Void, Never>?
-            
-            for await network in dependencies.stream(singleton: .network) {
-                specificNetworkObservationTask?.cancel()
-                specificNetworkObservationTask = Task<Void, Never> {
-                    for await _ in network.networkStatus {
-                        await self?.loadPathsAsync()
-                    }
-                    
-                    Log.info("PathVC networkStatus observation ended, restarting.")
-                }
+            for await _ in dependencies.networkStatusUpdates {
+                await self?.loadPathsAsync()
             }
         }
     }
@@ -412,20 +403,9 @@ private final class LineView: UIView {
     private func startObservingNetwork() {
         statusObservationTask?.cancel()
         statusObservationTask = Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-            var specificNetworkObservationTask: Task<Void, Never>?
-            
-            for await network in dependencies.stream(singleton: .network) {
-                specificNetworkObservationTask?.cancel()
-                specificNetworkObservationTask = Task<Void, Never> {
-                    for await status in network.networkStatus {
-                        await self?.setStatus(to: status)
-                    }
-                    
-                    Log.info("LineView networkStatus observation ended, restarting.")
-                }
+            for await status in dependencies.networkStatusUpdates {
+                await self?.setStatus(to: status)
             }
-            
-            specificNetworkObservationTask?.cancel()
         }
     }
 

@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let currentUserPoller: SingletonConfig<any PollerType> = Dependencies.create(
         identifier: "currentUserPoller",
-        createInstance: { dependencies in
+        createInstance: { dependencies, key in
             /// After polling a given snode 6 times we always switch to a new one.
             ///
             /// The reason for doing this is that sometimes a snode will be giving us successful responses while
@@ -23,6 +23,7 @@ public extension Singleton {
                 namespaces: CurrentUserPoller.namespaces,
                 shouldStoreMessages: true,
                 logStartAndStopCalls: true,
+                key: key,
                 using: dependencies
             )
         }
@@ -40,6 +41,7 @@ public final actor CurrentUserPoller: SwarmPollerType {
     private let maxRetryInterval: TimeInterval = 15
     
     public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key?
     public let pollerName: String
     public let destination: PollerDestination
     public let swarmDrainer: SwarmDrainer
@@ -67,9 +69,11 @@ public final actor CurrentUserPoller: SwarmPollerType {
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
+        self.dependenciesKey = key
         self.pollerName = pollerName
         self.destination = destination
         self.swarmDrainer = SwarmDrainer(

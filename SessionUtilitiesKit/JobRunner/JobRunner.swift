@@ -11,7 +11,7 @@ import GRDB
 public extension Singleton {
     static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create(
         identifier: "jobRunner",
-        createInstance: { dependencies in JobRunner(using: dependencies) }
+        createInstance: { dependencies, _ in JobRunner(using: dependencies) }
     )
 }
 

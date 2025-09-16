@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let pushRegistrationManager: SingletonConfig<PushRegistrationManager> = Dependencies.create(
         identifier: "pushRegistrationManager",
-        createInstance: { dependencies in PushRegistrationManager(using: dependencies) }
+        createInstance: { dependencies, _ in PushRegistrationManager(using: dependencies) }
     )
 }
 

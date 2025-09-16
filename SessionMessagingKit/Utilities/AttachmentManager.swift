@@ -15,7 +15,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let attachmentManager: SingletonConfig<AttachmentManager> = Dependencies.create(
         identifier: "attachmentManager",
-        createInstance: { dependencies in AttachmentManager(using: dependencies) }
+        createInstance: { dependencies, _ in AttachmentManager(using: dependencies) }
     )
 }
 

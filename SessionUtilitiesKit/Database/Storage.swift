@@ -16,11 +16,11 @@ import Darwin
 public extension Singleton {
     static let storage: SingletonConfig<Storage> = Dependencies.create(
         identifier: "storage",
-        createInstance: { dependencies in Storage(using: dependencies) }
+        createInstance: { dependencies, _ in Storage(using: dependencies) }
     )
     static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create(
         identifier: "scheduler",
-        createInstance: { _ in AsyncValueObservationScheduler.async(onQueue: .main) }
+        createInstance: { _, _ in AsyncValueObservationScheduler.async(onQueue: .main) }
     )
 }
 

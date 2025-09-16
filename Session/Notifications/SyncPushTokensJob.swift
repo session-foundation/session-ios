@@ -127,8 +127,8 @@ public enum SyncPushTokensJob: JobExecutor {
                     Task {
                         let hasConnection: Bool = await withThrowingTaskGroup { group in
                             group.addTask {
-                                _ = await dependencies[singleton: .network].networkStatus.first(where: {
-                                    $0 == .connected
+                                try await dependencies.waitUntilConnected(onWillStartWaiting: {
+                                    Log.info(.syncPushTokensJob, "Waiting for network to connect.")
                                 })
                             }
                             group.addTask {

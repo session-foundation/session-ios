@@ -12,7 +12,7 @@ import SessionNetworkingKit
 public extension Singleton {
     static let onboarding: SingletonConfig<OnboardingManagerType> = Dependencies.create(
         identifier: "onboarding",
-        createInstance: { dependencies in Onboarding.Manager(flow: .none, using: dependencies) }
+        createInstance: { dependencies, _ in Onboarding.Manager(flow: .none, using: dependencies) }
     )
 }
 
@@ -242,6 +242,7 @@ extension Onboarding {
                         ed25519PublicKey: identity.ed25519KeyPair.publicKey,
                         ed25519SecretKey: identity.ed25519KeyPair.secretKey
                     ),
+                    key: nil,
                     using: dependencies
                 )
                 guard !Task.isCancelled else { return }

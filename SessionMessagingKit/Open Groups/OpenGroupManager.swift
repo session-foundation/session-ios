@@ -11,7 +11,7 @@ import SessionNetworkingKit
 public extension Singleton {
     static let openGroupManager: SingletonConfig<OpenGroupManager> = Dependencies.create(
         identifier: "openGroupManager",
-        createInstance: { dependencies in OpenGroupManager(using: dependencies) }
+        createInstance: { dependencies, _ in OpenGroupManager(using: dependencies) }
     )
 }
 
@@ -20,7 +20,7 @@ public extension Singleton {
 public extension Cache {
     static let openGroupManager: CacheConfig<OGMCacheType, OGMImmutableCacheType> = Dependencies.create(
         identifier: "openGroupManager",
-        createInstance: { dependencies in OpenGroupManager.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in OpenGroupManager.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

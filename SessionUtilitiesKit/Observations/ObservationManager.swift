@@ -7,7 +7,7 @@ import Foundation
 public extension Singleton {
     static let observationManager: SingletonConfig<ObservationManager> = Dependencies.create(
         identifier: "observationManager",
-        createInstance: { dependencies in ObservationManager() }
+        createInstance: { dependencies, _ in ObservationManager() }
     )
 }
 

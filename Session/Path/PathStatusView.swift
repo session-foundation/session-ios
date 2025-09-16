@@ -79,20 +79,9 @@ final class PathStatusView: UIView {
     private func startObservingNetwork() {
         statusObservationTask?.cancel()
         statusObservationTask = Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-            var specificNetworkObservationTask: Task<Void, Never>?
-            
-            for await network in dependencies.stream(singleton: .network) {
-                specificNetworkObservationTask?.cancel()
-                specificNetworkObservationTask = Task<Void, Never> {
-                    for await status in network.networkStatus {
-                        await self?.setStatus(to: status)
-                    }
-                    
-                    Log.info("PathStatusView networkStatus observation ended, restarting.")
-                }
+            for await status in dependencies.networkStatusUpdates {
+                await self?.setStatus(to: status)
             }
-            
-            specificNetworkObservationTask?.cancel()
         }
     }
 

@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let groupPollerManager: SingletonConfig<GroupPollerManagerType> = Dependencies.create(
         identifier: "groupPollerManager",
-        createInstance: { dependencies in GroupPollerManager(using: dependencies) }
+        createInstance: { dependencies, _ in GroupPollerManager(using: dependencies) }
     )
 }
 
@@ -36,6 +36,7 @@ public actor GroupPoller: SwarmPollerType {
     }
     
     public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key? = nil
     public let pollerName: String
     public let destination: PollerDestination
     public let swarmDrainer: SwarmDrainer
@@ -64,6 +65,7 @@ public actor GroupPoller: SwarmPollerType {
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -241,6 +243,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
                 namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
                 shouldStoreMessages: true,
                 logStartAndStopCalls: false,
+                key: nil,
                 using: dependencies
             )
             pollers[swarmPublicKey.lowercased()] = poller

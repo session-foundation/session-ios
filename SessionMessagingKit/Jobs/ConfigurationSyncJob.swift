@@ -199,12 +199,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                             // If the failure is due to being offline then we should automatically
                             // retry if the connection is re-established
                             Task { [dependencies] in
-                                let currentStatus: NetworkStatus = await dependencies[singleton: .network]
-                                    .networkStatus
-                                    .first(defaultValue: .unknown)
-                                
                                 // If we are currently connected then use the standard retry behaviour
-                                guard currentStatus != .connected else {
+                                guard await dependencies.currentNetworkStatus != .connected else {
                                     return failure(job, error, false)
                                 }
                                 
@@ -212,10 +208,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 // to run again if we re-establish the connection
                                 failure(job, error, true)
                                 
-                                _ = await dependencies[singleton: .network].networkStatus.first(where: {
-                                    $0 == .connected
-                                })
-                                
+                                try? await dependencies.waitUntilConnected()
                                 try? await dependencies[singleton: .storage].writeAsync { db in
                                     ConfigurationSyncJob.enqueue(
                                         db,
