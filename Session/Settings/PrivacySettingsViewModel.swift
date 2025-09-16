@@ -232,9 +232,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "callsVoiceAndVideoBeta".localized(),
-                        body: .text("callsVoiceAndVideoModalDescription"
-                            .put(key: "session_foundation", value: Constants.session_foundation)
-                            .localized()),
+                        body: .text("callsVoiceAndVideoModalDescription".localized()),
                         showCondition: .disabled,
                         confirmTitle: "theContinue".localized(),
                         confirmStyle: .danger,
