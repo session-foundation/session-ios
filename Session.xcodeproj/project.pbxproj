@@ -1043,6 +1043,8 @@
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
 		FDE71B0B2E79352D0023F5F9 /* DeveloperSettingsGroupsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */; };
 		FDE71B0D2E793B250023F5F9 /* DeveloperSettingsProViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */; };
+		FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */ = {isa = PBXBuildFile; fileRef = FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */; };
+		FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */; };
 		FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */; };
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
 		FDE754A12C9A60A6002A2623 /* Crypto+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */; };
@@ -2311,6 +2313,8 @@
 		FDE6E99729F8E63A00F93C5D /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
 		FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsGroupsViewModel.swift; sourceTree = "<group>"; };
 		FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsProViewModel.swift; sourceTree = "<group>"; };
+		FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Session - Anonymous Messenger.storekit"; sourceTree = "<group>"; };
+		FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
 		FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageViewModel+DeletionActions.swift"; sourceTree = "<group>"; };
@@ -2564,6 +2568,7 @@
 				A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */,
 				FD6DA9CF2D015B440092085A /* Lucide in Frameworks */,
 				A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */,
+				FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */,
 				D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */,
 				C331FF222558F9D300070591 /* SessionUIKit.framework in Frameworks */,
 				D2179CFE16BB0B480006F3AB /* SystemConfiguration.framework in Frameworks */,
@@ -3853,6 +3858,7 @@
 				FDE125222A837E4E002DA685 /* MainAppContext.swift */,
 				C3CA3AA0255CDA7000F4C6D4 /* Mnemonic */,
 				FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */,
+				FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */,
 				B67EBF5C19194AC60084CCFD /* Settings.bundle */,
 				B657DDC91911A40500F45B0C /* Signal.entitlements */,
 				FDF2220A2818F38D000A4995 /* SessionApp.swift */,
@@ -3909,6 +3915,7 @@
 		D221A08C169C9E5E00537ABF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */,
 				FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */,
 				3496955F21A2FC8100DCFE74 /* CloudKit.framework */,
 				455A16DB1F1FEA0000F86704 /* Metal.framework */,
@@ -5866,6 +5873,7 @@
 				C34C8F7423A7830B00D82669 /* SpaceMono-Bold.ttf in Resources */,
 				FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
+				FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */,
 				45B74A7E2044AAB600CD42F8 /* complete.aifc in Resources */,
 				9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,

@@ -35,27 +35,27 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
-        case sessionPro
         case sessionNetwork
+        case sessionPro
+        case groups
         case general
         case logging
         case network
         case disappearingMessages
         case communities
-        case groups
         case database
         
         var title: String? {
             switch self {
                 case .developerMode: return nil
-                case .sessionPro: return "Session Pro"
                 case .sessionNetwork: return "Session Network"
+                case .sessionPro: return "Session Pro"
+                case .groups: return "Groups"
                 case .general: return "General"
                 case .logging: return "Logging"
                 case .network: return "Network"
                 case .disappearingMessages: return "Disappearing Messages"
                 case .communities: return "Communities"
-                case .groups: return "Groups"
                 case .database: return "Database"
             }
         }
@@ -70,6 +70,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
+        
+        case proConfig
+        case groupConfig
         
         case animationsEnabled
         case showStringKeys
@@ -92,8 +95,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case communityPollLimit
         
-        case groupConfig
-        case proConfig
         
         case versionBlindedID
         case scheduleLocalNotification
@@ -110,6 +111,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         public var differenceIdentifier: String {
             switch self {
                 case .developerMode: return "developerMode"
+                    
+                case .proConfig: return "proConfig"
+                case .groupConfig: return "groupConfig"
+                    
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
@@ -131,9 +136,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .communityPollLimit: return "communityPollLimit"
                 
-                case .groupConfig: return "groupConfig"
-                case .proConfig: return "proConfig"
-                
                 case .versionBlindedID: return "versionBlindedID"
                 case .scheduleLocalNotification: return "scheduleLocalNotification"
 
@@ -152,6 +154,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             var result: [TableItem] = []
             switch TableItem.developerMode {
                 case .developerMode: result.append(.developerMode); fallthrough
+                    
+                case .proConfig: result.append(.proConfig); fallthrough
+                case .groupConfig: result.append(.groupConfig); fallthrough
+                    
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
@@ -172,9 +178,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
                 case .communityPollLimit: result.append(.communityPollLimit); fallthrough
-                
-                case .groupConfig: result.append(.groupConfig); fallthrough
-                case .proConfig: result.append(.proConfig); fallthrough
                 
                 case .versionBlindedID: result.append(.versionBlindedID); fallthrough
                 case .scheduleLocalNotification: result.append(.scheduleLocalNotification); fallthrough
@@ -282,6 +285,48 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         guard current.developerMode else { return }
                         
                         self?.disableDeveloperMode()
+                    }
+                )
+            ]
+        )
+        let sessionPro: SectionModel = SectionModel(
+            model: .sessionPro,
+            elements: [
+                SessionCell.Info(
+                    id: .proConfig,
+                    title: "Session Pro",
+                    subtitle: """
+                    Configure settings related to Session Pro.
+                    
+                    <b>Session Pro:</b> <span>\(dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")</span>
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsProViewModel(using: dependencies)
+                            )
+                        )
+                    }
+                )
+            ]
+        )
+        let groups: SectionModel = SectionModel(
+            model: .groups,
+            elements: [
+                SessionCell.Info(
+                    id: .groupConfig,
+                    title: "Group Configuration",
+                    subtitle: """
+                    Configure settings related to Groups.
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsGroupsViewModel(using: dependencies)
+                            )
+                        )
                     }
                 )
             ]
@@ -597,48 +642,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
-        let groups: SectionModel = SectionModel(
-            model: .groups,
-            elements: [
-                SessionCell.Info(
-                    id: .groupConfig,
-                    title: "Group Configuration",
-                    subtitle: """
-                    Configure settings related to Groups.
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: DeveloperSettingsGroupsViewModel(using: dependencies)
-                            )
-                        )
-                    }
-                )
-            ]
-        )
-        let sessionPro: SectionModel = SectionModel(
-            model: .sessionPro,
-            elements: [
-                SessionCell.Info(
-                    id: .proConfig,
-                    title: "Session Pro",
-                    subtitle: """
-                    Configure settings related to Session Pro.
-                    
-                    <b>Session Pro:</b> <span>\(dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")</span>
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: DeveloperSettingsProViewModel(using: dependencies)
-                            )
-                        )
-                    }
-                )
-            ]
-        )
         let database: SectionModel = SectionModel(
             model: .database,
             elements: [
@@ -740,13 +743,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         return [
             developerMode,
+            sessionPro,
+            groups,
             general,
             logging,
             network,
             disappearingMessages,
             communities,
-            groups,
-            sessionPro,
             sessionNetwork,
             database
         ]
