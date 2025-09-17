@@ -100,7 +100,7 @@ public enum GroupLeavingJob: JobExecutor {
             .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
                 switch requestType {
                     case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                        return try Network.SnodeAPI
+                        return try Network.StorageServer
                             .preparedBatch(
                                 requests: [
                                     /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
@@ -146,7 +146,7 @@ public enum GroupLeavingJob: JobExecutor {
                 /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
                 /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
                 /// group revoked which would leave the user in a state where they can't leave the group)
-                switch (error as? MessageSenderError, error as? SnodeAPIError, error as? CryptoError) {
+                switch (error as? MessageSenderError, error as? StorageServerError, error as? CryptoError) {
                     case (.invalidClosedGroupUpdate, _, _), (.noKeyPair, _, _), (.encryptionFailed, _, _),
                         (_, .unauthorised, _), (_, _, .invalidAuthentication):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()

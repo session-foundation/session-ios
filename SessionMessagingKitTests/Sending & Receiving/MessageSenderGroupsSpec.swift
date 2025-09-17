@@ -71,7 +71,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
         }()
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
+        @TestState var mockStorageServerCache: MockStorageServerCache! = .create(using: dependencies)
         @TestState var mockPoller: MockPoller! = .create(using: dependencies)
         @TestState var mockGroupPollerManager: MockGroupPollerManager! = .create(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
@@ -96,8 +96,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            try await mockSnodeAPICache.defaultInitialSetup()
-            dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
+            try await mockStorageServerCache.defaultInitialSetup()
+            dependencies.set(cache: .storageServer, to: mockStorageServerCache)
             
             try await mockFileManager.defaultInitialSetup()
             dependencies.set(singleton: .fileManager, to: mockFileManager)
@@ -475,23 +475,23 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     await mockNetwork
                         .verify {
                             $0.send(
-                                endpoint: Network.SnodeAPI.Endpoint.sequence,
+                                endpoint: Network.StorageServer.Endpoint.sequence,
                                 destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
                                     Network.BatchRequest(
                                         requestsKey: .requests,
                                         requests: [
-                                            try Network.SnodeAPI.preparedSendMessage(
-                                                message: SnodeMessage(
+                                            try Network.StorageServer.preparedSendMessage(
+                                                request: Network.StorageServer.SendMessageRequest(
                                                     recipient: groupId.hexString,
+                                                    namespace: ConfigDump.Variant.groupInfo.namespace,
                                                     data: Data([1, 2, 3]),
                                                     ttl: ConfigDump.Variant.groupInfo.ttl,
-                                                    timestampMs: 1234567890
-                                                ),
-                                                in: ConfigDump.Variant.groupInfo.namespace,
-                                                authMethod: try Authentication.with(
-                                                    swarmPublicKey: groupId.hexString,
-                                                    using: dependencies
+                                                    timestampMs: 1234567890000,
+                                                    authMethod: Authentication.groupAdmin(
+                                                        groupSessionId: groupId,
+                                                        ed25519SecretKey: Array(groupSecretKey)
+                                                    )
                                                 ),
                                                 using: dependencies
                                             )
@@ -503,7 +503,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 overallTimeout: Network.defaultTimeout
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- and the group configuration sync fails
@@ -1149,13 +1149,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         await mockNetwork
                             .verify {
                                 $0.send(
-                                    endpoint: Network.SnodeAPI.Endpoint.sequence,
+                                    endpoint: Network.StorageServer.Endpoint.sequence,
                                     destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                     body: try! JSONEncoder(using: dependencies).encode(
                                         Network.BatchRequest(
                                             requestsKey: .requests,
                                             requests: [
-                                                try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+                                                try Network.StorageServer.preparedUnrevokeSubaccounts(
                                                     subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: groupId,
@@ -1163,21 +1163,21 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                     ),
                                                     using: dependencies
                                                 ),
-                                                try Network.SnodeAPI.preparedSendMessage(
-                                                    message: SnodeMessage(
+                                                try Network.StorageServer.preparedSendMessage(
+                                                    request: Network.StorageServer.SendMessageRequest(
                                                         recipient: groupId.hexString,
+                                                        namespace: .configGroupKeys,
                                                         data: Data(base64Encoded: requestDataString)!,
                                                         ttl: ConfigDump.Variant.groupKeys.ttl,
-                                                        timestampMs: UInt64(1234567890000)
-                                                    ),
-                                                    in: .configGroupKeys,
-                                                    authMethod: Authentication.groupAdmin(
-                                                        groupSessionId: groupId,
-                                                        ed25519SecretKey: Array(groupSecretKey)
+                                                        timestampMs: UInt64(1234567890000),
+                                                        authMethod: Authentication.groupAdmin(
+                                                            groupSessionId: groupId,
+                                                            ed25519SecretKey: Array(groupSecretKey)
+                                                        )
                                                     ),
                                                     using: dependencies
                                                 ),
-                                                try Network.SnodeAPI.preparedDeleteMessages(
+                                                try Network.StorageServer.preparedDeleteMessages(
                                                     serverHashes: ["testHash"],
                                                     requireSuccessfulDeletion: false,
                                                     authMethod: Authentication.groupAdmin(
@@ -1365,13 +1365,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     await mockNetwork
                         .verify {
                             $0.send(
-                                endpoint: Network.SnodeAPI.Endpoint.sequence,
+                                endpoint: Network.StorageServer.Endpoint.sequence,
                                 destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
                                     Network.BatchRequest(
                                         requestsKey: .requests,
                                         requests: [
-                                            try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+                                            try Network.StorageServer.preparedUnrevokeSubaccounts(
                                                 subaccountsToUnrevoke: [
                                                     Array("TestSubAccountToken".data(using: .utf8)!)
                                                 ],
@@ -1381,7 +1381,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                 ),
                                                 using: dependencies
                                             ),
-                                            try Network.SnodeAPI.preparedDeleteMessages(
+                                            try Network.StorageServer.preparedDeleteMessages(
                                                 serverHashes: ["testHash"],
                                                 requireSuccessfulDeletion: false,
                                                 authMethod: Authentication.groupAdmin(
@@ -1557,14 +1557,14 @@ class MessageSenderGroupsSpec: AsyncSpec {
 
 // MARK: - Mock Types
 
-extension SendMessagesResponse: @retroactive Mocked {
-    public static var any: SendMessagesResponse = SendMessagesResponse(
+extension Network.StorageServer.SendMessagesResponse: @retroactive Mocked {
+    public static var any: Network.StorageServer.SendMessagesResponse = Network.StorageServer.SendMessagesResponse(
         hash: .any,
         swarm: .any,
         hardFork: .any,
         timeOffset: .any
     )
-    public static var mock: SendMessagesResponse = SendMessagesResponse(
+    public static var mock: Network.StorageServer.SendMessagesResponse = Network.StorageServer.SendMessagesResponse(
         hash: "hash",
         swarm: [:],
         hardFork: [1, 2],
@@ -1572,26 +1572,26 @@ extension SendMessagesResponse: @retroactive Mocked {
     )
 }
 
-extension UnrevokeSubaccountResponse: @retroactive Mocked {
-    public static var any: UnrevokeSubaccountResponse = UnrevokeSubaccountResponse(
+extension Network.StorageServer.UnrevokeSubaccountResponse: @retroactive Mocked {
+    public static var any: Network.StorageServer.UnrevokeSubaccountResponse = Network.StorageServer.UnrevokeSubaccountResponse(
         swarm: .any,
         hardFork: .any,
         timeOffset: .any
     )
-    public static var mock: UnrevokeSubaccountResponse = UnrevokeSubaccountResponse(
+    public static var mock: Network.StorageServer.UnrevokeSubaccountResponse = Network.StorageServer.UnrevokeSubaccountResponse(
         swarm: [:],
         hardFork: [],
         timeOffset: 0
     )
 }
 
-extension DeleteMessagesResponse: @retroactive Mocked {
-    public static var any: DeleteMessagesResponse = DeleteMessagesResponse(
+extension Network.StorageServer.DeleteMessagesResponse: @retroactive Mocked {
+    public static var any: Network.StorageServer.DeleteMessagesResponse = Network.StorageServer.DeleteMessagesResponse(
         swarm: .any,
         hardFork: .any,
         timeOffset: .any
     )
-    public static var mock: DeleteMessagesResponse = DeleteMessagesResponse(
+    public static var mock: Network.StorageServer.DeleteMessagesResponse = Network.StorageServer.DeleteMessagesResponse(
         swarm: [:],
         hardFork: [],
         timeOffset: 0
@@ -1601,29 +1601,31 @@ extension DeleteMessagesResponse: @retroactive Mocked {
 // MARK: - Mock Batch Responses
                         
 extension Network.BatchResponse {
+    typealias API = Network.StorageServer
+    
     // MARK: - Valid Responses
     
     fileprivate static let mockConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (API.Endpoint.unrevokeSubaccount, API.UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberHistoricConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (API.Endpoint.unrevokeSubaccount, API.UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
 }

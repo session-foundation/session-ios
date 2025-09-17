@@ -64,7 +64,7 @@ public actor TypingIndicators {
             threadId: threadId,
             threadVariant: threadVariant,
             direction: direction,
-            timestampMs: (timestampMs ?? dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+            timestampMs: (timestampMs ?? dependencies[cache: .storageServer].currentOffsetTimestampMs())
         )
         
         switch direction {

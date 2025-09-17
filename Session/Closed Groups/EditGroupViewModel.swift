@@ -536,7 +536,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 let viewController = ModalActivityIndicatorViewController() { [weak self, dependencies] modalActivityIndicator in
                                     Task { [weak self, modalActivityIndicator, dependencies] in
                                         do {
-                                            let sessionIdHexString: String = try await Network.SnodeAPI.getSessionID(
+                                            let sessionIdHexString: String = try await Network.StorageServer.getSessionID(
                                                 for: inviteByIdValue,
                                                 using: dependencies
                                             )
@@ -561,7 +561,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                             await MainActor.run {
                                                 modalActivityIndicator.dismiss {
                                                     switch error {
-                                                        case SnodeAPIError.onsNotFound:
+                                                        case StorageServerError.onsNotFound:
                                                             return showError("onsErrorNotRecognized".localized())
                                                         default:
                                                             return showError("onsErrorUnableToSearch".localized())

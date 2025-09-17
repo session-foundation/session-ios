@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    class UnrevokeSubaccountRequest: SnodeAuthenticatedRequestBody {
+extension Network.StorageServer {
+    class UnrevokeSubaccountRequest: BaseAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case subaccountsToUnrevoke = "unrevoke"
         }
@@ -14,7 +14,7 @@ extension Network.SnodeAPI {
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("unrevoke_subaccount" || timestamp || subaccount)`; this signs
             /// the subaccount token, using `pubkey` to sign. Must be base64 encoded for json requests; binary for OMQ requests.
-            Network.SnodeAPI.Endpoint.unrevokeSubaccount.path.bytes
+            Endpoint.unrevokeSubaccount.path.bytes
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
                 .appending(contentsOf: Array(subaccountsToUnrevoke.joined()))
         }
@@ -23,14 +23,14 @@ extension Network.SnodeAPI {
         
         public init(
             subaccountsToUnrevoke: [[UInt8]],
-            authMethod: AuthenticationMethod,
-            timestampMs: UInt64
+            timestampMs: UInt64,
+            authMethod: AuthenticationMethod
         ) {
             self.subaccountsToUnrevoke = subaccountsToUnrevoke
             
             super.init(
-                authMethod: authMethod,
-                timestampMs: timestampMs
+                timestampMs: timestampMs,
+                authMethod: authMethod
             )
         }
         

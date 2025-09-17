@@ -65,7 +65,7 @@ internal extension LibSession {
         
         // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
-        let creationTimestamp: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        let creationTimestamp: TimeInterval = TimeInterval(dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         

@@ -4,7 +4,7 @@
 
 import Foundation
 
-public extension Network.SnodeAPI {
+public extension Network.StorageServer {
     enum Endpoint: EndpointType {
         case sendMessage
         case getMessages

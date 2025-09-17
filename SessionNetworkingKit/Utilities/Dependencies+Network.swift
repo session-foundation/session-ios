@@ -5,9 +5,7 @@ import SessionUtilitiesKit
 
 public extension Dependencies {
     var currentNetworkStatus: NetworkStatus {
-        get async {
-            await networkStatusUpdates.first(defaultValue: .unknown)
-        }
+        get async { await networkStatusUpdates.first(defaultValue: .unknown) }
     }
     
     var networkStatusUpdates: AsyncStream<NetworkStatus> {

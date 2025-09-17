@@ -33,7 +33,7 @@ class OnboardingSpec: AsyncSpec {
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
+        @TestState var mockStorageServerCache: MockStorageServerCache! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var manager: Onboarding.Manager!
         
@@ -54,8 +54,8 @@ class OnboardingSpec: AsyncSpec {
                 .thenReturn(nil)
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            try await mockSnodeAPICache.defaultInitialSetup()
-            dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
+            try await mockStorageServerCache.defaultInitialSetup()
+            dependencies.set(cache: .storageServer, to: mockStorageServerCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             dependencies.set(singleton: .storage, to: mockStorage)
@@ -131,15 +131,15 @@ class OnboardingSpec: AsyncSpec {
                 .thenReturn(MockNetwork.batchResponseData(
                     with: [
                         (
-                            Network.SnodeAPI.Endpoint.getMessages,
-                            GetMessagesResponse(
+                            Network.StorageServer.Endpoint.getMessages,
+                            Network.StorageServer.GetMessagesResponse(
                                 messages: (pendingPushes?
                                     .pushData
                                     .first { $0.variant == .userProfile }?
                                     .data
                                     .enumerated()
                                     .map { index, data in
-                                        GetMessagesResponse.RawMessage(
+                                        Network.StorageServer.GetMessagesResponse.RawMessage(
                                             base64EncodedDataString: data.base64EncodedString(),
                                             expirationMs: nil,
                                             hash: "\(index)",
@@ -505,7 +505,7 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- polls for the userProfile config
             it("polls for the userProfile config") {
-                let preparedRequest: Network.PreparedRequest<SnodeAPI.PollResponse> = try Network.SnodeAPI.preparedPoll(
+                let preparedRequest: Network.PreparedRequest<Network.StorageServer.PollResponse> = try Network.StorageServer.preparedPoll(
                     namespaces: [.configUserProfile],
                     lastHashes: [:],
                     refreshingConfigHashes: [],
@@ -528,7 +528,7 @@ class OnboardingSpec: AsyncSpec {
                 await mockNetwork
                     .verify {
                         try await $0.send(
-                            endpoint: Network.SnodeAPI.Endpoint.batch,
+                            endpoint: Network.StorageServer.Endpoint.batch,
                             destination: Network.Destination.snode(
                                 LibSession.Snode(
                                     ed25519PubkeyHex: "1234",

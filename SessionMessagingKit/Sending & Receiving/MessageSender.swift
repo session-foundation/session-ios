@@ -43,7 +43,7 @@ public final class MessageSender {
     public static func preparedSend(
         message: Message,
         to destination: Message.Destination,
-        namespace: Network.SnodeAPI.Namespace?,
+        namespace: Network.StorageServer.Namespace?,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         authMethod: AuthenticationMethod,
@@ -51,7 +51,7 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Message> {
         // Common logic for all destinations
-        let messageSendTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let messageSendTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
         let updatedMessage: Message = message
         
         // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
@@ -138,7 +138,7 @@ public final class MessageSender {
     private static func preparedSendToSnodeDestination(
         message: Message,
         to destination: Message.Destination,
-        namespace: Network.SnodeAPI.Namespace?,
+        namespace: Network.StorageServer.Namespace?,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         messageSendTimestampMs: Int64,
@@ -146,7 +146,7 @@ public final class MessageSender {
         onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
-        guard let namespace: Network.SnodeAPI.Namespace = namespace else {
+        guard let namespace: Network.StorageServer.Namespace = namespace else {
             throw MessageSenderError.invalidMessage
         }
         
@@ -186,8 +186,9 @@ public final class MessageSender {
                 case .openGroup, .openGroupInbox: preconditionFailure()
             }
         }()
-        let snodeMessage = SnodeMessage(
+        let request: Network.StorageServer.SendMessageRequest = Network.StorageServer.SendMessageRequest(
             recipient: swarmPublicKey,
+            namespace: namespace,
             data: try MessageSender.encodeMessageForSending(
                 namespace: namespace,
                 destination: destination,
@@ -197,21 +198,22 @@ public final class MessageSender {
                 using: dependencies
             ),
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
-            timestampMs: UInt64(messageSendTimestampMs)
+            /// **Note:** This timestamp is for the request being sent rather than when the message was created so it should always
+            /// be the current offset timestamp (otherwise the storage server could reject the request for the clock being too far out)
+            timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+            authMethod: authMethod
         )
         
         // Perform any pre-send actions
         onEvent?(.willSend(message, destination, interactionId: interactionId))
         
-        return try Network.SnodeAPI
+        return try Network.StorageServer
             .preparedSendMessage(
-                message: snodeMessage,
-                in: namespace,
-                authMethod: authMethod,
+                request: request,
                 using: dependencies
             )
             .map { _, response in
-                let expirationTimestampMs: Int64 = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs)
+                let expirationTimestampMs: Int64 = (dependencies[cache: .storageServer].currentOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs)
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.hash
                 
@@ -373,7 +375,7 @@ public final class MessageSender {
     // MARK: - Message Wrapping
     
     public static func encodeMessageForSending(
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         destination: Message.Destination,
         message: Message,
         attachments: [(attachment: Attachment, fileId: String)]?,

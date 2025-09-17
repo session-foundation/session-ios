@@ -2,7 +2,7 @@
 
 import Foundation
 
-public extension Network.SnodeAPI {
+public extension Network.StorageServer {
     struct GetNetworkTimestampResponse: Decodable {
         enum CodingKeys: String, CodingKey {
             case timestamp

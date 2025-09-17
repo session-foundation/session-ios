@@ -213,7 +213,7 @@ enum _027_SessionUtilChanges: Migration {
                     arguments: [
                         userSessionId.hexString,
                         SessionThread.Variant.contact.rawValue,
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                        (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000),
                         false,  // Not visible
                         false,
                         false,

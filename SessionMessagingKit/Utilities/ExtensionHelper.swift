@@ -682,13 +682,13 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws {
         guard
-            let message: SnodeReceivedMessage = message,
+            let message: Network.StorageServer.Message = message,
             let messageAsData: Data = try? JSONEncoder(using: dependencies).encode(message),
             let targetPath: String = {
                 switch (message.namespace.isConfigNamespace, isUnread) {
@@ -719,7 +719,7 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadMessages() async throws {
-        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
         
         try Task.checkCancellation()
         
@@ -770,15 +770,15 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 do {
                     let sortedMessages: [MessageData] = try configMessageHashes
-                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
+                        .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { (result: [Network.StorageServer.Namespace: [Network.StorageServer.Message]], hash: String) in
                             let path: String = URL(fileURLWithPath: this.conversationsPath)
                                 .appendingPathComponent(conversationHash)
                                 .appendingPathComponent(this.conversationConfigDir)
                                 .appendingPathComponent(hash)
                                 .path
                             let plaintext: Data = try this.read(from: path)
-                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                                .decode(Network.StorageServer.Message.self, from: plaintext)
                             
                             return result.appending(message, toArrayOn: message.namespace)
                         }
@@ -857,8 +857,8 @@ public class ExtensionHelper: ExtensionHelperType {
                 allMessagePaths.forEach { path in
                     do {
                         let plaintext: Data = try this.read(from: path)
-                        let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                            .decode(SnodeReceivedMessage.self, from: plaintext)
+                        let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                            .decode(Network.StorageServer.Message.self, from: plaintext)
                         
                         SwarmPoller.processPollResponse(
                             db,
@@ -994,7 +994,7 @@ public protocol ExtensionHelperType {
     
     func unreadMessageCount() -> Int?
     func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool

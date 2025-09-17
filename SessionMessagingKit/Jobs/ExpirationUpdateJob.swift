@@ -31,21 +31,20 @@ public enum ExpirationUpdateJob: JobExecutor {
                     using: dependencies
                 )
                 
-                return try Network.SnodeAPI
-                    .preparedUpdateExpiry(
-                        serverHashes: details.serverHashes,
-                        updatedExpiryMs: details.expirationTimestampMs,
-                        shortenOnly: true,
-                        authMethod: authMethod,
-                        using: dependencies
-                    )
+                return try Network.StorageServer.preparedUpdateExpiry(
+                    serverHashes: details.serverHashes,
+                    updatedExpiryMs: details.expirationTimestampMs,
+                    shortenOnly: true,
+                    authMethod: authMethod,
+                    using: dependencies
+                )
             }
             .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .map { _, response -> [UInt64: [String]] in
                 guard
-                    let results: [UpdateExpiryResponseResult] = response
+                    let results: [Network.StorageServer.UpdateExpiryResponseResult] = response
                         .compactMap({ _, value in value.didError ? nil : value })
                         .nullIfEmpty,
                     let unchangedMessages: [UInt64: [String]] = results

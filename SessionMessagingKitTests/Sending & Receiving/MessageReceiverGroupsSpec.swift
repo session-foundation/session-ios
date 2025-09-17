@@ -2553,7 +2553,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
                         fixture.deleteContentMessage.sentTimestampMs = 1234567800000
                         
-                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! Network.SnodeAPI
+                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! Network.StorageServer
                             .preparedDeleteMessages(
                                 serverHashes: ["TestMessageHash3"],
                                 requireSuccessfulDeletion: false,
@@ -2579,7 +2579,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         await fixture.mockNetwork
                             .verify {
                                 $0.send(
-                                    endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
+                                    endpoint: Network.StorageServer.Endpoint.deleteMessages,
                                     destination: preparedRequest.destination,
                                     body: preparedRequest.body,
                                     category: .standard,
@@ -3262,7 +3262,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
-    var mockSnodeAPICache: MockSnodeAPICache { mock(cache: .snodeAPI) }
+    var mockStorageServerCache: MockStorageServerCache { mock(cache: .storageServer) }
     var mockPoller: MockPoller { mock() }
     
     let userGroupsConfig: LibSession.Config
@@ -3547,7 +3547,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await applyBaselineNotificationsManager()
         try await applyBaselineGeneralCache()
         try await applyBaselineLibSessionCache()
-        try await applyBaselineSnodeAPICache()
+        try await applyBaselineStorageServerCache()
         try await applyBaselinePoller()
     }
     
@@ -3727,8 +3727,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         )
     }
     
-    private func applyBaselineSnodeAPICache() async throws {
-        try await mockSnodeAPICache.defaultInitialSetup()
+    private func applyBaselineStorageServerCache() async throws {
+        try await mockStorageServerCache.defaultInitialSetup()
     }
     
     private func applyBaselinePoller() async throws {

@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    class GetExpiriesRequest: SnodeAuthenticatedRequestBody {
+extension Network.StorageServer {
+    class GetExpiriesRequest: BaseAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case messageHashes = "messages"
         }
@@ -16,7 +16,7 @@ extension Network.SnodeAPI {
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("get_expiries" || timestamp || messages[0] || ... || messages[N])`
             /// where `timestamp` is expressed as a string (base10).  The signature must be base64 encoded (json) or bytes (bt).
-            Network.SnodeAPI.Endpoint.getExpiries.path.bytes
+            Endpoint.getExpiries.path.bytes
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
                 .appending(contentsOf: messageHashes.joined().bytes)
         }
@@ -25,14 +25,14 @@ extension Network.SnodeAPI {
         
         public init(
             messageHashes: [String],
-            authMethod: AuthenticationMethod,
-            timestampMs: UInt64
+            timestampMs: UInt64,
+            authMethod: AuthenticationMethod
         ) {
             self.messageHashes = messageHashes
             
             super.init(
-                authMethod: authMethod,
-                timestampMs: timestampMs
+                timestampMs: timestampMs,
+                authMethod: authMethod
             )
         }
         

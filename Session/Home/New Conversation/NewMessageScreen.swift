@@ -89,7 +89,7 @@ struct NewMessageScreen: View {
             .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { [dependencies] modalActivityIndicator in
                 Task { [accountIdOrONS, dependencies] in
                     do {
-                        let sessionIdHexString: String = try await Network.SnodeAPI.getSessionID(
+                        let sessionIdHexString: String = try await Network.StorageServer.getSessionID(
                             for: accountIdOrONS,
                             using: dependencies
                         )
@@ -105,7 +105,7 @@ struct NewMessageScreen: View {
                             modalActivityIndicator.dismiss {
                                 let message: String = {
                                     switch error {
-                                        case SnodeAPIError.onsNotFound:
+                                        case StorageServerError.onsNotFound:
                                             return "onsErrorNotRecognized".localized()
                                         default:
                                             return "onsErrorUnableToSearch".localized()

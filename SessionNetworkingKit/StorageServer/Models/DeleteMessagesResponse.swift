@@ -3,12 +3,14 @@
 import Foundation
 import SessionUtilitiesKit
 
-public final class DeleteMessagesResponse: SnodeRecursiveResponse<DeleteMessagesResponse.SwarmItem> {}
+extension Network.StorageServer {
+    public final class DeleteMessagesResponse: BaseRecursiveResponse<DeleteMessagesResponse.SwarmItem> {}
+}
 
 // MARK: - SwarmItem
 
-public extension DeleteMessagesResponse {
-    class SwarmItem: SnodeSwarmItem {
+public extension Network.StorageServer.DeleteMessagesResponse {
+    class SwarmItem: Network.StorageServer.BaseSwarmItem {
         private enum CodingKeys: String, CodingKey {
             case deleted
         }
@@ -36,7 +38,7 @@ public extension DeleteMessagesResponse {
 
 // MARK: - ValidatableResponse
 
-extension DeleteMessagesResponse: ValidatableResponse {
+extension Network.StorageServer.DeleteMessagesResponse: ValidatableResponse {
     typealias ValidationData = [String]
     typealias ValidationResponse = Bool
     

@@ -1034,7 +1034,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         }
         
         /// Clear the snodeAPI  caches
-        dependencies.remove(cache: .snodeAPI)
+        dependencies.remove(cache: .storageServer)
         
         /// Remove the libSession state (store the profile locally to maintain the name between environments)
         let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }

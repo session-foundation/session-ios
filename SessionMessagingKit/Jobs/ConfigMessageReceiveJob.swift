@@ -101,13 +101,13 @@ extension ConfigMessageReceiveJob {
                 case data
             }
             
-            public let namespace: Network.SnodeAPI.Namespace
+            public let namespace: Network.StorageServer.Namespace
             public let serverHash: String
             public let serverTimestampMs: Int64
             public let data: Data
             
             public init(
-                namespace: Network.SnodeAPI.Namespace,
+                namespace: Network.StorageServer.Namespace,
                 serverHash: String,
                 serverTimestampMs: Int64,
                 data: Data

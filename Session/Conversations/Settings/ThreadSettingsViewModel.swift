@@ -1210,7 +1210,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         )
                         dependencies[singleton: .storage].writeAsync { db in
                             try selectedUserInfo.forEach { userInfo in
-                                let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                                 let thread: SessionThread = try SessionThread.upsert(
                                     db,
                                     id: userInfo.profileId,
@@ -1306,7 +1306,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 variant: .contact,
                                 values: SessionThread.TargetValues(
                                     creationDateTimestamp: .useExistingOrSetTo(
-                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                        dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000
                                     ),
                                     shouldBeVisible: .useExisting,
                                     isDraft: .useExistingOrSetTo(true)
@@ -1934,7 +1934,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             try LibSession.deleteMessagesBefore(
                 db,
                 groupSessionId: SessionId(.group, hex: threadId),
-                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                timestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }
@@ -1947,7 +1947,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             try LibSession.deleteAttachmentsBefore(
                 db,
                 groupSessionId: SessionId(.group, hex: threadId),
-                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                timestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }

@@ -700,7 +700,7 @@ extension ConversationVC:
 
         // Optimistically insert the outgoing message (this will trigger a UI update)
         self.viewModel.sentMessageBeforeUpdate = true
-        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .storageServer].currentOffsetTimestampMs()
         let optimisticData: ConversationViewModel.OptimisticMessageData = self.viewModel.optimisticallyAppendOutgoingMessage(
             text: processedText,
             sentTimestampMs: sentTimestampMs,
@@ -894,7 +894,7 @@ extension ConversationVC:
                     threadId: threadData.threadId,
                     threadVariant: threadData.threadVariant,
                     direction: .outgoing,
-                    timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 )
             }
         }
@@ -1177,7 +1177,7 @@ extension ConversationVC:
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage].writeAsync { db in
                         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                        let currentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        let currentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
                             .upserted(db)
@@ -1560,7 +1560,7 @@ extension ConversationVC:
                     variant: .contact,
                     values: SessionThread.TargetValues(
                         creationDateTimestamp: .useExistingOrSetTo(
-                            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                            (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
                         ),
                         shouldBeVisible: .useLibSession,
                         isDraft: .useExistingOrSetTo(true)
@@ -1602,7 +1602,7 @@ extension ConversationVC:
                 variant: .contact,
                 values: SessionThread.TargetValues(
                     creationDateTimestamp: .useExistingOrSetTo(
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: .useLibSession,
                     isDraft: .useExistingOrSetTo(true)
@@ -1804,7 +1804,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
-        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .storageServer].currentOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = viewModel.dependencies[cache: .general].recentReactionTimestamps
         
         guard
@@ -2716,7 +2716,7 @@ extension ConversationVC:
         self.viewModel.stopAudio()
         
         // Create URL
-        let currentOffsetTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let currentOffsetTimestamp: Int64 = viewModel.dependencies[cache: .storageServer].currentOffsetTimestampMs()
         let directory: String = viewModel.dependencies[singleton: .fileManager].temporaryDirectory
         let fileName: String = "\(currentOffsetTimestamp).m4a" // stringlint:ignore
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
@@ -2860,7 +2860,7 @@ extension ConversationVC:
                 db,
                 message: DataExtractionNotification(
                     kind: kind,
-                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 )
                 .with(DisappearingMessagesConfiguration
                     .fetchOne(db, id: threadId)?
@@ -3079,7 +3079,7 @@ extension ConversationVC {
             threadVariant: self.viewModel.threadData.threadVariant,
             displayName: self.viewModel.threadData.displayName,
             isDraft: (self.viewModel.threadData.threadIsDraft == true),
-            timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            timestampMs: viewModel.dependencies[cache: .storageServer].currentOffsetTimestampMs()
         ).sinkUntilComplete()
     }
 

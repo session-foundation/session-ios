@@ -307,7 +307,7 @@ extension MessageReceiver {
         // devices that had the group before they were promoted
         try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.SnodeAPI.Namespace.groupMessages.rawValue)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.StorageServer.Namespace.groupMessages.rawValue)
             .updateAllAndConfig(
                 db,
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
@@ -752,7 +752,7 @@ extension MessageReceiver {
             )
         else { return }
         
-        try? Network.SnodeAPI
+        try? Network.StorageServer
             .preparedDeleteMessages(
                 serverHashes: Array(hashes),
                 requireSuccessfulDeletion: false,
@@ -922,7 +922,7 @@ extension MessageReceiver {
                         return
                     }
                     
-                    try? Network.SnodeAPI.preparedDeleteMessages(
+                    try? Network.StorageServer.preparedDeleteMessages(
                         serverHashes: [serverHash],
                         requireSuccessfulDeletion: false,
                         authMethod: authMethod,
@@ -999,7 +999,7 @@ extension MessageReceiver {
                     db,
                     message: GroupUpdateInviteResponseMessage(
                         isApproved: true,
-                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
                     ),
                     interactionId: nil,
                     threadId: groupSessionId.hexString,
@@ -1015,7 +1015,7 @@ extension MessageReceiver {
                     variant: .group,
                     values: SessionThread.TargetValues(
                         creationDateTimestamp: .useExistingOrSetTo(
-                            dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                            dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000
                         ),
                         shouldBeVisible: .useExisting
                     ),

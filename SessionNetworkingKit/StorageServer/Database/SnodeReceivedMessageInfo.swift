@@ -55,7 +55,7 @@ public extension SnodeReceivedMessageInfo {
     init(
         snode: LibSession.Snode,
         swarmPublicKey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         hash: String,
         expirationDateMs: Int64?
     ) {
@@ -75,11 +75,11 @@ public extension SnodeReceivedMessageInfo {
     static func fetchLastNotExpired(
         _ db: ObservingDatabase,
         for snode: LibSession.Snode,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {
-        let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let currentOffsetTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
 
         return try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false)

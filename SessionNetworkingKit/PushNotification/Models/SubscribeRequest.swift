@@ -17,7 +17,7 @@ public extension Network.PushNotification {
             }
             
             /// List of integer namespace (-32768 through 32767).  These must be sorted in ascending order.
-            private let namespaces: [Network.SnodeAPI.Namespace]
+            private let namespaces: [Network.StorageServer.Namespace]
             
             /// If provided and true then notifications will include the body of the message (as long as it isn't too large); if false then the body will
             /// not be included in notifications.
@@ -67,7 +67,7 @@ public extension Network.PushNotification {
             // MARK: - Initialization
             
             init(
-                namespaces: [Network.SnodeAPI.Namespace],
+                namespaces: [Network.StorageServer.Namespace],
                 includeMessageData: Bool,
                 serviceInfo: ServiceInfo,
                 notificationsEncryptionKey: Data,

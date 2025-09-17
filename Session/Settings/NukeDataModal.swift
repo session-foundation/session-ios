@@ -226,7 +226,7 @@ final class NukeDataModal: Modal {
                             .getSwarm(for: dependencies[cache: .general].sessionId.hexString)
                         let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
                             .selectNextNode()
-                        let networkTimeRequest: Network.PreparedRequest<UInt64> = try Network.SnodeAPI.preparedGetNetworkTime(
+                        let networkTimeRequest: Network.PreparedRequest<UInt64> = try Network.StorageServer.preparedGetNetworkTime(
                             from: snode,
                             using: dependencies
                         )
@@ -237,7 +237,7 @@ final class NukeDataModal: Modal {
                             swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                             using: dependencies
                         )
-                        var confirmations: [String: Bool] = try await Network.SnodeAPI
+                        var confirmations: [String: Bool] = try await Network.StorageServer
                             .preparedDeleteAllMessages(
                                 namespace: .all,
                                 snode: snode,

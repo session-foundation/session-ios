@@ -66,10 +66,10 @@ public extension MessageDeduplication {
             )
         }
         
-        /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
+        /// Add `(Network.StorageServer.Message.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
         /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
         let finalExpiryTimestampSeconds: Int64? = serverExpirationTimestamp
-            .map { Int64($0) + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
+            .map { Int64($0) + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000) }
         
         /// When we delete a `contact` conversation we want to keep the dedupe records around because, if we don't, the
         /// conversation will just reappear (this isn't an issue for `legacyGroup` conversations because they no longer poll)
@@ -428,13 +428,13 @@ private extension MessageDeduplication {
             /// which never expires or has it's TTL extended (outside of config messages)
             ///
             /// If we have a `timestampMs` then base our custom expiration on that
-            return ((timestampMs + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+            return ((timestampMs + Network.StorageServer.Message.defaultExpirationMs) / 1000)
         }()
         
-        /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
+        /// Add `(Network.StorageServer.Message.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
         /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
         let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-            .map { $0 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
+            .map { $0 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000) }
         
         /// When we delete a `contact` conversation we want to keep the dedupe records around because, if we don't, the
         /// conversation will just reappear (this isn't an issue for `legacyGroup` conversations because they no longer poll)

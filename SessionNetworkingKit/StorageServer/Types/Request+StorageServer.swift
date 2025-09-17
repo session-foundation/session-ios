@@ -5,9 +5,9 @@
 import Foundation
 import SessionUtilitiesKit
 
-public extension Request where Endpoint == Network.SnodeAPI.Endpoint {
+public extension Request where Endpoint == Network.StorageServer.Endpoint {
     init(
-        endpoint: Network.SnodeAPI.Endpoint,
+        endpoint: Endpoint,
         snode: LibSession.Snode,
         swarmPublicKey: String? = nil,
         body: T,
@@ -29,7 +29,7 @@ public extension Request where Endpoint == Network.SnodeAPI.Endpoint {
     }
     
     init(
-        endpoint: Network.SnodeAPI.Endpoint,
+        endpoint: Endpoint,
         swarmPublicKey: String,
         body: T,
         requestTimeout: TimeInterval = Network.defaultTimeout,

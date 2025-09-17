@@ -364,7 +364,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             overallTimeout: .any
                         )
                     }
-                    .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 expect(error).to(matchError(NetworkError.parsingFailed))
                 expect(permanentFailure).to(beTrue())
             }

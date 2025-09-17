@@ -152,7 +152,7 @@ public extension Authentication {
                     let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
                     )
-                else { throw SnodeAPIError.noKeyPair }
+                else { throw CryptoError.keyGenerationFailed }
                 
                 return Authentication.standard(
                     sessionId: sessionId,

@@ -11,14 +11,14 @@ import SessionUtilitiesKit
 internal extension Crypto.Generator {
     static func sessionId(
         name: String,
-        response: Network.SnodeAPI.ONSResolveResponse
+        response: Network.StorageServer.ONSResolveResponse
     ) -> Crypto.Generator<String> {
         return Crypto.Generator(
             id: "sessionId_for_ONS_response",
             args: [name, response]
         ) {
             guard var cName: [CChar] = name.lowercased().cString(using: .utf8) else {
-                throw SnodeAPIError.onsDecryptionFailed
+                throw StorageServerError.onsDecryptionFailed
             }
             
             // Name must be in lowercase
@@ -37,7 +37,7 @@ internal extension Crypto.Generator {
                             nil,
                             &cSessionId
                         )
-                    else { throw SnodeAPIError.onsDecryptionFailed }
+                    else { throw StorageServerError.onsDecryptionFailed }
                     
                 case .some(let nonce):
                     var cNonce: [UInt8] = Array(Data(hex: nonce))
@@ -51,7 +51,7 @@ internal extension Crypto.Generator {
                             &cNonce,
                             &cSessionId
                         )
-                    else { throw SnodeAPIError.onsDecryptionFailed }
+                    else { throw StorageServerError.onsDecryptionFailed }
             }
             
             return String(cString: cSessionId)

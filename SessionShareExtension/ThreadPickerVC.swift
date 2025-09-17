@@ -266,7 +266,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { [weak self, dependencies = viewModel.dependencies] activityIndicator in
-            /// When we prepare the message we set the timestamp to be the `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
+            /// When we prepare the message we set the timestamp to be the `dependencies[cache: .storageServer].currentOffsetTimestampMs()`
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
             /// before we create the interaction
@@ -286,10 +286,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     
                     let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network].getSwarm(for: swarmPublicKey)
                     guard let randomSnode: LibSession.Snode = dependencies.randomElement(swarm) else {
-                        throw SnodeAPIError.insufficientSnodes
+                        throw StorageServerError.insufficientSnodes
                     }
                     
-                    let networkTime: UInt64 = try await Network.SnodeAPI
+                    let networkTime: UInt64 = try await Network.StorageServer
                         .preparedGetNetworkTime(from: randomSnode, using: dependencies)
                         .send(using: dependencies)
                     let data: MessageData = try await dependencies[singleton: .storage].writeAsync { db in
@@ -309,7 +309,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         }
                         
                         // Create the interaction
-                        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                         let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
                             .filter(id: threadId)
                             .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)

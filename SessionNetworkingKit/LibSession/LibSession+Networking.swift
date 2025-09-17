@@ -155,7 +155,7 @@ actor LibSessionNetwork: NetworkType {
                 guard
                     swarmSize > 0,
                     let cSwarm: UnsafeMutablePointer<network_service_node> = swarmPtr
-                else { return box.continuation.resume(throwing: SnodeAPIError.unableToRetrieveSwarm) }
+                else { return box.continuation.resume(throwing: StorageServerError.unableToRetrieveSwarm) }
                 
                 var nodes: Set<LibSession.Snode> = []
                 (0..<swarmSize).forEach { index in nodes.insert(LibSession.Snode(cSwarm[index])) }
@@ -180,7 +180,7 @@ actor LibSessionNetwork: NetworkType {
                 guard
                     nodesSize > 0,
                     let cSwarm: UnsafeMutablePointer<network_service_node> = nodesPtr
-                else { return box.continuation.resume(throwing: SnodeAPIError.unableToRetrieveSwarm) }
+                else { return box.continuation.resume(throwing: StorageServerError.unableToRetrieveSwarm) }
                 
                 var nodes: Set<LibSession.Snode> = []
                 (0..<nodesSize).forEach { index in nodes.insert(LibSession.Snode(cSwarm[index])) }
@@ -189,7 +189,7 @@ actor LibSessionNetwork: NetworkType {
         }
         
         guard nodes.count >= count else {
-            throw SnodeAPIError.unableToRetrieveSwarm
+            throw StorageServerError.unableToRetrieveSwarm
         }
         
         return nodes
@@ -249,7 +249,7 @@ actor LibSessionNetwork: NetworkType {
                                         let cSwarm: UnsafeMutablePointer<network_service_node> = swarmPtr
                                     else {
                                         return LibSessionNetwork.FutureBox<Set<LibSession.Snode>>.fail(
-                                            error: SnodeAPIError.unableToRetrieveSwarm,
+                                            error: StorageServerError.unableToRetrieveSwarm,
                                             ptr: ctx
                                         )
                                     }
@@ -264,7 +264,7 @@ actor LibSessionNetwork: NetworkType {
                             }
                             .tryMap { [dependencies] nodes in
                                 try dependencies.randomElement(nodes) ?? {
-                                    throw SnodeAPIError.ranOutOfRandomSnodes(nil)
+                                    throw StorageServerError.ranOutOfRandomSnodes(nil)
                                 }()
                             }
                             .map { node in
@@ -635,10 +635,10 @@ actor LibSessionNetwork: NetworkType {
             /// A snode will return a `406` but onion requests v4 seems to return `425` so handle both
             case (406, _), (425, _):
                 Log.warn(.network, "The user's clock is out of sync with the service node network.")
-                throw SnodeAPIError.clockOutOfSync
+                throw StorageServerError.clockOutOfSync
             
-            case (421, _): throw SnodeAPIError.unassociatedPubkey
-            case (429, _): throw SnodeAPIError.rateLimited
+            case (421, _): throw StorageServerError.unassociatedPubkey
+            case (429, _): throw StorageServerError.rateLimited
             case (500, _): throw NetworkError.internalServerError
             case (503, _): throw NetworkError.serviceUnavailable
             case (502, .none): throw NetworkError.badGateway
@@ -647,7 +647,7 @@ actor LibSessionNetwork: NetworkType {
                     throw NetworkError.badGateway
                 }
                 
-                throw SnodeAPIError.nodeNotFound(String(responseString.suffix(64)))
+                throw StorageServerError.nodeNotFound(String(responseString.suffix(64)))
                 
             case (504, _): throw NetworkError.gatewayTimeout
             case (_, .none): throw NetworkError.unknown
@@ -1025,7 +1025,7 @@ private extension LibSessionNetwork {
             case let bytes as [UInt8]: maybeBodyData = Data(bytes)
             default:
                 guard let encodedBody: Data = try? JSONEncoder().encode(body) else {
-                    throw SnodeAPIError.invalidPayload
+                    throw StorageServerError.invalidPayload
                 }
                 
                 maybeBodyData = encodedBody

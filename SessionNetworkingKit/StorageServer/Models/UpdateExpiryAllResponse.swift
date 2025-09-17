@@ -3,12 +3,14 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class UpdateExpiryAllResponse: SnodeRecursiveResponse<UpdateExpiryAllResponse.SwarmItem> {}
+extension Network.StorageServer {
+    public class UpdateExpiryAllResponse: BaseRecursiveResponse<UpdateExpiryAllResponse.SwarmItem> {}
+}
 
 // MARK: - SwarmItem
 
-public extension UpdateExpiryAllResponse {
-    class SwarmItem: SnodeSwarmItem {
+public extension Network.StorageServer.UpdateExpiryAllResponse {
+    class SwarmItem: Network.StorageServer.BaseSwarmItem {
         private enum CodingKeys: String, CodingKey {
             case updated
         }
@@ -49,7 +51,7 @@ public extension UpdateExpiryAllResponse {
 
 // MARK: - ValidatableResponse
 
-extension UpdateExpiryAllResponse: ValidatableResponse {
+extension Network.StorageServer.UpdateExpiryAllResponse: ValidatableResponse {
     typealias ValidationData = UInt64
     typealias ValidationResponse = [String]
     
@@ -94,7 +96,7 @@ extension UpdateExpiryAllResponse: ValidatableResponse {
             )
             
             // If the update signature is invalid then we want to fail here
-            guard isValid else { throw SnodeAPIError.signatureVerificationFailed }
+            guard isValid else { throw StorageServerError.signatureVerificationFailed }
             
             result[next.key] = next.value.updated
         }

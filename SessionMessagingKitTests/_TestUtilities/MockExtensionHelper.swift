@@ -111,7 +111,7 @@ class MockExtensionHelper: ExtensionHelperType, Mockable {
         return handler.mock()
     }
     
-    func saveMessage(_ message: SnodeReceivedMessage?, threadId: String, isUnread: Bool, isMessageRequest: Bool) throws {
+    func saveMessage(_ message: Network.StorageServer.Message?, threadId: String, isUnread: Bool, isMessageRequest: Bool) throws {
         try handler.mockThrowingNoReturn(args: [message, threadId, isUnread, isMessageRequest])
     }
     

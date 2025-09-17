@@ -187,7 +187,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 let updatedAttachment: Attachment = try attachment
                     .with(
                         state: .downloaded,
-                        creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                        creationTimestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000),
                         using: dependencies
                     )
                     .upserted(db)
@@ -227,7 +227,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
                                 /// likely something else is going on that caused the failure
                                 case NetworkError.badRequest, NetworkError.unauthorised,
-                                    SnodeAPIError.signatureVerificationFailed:
+                                    StorageServerError.signatureVerificationFailed:
                                     targetState = .failedDownload
                                     permanentFailure = true
                                 

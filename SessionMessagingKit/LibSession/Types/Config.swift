@@ -324,7 +324,7 @@ public extension LibSession {
                         .sorted()
                     
                     if successfulMergeTimestamps.count != messages.count {
-                        Log.warn(.libSession, "Unable to merge \(Network.SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                        Log.warn(.libSession, "Unable to merge \(Network.StorageServer.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
                     }
                     
                     return successfulMergeTimestamps.last

@@ -1132,7 +1132,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     dismissOnConfirm: true,
                     onConfirm: { [dependencies] _ in
                         /// Clear the snodeAPI cache
-                        dependencies.remove(cache: .snodeAPI)
+                        dependencies.remove(cache: .storageServer)
                         
                         /// Clear the snode cache
                         Task { await dependencies[singleton: .network].clearCache() }
@@ -1181,7 +1181,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         
                         modal.dismiss(animated: true) {
                             let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { indicator in
-                                let timestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                let timestampMs: Double = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                                 let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                                 
                                 dependencies[singleton: .storage].writeAsync(

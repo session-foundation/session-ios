@@ -5,7 +5,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public extension Network.SnodeAPI {
+public extension Network.StorageServer {
     struct Message: Codable, CustomDebugStringConvertible {
         /// Service nodes cache messages for 14 days so default the expiration for message hashes to '15' days
         /// so we don't end up indefinitely storing records which will never be used
@@ -50,7 +50,7 @@ public extension Network.SnodeAPI {
             self.namespace = namespace
             self.hash = rawMessage.hash
             self.timestampMs = rawMessage.timestampMs
-            self.expirationTimestampMs = (rawMessage.expirationMs ?? Network.SnodeAPI.Message.defaultExpirationMs)
+            self.expirationTimestampMs = (rawMessage.expirationMs ?? Network.StorageServer.Message.defaultExpirationMs)
             self.data = data
         }
         

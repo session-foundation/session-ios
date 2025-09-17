@@ -902,10 +902,10 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     await mockNetwork
                         .verify {
                             $0.send(
-                                endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
+                                endpoint: Network.StorageServer.Endpoint.deleteMessages,
                                 destination: .randomSnode(swarmPublicKey: createGroupOutput.groupSessionId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
-                                    Network.SnodeAPI.DeleteMessagesRequest(
+                                    Network.StorageServer.DeleteMessagesRequest(
                                         messageHashes: ["1234"],
                                         requireSuccessfulDeletion: false,
                                         authMethod: Authentication.groupAdmin(

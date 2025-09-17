@@ -263,7 +263,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -370,7 +370,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -471,7 +471,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let currentOffsetTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
             
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -569,7 +569,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
@@ -595,17 +595,17 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
-                                message: SnodeMessage(
+                            maybeSupplementalKeyRequest = try Network.StorageServer.preparedSendMessage(
+                                request: Network.StorageServer.SendMessageRequest(
                                     recipient: sessionId.hexString,
+                                    namespace: .configGroupKeys,
                                     data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
-                                    timestampMs: UInt64(changeTimestampMs)
-                                ),
-                                in: .configGroupKeys,
-                                authMethod: Authentication.groupAdmin(
-                                    groupSessionId: sessionId,
-                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    timestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    )
                                 ),
                                 using: dependencies
                             )
@@ -679,7 +679,7 @@ extension MessageSender {
                 /// Unrevoke the newly added members just in case they had previously gotten their access to the group
                 /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
                 /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer.preparedUnrevokeSubaccounts(
                     subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: sessionId,
@@ -799,7 +799,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
@@ -858,17 +858,17 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
-                                message: SnodeMessage(
+                            maybeSupplementalKeyRequest = try Network.StorageServer.preparedSendMessage(
+                                request: Network.StorageServer.SendMessageRequest(
                                     recipient: sessionId.hexString,
+                                    namespace: .configGroupKeys,
                                     data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
-                                    timestampMs: UInt64(changeTimestampMs)
-                                ),
-                                in: .configGroupKeys,
-                                authMethod: Authentication.groupAdmin(
-                                    groupSessionId: sessionId,
-                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    timestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    )
                                 ),
                                 using: dependencies
                             )
@@ -904,7 +904,7 @@ extension MessageSender {
                 
                 /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
                 /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer
                     .preparedUnrevokeSubaccounts(
                         subaccountsToUnrevoke: memberInfo.map { token, _ in token },
                         authMethod: Authentication.groupAdmin(
@@ -964,7 +964,7 @@ extension MessageSender {
         
         let targetChangeTimestampMs: Int64 = (
             changeTimestampMs ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies[cache: .storageServer].currentOffsetTimestampMs()
         )
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -1165,7 +1165,7 @@ extension MessageSender {
                 /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
                 /// is a newly promoted member
                 if !isResend && !membersReceivingPromotions.isEmpty {
-                    let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
                     
                     _ = try Interaction(
@@ -1270,7 +1270,7 @@ extension MessageSender {
             authorId: userSessionId.hexString,
             variant: .infoGroupCurrentUserLeaving,
             body: "leaving".localized(),
-            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+            timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
             using: dependencies
         ).inserted(db)
         

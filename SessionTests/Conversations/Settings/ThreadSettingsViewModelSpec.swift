@@ -36,7 +36,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
+        @TestState var mockStorageServerCache: MockStorageServerCache! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -79,8 +79,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             var timestampMs: Int64 = 1234567890000
-            try await mockSnodeAPICache.when { $0.clockOffsetMs }.thenReturn(0)
-            try await mockSnodeAPICache
+            try await mockStorageServerCache.when { $0.clockOffsetMs }.thenReturn(0)
+            try await mockStorageServerCache
                 .when { $0.currentOffsetTimestampMs() }
                 .thenReturn { _ in
                     /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
@@ -89,7 +89,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     timestampMs += 1
                     return timestampMs
                 }
-            dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
+            dependencies.set(cache: .storageServer, to: mockStorageServerCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in

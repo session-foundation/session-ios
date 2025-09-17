@@ -21,7 +21,7 @@ public actor GroupPoller: SwarmPollerType {
     private let minPollInterval: Double = 3
     private let maxPollInterval: Double = 30
     
-    public static func namespaces(swarmPublicKey: String) -> [Network.SnodeAPI.Namespace] {
+    public static func namespaces(swarmPublicKey: String) -> [Network.StorageServer.Namespace] {
         guard (try? SessionId.Prefix(from: swarmPublicKey)) == .group else {
             return [.legacyClosedGroup]
         }
@@ -49,7 +49,7 @@ public actor GroupPoller: SwarmPollerType {
     public var lastPollStart: TimeInterval = 0
     public var cancellable: AnyCancellable?
     
-    public let namespaces: [Network.SnodeAPI.Namespace]
+    public let namespaces: [Network.StorageServer.Namespace]
     public let customAuthMethod: AuthenticationMethod?
     public let shouldStoreMessages: Bool
     nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
@@ -60,7 +60,7 @@ public actor GroupPoller: SwarmPollerType {
         pollerName: String,
         destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [Network.SnodeAPI.Namespace],
+        namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,

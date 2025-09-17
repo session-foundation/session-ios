@@ -457,7 +457,6 @@
 		FD17D7A227F40F0500122BE0 /* _006_SMK_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79527F3E04600122BE0 /* _006_SMK_InitialSetupMigration.swift */; };
 		FD17D7B827F51ECA00122BE0 /* Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7B727F51ECA00122BE0 /* Migration.swift */; };
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
-		FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */; };
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
 		FD1A553E2E14BE11003761E4 /* PagedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A553D2E14BE0E003761E4 /* PagedData.swift */; };
 		FD1A55412E161AF6003761E4 /* Combine+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A55402E161AF3003761E4 /* Combine+Utilities.swift */; };
@@ -527,7 +526,7 @@
 		FD2272D12C34EBD6004D8A6C /* JSONDecoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */; };
 		FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272D32C34ECE1004D8A6C /* BencodeEncoder.swift */; };
 		FD2272D62C34ED6A004D8A6C /* RetryWithDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83DCDC2A739D350065FFAE /* RetryWithDependencies.swift */; };
-		FD2272D82C34EDE7004D8A6C /* SnodeAPIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272D72C34EDE6004D8A6C /* SnodeAPIEndpoint.swift */; };
+		FD2272D82C34EDE7004D8A6C /* StorageServerEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272D72C34EDE6004D8A6C /* StorageServerEndpoint.swift */; };
 		FD2272E02C3502BE004D8A6C /* Setting+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272DF2C3502BE004D8A6C /* Setting+Theme.swift */; };
 		FD2272E62C351378004D8A6C /* SUIKImageFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272E52C351378004D8A6C /* SUIKImageFormat.swift */; };
 		FD2272EA2C351CA7004D8A6C /* Threading.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272E92C351CA7004D8A6C /* Threading.swift */; };
@@ -597,8 +596,8 @@
 		FD3559462CC1FF200088F2A9 /* _034_AddMissingWhisperFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
-		FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
-		FD3765E02AD8F05100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
+		FD3765DF2AD8F03100DC1489 /* MockStorageServerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */; };
+		FD3765E02AD8F05100DC1489 /* MockStorageServerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */; };
 		FD3765E22AD8F53B00DC1489 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
 		FD3765E32AD8F56200DC1489 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
 		FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */; };
@@ -652,7 +651,7 @@
 		FD42ECD62E3308B5002D03EA /* ObservableKey+SessionUtilitiesKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD42ECD52E3308AC002D03EA /* ObservableKey+SessionUtilitiesKit.swift */; };
 		FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432433299C6985008A0213 /* PendingReadReceipt.swift */; };
 		FD47E0B12AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */; };
-		FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */; };
+		FD47E0B52AA6D7AA00A55E41 /* Request+StorageServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B42AA6D7AA00A55E41 /* Request+StorageServer.swift */; };
 		FD481A902CAD16F100ECC4CF /* LibSessionGroupInfoSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481A8F2CAD16EA00ECC4CF /* LibSessionGroupInfoSpec.swift */; };
 		FD481A922CAD17DE00ECC4CF /* LibSessionGroupMembersSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481A912CAD17D900ECC4CF /* LibSessionGroupMembersSpec.swift */; };
 		FD481A942CAE0AE000ECC4CF /* MockAppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481A932CAE0ADD00ECC4CF /* MockAppContext.swift */; };
@@ -662,7 +661,7 @@
 		FD481A992CB4CAAA00ECC4CF /* MockLibSessionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */; };
 		FD481A9A2CB4CAE500ECC4CF /* Mocked+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* Mocked+SMK.swift */; };
 		FD481A9B2CB4CAF100ECC4CF /* ArgumentDescribing+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* ArgumentDescribing+SMK.swift */; };
-		FD481A9C2CB4D58300ECC4CF /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
+		FD481A9C2CB4D58300ECC4CF /* MockStorageServerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */; };
 		FD481AA32CB889AE00ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */; };
 		FD49E2462B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD49E2472B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
@@ -744,7 +743,7 @@
 		FD6B92992E77A06E004463B5 /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92982E77A06C004463B5 /* Token.swift */; };
 		FD6B929B2E77A084004463B5 /* NetworkInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B929A2E77A083004463B5 /* NetworkInfo.swift */; };
 		FD6B929D2E77A096004463B5 /* Info.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B929C2E77A095004463B5 /* Info.swift */; };
-		FD6B92A32E77A18B004463B5 /* SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92A22E77A189004463B5 /* SnodeAPI.swift */; };
+		FD6B92A32E77A18B004463B5 /* StorageServerAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92A22E77A189004463B5 /* StorageServerAPI.swift */; };
 		FD6B92AB2E77A920004463B5 /* SOGS.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6B92A92E77A8F8004463B5 /* SOGS.swift */; };
 		FD6B92AC2E77A993004463B5 /* SOGSEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */; };
 		FD6B92AD2E77A9F1004463B5 /* SOGSError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4380827B31D4E00C60D73 /* SOGSError.swift */; };
@@ -1054,26 +1053,27 @@
 		FDE71B3D2E7A1F6F0023F5F9 /* SendMessageResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2C2E7A1F6F0023F5F9 /* SendMessageResponse.swift */; };
 		FDE71B3E2E7A1F6F0023F5F9 /* GetNetworkTimestampResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B232E7A1F6F0023F5F9 /* GetNetworkTimestampResponse.swift */; };
 		FDE71B3F2E7A1F6F0023F5F9 /* OxenDaemonRPCRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B282E7A1F6F0023F5F9 /* OxenDaemonRPCRequest.swift */; };
-		FDE71B402E7A1F6F0023F5F9 /* SnodeSwarmItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B322E7A1F6F0023F5F9 /* SnodeSwarmItem.swift */; };
+		FDE71B402E7A1F6F0023F5F9 /* BaseSwarmItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B322E7A1F6F0023F5F9 /* BaseSwarmItem.swift */; };
 		FDE71B412E7A1F6F0023F5F9 /* GetMessagesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B212E7A1F6F0023F5F9 /* GetMessagesRequest.swift */; };
 		FDE71B432E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B352E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift */; };
 		FDE71B462E7A1F6F0023F5F9 /* GetMessagesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B222E7A1F6F0023F5F9 /* GetMessagesResponse.swift */; };
 		FDE71B472E7A1F6F0023F5F9 /* ONSResolveRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B262E7A1F6F0023F5F9 /* ONSResolveRequest.swift */; };
 		FDE71B482E7A1F6F0023F5F9 /* ONSResolveResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B272E7A1F6F0023F5F9 /* ONSResolveResponse.swift */; };
-		FDE71B492E7A1F6F0023F5F9 /* SnodeAuthenticatedRequestBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2D2E7A1F6F0023F5F9 /* SnodeAuthenticatedRequestBody.swift */; };
+		FDE71B492E7A1F6F0023F5F9 /* BaseAuthenticatedRequestBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2D2E7A1F6F0023F5F9 /* BaseAuthenticatedRequestBody.swift */; };
 		FDE71B4A2E7A1F6F0023F5F9 /* DeleteMessagesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1D2E7A1F6F0023F5F9 /* DeleteMessagesRequest.swift */; };
-		FDE71B4B2E7A1F6F0023F5F9 /* SnodeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B312E7A1F6F0023F5F9 /* SnodeResponse.swift */; };
+		FDE71B4B2E7A1F6F0023F5F9 /* BaseResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B312E7A1F6F0023F5F9 /* BaseResponse.swift */; };
 		FDE71B4C2E7A1F6F0023F5F9 /* UnrevokeSubaccountRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B332E7A1F6F0023F5F9 /* UnrevokeSubaccountRequest.swift */; };
 		FDE71B4D2E7A1F6F0023F5F9 /* DeleteAllMessagesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1C2E7A1F6F0023F5F9 /* DeleteAllMessagesResponse.swift */; };
 		FDE71B4F2E7A1F6F0023F5F9 /* DeleteAllMessagesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1B2E7A1F6F0023F5F9 /* DeleteAllMessagesRequest.swift */; };
 		FDE71B502E7A1F6F0023F5F9 /* GetExpiriesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B202E7A1F6F0023F5F9 /* GetExpiriesResponse.swift */; };
-		FDE71B512E7A1F6F0023F5F9 /* SnodeRecursiveResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2F2E7A1F6F0023F5F9 /* SnodeRecursiveResponse.swift */; };
+		FDE71B512E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2F2E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift */; };
 		FDE71B532E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2A2E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift */; };
 		FDE71B552E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B382E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift */; };
 		FDE71B562E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1E2E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift */; };
 		FDE71B572E7A1F6F0023F5F9 /* GetExpiriesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1F2E7A1F6F0023F5F9 /* GetExpiriesRequest.swift */; };
 		FDE71B592E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B342E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift */; };
 		FDE71B5B2E7A2CFB0023F5F9 /* UpdateExpiryRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B5A2E7A2CF70023F5F9 /* UpdateExpiryRequest.swift */; };
+		FDE71B5D2E7A6BA90023F5F9 /* StorageServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B5C2E7A6BA70023F5F9 /* StorageServer.swift */; };
 		FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */; };
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
 		FDE754A12C9A60A6002A2623 /* Crypto+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */; };
@@ -1147,9 +1147,9 @@
 		FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */; };
 		FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */; };
 		FDF8488929405B27007DCAE5 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */; };
-		FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */; };
+		FDF8489129405C13007DCAE5 /* StorageServerNamespace.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */; };
 		FDF848CC29405C5B007DCAE5 /* StorageServerMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */; };
-		FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */; };
+		FDF848E529405D6E007DCAE5 /* StorageServerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E029405D6E007DCAE5 /* StorageServerError.swift */; };
 		FDF848E629405D6E007DCAE5 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E129405D6E007DCAE5 /* Destination.swift */; };
 		FDF848F129406A30007DCAE5 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F029406A30007DCAE5 /* Format.swift */; };
 		FDF848F329413DB0007DCAE5 /* ImagePickerHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */; };
@@ -1884,7 +1884,6 @@
 		FD17D7C927F546D900122BE0 /* _001_SUK_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_SUK_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D7E427F6A09900122BE0 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		FD17D7E627F6A16700122BE0 /* _003_SUK_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_SUK_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
-		FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResponseInfo+SnodeAPI.swift"; sourceTree = "<group>"; };
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
 		FD1A553D2E14BE0E003761E4 /* PagedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PagedData.swift; sourceTree = "<group>"; };
 		FD1A55402E161AF3003761E4 /* Combine+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Combine+Utilities.swift"; sourceTree = "<group>"; };
@@ -1944,7 +1943,7 @@
 		FD2272A82C33E337004D8A6C /* URLResponse+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "URLResponse+Utilities.swift"; sourceTree = "<group>"; };
 		FD2272BD2C34B710004D8A6C /* Publisher+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Publisher+Utilities.swift"; sourceTree = "<group>"; };
 		FD2272D32C34ECE1004D8A6C /* BencodeEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BencodeEncoder.swift; sourceTree = "<group>"; };
-		FD2272D72C34EDE6004D8A6C /* SnodeAPIEndpoint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIEndpoint.swift; sourceTree = "<group>"; };
+		FD2272D72C34EDE6004D8A6C /* StorageServerEndpoint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerEndpoint.swift; sourceTree = "<group>"; };
 		FD2272DC2C34EFFA004D8A6C /* AppSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSetup.swift; sourceTree = "<group>"; };
 		FD2272DF2C3502BE004D8A6C /* Setting+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Setting+Theme.swift"; sourceTree = "<group>"; };
 		FD2272E52C351378004D8A6C /* SUIKImageFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SUIKImageFormat.swift; sourceTree = "<group>"; };
@@ -1981,7 +1980,7 @@
 		FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _034_AddMissingWhisperFlag.swift; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
-		FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSnodeAPICache.swift; sourceTree = "<group>"; };
+		FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockStorageServerCache.swift; sourceTree = "<group>"; };
 		FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mocked+SNK.swift"; sourceTree = "<group>"; };
 		FD3765F32ADE5A0800DC1489 /* AuthenticatedRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticatedRequest.swift; sourceTree = "<group>"; };
 		FD3765F52ADE5BA500DC1489 /* ServiceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInfo.swift; sourceTree = "<group>"; };
@@ -2041,7 +2040,7 @@
 		FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Authentication.swift; sourceTree = "<group>"; };
 		FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONDecoder+Utilities.swift"; sourceTree = "<group>"; };
 		FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Authentication+SessionMessagingKit.swift"; sourceTree = "<group>"; };
-		FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+SnodeAPI.swift"; sourceTree = "<group>"; };
+		FD47E0B42AA6D7AA00A55E41 /* Request+StorageServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+StorageServer.swift"; sourceTree = "<group>"; };
 		FD481A8F2CAD16EA00ECC4CF /* LibSessionGroupInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionGroupInfoSpec.swift; sourceTree = "<group>"; };
 		FD481A912CAD17D900ECC4CF /* LibSessionGroupMembersSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionGroupMembersSpec.swift; sourceTree = "<group>"; };
 		FD481A932CAE0ADD00ECC4CF /* MockAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAppContext.swift; sourceTree = "<group>"; };
@@ -2099,7 +2098,7 @@
 		FD6B92982E77A06C004463B5 /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 		FD6B929A2E77A083004463B5 /* NetworkInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInfo.swift; sourceTree = "<group>"; };
 		FD6B929C2E77A095004463B5 /* Info.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Info.swift; sourceTree = "<group>"; };
-		FD6B92A22E77A189004463B5 /* SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeAPI.swift; sourceTree = "<group>"; };
+		FD6B92A22E77A189004463B5 /* StorageServerAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageServerAPI.swift; sourceTree = "<group>"; };
 		FD6B92A92E77A8F8004463B5 /* SOGS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGS.swift; sourceTree = "<group>"; };
 		FD6B92C52E77AD0B004463B5 /* Crypto+FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+FileServer.swift"; sourceTree = "<group>"; };
 		FD6B92C72E77AD35004463B5 /* Crypto+SOGS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+SOGS.swift"; sourceTree = "<group>"; };
@@ -2365,16 +2364,17 @@
 		FDE71B2A2E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevokeSubaccountResponse.swift; sourceTree = "<group>"; };
 		FDE71B2B2E7A1F6F0023F5F9 /* SendMessageRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendMessageRequest.swift; sourceTree = "<group>"; };
 		FDE71B2C2E7A1F6F0023F5F9 /* SendMessageResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendMessageResponse.swift; sourceTree = "<group>"; };
-		FDE71B2D2E7A1F6F0023F5F9 /* SnodeAuthenticatedRequestBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeAuthenticatedRequestBody.swift; sourceTree = "<group>"; };
-		FDE71B2F2E7A1F6F0023F5F9 /* SnodeRecursiveResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeRecursiveResponse.swift; sourceTree = "<group>"; };
-		FDE71B312E7A1F6F0023F5F9 /* SnodeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeResponse.swift; sourceTree = "<group>"; };
-		FDE71B322E7A1F6F0023F5F9 /* SnodeSwarmItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeSwarmItem.swift; sourceTree = "<group>"; };
+		FDE71B2D2E7A1F6F0023F5F9 /* BaseAuthenticatedRequestBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseAuthenticatedRequestBody.swift; sourceTree = "<group>"; };
+		FDE71B2F2E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseRecursiveResponse.swift; sourceTree = "<group>"; };
+		FDE71B312E7A1F6F0023F5F9 /* BaseResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseResponse.swift; sourceTree = "<group>"; };
+		FDE71B322E7A1F6F0023F5F9 /* BaseSwarmItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseSwarmItem.swift; sourceTree = "<group>"; };
 		FDE71B332E7A1F6F0023F5F9 /* UnrevokeSubaccountRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnrevokeSubaccountRequest.swift; sourceTree = "<group>"; };
 		FDE71B342E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnrevokeSubaccountResponse.swift; sourceTree = "<group>"; };
 		FDE71B352E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryAllRequest.swift; sourceTree = "<group>"; };
 		FDE71B362E7A1F6F0023F5F9 /* UpdateExpiryAllResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryAllResponse.swift; sourceTree = "<group>"; };
 		FDE71B382E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryResponse.swift; sourceTree = "<group>"; };
 		FDE71B5A2E7A2CF70023F5F9 /* UpdateExpiryRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryRequest.swift; sourceTree = "<group>"; };
+		FDE71B5C2E7A6BA70023F5F9 /* StorageServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageServer.swift; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
 		FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageViewModel+DeletionActions.swift"; sourceTree = "<group>"; };
@@ -2465,9 +2465,9 @@
 		FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LibSession.swift"; sourceTree = "<group>"; };
 		FDF8487D29405993007DCAE5 /* HTTPHeader+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SOGS.swift"; sourceTree = "<group>"; };
 		FDF8487E29405994007DCAE5 /* HTTPQueryParam+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPQueryParam+SOGS.swift"; sourceTree = "<group>"; };
-		FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPINamespace.swift; sourceTree = "<group>"; };
+		FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerNamespace.swift; sourceTree = "<group>"; };
 		FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerMessage.swift; sourceTree = "<group>"; };
-		FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIError.swift; sourceTree = "<group>"; };
+		FDF848E029405D6E007DCAE5 /* StorageServerError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerError.swift; sourceTree = "<group>"; };
 		FDF848E129405D6E007DCAE5 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
 		FDF848F029406A30007DCAE5 /* Format.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Format.swift; path = "SessionUIKit/Style Guide/Format.swift"; sourceTree = SOURCE_ROOT; };
 		FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImagePickerHandler.swift; sourceTree = "<group>"; };
@@ -4208,10 +4208,11 @@
 				FDE71B172E7A1F660023F5F9 /* Database */,
 				FDE71B392E7A1F6F0023F5F9 /* Models */,
 				FD6B92A12E77A153004463B5 /* Types */,
-				FD6B92A22E77A189004463B5 /* SnodeAPI.swift */,
-				FD2272D72C34EDE6004D8A6C /* SnodeAPIEndpoint.swift */,
-				FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */,
-				FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */,
+				FDE71B5C2E7A6BA70023F5F9 /* StorageServer.swift */,
+				FD6B92A22E77A189004463B5 /* StorageServerAPI.swift */,
+				FD2272D72C34EDE6004D8A6C /* StorageServerEndpoint.swift */,
+				FDF848E029405D6E007DCAE5 /* StorageServerError.swift */,
+				FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */,
 			);
 			path = StorageServer;
 			sourceTree = "<group>";
@@ -4280,7 +4281,7 @@
 			isa = PBXGroup;
 			children = (
 				FD23CE312A67C38D0000B97C /* MockNetwork.swift */,
-				FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */,
+				FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */,
 				FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */,
 			);
 			path = _TestUtilities;
@@ -4492,8 +4493,7 @@
 		FD6B92A12E77A153004463B5 /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */,
-				FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */,
+				FD47E0B42AA6D7AA00A55E41 /* Request+StorageServer.swift */,
 				FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */,
 			);
 			path = Types;
@@ -5165,6 +5165,10 @@
 		FDE71B392E7A1F6F0023F5F9 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				FDE71B2D2E7A1F6F0023F5F9 /* BaseAuthenticatedRequestBody.swift */,
+				FDE71B312E7A1F6F0023F5F9 /* BaseResponse.swift */,
+				FDE71B2F2E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift */,
+				FDE71B322E7A1F6F0023F5F9 /* BaseSwarmItem.swift */,
 				FDE71B1B2E7A1F6F0023F5F9 /* DeleteAllMessagesRequest.swift */,
 				FDE71B1C2E7A1F6F0023F5F9 /* DeleteAllMessagesResponse.swift */,
 				FDE71B1D2E7A1F6F0023F5F9 /* DeleteMessagesRequest.swift */,
@@ -5181,10 +5185,6 @@
 				FDE71B2A2E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift */,
 				FDE71B2B2E7A1F6F0023F5F9 /* SendMessageRequest.swift */,
 				FDE71B2C2E7A1F6F0023F5F9 /* SendMessageResponse.swift */,
-				FDE71B2D2E7A1F6F0023F5F9 /* SnodeAuthenticatedRequestBody.swift */,
-				FDE71B2F2E7A1F6F0023F5F9 /* SnodeRecursiveResponse.swift */,
-				FDE71B312E7A1F6F0023F5F9 /* SnodeResponse.swift */,
-				FDE71B322E7A1F6F0023F5F9 /* SnodeSwarmItem.swift */,
 				FDE71B332E7A1F6F0023F5F9 /* UnrevokeSubaccountRequest.swift */,
 				FDE71B342E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift */,
 				FDE71B352E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift */,
@@ -6475,7 +6475,7 @@
 				FD2272B12C33E337004D8A6C /* ProxiedContentDownloader.swift in Sources */,
 				FDD23ADE2E44501E0057E853 /* RequestCategory.swift in Sources */,
 				FD6B928E2E779E99004463B5 /* FileServerEndpoint.swift in Sources */,
-				FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */,
+				FDF8489129405C13007DCAE5 /* StorageServerNamespace.swift in Sources */,
 				FD2272AB2C33E337004D8A6C /* ValidatableResponse.swift in Sources */,
 				FD2272B72C33E337004D8A6C /* Request.swift in Sources */,
 				FD2272B92C33E337004D8A6C /* ResponseInfo.swift in Sources */,
@@ -6485,7 +6485,7 @@
 				FD6B92AC2E77A993004463B5 /* SOGSEndpoint.swift in Sources */,
 				FD6B92922E779FC8004463B5 /* SessionNetwork.swift in Sources */,
 				FD2272AC2C33E337004D8A6C /* IPv4.swift in Sources */,
-				FD2272D82C34EDE7004D8A6C /* SnodeAPIEndpoint.swift in Sources */,
+				FD2272D82C34EDE7004D8A6C /* StorageServerEndpoint.swift in Sources */,
 				FD39370A2E4B04E000571F17 /* SwarmDrainer.swift in Sources */,
 				FDFC4D9A29F0C51500992FB6 /* String+Trimming.swift in Sources */,
 				FD6B92992E77A06E004463B5 /* Token.swift in Sources */,
@@ -6496,20 +6496,20 @@
 				FDE71B3D2E7A1F6F0023F5F9 /* SendMessageResponse.swift in Sources */,
 				FDE71B3E2E7A1F6F0023F5F9 /* GetNetworkTimestampResponse.swift in Sources */,
 				FDE71B3F2E7A1F6F0023F5F9 /* OxenDaemonRPCRequest.swift in Sources */,
-				FDE71B402E7A1F6F0023F5F9 /* SnodeSwarmItem.swift in Sources */,
+				FDE71B402E7A1F6F0023F5F9 /* BaseSwarmItem.swift in Sources */,
 				FDE71B412E7A1F6F0023F5F9 /* GetMessagesRequest.swift in Sources */,
 				FDE71B432E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift in Sources */,
 				FDE71B462E7A1F6F0023F5F9 /* GetMessagesResponse.swift in Sources */,
 				FDE71B472E7A1F6F0023F5F9 /* ONSResolveRequest.swift in Sources */,
 				FDE71B482E7A1F6F0023F5F9 /* ONSResolveResponse.swift in Sources */,
-				FDE71B492E7A1F6F0023F5F9 /* SnodeAuthenticatedRequestBody.swift in Sources */,
+				FDE71B492E7A1F6F0023F5F9 /* BaseAuthenticatedRequestBody.swift in Sources */,
 				FDE71B4A2E7A1F6F0023F5F9 /* DeleteMessagesRequest.swift in Sources */,
-				FDE71B4B2E7A1F6F0023F5F9 /* SnodeResponse.swift in Sources */,
+				FDE71B4B2E7A1F6F0023F5F9 /* BaseResponse.swift in Sources */,
 				FDE71B4C2E7A1F6F0023F5F9 /* UnrevokeSubaccountRequest.swift in Sources */,
 				FDE71B4D2E7A1F6F0023F5F9 /* DeleteAllMessagesResponse.swift in Sources */,
 				FDE71B4F2E7A1F6F0023F5F9 /* DeleteAllMessagesRequest.swift in Sources */,
 				FDE71B502E7A1F6F0023F5F9 /* GetExpiriesResponse.swift in Sources */,
-				FDE71B512E7A1F6F0023F5F9 /* SnodeRecursiveResponse.swift in Sources */,
+				FDE71B512E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift in Sources */,
 				FDE71B532E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift in Sources */,
 				FDE71B552E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift in Sources */,
 				FDE71B562E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift in Sources */,
@@ -6522,14 +6522,13 @@
 				FD6B92B22E77AA03004463B5 /* UpdateTypes.swift in Sources */,
 				FD6B92B32E77AA03004463B5 /* Personalization.swift in Sources */,
 				FD6B929B2E77A084004463B5 /* NetworkInfo.swift in Sources */,
-				FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */,
+				FD47E0B52AA6D7AA00A55E41 /* Request+StorageServer.swift in Sources */,
 				FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */,
 				FDE754E32C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift in Sources */,
 				FD2272AD2C33E337004D8A6C /* Network.swift in Sources */,
 				FD2272B32C33E337004D8A6C /* BatchRequest.swift in Sources */,
 				FD2272B02C33E337004D8A6C /* NetworkError.swift in Sources */,
 				FD6B92AB2E77A920004463B5 /* SOGS.swift in Sources */,
-				FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */,
 				FD6B92E92E77C5D1004463B5 /* SubscribeResponse.swift in Sources */,
 				FD6B92EA2E77C5D1004463B5 /* NotificationMetadata.swift in Sources */,
 				FD6B92EB2E77C5D1004463B5 /* AuthenticatedRequest.swift in Sources */,
@@ -6541,6 +6540,7 @@
 				FD6B92B42E77AA11004463B5 /* PinnedMessage.swift in Sources */,
 				FD6B92B52E77AA11004463B5 /* SendDirectMessageResponse.swift in Sources */,
 				FD6B92B62E77AA11004463B5 /* UserUnbanRequest.swift in Sources */,
+				FDE71B5D2E7A6BA90023F5F9 /* StorageServer.swift in Sources */,
 				FDE71B5B2E7A2CFB0023F5F9 /* UpdateExpiryRequest.swift in Sources */,
 				FD6B92B72E77AA11004463B5 /* UserModeratorRequest.swift in Sources */,
 				FD6B92B82E77AA11004463B5 /* SendSOGSMessageRequest.swift in Sources */,
@@ -6558,12 +6558,12 @@
 				947D7FD82D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift in Sources */,
 				FD6B92F42E77C61A004463B5 /* ServiceInfo.swift in Sources */,
 				FDF848E629405D6E007DCAE5 /* Destination.swift in Sources */,
-				FD6B92A32E77A18B004463B5 /* SnodeAPI.swift in Sources */,
+				FD6B92A32E77A18B004463B5 /* StorageServerAPI.swift in Sources */,
 				FDF848CC29405C5B007DCAE5 /* StorageServerMessage.swift in Sources */,
 				FD6B92E22E77C21D004463B5 /* PushNotificationAPI.swift in Sources */,
 				FD2272AF2C33E337004D8A6C /* JSON.swift in Sources */,
 				FD2272D62C34ED6A004D8A6C /* RetryWithDependencies.swift in Sources */,
-				FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */,
+				FDF848E529405D6E007DCAE5 /* StorageServerError.swift in Sources */,
 				FD2272B22C33E337004D8A6C /* PreparedRequest.swift in Sources */,
 				FDE71B072E7903480023F5F9 /* Dependencies+Network.swift in Sources */,
 				FD6B928C2E779DCC004463B5 /* FileServer.swift in Sources */,
@@ -7230,7 +7230,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */,
-				FD481A9C2CB4D58300ECC4CF /* MockSnodeAPICache.swift in Sources */,
+				FD481A9C2CB4D58300ECC4CF /* MockStorageServerCache.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
 				FD6B92852E77821E004463B5 /* NimbleExtensions.swift in Sources */,
@@ -7308,7 +7308,7 @@
 				FD3765E22AD8F53B00DC1489 /* Mocked+SNK.swift in Sources */,
 				FD0150382CA24328005B08A1 /* MockJobRunner.swift in Sources */,
 				FD481A952CAE0AE000ECC4CF /* MockAppContext.swift in Sources */,
-				FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */,
+				FD3765DF2AD8F03100DC1489 /* MockStorageServerCache.swift in Sources */,
 				FDB11A582DD17D0600BEF49F /* MockLogger.swift in Sources */,
 				FDB5DB092A981F8D002C8721 /* MockCrypto.swift in Sources */,
 				FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
@@ -7372,7 +7372,7 @@
 				FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */,
 				FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */,
 				FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */,
-				FD3765E02AD8F05100DC1489 /* MockSnodeAPICache.swift in Sources */,
+				FD3765E02AD8F05100DC1489 /* MockStorageServerCache.swift in Sources */,
 				FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */,
 				FD83B9C027CF2294005E1583 /* TestConstants.swift in Sources */,
 				FDE71B112E7A1D1C0023F5F9 /* CommunityPollerManagerSpec.swift in Sources */,

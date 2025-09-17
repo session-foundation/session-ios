@@ -164,7 +164,7 @@ enum _036_GroupsRebuildChanges: Migration {
         
         // Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with
         // the other display picture logic
-        let timestampMs: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        let timestampMs: TimeInterval = TimeInterval(dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
         let existingImageInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT threadid, imageData
             FROM openGroup

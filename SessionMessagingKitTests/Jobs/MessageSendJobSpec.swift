@@ -458,8 +458,8 @@ class MessageSendJobSpec: AsyncSpec {
                                 using: dependencies
                             )
                             
-                            expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })
-                                .to(equal(JobDependencies(jobId: 54321, dependantId: 1000)))
+                            await expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })
+                                .toEventually(equal(JobDependencies(jobId: 54321, dependantId: 1000)))
                         }
                     }
                 }

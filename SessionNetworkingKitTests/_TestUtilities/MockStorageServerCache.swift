@@ -9,10 +9,10 @@ import TestUtilities
 
 @testable import SessionNetworkingKit
 
-class MockSnodeAPICache: SnodeAPICacheType, Mockable {
-    public var handler: MockHandler<SnodeAPICacheType>
+class MockStorageServerCache: StorageServerCacheType, Mockable {
+    public var handler: MockHandler<StorageServerCacheType>
     
-    required init(handler: MockHandler<SnodeAPICacheType>) {
+    required init(handler: MockHandler<StorageServerCacheType>) {
         self.handler = handler
     }
     
@@ -43,7 +43,7 @@ class MockSnodeAPICache: SnodeAPICacheType, Mockable {
 
 // MARK: - Convenience
 
-extension MockSnodeAPICache {
+extension MockStorageServerCache {
     func defaultInitialSetup() async throws {
         try await self.when { $0.hardfork }.thenReturn(0)
         try await self.when { $0.hardfork = .any }.thenReturn(())

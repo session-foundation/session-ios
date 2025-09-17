@@ -154,7 +154,7 @@ public class NotificationActionHandler {
                     throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
                 }
                 
-                let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
                 let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
                     .filter(id: threadId)
                     .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)

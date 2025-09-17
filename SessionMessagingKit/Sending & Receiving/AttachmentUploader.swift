@@ -202,7 +202,7 @@ public final class AttachmentUploader {
                     state: .uploaded,
                     creationTimestamp: (
                         uploadInfo.attachment.creationTimestamp ??
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
                     ),
                     downloadUrl: {
                         let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]

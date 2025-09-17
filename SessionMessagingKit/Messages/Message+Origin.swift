@@ -8,7 +8,7 @@ public extension Message {
     enum Origin: Codable, Hashable {
         case swarm(
             publicKey: String,
-            namespace: Network.SnodeAPI.Namespace,
+            namespace: Network.StorageServer.Namespace,
             serverHash: String,
             serverTimestampMs: Int64,
             serverExpirationTimestamp: TimeInterval

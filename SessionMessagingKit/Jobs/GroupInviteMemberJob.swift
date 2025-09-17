@@ -41,7 +41,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
         let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         /// Perform the actual message sending
@@ -144,10 +144,10 @@ public enum GroupInviteMemberJob: JobExecutor {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
                                     failure(job, error, true)
                                     
-                                case SnodeAPIError.rateLimited:
+                                case StorageServerError.rateLimited:
                                     failure(job, error, true)
                                     
-                                case SnodeAPIError.clockOutOfSync:
+                                case StorageServerError.clockOutOfSync:
                                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
                                     failure(job, error, true)
                                     

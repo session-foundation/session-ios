@@ -199,7 +199,7 @@ public extension Crypto.Generator {
     
     static func messageServerHash(
         swarmPubkey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         data: Data
     ) -> Crypto.Generator<String> {
         return Crypto.Generator(

@@ -292,7 +292,7 @@ internal extension LibSessionCacheType {
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )).map { authMethod in
-                try? Network.SnodeAPI
+                try? Network.StorageServer
                     .preparedDeleteMessages(
                         serverHashes: Array(messageHashesToDelete),
                         requireSuccessfulDeletion: false,

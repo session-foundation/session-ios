@@ -58,7 +58,7 @@ internal extension ValidatableResponse {
                 Self.requiredSuccessfulResponses < 0 &&
                 successPercentage >= abs(1 / CGFloat(Self.requiredSuccessfulResponses))
             )
-        else { throw SnodeAPIError.responseFailedValidation }
+        else { throw StorageServerError.responseFailedValidation }
         
         return validResultMap
     }

@@ -87,7 +87,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let messageSendTimestamp: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
@@ -101,32 +101,31 @@ public enum ConfigurationSyncJob: JobExecutor {
                     )
                 )
                 
-                return try Network.SnodeAPI.preparedSequence(
+                return try Network.StorageServer.preparedSequence(
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
                             contentsOf: try pendingPushes.pushData
                                 .flatMap { pushData -> [ErasedPreparedRequest] in
                                     try pushData.data.map { data -> ErasedPreparedRequest in
-                                        try Network.SnodeAPI
-                                            .preparedSendMessage(
-                                                message: SnodeMessage(
-                                                    recipient: swarmPublicKey,
-                                                    data: data,
-                                                    ttl: pushData.variant.ttl,
-                                                    timestampMs: UInt64(messageSendTimestamp)
-                                                ),
-                                                in: pushData.variant.namespace,
-                                                authMethod: authMethod,
-                                                using: dependencies
-                                            )
+                                        try Network.StorageServer.preparedSendMessage(
+                                            request: Network.StorageServer.SendMessageRequest(
+                                                recipient: swarmPublicKey,
+                                                namespace: pushData.variant.namespace,
+                                                data: data,
+                                                ttl: pushData.variant.ttl,
+                                                timestampMs: UInt64(messageSendTimestamp),
+                                                authMethod: authMethod
+                                            ),
+                                            using: dependencies
+                                        )
                                     }
                             }
                         )
                         .appending(try {
                             guard !pendingPushes.obsoleteHashes.isEmpty else { return nil }
                             
-                            return try Network.SnodeAPI.preparedDeleteMessages(
+                            return try Network.StorageServer.preparedDeleteMessages(
                                 serverHashes: Array(pendingPushes.obsoleteHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: authMethod,
@@ -170,10 +169,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
-                            let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
+                            let typedResponse: Network.BatchSubResponse<Network.StorageServer.SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<Network.StorageServer.SendMessagesResponse>),
                             200...299 ~= typedResponse.code,
                             !typedResponse.failedToParseBody,
-                            let sendMessageResponse: SendMessagesResponse = typedResponse.body
+                            let sendMessageResponse: Network.StorageServer.SendMessagesResponse = typedResponse.body
                         else { return (pushData, nil) }
                         
                         return (pushData, sendMessageResponse.hash)

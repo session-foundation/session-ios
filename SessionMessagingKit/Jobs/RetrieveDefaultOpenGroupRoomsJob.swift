@@ -166,7 +166,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                                 roomToken: room.token,
                                                 server: Network.SOGS.defaultServer
                                             ),
-                                            timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                                            timestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
                                         )
                                     ),
                                     canStartJob: true

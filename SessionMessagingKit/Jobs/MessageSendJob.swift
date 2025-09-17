@@ -246,10 +246,10 @@ public enum MessageSendJob: JobExecutor {
                                 case (let senderError as MessageSenderError, _) where !senderError.isRetryable:
                                     failure(job, error, true)
                                     
-                                case (SnodeAPIError.rateLimited, _):
+                                case (StorageServerError.rateLimited, _):
                                     failure(job, error, true)
                                     
-                                case (SnodeAPIError.clockOutOfSync, _):
+                                case (StorageServerError.clockOutOfSync, _):
                                     Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestampMs != nil))
                                     

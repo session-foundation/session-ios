@@ -25,7 +25,7 @@ extension MessageReceiver {
         
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies[cache: .storageServer].currentOffsetTimestampMs()
         )
         
         let wasRead: Bool = dependencies.mutate(cache: .libSession) { cache in
