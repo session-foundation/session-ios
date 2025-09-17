@@ -86,7 +86,7 @@ public enum MessageSendJob: JobExecutor {
             /// Retrieve the current attachment state
             let attachmentState: AttachmentState = dependencies[singleton: .storage]
                 .read { db in try MessageSendJob.fetchAttachmentState(db, interactionId: interactionId) }
-                .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
+                .defaulting(to: AttachmentState(error: StorageError.objectNotFound))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail

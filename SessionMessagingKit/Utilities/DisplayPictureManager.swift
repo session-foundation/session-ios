@@ -285,7 +285,7 @@ public class DisplayPictureManager {
                 
                 // Upload the avatar to the FileServer
                 guard
-                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
+                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.FileServer.preparedUpload(
                         data: encryptedData,
                         overallTimeout: Network.fileUploadTimeout,
                         using: dependencies

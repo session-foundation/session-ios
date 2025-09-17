@@ -25,7 +25,7 @@ public actor CancellationAwareAsyncStream<Element: Sendable>: CancellationAwareS
         // No-op - no initial value
     }
     
-    public func makeTrackedStream() -> AsyncStream<Element> {
+    public func _makeTrackedStream() -> AsyncStream<Element> {
         lifecycleManager.makeTrackedStream().stream
     }
 }
@@ -42,7 +42,7 @@ public protocol CancellationAwareStreamType: Actor {
     func beforeYield(to continuation: AsyncStream<Element>.Continuation) async
     
     /// This is an internal function which shouldn't be called directly
-    func makeTrackedStream() async -> AsyncStream<Element>
+    func _makeTrackedStream() async -> AsyncStream<Element>
 }
 
 public extension CancellationAwareStreamType {
@@ -55,7 +55,7 @@ public extension CancellationAwareStreamType {
             let bridgingTask = Task {
                 await self.beforeYield(to: continuation)
                 
-                let internalStream: AsyncStream<Element> = await self.makeTrackedStream()
+                let internalStream: AsyncStream<Element> = await self._makeTrackedStream()
                 
                 for await element in internalStream {
                     continuation.yield(element)

@@ -121,7 +121,6 @@ class OpenGroupManagerSpec: AsyncSpec {
         @TestState var mockAppGroupDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
-        @TestState var mockOGMCache: MockOGMCache! = .create(using: dependencies)
         @TestState var mockPoller: MockPoller! = .create(using: dependencies)
         @TestState var mockCommunityPollerManager: MockCommunityPollerManager! = .create(using: dependencies)
         @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
@@ -134,7 +133,6 @@ class OpenGroupManagerSpec: AsyncSpec {
         }()
         @TestState var disposables: [AnyCancellable]! = []
         
-        @TestState var cache: OpenGroupManager.Cache! = OpenGroupManager.Cache(using: dependencies)
         @TestState var openGroupManager: OpenGroupManager! = OpenGroupManager(using: dependencies)
         
         beforeEach {
@@ -145,13 +143,7 @@ class OpenGroupManagerSpec: AsyncSpec {
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
             try await mockFileManager.defaultInitialSetup()
-            dependencies.set(singleton: .fileManager, to: mockFileManager)
-            
-            try await mockOGMCache.when { $0.pendingChanges }.thenReturn([])
-            try await mockOGMCache.when { $0.pendingChanges = .any }.thenReturn(())
-            try await mockOGMCache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
-            try await mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
-            dependencies.set(cache: .openGroupManager, to: mockOGMCache)
+            dependencies.set(singleton: .fileManager, to: mockFileManager)            
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
@@ -278,60 +270,58 @@ class OpenGroupManagerSpec: AsyncSpec {
                 _ = userGroupsInitResult
             }
             
-            // MARK: -- cache data
-            context("cache data") {
-                // MARK: ---- defaults the time since last open to zero
-                it("defaults the time since last open to zero") {
-                    try await mockUserDefaults
-                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
-                        .thenReturn(nil)
-                    
-                    expect(cache.getLastSuccessfulCommunityPollTimestamp()).to(equal(0))
-                }
+            // MARK: -- defaults the time since last open to zero
+            it("defaults the time since last open to zero") {
+                try await mockUserDefaults
+                    .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
+                    .thenReturn(nil)
                 
-                // MARK: ---- returns the time since the last poll
-                it("returns the time since the last poll") {
-                    try await mockUserDefaults
-                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
-                        .thenReturn(Date(timeIntervalSince1970: 1234567880))
-                    dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
-                    
-                    expect(cache.getLastSuccessfulCommunityPollTimestamp())
-                        .to(equal(1234567880))
-                }
+                await expect { await openGroupManager.getLastSuccessfulCommunityPollTimestamp() }
+                    .toEventually(equal(0))
+            }
+            
+            // MARK: -- returns the time since the last poll
+            it("returns the time since the last poll") {
+                try await mockUserDefaults
+                    .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
+                    .thenReturn(Date(timeIntervalSince1970: 1234567880))
+                dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
                 
-                // MARK: ---- caches the time since the last poll in memory
-                it("caches the time since the last poll in memory") {
-                    try await mockUserDefaults
-                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
-                        .thenReturn(Date(timeIntervalSince1970: 1234567770))
-                    dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
-                    
-                    expect(cache.getLastSuccessfulCommunityPollTimestamp())
-                        .to(equal(1234567770))
-                    
-                    try await mockUserDefaults
-                        .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
-                        .thenReturn(Date(timeIntervalSince1970: 1234567890))
-                 
-                    // Cached value shouldn't have been updated
-                    expect(cache.getLastSuccessfulCommunityPollTimestamp())
-                        .to(equal(1234567770))
-                }
+                await expect { await openGroupManager.getLastSuccessfulCommunityPollTimestamp() }
+                    .toEventually(equal(1234567880))
+            }
+            
+            // MARK: -- caches the time since the last poll in memory
+            it("caches the time since the last poll in memory") {
+                try await mockUserDefaults
+                    .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
+                    .thenReturn(Date(timeIntervalSince1970: 1234567770))
+                dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
                 
-                // MARK: ---- updates the time since the last poll in user defaults
-                it("updates the time since the last poll in user defaults") {
-                    cache.setLastSuccessfulCommunityPollTimestamp(12345)
-                    
-                    await mockUserDefaults
-                        .verify {
-                            $0.set(
-                                Date(timeIntervalSince1970: 12345),
-                                forKey: UserDefaults.DateKey.lastOpen.rawValue
-                            )
-                        }
-                        .wasCalled(exactly: 1)
-                }
+                await expect { await openGroupManager.getLastSuccessfulCommunityPollTimestamp() }
+                    .toEventually(equal(1234567770))
+                
+                try await mockUserDefaults
+                    .when { $0.object(forKey: UserDefaults.DateKey.lastOpen.rawValue) }
+                    .thenReturn(Date(timeIntervalSince1970: 1234567890))
+             
+                // Cached value shouldn't have been updated
+                await expect { await openGroupManager.getLastSuccessfulCommunityPollTimestamp() }
+                    .toEventually(equal(1234567770))
+            }
+            
+            // MARK: -- updates the time since the last poll in user defaults
+            it("updates the time since the last poll in user defaults") {
+                await openGroupManager.setLastSuccessfulCommunityPollTimestamp(12345)
+                
+                await mockUserDefaults
+                    .verify {
+                        $0.set(
+                            Date(timeIntervalSince1970: 12345),
+                            forKey: UserDefaults.DateKey.lastOpen.rawValue
+                        )
+                    }
+                    .wasCalled(exactly: 1)
             }
             
             // MARK: -- when checking if an open group is run by session
@@ -409,7 +399,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 context("when there is a thread for the room and the cache has a poller") {
                     beforeEach {
                         try await mockCommunityPollerManager
-                            .when { await $0.syncState }
+                            .when { $0.syncState }
                             .thenReturn(CommunityPollerManagerSyncState(
                                 serversBeingPolled: ["http://127.0.0.1"]
                             ))
@@ -768,7 +758,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 )
                             )
                         }
-                        .wasCalled(timeout: .milliseconds(50))
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     await mockPoller.verify { await $0.startIfNeeded() }.wasCalled()
                 }
                 
@@ -1069,15 +1059,14 @@ class OpenGroupManagerSpec: AsyncSpec {
             context("when handling capabilities") {
                 beforeEach {
                     mockStorage.write { db in
-                        OpenGroupManager
-                            .handleCapabilities(
-                                db,
-                                capabilities: Network.SOGS.CapabilitiesResponse(
-                                    capabilities: ["sogs"],
-                                    missing: []
-                                ),
-                                on: "http://127.0.0.1"
-                            )
+                        openGroupManager.handleCapabilities(
+                            db,
+                            capabilities: Network.SOGS.CapabilitiesResponse(
+                                capabilities: ["sogs"],
+                                missing: []
+                            ),
+                            on: "http://127.0.0.1"
+                        )
                     }
                 }
                 
@@ -1104,13 +1093,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- saves the updated open group
                 it("saves the updated open group") {
                     mockStorage.write { db in
-                        try OpenGroupManager.handlePollInfo(
+                        try openGroupManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1127,13 +1115,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- does not schedule the displayPictureDownload job if there is no image
                 it("does not schedule the displayPictureDownload job if there is no image") {
                     mockStorage.write { db in
-                        try OpenGroupManager.handlePollInfo(
+                        try openGroupManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1177,13 +1164,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                     }
                     
                     mockStorage.write { db in
-                        try OpenGroupManager.handlePollInfo(
+                        try openGroupManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1226,13 +1212,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1273,13 +1258,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1314,13 +1298,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1345,13 +1328,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1392,13 +1374,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1434,13 +1415,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1458,13 +1438,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         }
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1477,13 +1456,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ saves the open group with the existing public key
                     it("saves the open group with the existing public key") {
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: nil,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1520,13 +1498,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1585,13 +1562,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1645,13 +1621,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1697,13 +1672,12 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ does nothing if there is no room image
                     it("does nothing if there is no room image") {
                         mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
+                            try openGroupManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1735,7 +1709,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- updates the sequence number when there are messages
                 it("updates the sequence number when there are messages") {
                     mockStorage.write { db in
-                        OpenGroupManager.handleMessages(
+                        openGroupManager.handleMessages(
                             db,
                             messages: [
                                 Network.SOGS.Message(
@@ -1754,8 +1728,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 )
                             ],
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1772,12 +1745,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- does not update the sequence number if there are no messages
                 it("does not update the sequence number if there are no messages") {
                     mockStorage.write { db in
-                        OpenGroupManager.handleMessages(
+                        openGroupManager.handleMessages(
                             db,
                             messages: [],
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1798,7 +1770,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     }
                     
                     mockStorage.write { db in
-                        OpenGroupManager.handleMessages(
+                        openGroupManager.handleMessages(
                             db,
                             messages: [
                                 Network.SOGS.Message(
@@ -1817,8 +1789,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 )
                             ],
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1832,7 +1803,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     }
                     
                     mockStorage.write { db in
-                        OpenGroupManager.handleMessages(
+                        openGroupManager.handleMessages(
                             db,
                             messages: [
                                 Network.SOGS.Message(
@@ -1851,8 +1822,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 )
                             ],
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1862,12 +1832,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- processes a message with valid data
                 it("processes a message with valid data") {
                     mockStorage.write { db in
-                        OpenGroupManager.handleMessages(
+                        openGroupManager.handleMessages(
                             db,
                             messages: [testMessage],
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1877,7 +1846,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- processes valid messages when combined with invalid ones
                 it("processes valid messages when combined with invalid ones") {
                     mockStorage.write { db in
-                        OpenGroupManager.handleMessages(
+                        openGroupManager.handleMessages(
                             db,
                             messages: [
                                 Network.SOGS.Message(
@@ -1897,8 +1866,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                 testMessage,
                             ],
                             for: "testRoom",
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -1918,7 +1886,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                         }
                         
                         mockStorage.write { db in
-                            OpenGroupManager.handleMessages(
+                            openGroupManager.handleMessages(
                                 db,
                                 messages: [
                                     Network.SOGS.Message(
@@ -1937,8 +1905,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     )
                                 ],
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -1948,7 +1915,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ does nothing if we do not have the message
                     it("does nothing if we do not have the message") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleMessages(
+                            openGroupManager.handleMessages(
                                 db,
                                 messages: [
                                     Network.SOGS.Message(
@@ -1967,8 +1934,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     )
                                 ],
                                 for: "testRoom",
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2005,12 +1971,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                 // MARK: ---- does nothing if there are no messages
                 it("does nothing if there are no messages") {
                     mockStorage.write { db in
-                        OpenGroupManager.handleDirectMessages(
+                        openGroupManager.handleDirectMessages(
                             db,
                             messages: [],
                             fromOutbox: false,
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -2039,12 +2004,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     }
                     
                     mockStorage.write { db in
-                        OpenGroupManager.handleDirectMessages(
+                        openGroupManager.handleDirectMessages(
                             db,
                             messages: [testDirectMessage],
                             fromOutbox: false,
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -2078,12 +2042,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     )
                     
                     mockStorage.write { db in
-                        OpenGroupManager.handleDirectMessages(
+                        openGroupManager.handleDirectMessages(
                             db,
                             messages: [testDirectMessage],
                             fromOutbox: false,
-                            on: "http://127.0.0.1",
-                            using: dependencies
+                            on: "http://127.0.0.1"
                         )
                     }
                     
@@ -2101,12 +2064,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ updates the inbox latest message id
                     it("updates the inbox latest message id") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: false,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2139,12 +2101,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                             ))
                         
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: false,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2154,12 +2115,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ processes a message with valid data
                     it("processes a message with valid data") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: false,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2169,7 +2129,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ processes valid messages when combined with invalid ones
                     it("processes valid messages when combined with invalid ones") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [
                                     Network.SOGS.DirectMessage(
@@ -2183,8 +2143,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     testDirectMessage
                                 ],
                                 fromOutbox: false,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2203,12 +2162,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ updates the outbox latest message id
                     it("updates the outbox latest message id") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2234,12 +2192,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                         }
                         
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2250,12 +2207,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ falls back to using the blinded id if no lookup is found
                     it("falls back to using the blinded id if no lookup is found") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2295,12 +2251,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                             ))
                         
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2310,12 +2265,11 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ processes a message with valid data
                     it("processes a message with valid data") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2325,7 +2279,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     // MARK: ------ processes valid messages when combined with invalid ones
                     it("processes valid messages when combined with invalid ones") {
                         mockStorage.write { db in
-                            OpenGroupManager.handleDirectMessages(
+                            openGroupManager.handleDirectMessages(
                                 db,
                                 messages: [
                                     Network.SOGS.DirectMessage(
@@ -2339,8 +2293,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                                     testDirectMessage
                                 ],
                                 fromOutbox: true,
-                                on: "http://127.0.0.1",
-                                using: dependencies
+                                on: "http://127.0.0.1"
                             )
                         }
                         
@@ -2555,8 +2508,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- when accessing the default rooms publisher
-            context("when accessing the default rooms publisher") {
+            // MARK: -- when accessing the default rooms stream
+            context("when accessing the default rooms stream") {
                 // MARK: ---- starts a job to retrieve the default rooms if we have none
                 it("starts a job to retrieve the default rooms if we have none") {
                     try await mockAppGroupDefaults
@@ -2588,7 +2541,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                             using: dependencies
                         )
                     }
-                    cache.defaultRoomsPublisher.sinkUntilComplete()
+                    _ = await openGroupManager.defaultRooms.first()
                     
                     await mockNetwork
                         .verify {
@@ -2609,8 +2562,8 @@ class OpenGroupManagerSpec: AsyncSpec {
                     try await mockAppGroupDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                         .thenReturn(true)
-                    cache.setDefaultRoomInfo([(room: Network.SOGS.Room.mock, openGroup: OpenGroup.mock)])
-                    cache.defaultRoomsPublisher.sinkUntilComplete()
+                    await openGroupManager.setDefaultRoomInfo([(room: Network.SOGS.Room.mock, openGroup: OpenGroup.mock)])
+                    _ = await openGroupManager.defaultRooms.first()
                     
                     await mockNetwork
                         .verify {

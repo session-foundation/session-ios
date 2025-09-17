@@ -444,7 +444,7 @@ class MessageSendJobSpec: AsyncSpec {
                                         before: job
                                     )
                                 }
-                                .wasCalled(exactly: 1)
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         }
                         
                         // MARK: -------- creates a dependency between the new job and the existing one

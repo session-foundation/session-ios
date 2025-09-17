@@ -100,7 +100,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                     receiveValue: { info, response in
                         let defaultRooms: [OpenGroupManager.DefaultRoomInfo]? = dependencies[singleton: .storage].write { db -> [OpenGroupManager.DefaultRoomInfo] in
                             // Store the capabilities first
-                            OpenGroupManager.handleCapabilities(
+                            dependencies[singleton: .openGroupManager].handleCapabilities(
                                 db,
                                 capabilities: response.capabilities.data,
                                 on: Network.SOGS.defaultServer
@@ -177,8 +177,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                         }
                         
                         /// Update the `openGroupManager` cache to have the default rooms
-                        dependencies.mutate(cache: .openGroupManager) { cache in
-                            cache.setDefaultRoomInfo(defaultRooms ?? [])
+                        Task { [manager = dependencies[singleton: .openGroupManager]] in
+                            await manager.setDefaultRoomInfo(defaultRooms ?? [])
                         }
                     }
                 )

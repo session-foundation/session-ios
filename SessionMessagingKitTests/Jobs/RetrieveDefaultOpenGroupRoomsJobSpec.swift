@@ -26,7 +26,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
-        @TestState var mockOGMCache: MockOGMCache! = .create(using: dependencies)
+        @TestState var mockOpenGroupManager: MockOpenGroupManager! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
@@ -37,8 +37,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
-            try await mockOGMCache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
-            dependencies.set(cache: .openGroupManager, to: mockOGMCache)
+            try await mockOpenGroupManager.defaultInitialSetup()
+            dependencies.set(singleton: .openGroupManager, to: mockOpenGroupManager)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
@@ -369,8 +369,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 expect(permanentFailure).to(beTrue())
             }
             
-            // MARK: -- stores the updated capabilities
-            it("stores the updated capabilities") {
+            // MARK: -- handles the updated capabilities
+            it("handles the updated capabilities") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
                     scheduler: DispatchQueue.main,
@@ -380,14 +380,21 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                let capabilities: [Capability]? = await expect { mockStorage.read { db in try Capability.fetchAll(db) } }
-                    .toEventuallyNot(beNil())
-                    .retrieveValue()
-                expect(capabilities?.count).to(equal(2))
-                expect(capabilities?.map { $0.openGroupServer })
-                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
-                expect(capabilities?.map { $0.variant }).to(equal([.blind, .reactions]))
-                expect(capabilities?.map { $0.isMissing }).to(equal([false, false]))
+                await mockOpenGroupManager
+                    .verify {
+                        $0.handleCapabilities(
+                            .any,
+                            capabilities: Network.SOGS.CapabilitiesResponse(
+                                capabilities: [
+                                    Capability.Variant.blind.rawValue,
+                                    Capability.Variant.reactions.rawValue
+                                ],
+                                missing: nil
+                            ),
+                            on: Network.SOGS.defaultServer
+                        )
+                    }
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- inserts the returned rooms
@@ -669,9 +676,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
-                await mockOGMCache
+                await mockOpenGroupManager
                     .verify {
-                        $0.setDefaultRoomInfo([
+                        await $0.setDefaultRoomInfo([
                             (
                                 room: Network.SOGS.Room.mock.with(
                                     token: "testRoom",

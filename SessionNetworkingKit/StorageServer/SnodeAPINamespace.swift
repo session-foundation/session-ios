@@ -52,22 +52,6 @@ public extension Network.SnodeAPI {
         
         // MARK: - Variables
         
-        var requiresReadAuthentication: Bool {
-            switch self {
-                // Legacy closed groups don't support authenticated retrieval
-                case .legacyClosedGroup: return false
-                default: return true
-            }
-        }
-        
-        var requiresWriteAuthentication: Bool {
-            switch self {
-                // Legacy closed groups don't support authenticated storage
-                case .legacyClosedGroup: return false
-                default: return true
-            }
-        }
-        
         /// This flag indicates whether we should provide a `lastHash` when retrieving messages from the specified
         /// namespace, when `true` we will only receive messages added since the provided `lastHash`, otherwise
         /// we will retrieve **all** messages from the namespace

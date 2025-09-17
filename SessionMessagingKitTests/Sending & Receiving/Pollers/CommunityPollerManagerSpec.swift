@@ -100,7 +100,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
-    var mockOGMCache: MockOGMCache { mock(cache: .openGroupManager) }
+    var mockOpenGroupManager: MockOpenGroupManager { mock(for: .openGroupManager) }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     lazy var manager: CommunityPollerManager = CommunityPollerManager(using: dependencies)
     
@@ -119,7 +119,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         try await applyBaselineAppContext()
         try await applyBaselineUserDefaults()
         try await applyBaselineGeneralCache()
-        try await applyBaselineOGMCache()
+        try await applyBaselineOpenGroupManager()
         try await applyBaselineCrypto()
     }
     
@@ -200,9 +200,8 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
             .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
     }
     
-    private func applyBaselineOGMCache() async throws {
-        try await mockOGMCache.when { $0.pendingChanges }.thenReturn([])
-        try await mockOGMCache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+    private func applyBaselineOpenGroupManager() async throws {
+        try await mockOpenGroupManager.defaultInitialSetup()
     }
     
     private func applyBaselineCrypto() async throws {

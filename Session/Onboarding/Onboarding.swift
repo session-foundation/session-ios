@@ -463,7 +463,7 @@ extension Onboarding {
     }
 }
 
-// MARK: - OnboardingManagerType
+// MARK: - OnboardingManagerSyncState
 
 /// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
 public final class OnboardingManagerSyncState: @unchecked Sendable {

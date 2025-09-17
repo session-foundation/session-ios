@@ -159,8 +159,8 @@ public actor CommunityPoller: PollerType {
             )
             let response: Network.SOGS.CapabilitiesResponse = try await request.send(using: dependencies)
             
-            try await dependencies[singleton: .storage].writeAsync { [destination] db in
-                OpenGroupManager.handleCapabilities(
+            try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .openGroupManager]] db in
+                manager.handleCapabilities(
                     db,
                     capabilities: response,
                     on: destination.target
@@ -271,9 +271,7 @@ public actor CommunityPoller: PollerType {
         typealias APIValue = Network.BatchResponseMap<Network.SOGS.Endpoint>
         let lastSuccessfulPollTimestamp: TimeInterval = (self.lastPollStart > 0 ?
             lastPollStart :
-            dependencies.mutate(cache: .openGroupManager) { cache in
-                cache.getLastSuccessfulCommunityPollTimestamp()
-            }
+            await dependencies[singleton: .openGroupManager].getLastSuccessfulCommunityPollTimestamp()
         )
         
         let pollInfo: PollInfo = try await dependencies[singleton: .storage].readAsync { [destination, dependencies] db in
@@ -326,11 +324,9 @@ public actor CommunityPoller: PollerType {
             using: dependencies
         )
         pollCount += 1
-        dependencies.mutate(cache: .openGroupManager) { cache in
-            cache.setLastSuccessfulCommunityPollTimestamp(
-                dependencies.dateNow.timeIntervalSince1970
-            )
-        }
+        await dependencies[singleton: .openGroupManager].setLastSuccessfulCommunityPollTimestamp(
+            dependencies.dateNow.timeIntervalSince1970
+        )
         
         return result
     }
@@ -483,7 +479,7 @@ public actor CommunityPoller: PollerType {
             return PollResult((info, response), rawMessageCount, 0, true)
         }
         
-        return try await dependencies[singleton: .storage].writeAsync { [destination] db -> PollResult<PollResponse> in
+        return try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .openGroupManager]] db -> PollResult<PollResponse> in
             // Reset the failure count
             if failureCount > 0 {
                 try OpenGroup
@@ -500,7 +496,7 @@ public actor CommunityPoller: PollerType {
                             let responseBody: Network.SOGS.CapabilitiesResponse = responseData.body
                         else { return }
                         
-                        OpenGroupManager.handleCapabilities(
+                        manager.handleCapabilities(
                             db,
                             capabilities: responseBody,
                             on: destination.target
@@ -512,13 +508,12 @@ public actor CommunityPoller: PollerType {
                             let responseBody: Network.SOGS.RoomPollInfo = responseData.body
                         else { return }
                         
-                        try OpenGroupManager.handlePollInfo(
+                        try manager.handlePollInfo(
                             db,
                             pollInfo: responseBody,
                             publicKey: nil,
                             for: roomToken,
-                            on: destination.target,
-                            using: dependencies
+                            on: destination.target
                         )
                         
                     case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
@@ -528,12 +523,11 @@ public actor CommunityPoller: PollerType {
                         else { return }
                         
                         interactionInfo.append(
-                            contentsOf: OpenGroupManager.handleMessages(
+                            contentsOf: manager.handleMessages(
                                 db,
                                 messages: responseBody.compactMap { $0.value },
                                 for: roomToken,
-                                on: destination.target,
-                                using: dependencies
+                                on: destination.target
                             )
                         )
                         
@@ -553,12 +547,11 @@ public actor CommunityPoller: PollerType {
                         }()
                         
                         interactionInfo.append(
-                            contentsOf: OpenGroupManager.handleDirectMessages(
+                            contentsOf: manager.handleDirectMessages(
                                 db,
                                 messages: messages,
                                 fromOutbox: fromOutbox,
-                                on: destination.target,
-                                using: dependencies
+                                on: destination.target
                             )
                         )
                         
