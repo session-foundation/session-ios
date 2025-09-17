@@ -3,11 +3,20 @@
 import UIKit
 import UserNotifications
 
+// Add more later if any push notification needs to be customly grouped
+// Currently default grouping is via `threadId`
+public enum NotificationGroupingType: CaseIterable {
+    case messageRequest
+
+    var name: String { "message-request-grouping-identifier" }
+}
+
 public struct NotificationContent {
     public let threadId: String?
     public let threadVariant: SessionThread.Variant?
     public let identifier: String
     public let category: NotificationCategory
+    public let groupingIdentifier: NotificationGroupingType?
     public let title: String?
     public let body: String?
     public let delay: TimeInterval?
@@ -22,6 +31,7 @@ public struct NotificationContent {
         threadVariant: SessionThread.Variant?,
         identifier: String,
         category: NotificationCategory,
+        groupingIdentifier: NotificationGroupingType? = nil,
         title: String? = nil,
         body: String? = nil,
         delay: TimeInterval? = nil,
@@ -33,6 +43,7 @@ public struct NotificationContent {
         self.threadVariant = threadVariant
         self.identifier = identifier
         self.category = category
+        self.groupingIdentifier = groupingIdentifier
         self.title = title
         self.body = body
         self.delay = delay
@@ -67,7 +78,11 @@ public struct NotificationContent {
         content.categoryIdentifier = category.identifier
         content.userInfo = userInfo
         
-        if let threadId: String = threadId { content.threadIdentifier = threadId }
+        if let threadId = threadId {
+            let groupName = groupingIdentifier?.name ?? threadId
+            content.threadIdentifier = groupName
+        }
+        
         if let title: String = title { content.title = title }
         if let body: String = body { content.body = body }
         

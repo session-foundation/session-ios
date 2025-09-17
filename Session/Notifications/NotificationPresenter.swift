@@ -339,11 +339,10 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         switch shouldPresentNotification {
             case true:
-                let shouldGroupNotification: Bool = (
-                    content.threadVariant == .community &&
-                    content.identifier == content.threadId
-                )
-                
+                let shouldGroupNotification = ((content.threadVariant == .community &&
+                                    content.identifier == content.threadId) ||
+                                   content.groupingIdentifier != nil)
+
                 if shouldGroupNotification {
                     /// Only set a trigger for grouped notifications if we don't already have one
                     if trigger == nil {
