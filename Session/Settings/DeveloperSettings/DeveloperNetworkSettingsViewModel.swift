@@ -126,7 +126,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         struct NetworkState: Equatable, Hashable {
             let environment: ServiceNetwork
             let router: Router
-            let pushNotificationService: PushNotificationAPI.Service
+            let pushNotificationService: Network.PushNotification.Service
             let forceOffline: Bool
             
             let devnetConfig: ServiceNetwork.DevnetConfiguration
@@ -134,7 +134,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
             public func with(
                 environment: ServiceNetwork? = nil,
                 router: Router? = nil,
-                pushNotificationService: PushNotificationAPI.Service? = nil,
+                pushNotificationService: Network.PushNotification.Service? = nil,
                 forceOffline: Bool? = nil,
                 devnetConfig: ServiceNetwork.DevnetConfiguration? = nil
             ) -> NetworkState {
@@ -480,7 +480,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                         warning: ThemedAttributedString(
                             string: "The production service only works for production builds and neither option works in the Simulator."
                         ),
-                        options: PushNotificationAPI.Service.allCases.map { network in
+                        options: Network.PushNotification.Service.allCases.map { network in
                             ConfirmationModal.Info.Body.RadioOptionInfo(
                                 title: network.title,
                                 enabled: true,
@@ -491,18 +491,18 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                     confirmTitle: "select".localized(),
                     cancelStyle: .alert_text,
                     onConfirm: { [dependencies] modal in
-                        let selected: PushNotificationAPI.Service = {
+                        let selected: Network.PushNotification.Service = {
                             switch modal.info.body {
                                 case .radio(_, _, let options):
                                     return options
                                         .enumerated()
                                         .first(where: { _, value in value.selected })
                                         .map { index, _ in
-                                            guard index < PushNotificationAPI.Service.allCases.count else {
+                                            guard index < Network.PushNotification.Service.allCases.count else {
                                                 return nil
                                             }
                                             
-                                            return PushNotificationAPI.Service.allCases[index]
+                                            return Network.PushNotification.Service.allCases[index]
                                         }
                                         .defaulting(to: .apns)
                                 
@@ -1026,7 +1026,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
         /// layer and we don't want these to be cancelled)
         if let existingToken: String = try? await dependencies[singleton: .storage].readAsync(value: { db in db[.lastRecordedPushToken] }) {
             Task.detached(priority: .userInitiated) {
-                try? await PushNotificationAPI.unsubscribeAll(
+                try? await Network.PushNotification.unsubscribeAll(
                     token: Data(hex: existingToken),
                     using: dependencies
                 )

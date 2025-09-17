@@ -101,14 +101,14 @@ public enum ConfigurationSyncJob: JobExecutor {
                     )
                 )
                 
-                return try SnodeAPI.preparedSequence(
+                return try Network.SnodeAPI.preparedSequence(
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
                             contentsOf: try pendingPushes.pushData
                                 .flatMap { pushData -> [ErasedPreparedRequest] in
                                     try pushData.data.map { data -> ErasedPreparedRequest in
-                                        try SnodeAPI
+                                        try Network.SnodeAPI
                                             .preparedSendMessage(
                                                 message: SnodeMessage(
                                                     recipient: swarmPublicKey,
@@ -126,7 +126,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         .appending(try {
                             guard !pendingPushes.obsoleteHashes.isEmpty else { return nil }
                             
-                            return try SnodeAPI.preparedDeleteMessages(
+                            return try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: Array(pendingPushes.obsoleteHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: authMethod,

@@ -496,7 +496,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         timestamp: 0
                     )
                 )
-                let expectedRequest: Network.PreparedRequest<Data> = try Network.preparedDownload(
+                let expectedRequest: Network.PreparedRequest<Data> = try Network.FileServer.preparedDownload(
                     url: URL(string: "http://filev2.getsession.org/file/1234")!,
                     using: dependencies
                 )
@@ -551,7 +551,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     )
                 )
                 let expectedRequest: Network.PreparedRequest<Data> = mockStorage.read { db in
-                    try OpenGroupAPI.preparedDownload(
+                    try Network.SOGS.preparedDownload(
                         fileId: "12",
                         roomToken: "testRoom",
                         authMethod: Authentication.community(
@@ -1153,7 +1153,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
                                 .toNot(equal(
                                     OpenGroup(

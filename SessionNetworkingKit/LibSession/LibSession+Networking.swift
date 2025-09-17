@@ -369,7 +369,7 @@ actor LibSessionNetwork: NetworkType {
         }
     }
     
-    func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: AppVersionResponse) {
+    func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse) {
         typealias Continuation = CheckedContinuation<Response, Error>
         
         let network = try await getOrCreateNetwork()
@@ -394,7 +394,7 @@ actor LibSessionNetwork: NetworkType {
         
         return (
             Network.ResponseInfo(code: result.statusCode),
-            try AppVersionResponse.decoded(from: data, using: dependencies)
+            try Network.FileServer.AppVersionResponse.decoded(from: data, using: dependencies)
         )
     }
     
@@ -1129,10 +1129,10 @@ public extension LibSession {
             return (Network.ResponseInfo(code: -1), nil)
         }
         
-        public func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: AppVersionResponse) {
+        public func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse) {
             return (
                 Network.ResponseInfo(code: -1),
-                AppVersionResponse(
+                Network.FileServer.AppVersionResponse(
                     version: "",
                     updated: nil,
                     name: nil,

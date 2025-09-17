@@ -227,7 +227,7 @@ public extension ClosedGroup {
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
             Task.detached(priority: .userInitiated) {
-                try? await PushNotificationAPI.subscribe(
+                try? await Network.PushNotification.subscribe(
                     token: Data(hex: token),
                     swarmAuthentication: [
                         try? Authentication.with(swarmPublicKey: group.id, using: dependencies)
@@ -307,7 +307,7 @@ public extension ClosedGroup {
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
                     Task.detached(priority: .userInitiated) { [dependencies] in
-                        try? await PushNotificationAPI.unsubscribe(
+                        try? await Network.PushNotification.unsubscribe(
                             token: Data(hex: token),
                             swarmAuthentication: threadVariants
                                 .filter { $0.variant == .group }

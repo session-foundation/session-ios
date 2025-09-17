@@ -33,7 +33,7 @@ public extension Singleton {
 // MARK: - CurrentUserPoller
 
 public final actor CurrentUserPoller: SwarmPollerType {
-    public static let namespaces: [SnodeAPI.Namespace] = [
+    public static let namespaces: [Network.SnodeAPI.Namespace] = [
         .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
     ]
     private let pollInterval: TimeInterval = 1.5
@@ -53,7 +53,7 @@ public final actor CurrentUserPoller: SwarmPollerType {
     public var lastPollStart: TimeInterval = 0
     public var cancellable: AnyCancellable?
     
-    public let namespaces: [SnodeAPI.Namespace]
+    public let namespaces: [Network.SnodeAPI.Namespace]
     public let customAuthMethod: AuthenticationMethod?
     public let shouldStoreMessages: Bool
     nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
@@ -64,7 +64,7 @@ public final actor CurrentUserPoller: SwarmPollerType {
         pollerName: String,
         destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,

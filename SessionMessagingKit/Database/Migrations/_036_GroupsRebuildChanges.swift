@@ -146,10 +146,13 @@ enum _036_GroupsRebuildChanges: Migration {
                 if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
                     db.afterCommit {
                         Task.detached(priority: .userInitiated) {
-                            try? await PushNotificationAPI.subscribe(
+                            try? await Network.PushNotification.subscribe(
                                 token: Data(hex: token),
                                 swarmAuthentication: [
-                                    try? Authentication.with(swarmPublicKey: group.groupSessionId, using: dependencies)
+                                    try? Authentication.with(
+                                        swarmPublicKey: group.groupSessionId,
+                                        using: dependencies
+                                    )
                                 ].compactMap { $0 },
                                 using: dependencies
                             )

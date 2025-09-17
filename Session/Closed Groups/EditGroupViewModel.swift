@@ -536,7 +536,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 let viewController = ModalActivityIndicatorViewController() { [weak self, dependencies] modalActivityIndicator in
                                     Task { [weak self, modalActivityIndicator, dependencies] in
                                         do {
-                                            let sessionIdHexString: String = try await SnodeAPI.getSessionID(
+                                            let sessionIdHexString: String = try await Network.SnodeAPI.getSessionID(
                                                 for: inviteByIdValue,
                                                 using: dependencies
                                             )

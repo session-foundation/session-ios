@@ -195,7 +195,7 @@ final class NukeDataModal: Modal {
                                 guard case .community(let server, _, _, _, _) = authMethod.info else { continue }
                                 
                                 group.addTask {
-                                    _ = try await OpenGroupAPI
+                                    _ = try await Network.SOGS
                                         .preparedClearInbox(
                                             overallTimeout: Network.defaultTimeout,
                                             authMethod: authMethod,
@@ -226,7 +226,7 @@ final class NukeDataModal: Modal {
                             .getSwarm(for: dependencies[cache: .general].sessionId.hexString)
                         let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
                             .selectNextNode()
-                        let networkTimeRequest: Network.PreparedRequest<UInt64> = try SnodeAPI.preparedGetNetworkTime(
+                        let networkTimeRequest: Network.PreparedRequest<UInt64> = try Network.SnodeAPI.preparedGetNetworkTime(
                             from: snode,
                             using: dependencies
                         )
@@ -237,7 +237,7 @@ final class NukeDataModal: Modal {
                             swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                             using: dependencies
                         )
-                        var confirmations: [String: Bool] = try await SnodeAPI
+                        var confirmations: [String: Bool] = try await Network.SnodeAPI
                             .preparedDeleteAllMessages(
                                 namespace: .all,
                                 snode: snode,
@@ -314,7 +314,7 @@ final class NukeDataModal: Modal {
             
             if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].isValid {
                 Task.detached(priority: .userInitiated) {
-                    try? await PushNotificationAPI.unsubscribeAll(
+                    try? await Network.PushNotification.unsubscribeAll(
                         token: Data(hex: deviceToken),
                         using: dependencies
                     )

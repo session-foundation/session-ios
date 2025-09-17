@@ -559,18 +559,18 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             await fixture.mockNetwork
                                 .verify {
                                     $0.send(
-                                        endpoint: PushNotificationAPI.Endpoint.subscribe,
+                                        endpoint: Network.PushNotification.Endpoint.subscribe,
                                         destination: .server(
                                             method: .post,
-                                            server: PushNotificationAPI.server,
+                                            server: Network.PushNotification.server,
                                             queryParameters: [:],
                                             headers: [:],
-                                            x25519PublicKey: PushNotificationAPI.serverPublicKey
+                                            x25519PublicKey: Network.PushNotification.serverPublicKey
                                         ),
                                         body: try! JSONEncoder(using: fixture.dependencies).encode(
-                                            PushNotificationAPI.SubscribeRequest(
+                                            Network.PushNotification.SubscribeRequest(
                                                 subscriptions: [
-                                                    PushNotificationAPI.SubscribeRequest.Subscription(
+                                                    Network.PushNotification.SubscribeRequest.Subscription(
                                                         namespaces: [
                                                             .groupMessages,
                                                             .configGroupKeys,
@@ -579,7 +579,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                                             .revokedRetrievableGroupMessages
                                                         ],
                                                         includeMessageData: true,
-                                                        serviceInfo: PushNotificationAPI.ServiceInfo(
+                                                        serviceInfo: Network.PushNotification.ServiceInfo(
                                                             token: Data([5, 4, 3, 2, 1]).toHexString()
                                                         ),
                                                         notificationsEncryptionKey: Data([1, 2, 3]),
@@ -654,18 +654,18 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             await fixture.mockNetwork
                                 .verify {
                                     $0.send(
-                                        endpoint: PushNotificationAPI.Endpoint.subscribe,
+                                        endpoint: Network.PushNotification.Endpoint.subscribe,
                                         destination: .server(
                                             method: .post,
-                                            server: PushNotificationAPI.server,
+                                            server: Network.PushNotification.server,
                                             queryParameters: [:],
                                             headers: [:],
-                                            x25519PublicKey: PushNotificationAPI.serverPublicKey
+                                            x25519PublicKey: Network.PushNotification.serverPublicKey
                                         ),
                                         body: try! JSONEncoder(using: fixture.dependencies).encode(
-                                            PushNotificationAPI.SubscribeRequest(
+                                            Network.PushNotification.SubscribeRequest(
                                                 subscriptions: [
-                                                    PushNotificationAPI.SubscribeRequest.Subscription(
+                                                    Network.PushNotification.SubscribeRequest.Subscription(
                                                         namespaces: [
                                                             .groupMessages,
                                                             .configGroupKeys,
@@ -674,7 +674,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                                             .revokedRetrievableGroupMessages
                                                         ],
                                                         includeMessageData: true,
-                                                        serviceInfo: PushNotificationAPI.ServiceInfo(
+                                                        serviceInfo: Network.PushNotification.ServiceInfo(
                                                             token: Data([5, 4, 3, 2, 1]).toHexString()
                                                         ),
                                                         notificationsEncryptionKey: Data([1, 2, 3]),
@@ -692,7 +692,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                         overallTimeout: nil
                                     )
                                 }
-                                .wasCalled(exactly: PushNotificationAPI.maxRetryCount + 1, timeout: .milliseconds(50))
+                                .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(50))
                         }
                     }
                 }
@@ -2553,7 +2553,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
                         fixture.deleteContentMessage.sentTimestampMs = 1234567800000
                         
-                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! SnodeAPI
+                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! Network.SnodeAPI
                             .preparedDeleteMessages(
                                 serverHashes: ["TestMessageHash3"],
                                 requireSuccessfulDeletion: false,
@@ -2579,7 +2579,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         await fixture.mockNetwork
                             .verify {
                                 $0.send(
-                                    endpoint: SnodeAPI.Endpoint.deleteMessages,
+                                    endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
                                     destination: preparedRequest.destination,
                                     body: preparedRequest.body,
                                     category: .standard,
@@ -2851,19 +2851,19 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     await fixture.mockNetwork
                         .verify {
                             $0.send(
-                                endpoint: PushNotificationAPI.Endpoint.unsubscribe,
+                                endpoint: Network.PushNotification.Endpoint.unsubscribe,
                                 destination: .server(
                                     method: .post,
-                                    server: PushNotificationAPI.server,
+                                    server: Network.PushNotification.server,
                                     queryParameters: [:],
                                     headers: [:],
-                                    x25519PublicKey: PushNotificationAPI.serverPublicKey
+                                    x25519PublicKey: Network.PushNotification.serverPublicKey
                                 ),
                                 body: try! JSONEncoder(using: fixture.dependencies).encode(
-                                    PushNotificationAPI.UnsubscribeRequest(
+                                    Network.PushNotification.UnsubscribeRequest(
                                         subscriptions: [
-                                            PushNotificationAPI.UnsubscribeRequest.Subscription(
-                                                serviceInfo: PushNotificationAPI.ServiceInfo(
+                                            Network.PushNotification.UnsubscribeRequest.Subscription(
+                                                serviceInfo: Network.PushNotification.ServiceInfo(
                                                     token: Data([5, 4, 3, 2, 1]).toHexString()
                                                 ),
                                                 authMethod: try! Authentication.with(
@@ -2880,7 +2880,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 overallTimeout: nil
                             )
                         }
-                        .wasCalled(exactly: PushNotificationAPI.maxRetryCount + 1, timeout: .milliseconds(50))
+                        .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(50))
                 }
                 
                 // MARK: ---- and the group is an invitation
@@ -3679,7 +3679,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn(Data([1, 2, 3]))
         try await mockKeychain
             .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-            .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+            .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
     }
     
     private func applyBaselineFileManager() async throws {

@@ -97,7 +97,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             .tryMap { _ -> Network.PreparedRequest<Network.BatchResponse> in
                 /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
                 /// this request, we don't want it to be blocking)
-                let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try SnodeAPI.preparedRevokeSubaccounts(
+                let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedRevokeSubaccounts(
                     subaccountsToRevoke: try dependencies.mutate(cache: .libSession) { cache in
                         try Array(pendingRemovals.keys).map { memberId in
                             try dependencies[singleton: .crypto].tryGenerate(
@@ -131,7 +131,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                         domain: .kickedMessage
                     )
                 )
-                let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try SnodeAPI
+                let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try Network.SnodeAPI
                     .preparedSendMessage(
                         message: SnodeMessage(
                             recipient: groupSessionId.hexString,
@@ -179,7 +179,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 }()
                 
                 /// Combine the two requests to be sent at the same time
-                return try SnodeAPI.preparedSequence(
+                return try Network.SnodeAPI.preparedSequence(
                     requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage, preparedMemberContentRemovalMessage]
                         .compactMap { $0 },
                     requireAllBatchResponses: true,
@@ -261,7 +261,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                             )
                                             
                                             /// Delete the messages from the swarm so users won't download them again
-                                            try? SnodeAPI
+                                            try? Network.SnodeAPI
                                                 .preparedDeleteMessages(
                                                     serverHashes: Array(hashes),
                                                     requireSuccessfulDeletion: false,

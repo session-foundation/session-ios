@@ -19,7 +19,8 @@ public class TestDependencies: Dependencies {
     
     override public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
         guard let value: S = (singletonInstances[singleton.identifier] as? S) else {
-            let value: S = singleton.createInstance(self)
+            let key: Dependencies.Key = Dependencies.Key.Variant.singleton.key(singleton.identifier)
+            let value: S = singleton.createInstance(self, key)
             _singletonInstances.performUpdate { $0.setting(singleton.identifier, value) }
             return value
         }
@@ -34,7 +35,8 @@ public class TestDependencies: Dependencies {
     
     override public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
         guard let value: M = (cacheInstances[cache.identifier] as? M) else {
-            let value: M = cache.createInstance(self)
+            let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+            let value: M = cache.createInstance(self, key)
             let mutableInstance: MutableCacheType = cache.mutableInstance(value)
             _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
             return cache.immutableInstance(value)
@@ -50,7 +52,8 @@ public class TestDependencies: Dependencies {
     
     override public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
         guard let value: UserDefaultsType = defaultsInstances[defaults.identifier] else {
-            let value: UserDefaultsType = defaults.createInstance(self)
+            let key: Dependencies.Key = Dependencies.Key.Variant.userDefaults.key(defaults.identifier)
+            let value: UserDefaultsType = defaults.createInstance(self, key)
             _defaultsInstances.performUpdate { $0.setting(defaults.identifier, value) }
             return value
         }
@@ -60,7 +63,8 @@ public class TestDependencies: Dependencies {
     
     override public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T {
         guard let value: Feature<T> = (featureInstances[feature.identifier] as? Feature<T>) else {
-            let value: Feature<T> = feature.createInstance(self)
+            let key: Dependencies.Key = Dependencies.Key.Variant.feature.key(feature.identifier)
+            let value: Feature<T> = feature.createInstance(self, key)
             _featureInstances.performUpdate { $0.setting(feature.identifier, value) }
             return value.currentValue(in: self)
         }
@@ -72,7 +76,10 @@ public class TestDependencies: Dependencies {
         get { return (featureInstances[feature.identifier] as? T) }
         set {
             if featureInstances[feature.identifier] == nil {
-                _featureInstances.performUpdate { $0.setting(feature.identifier, feature.createInstance(self)) }
+                let key: Dependencies.Key = Dependencies.Key.Variant.feature.key(feature.identifier)
+                _featureInstances.performUpdate {
+                    $0.setting(feature.identifier, feature.createInstance(self, key))
+                }
             }
             
             set(feature: feature, to: newValue)
@@ -124,7 +131,8 @@ public class TestDependencies: Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (M) -> R
     ) -> R {
-        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
+        let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self, key))
         let mutableInstance: MutableCacheType = cache.mutableInstance(value)
         _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
         return mutation(value)
@@ -134,7 +142,8 @@ public class TestDependencies: Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (M) throws -> R
     ) throws -> R {
-        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
+        let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self, key))
         let mutableInstance: MutableCacheType = cache.mutableInstance(value)
         _cacheInstances.performUpdate { $0.setting(cache.identifier, mutableInstance) }
         return try mutation(value)

@@ -39,7 +39,7 @@ public enum GetExpirationJob: JobExecutor {
         
         AnyPublisher
             .lazy {
-                try SnodeAPI.preparedGetExpiries(
+                try Network.SnodeAPI.preparedGetExpiries(
                     of: expirationInfo.map { $0.key },
                     authMethod: try Authentication.with(
                         swarmPublicKey: dependencies[cache: .general].sessionId.hexString,

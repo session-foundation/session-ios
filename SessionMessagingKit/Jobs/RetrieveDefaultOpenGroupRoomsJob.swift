@@ -40,17 +40,17 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                 .isEmpty
         else { return deferred(job) }
         
-        // The OpenGroupAPI won't make any API calls if there is no entry for an OpenGroup
+        // The Network.SOGS won't make any API calls if there is no entry for an OpenGroup
         // in the database so we need to create a dummy one to retrieve the default room data
-        let defaultGroupId: String = OpenGroup.idFor(roomToken: "", server: OpenGroupAPI.defaultServer)
+        let defaultGroupId: String = OpenGroup.idFor(roomToken: "", server: Network.SOGS.defaultServer)
         
         dependencies[singleton: .storage].write { db in
             guard try OpenGroup.exists(db, id: defaultGroupId) == false else { return }
             
             try OpenGroup(
-                server: OpenGroupAPI.defaultServer,
+                server: Network.SOGS.defaultServer,
                 roomToken: "",
-                publicKey: OpenGroupAPI.defaultServerPublicKey,
+                publicKey: Network.SOGS.defaultServerPublicKey,
                 isActive: false,
                 name: "",
                 userCount: 0,
@@ -69,13 +69,13 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                 .readPublisher { [dependencies] db -> AuthenticationMethod in
                     try Authentication.with(
                         db,
-                        server: OpenGroupAPI.defaultServer,
+                        server: Network.SOGS.defaultServer,
                         activeOnly: false,    /// The record for the default rooms is inactive
                         using: dependencies
                     )
                 }
-                .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, OpenGroupAPI.CapabilitiesAndRoomsResponse), Error> in
-                    try OpenGroupAPI.preparedCapabilitiesAndRooms(
+                .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, Network.SOGS.CapabilitiesAndRoomsResponse), Error> in
+                    try Network.SOGS.preparedCapabilitiesAndRooms(
                         authMethod: authMethod,
                         using: dependencies
                     ).send(using: dependencies)
@@ -103,11 +103,11 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                             OpenGroupManager.handleCapabilities(
                                 db,
                                 capabilities: response.capabilities.data,
-                                on: OpenGroupAPI.defaultServer
+                                on: Network.SOGS.defaultServer
                             )
                             
                             let existingImageIds: [String: String] = try OpenGroup
-                                .filter(OpenGroup.Columns.server == OpenGroupAPI.defaultServer)
+                                .filter(OpenGroup.Columns.server == Network.SOGS.defaultServer)
                                 .filter(OpenGroup.Columns.imageId != nil)
                                 .fetchAll(db)
                                 .reduce(into: [:]) { result, next in result[next.id] = next.imageId }
@@ -119,9 +119,9 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                         return (
                                             room,
                                             try OpenGroup(
-                                                server: OpenGroupAPI.defaultServer,
+                                                server: Network.SOGS.defaultServer,
                                                 roomToken: room.token,
-                                                publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                                publicKey: Network.SOGS.defaultServerPublicKey,
                                                 isActive: false,
                                                 name: room.name,
                                                 roomDescription: room.roomDescription,
@@ -138,7 +138,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                                 db,
                                                 id: OpenGroup.idFor(
                                                     roomToken: room.token,
-                                                    server: OpenGroupAPI.defaultServer
+                                                    server: Network.SOGS.defaultServer
                                                 )
                                             )
                                             .map { (room, $0) }
@@ -147,7 +147,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                             
                             /// Schedule the room image download (if it doesn't match out current one)
                             result.forEach { room, openGroup in
-                                let openGroupId: String = OpenGroup.idFor(roomToken: room.token, server: OpenGroupAPI.defaultServer)
+                                let openGroupId: String = OpenGroup.idFor(roomToken: room.token, server: Network.SOGS.defaultServer)
                                 
                                 guard
                                     let imageId: String = room.imageId,
@@ -164,7 +164,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                             target: .community(
                                                 imageId: imageId,
                                                 roomToken: room.token,
-                                                server: OpenGroupAPI.defaultServer
+                                                server: Network.SOGS.defaultServer
                                             ),
                                             timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                                         )

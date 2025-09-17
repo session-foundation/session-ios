@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 
 public protocol SwarmPollerType: PollerType where PollResponse == SwarmPoller.PollResponse {
     var swarmDrainer: SwarmDrainer { get }
-    var namespaces: [SnodeAPI.Namespace] { get }
+    var namespaces: [Network.SnodeAPI.Namespace] { get }
     var customAuthMethod: AuthenticationMethod? { get }
     var shouldStoreMessages: Bool { get }
     
@@ -18,7 +18,7 @@ public protocol SwarmPollerType: PollerType where PollResponse == SwarmPoller.Po
         pollerName: String,
         destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -35,7 +35,7 @@ extension SwarmPollerType {
         pollerName: String,
         destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -76,7 +76,7 @@ extension SwarmPollerType {
         let activeHashes: [String] = dependencies.mutate(cache: .libSession) { cache in
             cache.activeHashes(for: destination.target)
         }
-        let lastHashes: [SnodeAPI.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
+        let lastHashes: [Network.SnodeAPI.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
                     db,
@@ -187,7 +187,7 @@ public enum SwarmPoller {
         shouldStoreMessages: Bool,
         ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
-        sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
+        sortedMessages: [(namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
         using dependencies: Dependencies
     ) -> ([Job], [Job], PollResult<SwarmPoller.PollResponse>) {
         /// No need to do anything if there are no messages

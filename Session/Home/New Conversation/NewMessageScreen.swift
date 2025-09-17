@@ -89,7 +89,7 @@ struct NewMessageScreen: View {
             .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { [dependencies] modalActivityIndicator in
                 Task { [accountIdOrONS, dependencies] in
                     do {
-                        let sessionIdHexString: String = try await SnodeAPI.getSessionID(
+                        let sessionIdHexString: String = try await Network.SnodeAPI.getSessionID(
                             for: accountIdOrONS,
                             using: dependencies
                         )

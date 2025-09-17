@@ -289,7 +289,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         throw SnodeAPIError.insufficientSnodes
                     }
                     
-                    let networkTime: UInt64 = try await SnodeAPI
+                    let networkTime: UInt64 = try await Network.SnodeAPI
                         .preparedGetNetworkTime(from: randomSnode, using: dependencies)
                         .send(using: dependencies)
                     let data: MessageData = try await dependencies[singleton: .storage].writeAsync { db in

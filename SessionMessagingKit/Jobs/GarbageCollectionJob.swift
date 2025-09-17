@@ -182,7 +182,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(openGroup[.threadId])
                             WHERE (
                                 \(thread[.id]) IS NULL AND
-                                \(SQL("\(openGroup[.server]) != \(OpenGroupAPI.defaultServer.lowercased())"))
+                                \(SQL("\(openGroup[.server]) != \(Network.SOGS.defaultServer.lowercased())"))
                             )
                         )
                     """)

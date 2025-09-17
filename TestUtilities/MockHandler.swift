@@ -4,6 +4,7 @@ import Foundation
 
 public final class MockHandler<T> {
     public let erasedDependencies: Any?
+    public let erasedDependenciesKey: Any?
     
     private let lock = NSLock()
     private let dummyProvider: (any MockFunctionHandler) -> T
@@ -17,9 +18,11 @@ public final class MockHandler<T> {
     public init(
         dummyProvider: @escaping (any MockFunctionHandler) -> T,
         failureReporter: TestFailureReporter = NimbleFailureReporter(),
+        erasedDependenciesKey: Any?,
         using erasedDependencies: Any?
     ) {
         self.erasedDependencies = erasedDependencies
+        self.erasedDependenciesKey = erasedDependenciesKey
         self.dummyProvider = dummyProvider
         self.failureReporter = failureReporter
         self.forwardingHandler = nil
@@ -27,6 +30,7 @@ public final class MockHandler<T> {
     
     public init(forwardingHandler: any MockFunctionHandler) {
         self.erasedDependencies = nil
+        self.erasedDependenciesKey = nil
         self.dummyProvider = { _ in fatalError("A dummy instance cannot create other dummies.") }
         self.failureReporter = NimbleFailureReporter()
         self.forwardingHandler = forwardingHandler
@@ -34,7 +38,11 @@ public final class MockHandler<T> {
 
     
     public static func invalid() -> MockHandler<T> {
-        return MockHandler(dummyProvider: { _ in fatalError("Should not call mock on a mock") }, using: nil)
+        return MockHandler(
+            dummyProvider: { _ in fatalError("Should not call mock on a mock") },
+            erasedDependenciesKey: nil,
+            using: nil
+        )
     }
     
     // MARK: - Setup

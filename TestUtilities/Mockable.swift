@@ -12,11 +12,12 @@ public protocol Mockable {
 }
 
 public extension Mockable {
-    static func create<M: Mockable>(using erasedDependencies: Any?) -> M {
+    static func create<M: Mockable>(erasedDependenciesKey: Any? = nil, using erasedDependencies: Any?) -> M {
         let handler: MockHandler<M.MockedType> = MockHandler(
             dummyProvider: { builderHandler in
                 return M(handlerForBuilder: builderHandler) as! M.MockedType
             },
+            erasedDependenciesKey: erasedDependenciesKey,
             using: erasedDependencies
         )
         

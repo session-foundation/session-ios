@@ -112,7 +112,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 switch maybeRoomToken {
                     case .some(let roomToken):
-                        return try OpenGroupAPI
+                        return try Network.SOGS
                             .preparedDownload(
                                 url: info.downloadUrl,
                                 roomToken: roomToken,
@@ -127,7 +127,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             .map { _, data in (data, info.attachment, info.temporaryFileUrl) }
                         
                     case .none:
-                        return try Network
+                        return try Network.FileServer
                             .preparedDownload(
                                 url: info.downloadUrl,
                                 using: dependencies

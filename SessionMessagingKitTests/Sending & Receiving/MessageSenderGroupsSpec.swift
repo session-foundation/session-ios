@@ -178,7 +178,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .thenReturn(Data([1, 2, 3]))
             try await mockKeychain
                 .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-                .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+                .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
             dependencies.set(singleton: .keychain, to: mockKeychain)
             
             try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
@@ -475,13 +475,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     await mockNetwork
                         .verify {
                             $0.send(
-                                endpoint: SnodeAPI.Endpoint.sequence,
+                                endpoint: Network.SnodeAPI.Endpoint.sequence,
                                 destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
                                     Network.BatchRequest(
                                         requestsKey: .requests,
                                         requests: [
-                                            try SnodeAPI.preparedSendMessage(
+                                            try Network.SnodeAPI.preparedSendMessage(
                                                 message: SnodeMessage(
                                                     recipient: groupId.hexString,
                                                     data: Data([1, 2, 3]),
@@ -652,7 +652,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network
+                        let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer
                             .preparedUpload(
                                 data: TestConstants.validImageData,
                                 overallTimeout: Network.fileUploadTimeout,
@@ -842,18 +842,18 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         await mockNetwork
                             .verify {
                                 $0.send(
-                                    endpoint: PushNotificationAPI.Endpoint.subscribe,
+                                    endpoint: Network.PushNotification.Endpoint.subscribe,
                                     destination: .server(
                                         method: .post,
-                                        server: PushNotificationAPI.server,
+                                        server: Network.PushNotification.server,
                                         queryParameters: [:],
                                         headers: [:],
-                                        x25519PublicKey: PushNotificationAPI.serverPublicKey
+                                        x25519PublicKey: Network.PushNotification.serverPublicKey
                                     ),
                                     body: try! JSONEncoder(using: dependencies).encode(
-                                        PushNotificationAPI.SubscribeRequest(
+                                        Network.PushNotification.SubscribeRequest(
                                             subscriptions: [
-                                                PushNotificationAPI.SubscribeRequest.Subscription(
+                                                Network.PushNotification.SubscribeRequest.Subscription(
                                                     namespaces: [
                                                         .groupMessages,
                                                         .configGroupKeys,
@@ -862,7 +862,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                         .revokedRetrievableGroupMessages
                                                     ],
                                                     includeMessageData: true,
-                                                    serviceInfo: PushNotificationAPI.ServiceInfo(
+                                                    serviceInfo: Network.PushNotification.ServiceInfo(
                                                         token: Data([5, 4, 3, 2, 1]).toHexString()
                                                     ),
                                                     notificationsEncryptionKey: Data([1, 2, 3]),
@@ -880,7 +880,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     overallTimeout: nil
                                 )
                             }
-                            .wasCalled(exactly: PushNotificationAPI.maxRetryCount + 1, timeout: .milliseconds(50))
+                            .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(50))
                     }
                     
                     // MARK: ---- does not subscribe if push notifications are disabled
@@ -1149,13 +1149,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         await mockNetwork
                             .verify {
                                 $0.send(
-                                    endpoint: SnodeAPI.Endpoint.sequence,
+                                    endpoint: Network.SnodeAPI.Endpoint.sequence,
                                     destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                     body: try! JSONEncoder(using: dependencies).encode(
                                         Network.BatchRequest(
                                             requestsKey: .requests,
                                             requests: [
-                                                try SnodeAPI.preparedUnrevokeSubaccounts(
+                                                try Network.SnodeAPI.preparedUnrevokeSubaccounts(
                                                     subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: groupId,
@@ -1163,7 +1163,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                     ),
                                                     using: dependencies
                                                 ),
-                                                try SnodeAPI.preparedSendMessage(
+                                                try Network.SnodeAPI.preparedSendMessage(
                                                     message: SnodeMessage(
                                                         recipient: groupId.hexString,
                                                         data: Data(base64Encoded: requestDataString)!,
@@ -1177,7 +1177,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                     ),
                                                     using: dependencies
                                                 ),
-                                                try SnodeAPI.preparedDeleteMessages(
+                                                try Network.SnodeAPI.preparedDeleteMessages(
                                                     serverHashes: ["testHash"],
                                                     requireSuccessfulDeletion: false,
                                                     authMethod: Authentication.groupAdmin(
@@ -1365,13 +1365,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     await mockNetwork
                         .verify {
                             $0.send(
-                                endpoint: SnodeAPI.Endpoint.sequence,
+                                endpoint: Network.SnodeAPI.Endpoint.sequence,
                                 destination: .randomSnode(swarmPublicKey: groupId.hexString),
                                 body: try! JSONEncoder(using: dependencies).encode(
                                     Network.BatchRequest(
                                         requestsKey: .requests,
                                         requests: [
-                                            try SnodeAPI.preparedUnrevokeSubaccounts(
+                                            try Network.SnodeAPI.preparedUnrevokeSubaccounts(
                                                 subaccountsToUnrevoke: [
                                                     Array("TestSubAccountToken".data(using: .utf8)!)
                                                 ],
@@ -1381,7 +1381,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                 ),
                                                 using: dependencies
                                             ),
-                                            try SnodeAPI.preparedDeleteMessages(
+                                            try Network.SnodeAPI.preparedDeleteMessages(
                                                 serverHashes: ["testHash"],
                                                 requireSuccessfulDeletion: false,
                                                 authMethod: Authentication.groupAdmin(
@@ -1605,25 +1605,25 @@ extension Network.BatchResponse {
     
     fileprivate static let mockConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberHistoricConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
 }

@@ -131,7 +131,7 @@ class OnboardingSpec: AsyncSpec {
                 .thenReturn(MockNetwork.batchResponseData(
                     with: [
                         (
-                            SnodeAPI.Endpoint.getMessages,
+                            Network.SnodeAPI.Endpoint.getMessages,
                             GetMessagesResponse(
                                 messages: (pendingPushes?
                                     .pushData
@@ -505,7 +505,7 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- polls for the userProfile config
             it("polls for the userProfile config") {
-                let preparedRequest: Network.PreparedRequest<SnodeAPI.PollResponse> = try SnodeAPI.preparedPoll(
+                let preparedRequest: Network.PreparedRequest<SnodeAPI.PollResponse> = try Network.SnodeAPI.preparedPoll(
                     namespaces: [.configUserProfile],
                     lastHashes: [:],
                     refreshingConfigHashes: [],
@@ -528,7 +528,7 @@ class OnboardingSpec: AsyncSpec {
                 await mockNetwork
                     .verify {
                         try await $0.send(
-                            endpoint: SnodeAPI.Endpoint.batch,
+                            endpoint: Network.SnodeAPI.Endpoint.batch,
                             destination: Network.Destination.snode(
                                 LibSession.Snode(
                                     ed25519PubkeyHex: "1234",

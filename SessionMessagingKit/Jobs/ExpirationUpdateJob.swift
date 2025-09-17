@@ -31,7 +31,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                     using: dependencies
                 )
                 
-                return try SnodeAPI
+                return try Network.SnodeAPI
                     .preparedUpdateExpiry(
                         serverHashes: details.serverHashes,
                         updatedExpiryMs: details.expirationTimestampMs,

@@ -14,6 +14,7 @@ actor MockPoller: PollerType, Mockable {
     nonisolated let handler: MockHandler<MockPoller>
     
     var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
+    var dependenciesKey: Dependencies.Key? { handler.erasedDependenciesKey as? Dependencies.Key }
     var pollerName: String { handler.mock() }
     var destination: PollerDestination { handler.mock() }
     var logStartAndStopCalls: Bool { handler.mock() }
@@ -39,15 +40,17 @@ actor MockPoller: PollerType, Mockable {
         pollerName: String,
         destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: (any AuthenticationMethod)?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         handler = MockHandler(
             dummyProvider: { _ in MockPoller(handler: .invalid()) },
+            erasedDependenciesKey: key,
             using: dependencies
         )
         handler.mockNoReturn(
@@ -59,7 +62,8 @@ actor MockPoller: PollerType, Mockable {
                 failureCount,
                 shouldStoreMessages,
                 logStartAndStopCalls,
-                customAuthMethod
+                customAuthMethod,
+                key
             ]
         )
     }

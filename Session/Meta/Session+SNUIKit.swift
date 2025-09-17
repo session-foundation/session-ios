@@ -4,7 +4,6 @@ import UIKit
 import AVFoundation
 import SessionUIKit
 import SessionNetworkingKit
-import SessionMessagingKit
 import SessionUtilitiesKit
 
 // MARK: - SessionSNUIKitConfig

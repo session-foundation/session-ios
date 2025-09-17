@@ -69,17 +69,22 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     MockNetwork.batchResponseData(
                         with: [
                             (
-                                OpenGroupAPI.Endpoint.capabilities,
-                                OpenGroupAPI.Capabilities(capabilities: [.blind, .reactions]).batchSubResponse()
+                                Network.SOGS.Endpoint.capabilities,
+                                Network.SOGS.CapabilitiesResponse(
+                                    capabilities: [
+                                        Capability.Variant.blind.rawValue,
+                                        Capability.Variant.reactions.rawValue
+                                    ]
+                                ).batchSubResponse()
                             ),
                             (
-                                OpenGroupAPI.Endpoint.rooms,
+                                Network.SOGS.Endpoint.rooms,
                                 [
-                                    OpenGroupAPI.Room.mock.with(
+                                    Network.SOGS.Room.mock.with(
                                         token: "testRoom",
                                         name: "TestRoomName"
                                     ),
-                                    OpenGroupAPI.Room.mock.with(
+                                    Network.SOGS.Room.mock.with(
                                         token: "testRoom2",
                                         name: "TestRoomName2",
                                         infoUpdates: 12,
@@ -211,9 +216,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 
                 let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
                 expect(openGroups?.count).to(equal(1))
-                expect(openGroups?.map { $0.server }).to(equal([OpenGroupAPI.defaultServer]))
+                expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
                 expect(openGroups?.map { $0.roomToken }).to(equal([""]))
-                expect(openGroups?.map { $0.publicKey }).to(equal([OpenGroupAPI.defaultServerPublicKey]))
+                expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
                 expect(openGroups?.map { $0.isActive }).to(equal([false]))
                 expect(openGroups?.map { $0.name }).to(equal([""]))
             }
@@ -235,9 +240,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 
                 mockStorage.write { db in
                     try OpenGroup(
-                        server: OpenGroupAPI.defaultServer,
+                        server: Network.SOGS.defaultServer,
                         roomToken: "",
-                        publicKey: OpenGroupAPI.defaultServerPublicKey,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
                         isActive: false,
                         name: "TestExisting",
                         userCount: 0,
@@ -257,9 +262,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 
                 let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
                 expect(openGroups?.count).to(equal(1))
-                expect(openGroups?.map { $0.server }).to(equal([OpenGroupAPI.defaultServer]))
+                expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
                 expect(openGroups?.map { $0.roomToken }).to(equal([""]))
-                expect(openGroups?.map { $0.publicKey }).to(equal([OpenGroupAPI.defaultServerPublicKey]))
+                expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
                 expect(openGroups?.map { $0.isActive }).to(equal([false]))
                 expect(openGroups?.map { $0.name }).to(equal(["TestExisting"]))
             }
@@ -268,9 +273,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             it("sends the correct request") {
                 mockStorage.write { db in
                     try OpenGroup(
-                        server: OpenGroupAPI.defaultServer,
+                        server: Network.SOGS.defaultServer,
                         roomToken: "",
-                        publicKey: OpenGroupAPI.defaultServerPublicKey,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
                         isActive: false,
                         name: "TestExisting",
                         userCount: 0,
@@ -278,13 +283,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     )
                     .insert(db)
                 }
-                let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
-                    try OpenGroupAPI.preparedCapabilitiesAndRooms(
+                let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
+                    try Network.SOGS.preparedCapabilitiesAndRooms(
                         authMethod: Authentication.community(
                             info: LibSession.OpenGroupCapabilityInfo(
                                 roomToken: "",
-                                server: OpenGroupAPI.defaultServer,
-                                publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                server: Network.SOGS.defaultServer,
+                                publicKey: Network.SOGS.defaultServerPublicKey,
                                 capabilities: []
                             ),
                             forceBlinded: false
@@ -304,13 +309,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 await mockNetwork
                     .verify {
                         $0.send(
-                            endpoint: OpenGroupAPI.Endpoint.sequence,
+                            endpoint: Network.SOGS.Endpoint.sequence,
                             destination: .server(info: Network.Destination.ServerInfo(
                                 method: .post,
-                                server: OpenGroupAPI.defaultServer,
+                                server: Network.SOGS.defaultServer,
                                 queryParameters: [:],
                                 headers: .any,
-                                x25519PublicKey: OpenGroupAPI.defaultServerPublicKey
+                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
                             )),
                             body: expectedRequest.body,
                             category: .standard,
@@ -380,7 +385,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .retrieveValue()
                 expect(capabilities?.count).to(equal(2))
                 expect(capabilities?.map { $0.openGroupServer })
-                    .to(equal([OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer]))
+                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
                 expect(capabilities?.map { $0.variant }).to(equal([.blind, .reactions]))
                 expect(capabilities?.map { $0.isMissing }).to(equal([false, false]))
             }
@@ -401,13 +406,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .retrieveValue()
                 expect(openGroups?.count).to(equal(3))  // 1 for the entry used to fetch the default rooms
                 expect(openGroups?.map { $0.server })
-                    .to(equal([OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer]))
+                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
                 expect(openGroups?.map { $0.roomToken }).to(equal(["", "testRoom", "testRoom2"]))
                 expect(openGroups?.map { $0.publicKey })
                     .to(equal([
-                        OpenGroupAPI.defaultServerPublicKey,
-                        OpenGroupAPI.defaultServerPublicKey,
-                        OpenGroupAPI.defaultServerPublicKey
+                        Network.SOGS.defaultServerPublicKey,
+                        Network.SOGS.defaultServerPublicKey,
+                        Network.SOGS.defaultServerPublicKey
                     ]))
                 expect(openGroups?.map { $0.isActive }).to(equal([false, false, false]))
                 expect(openGroups?.map { $0.name }).to(equal(["", "TestRoomName", "TestRoomName2"]))
@@ -417,9 +422,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             it("does not override existing rooms that were returned") {
                 mockStorage.write { db in
                     try OpenGroup(
-                        server: OpenGroupAPI.defaultServer,
+                        server: Network.SOGS.defaultServer,
                         roomToken: "testRoom",
-                        publicKey: OpenGroupAPI.defaultServerPublicKey,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
                         isActive: false,
                         name: "TestExisting",
                         userCount: 0,
@@ -441,15 +446,15 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .thenReturn(
                         MockNetwork.batchResponseData(
                             with: [
-                                (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),
+                                (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
                                 (
-                                    OpenGroupAPI.Endpoint.rooms,
+                                    Network.SOGS.Endpoint.rooms,
                                     try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
                                         Network.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: [
-                                                OpenGroupAPI.Room.mock.with(
+                                                Network.SOGS.Room.mock.with(
                                                     token: "testRoom",
                                                     name: "TestReplacementName"
                                                 )
@@ -476,10 +481,10 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .retrieveValue()
                 expect(openGroups?.count).to(equal(2))  // 1 for the entry used to fetch the default rooms
                 expect(openGroups?.map { $0.server })
-                    .to(equal([OpenGroupAPI.defaultServer, OpenGroupAPI.defaultServer]))
+                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
                 expect(openGroups?.map { $0.roomToken }.sorted()).to(equal(["", "testRoom"]))
                 expect(openGroups?.map { $0.publicKey })
-                    .to(equal([OpenGroupAPI.defaultServerPublicKey, OpenGroupAPI.defaultServerPublicKey]))
+                    .to(equal([Network.SOGS.defaultServerPublicKey, Network.SOGS.defaultServerPublicKey]))
                 expect(openGroups?.map { $0.isActive }).to(equal([false, false]))
                 expect(openGroups?.map { $0.name }.sorted()).to(equal(["", "TestExisting"]))
             }
@@ -506,7 +511,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
-                                        server: OpenGroupAPI.defaultServer
+                                        server: Network.SOGS.defaultServer
                                     ),
                                     timestamp: 1234567890
                                 )
@@ -522,9 +527,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             it("schedules a display picture download if the imageId has changed") {
                 mockStorage.write { db in
                     try OpenGroup(
-                        server: OpenGroupAPI.defaultServer,
+                        server: Network.SOGS.defaultServer,
                         roomToken: "testRoom2",
-                        publicKey: OpenGroupAPI.defaultServerPublicKey,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
                         isActive: false,
                         name: "TestExisting",
                         imageId: "10",
@@ -554,7 +559,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
-                                        server: OpenGroupAPI.defaultServer
+                                        server: Network.SOGS.defaultServer
                                     ),
                                     timestamp: 1234567890
                                 )
@@ -583,17 +588,22 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                         MockNetwork.batchResponseData(
                             with: [
                                 (
-                                    OpenGroupAPI.Endpoint.capabilities,
-                                    OpenGroupAPI.Capabilities(capabilities: [.blind, .reactions]).batchSubResponse()
+                                    Network.SOGS.Endpoint.capabilities,
+                                    Network.SOGS.CapabilitiesResponse(
+                                        capabilities: [
+                                            Capability.Variant.blind.rawValue,
+                                            Capability.Variant.reactions.rawValue
+                                        ]
+                                    ).batchSubResponse()
                                 ),
                                 (
-                                    OpenGroupAPI.Endpoint.rooms,
+                                    Network.SOGS.Endpoint.rooms,
                                     [
-                                        OpenGroupAPI.Room.mock.with(
+                                        Network.SOGS.Room.mock.with(
                                             token: "testRoom",
                                             name: "TestRoomName"
                                         ),
-                                        OpenGroupAPI.Room.mock.with(
+                                        Network.SOGS.Room.mock.with(
                                             token: "testRoom2",
                                             name: "TestRoomName2"
                                         )
@@ -621,9 +631,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             it("does not schedule a display picture download if the imageId matches and the image has already been downloaded") {
                 mockStorage.write { db in
                     try OpenGroup(
-                        server: OpenGroupAPI.defaultServer,
+                        server: Network.SOGS.defaultServer,
                         roomToken: "testRoom2",
-                        publicKey: OpenGroupAPI.defaultServerPublicKey,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
                         isActive: false,
                         name: "TestExisting",
                         imageId: "12",
@@ -663,14 +673,14 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .verify {
                         $0.setDefaultRoomInfo([
                             (
-                                room: OpenGroupAPI.Room.mock.with(
+                                room: Network.SOGS.Room.mock.with(
                                     token: "testRoom",
                                     name: "TestRoomName"
                                 ),
                                 openGroup: OpenGroup(
-                                    server: OpenGroupAPI.defaultServer,
+                                    server: Network.SOGS.defaultServer,
                                     roomToken: "testRoom",
-                                    publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                    publicKey: Network.SOGS.defaultServerPublicKey,
                                     isActive: false,
                                     name: "TestRoomName",
                                     userCount: 0,
@@ -678,16 +688,16 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                 )
                             ),
                             (
-                                room: OpenGroupAPI.Room.mock.with(
+                                room: Network.SOGS.Room.mock.with(
                                     token: "testRoom2",
                                     name: "TestRoomName2",
                                     infoUpdates: 12,
                                     imageId: "12"
                                 ),
                                 openGroup: OpenGroup(
-                                    server: OpenGroupAPI.defaultServer,
+                                    server: Network.SOGS.defaultServer,
                                     roomToken: "testRoom2",
-                                    publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                    publicKey: Network.SOGS.defaultServerPublicKey,
                                     isActive: false,
                                     name: "TestRoomName2",
                                     imageId: "12",

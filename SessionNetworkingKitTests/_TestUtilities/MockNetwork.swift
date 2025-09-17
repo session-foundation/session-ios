@@ -82,7 +82,7 @@ class MockNetwork: NetworkType, Mockable {
         return try handler.mockThrowing(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
     }
     
-    func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: AppVersionResponse) {
+    func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse) {
         return try handler.mockThrowing(args: [ed25519SecretKey])
     }
     

@@ -22,6 +22,7 @@ class MockNotificationsManager: NotificationsManagerType, Mockable {
     public required init(using dependencies: Dependencies) {
         handler = MockHandler(
             dummyProvider: { _ in MockNotificationsManager(handler: .invalid()) },
+            erasedDependenciesKey: nil,
             using: dependencies
         )
         handler.mockNoReturn()

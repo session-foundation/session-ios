@@ -76,7 +76,7 @@ extension MessageReceiver {
                             using: dependencies
                         )
                         
-                        return try SnodeAPI.preparedDeleteMessages(
+                        return try Network.SnodeAPI.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
                             authMethod: authMethod,

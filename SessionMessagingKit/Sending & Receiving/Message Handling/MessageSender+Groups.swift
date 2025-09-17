@@ -187,7 +187,7 @@ extension MessageSender {
                     // Subscribe for push notifications (if PNs are enabled)
                     if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
                         Task.detached(priority: .userInitiated) { [dependencies] in
-                            try? await PushNotificationAPI.subscribe(
+                            try? await Network.PushNotification.subscribe(
                                 token: Data(hex: token),
                                 swarmAuthentication: [
                                     try? Authentication.with(
@@ -595,7 +595,7 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
+                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
                                     data: supplementData,
@@ -679,7 +679,7 @@ extension MessageSender {
                 /// Unrevoke the newly added members just in case they had previously gotten their access to the group
                 /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
                 /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try SnodeAPI.preparedUnrevokeSubaccounts(
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedUnrevokeSubaccounts(
                     subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: sessionId,
@@ -858,7 +858,7 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
+                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
                                 message: SnodeMessage(
                                     recipient: sessionId.hexString,
                                     data: supplementData,
@@ -904,7 +904,7 @@ extension MessageSender {
                 
                 /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
                 /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try SnodeAPI
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI
                     .preparedUnrevokeSubaccounts(
                         subaccountsToUnrevoke: memberInfo.map { token, _ in token },
                         authMethod: Authentication.groupAdmin(

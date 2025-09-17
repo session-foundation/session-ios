@@ -22,7 +22,7 @@ class MockOGMCache: OGMCacheType, Mockable {
         handler.mock()
     }
     
-    var pendingChanges: [OpenGroupAPI.PendingChange] {
+    var pendingChanges: [OpenGroupManager.PendingChange] {
         get { return handler.mock() }
         set { handler.mockNoReturn(args: [newValue]) }
     }

@@ -86,7 +86,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 if let existingToken: String = lastRecordedPushToken {
                     Log.info(.syncPushTokensJob, "Unregister using last recorded push token: \(redact(existingToken))")
                     do {
-                        try await PushNotificationAPI.unsubscribeAll(
+                        try await Network.PushNotification.unsubscribeAll(
                             token: Data(hex: existingToken),
                             using: dependencies
                         )
@@ -189,7 +189,7 @@ public enum SyncPushTokensJob: JobExecutor {
                         /// Retry up to 3 times
                         for _ in 0..<3 {
                             do {
-                                try await PushNotificationAPI.subscribeAll(
+                                try await Network.PushNotification.subscribeAll(
                                     token: Data(hex: pushToken),
                                     isForcedUpdate: true,
                                     using: dependencies

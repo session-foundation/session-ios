@@ -48,7 +48,7 @@ public enum CheckForAppUpdatesJob: JobExecutor {
         }
         
         Task { [dependencies] in
-            let versionInfo: AppVersionResponse? = try? await dependencies[singleton: .network]
+            let versionInfo: Network.FileServer.AppVersionResponse? = try? await dependencies[singleton: .network]
                 .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
             
             switch (versionInfo, versionInfo?.prerelease) {
