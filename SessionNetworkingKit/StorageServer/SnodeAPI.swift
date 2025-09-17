@@ -159,42 +159,21 @@ public extension Network {
             authMethod: AuthenticationMethod,
             using dependencies: Dependencies
         ) throws -> Network.PreparedRequest<PreparedGetMessagesResponse> {
-            let preparedRequest: Network.PreparedRequest<GetMessagesResponse> = try {
-                // Check if this namespace requires authentication
-                guard namespace.requiresReadAuthentication else {
-                    return try SnodeAPI.prepareRequest(
-                        request: Request(
-                            endpoint: .getMessages,
-                            swarmPublicKey: try authMethod.swarmPublicKey,
-                            body: LegacyGetMessagesRequest(
-                                pubkey: try authMethod.swarmPublicKey,
-                                lastHash: (lastHash ?? ""),
-                                namespace: namespace,
-                                maxCount: nil,
-                                maxSize: maxSize
-                            )
-                        ),
-                        responseType: GetMessagesResponse.self,
-                        using: dependencies
+            let preparedRequest: Network.PreparedRequest<GetMessagesResponse> = try SnodeAPI.prepareRequest(
+                request: Request(
+                    endpoint: .getMessages,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
+                    body: GetMessagesRequest(
+                        lastHash: (lastHash ?? ""),
+                        namespace: namespace,
+                        authMethod: authMethod,
+                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                        maxSize: maxSize
                     )
-                }
-                
-                return try SnodeAPI.prepareRequest(
-                    request: Request(
-                        endpoint: .getMessages,
-                        swarmPublicKey: try authMethod.swarmPublicKey,
-                        body: GetMessagesRequest(
-                            lastHash: (lastHash ?? ""),
-                            namespace: namespace,
-                            authMethod: authMethod,
-                            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-                            maxSize: maxSize
-                        )
-                    ),
-                    responseType: GetMessagesResponse.self,
-                    using: dependencies
-                )
-            }()
+                ),
+                responseType: GetMessagesResponse.self,
+                using: dependencies
+            )
             
             return preparedRequest
                 .tryMap { _, response -> (messages: [SnodeReceivedMessage], lastHash: String?) in
@@ -298,40 +277,21 @@ public extension Network {
             authMethod: AuthenticationMethod,
             using dependencies: Dependencies
         ) throws -> Network.PreparedRequest<SendMessagesResponse> {
-            let request: Network.PreparedRequest<SendMessagesResponse> = try {
-                // Check if this namespace requires authentication
-                guard namespace.requiresWriteAuthentication else {
-                    return try SnodeAPI.prepareRequest(
-                        request: Request(
-                            endpoint: .sendMessage,
-                            swarmPublicKey: try authMethod.swarmPublicKey,
-                            body: LegacySendMessagesRequest(
-                                message: message,
-                                namespace: namespace
-                            ),
-                            overallTimeout: Network.defaultTimeout
-                        ),
-                        responseType: SendMessagesResponse.self,
-                        using: dependencies
-                    )
-                }
-                
-                return try SnodeAPI.prepareRequest(
-                    request: Request(
-                        endpoint: .sendMessage,
-                        swarmPublicKey: try authMethod.swarmPublicKey,
-                        body: SendMessageRequest(
-                            message: message,
-                            namespace: namespace,
-                            authMethod: authMethod,
-                            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                        ),
-                        overallTimeout: Network.defaultTimeout
+            let request: Network.PreparedRequest<SendMessagesResponse> = try SnodeAPI.prepareRequest(
+                request: Request(
+                    endpoint: .sendMessage,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
+                    body: SendMessageRequest(
+                        message: message,
+                        namespace: namespace,
+                        authMethod: authMethod,
+                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     ),
-                    responseType: SendMessagesResponse.self,
-                    using: dependencies
-                )
-            }()
+                    overallTimeout: Network.defaultTimeout
+                ),
+                responseType: SendMessagesResponse.self,
+                using: dependencies
+            )
             
             return request
                 .tryMap { _, response -> SendMessagesResponse in
