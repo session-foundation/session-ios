@@ -13,13 +13,6 @@ final class InfoMessageCell: MessageCell {
     
     override var contextSnapshotView: UIView? { return label }
     
-    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
-        return [
-            .longPress,
-            .tap
-        ]
-    }
-    
     // MARK: - UI
     
     private lazy var iconContainerViewWidthConstraint = iconContainerView.set(.width, to: InfoMessageCell.iconSize)
@@ -83,6 +76,15 @@ final class InfoMessageCell: MessageCell {
         stackView.pin(.top, to: .top, of: self, withInset: InfoMessageCell.inset)
         stackView.pin(.right, to: .right, of: self, withInset: -Values.massiveSpacing)
         stackView.pin(.bottom, to: .bottom, of: self, withInset: -InfoMessageCell.inset)
+    }
+    
+    override func setUpGestureRecognizers() {
+        let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+        addGestureRecognizer(longPressRecognizer)
+        
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        tapGestureRecognizer.numberOfTapsRequired = 1
+        addGestureRecognizer(tapGestureRecognizer)
     }
 
     // MARK: - Updating
@@ -167,7 +169,7 @@ final class InfoMessageCell: MessageCell {
     
     // MARK: - Interaction
     
-    override func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
+    @objc func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -178,9 +180,9 @@ final class InfoMessageCell: MessageCell {
         isHandlingLongPress = true
     }
     
-    override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+    @objc func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
-
+        
         if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
             delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
         }
