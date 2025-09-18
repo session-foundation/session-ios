@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 import Lucide
 import GRDB
 import DifferenceKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionUIKit
@@ -741,9 +741,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 body: text
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
-            expiresStartedAtMs: threadData.disappearingMessagesConfiguration?.initialExpiresStartedAtMs(
-                sentTimestampMs: Double(sentTimestampMs)
-            ),
             linkPreviewUrl: linkPreviewDraft?.urlString,
             isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies

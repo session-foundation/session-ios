@@ -41,6 +41,11 @@ public extension FeatureStorage {
         identifier: "forceSlowDatabaseQueries"
     )
     
+    static let communityPollLimit: FeatureConfig<Int> = Dependencies.create(
+        identifier: "communityPollLimit",
+        defaultOption: 100
+    )
+    
     static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsDisableAutoApprove"
     )
@@ -88,16 +93,22 @@ public extension FeatureStorage {
     static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
         identifier: "treatAllIncomingMessagesAsProMessages"
     )
+    
+    static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "simulateAppReviewLimit"
+    )
 }
 
 // MARK: - FeatureOption
 
-public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable, Hashable {
+public protocol FeatureOption: RawRepresentable, Equatable, Hashable {
     static var defaultOption: Self { get }
     
     var isValidOption: Bool { get }
     var title: String { get }
     var subtitle: String? { get }
+    
+    static func validateOptions(defaultOption: Self)
 }
 
 public extension FeatureOption {
@@ -127,7 +138,6 @@ public struct Feature<T: FeatureOption>: FeatureType {
     }
     
     private let identifier: String
-    public let options: [T]
     public let defaultOption: T
     public let automaticChangeBehaviour: ChangeBehaviour?
     
@@ -135,17 +145,12 @@ public struct Feature<T: FeatureOption>: FeatureType {
     
     public init(
         identifier: String,
-        options: [T],
         defaultOption: T,
         automaticChangeBehaviour: ChangeBehaviour? = nil
     ) {
-        guard
-            T.self == Bool.self ||
-            !options.appending(defaultOption).contains(where: { ($0.rawValue as? Int) == 0 })
-        else { preconditionFailure("A rawValue of '0' is a protected value (it indicates unset)") }
+        T.validateOptions(defaultOption: defaultOption)
         
         self.identifier = identifier
-        self.options = options
         self.defaultOption = defaultOption
         self.automaticChangeBehaviour = automaticChangeBehaviour
     }
@@ -261,5 +266,61 @@ extension Bool: FeatureOption {
     
     public var subtitle: String? {
         return (self ? "Enabled" : "Disabled")
+    }
+}
+
+// MARK: - Int FeatureOption
+
+extension Int: @retroactive RawRepresentable {}
+extension Int: FeatureOption {
+    // MARK: - Initialization
+    
+    public var rawValue: Int { return self }
+    
+    public init?(rawValue: Int) {
+        self = rawValue
+    }
+    
+    // MARK: - Feature Option
+    
+    public static var defaultOption: Int = 0
+    
+    public var title: String {
+        return "\(self)"
+    }
+    
+    public var subtitle: String? {
+        return "\(self)"
+    }
+}
+
+// MARK: - FeatureOption Validation
+
+extension FeatureOption {
+    public static func validateOptions(defaultOption: Self) {
+        guard (defaultOption.rawValue as? Int) != 0 else {
+            preconditionFailure("A rawValue of '0' is a protected value (it indicates unset)")
+        }
+    }
+}
+
+extension FeatureOption where Self == Bool {
+    /// A `Bool` feature is always valid
+    public static func validateOptions(defaultOption: Bool) {}
+}
+
+extension FeatureOption where Self == Int {
+    public static func validateOptions(defaultOption: Int) {
+        guard defaultOption != 0 else {
+            preconditionFailure("A rawValue of '0' is a protected value (it indicates unset)")
+        }
+    }
+}
+
+extension FeatureOption where Self: CaseIterable {
+    public static func validateOptions(defaultOption: Self) {
+        guard !Array(Self.allCases).appending(defaultOption).contains(where: { ($0.rawValue as? Int) == 0 }) else {
+            preconditionFailure("A rawValue of '0' is a protected value (it indicates unset)")
+        }
     }
 }

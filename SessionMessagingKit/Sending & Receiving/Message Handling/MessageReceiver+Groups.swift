@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -307,7 +307,7 @@ extension MessageReceiver {
         // devices that had the group before they were promoted
         try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == SnodeAPI.Namespace.groupMessages.rawValue)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.SnodeAPI.Namespace.groupMessages.rawValue)
             .updateAllAndConfig(
                 db,
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
@@ -472,10 +472,11 @@ extension MessageReceiver {
         /// If the message is about adding the current user then we should remove any existing `infoGroupInfoInvited` interactions
         /// from the group (don't want to have two different messages indicating the current user was added to the group)
         if messageContainsCurrentUser && message.changeType == .added {
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+            try Interaction.deleteWhere(
+                db,
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString),
                 .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-                .deleteAll(db)
+            )
         }
         
         switch messageInfo.infoString(using: dependencies) {
@@ -752,7 +753,7 @@ extension MessageReceiver {
             )
         else { return }
         
-        try? SnodeAPI
+        try? Network.SnodeAPI
             .preparedDeleteMessages(
                 serverHashes: Array(hashes),
                 requireSuccessfulDeletion: false,
@@ -920,7 +921,7 @@ extension MessageReceiver {
                 db.afterCommit {
                     dependencies[singleton: .storage]
                         .readPublisher { db in
-                            try SnodeAPI.preparedDeleteMessages(
+                            try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: [serverHash],
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(
@@ -943,10 +944,11 @@ extension MessageReceiver {
         
         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one in case
         /// the group was created via a `USER_GROUPS` config when syncing a new device)
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+        try Interaction.deleteWhere(
+            db,
+            .filter(Interaction.Columns.threadId == groupSessionId.hexString),
             .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-            .deleteAll(db)
+        )
         
         /// Unline most control messages we don't bother setting expiration values for this message, this is because we won't actually
         /// have the current disappearing messages config as we won't have polled the group yet (and the settings are stored in the

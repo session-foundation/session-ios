@@ -8,7 +8,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -70,7 +70,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.loadingViewController = LoadingViewController()
         
         AppSetup.setupEnvironment(
-            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
                 Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
                 Log.info(.cat, "Setting up environment.")
@@ -222,7 +221,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Dispatch async so things can continue to be progressed if a migration does need to run
             DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
                 AppSetup.runPostSetupMigrations(
-                    additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
                     migrationProgressChanged: { progress, minEstimatedTotalTime in
                         self?.loadingViewController?.updateProgress(
                             progress: progress,
@@ -463,7 +461,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// We need to do a clean up for disappear after send messages that are received by push notifications before
         /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
         /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
-        DisappearingMessagesJob.cleanExpiredMessagesOnLaunch(using: dependencies)
+        DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
         
         /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
         /// them in this thread and create a task to _actually_ load them asynchronously
@@ -606,7 +604,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         
                         // The re-run the migration (should succeed since there is no data)
                         AppSetup.runPostSetupMigrations(
-                            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
                             migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
                                 self?.loadingViewController?.updateProgress(
                                     progress: progress,
@@ -707,7 +704,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             self?.startPollersIfNeeded()
             
-            SessionNetworkAPI.client.initialize(using: dependencies)
+            Network.SessionNetwork.client.initialize(using: dependencies)
 
             if dependencies[singleton: .appContext].isMainApp {
                 DispatchQueue.main.async {

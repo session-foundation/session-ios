@@ -285,8 +285,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     title: SessionCell.TextInfo(
                         state.profile.displayName(),
                         font: .titleLarge,
-                        alignment: .center,
-                        interaction: .editable
+                        alignment: .center
                     ),
                     trailingAccessory: .icon(
                         .pencil,
@@ -849,6 +848,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
         
         self.transitionToScreen(modal, transitionType: .present)
+        
+        // Mark app review flag that donate button was tapped
+        if !dependencies[defaults: .standard, key: .hasPressedDonateButton] {
+            dependencies[defaults: .standard, key: .hasPressedDonateButton] = true
+        }
     }
     
     private func openTokenUrl() {

@@ -6,6 +6,7 @@ import AVFoundation
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -485,11 +486,11 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         )
     }
     
-    func join(_ room: OpenGroupAPI.Room) {
+    func join(_ room: Network.SOGS.Room) {
         joinOpenGroupVC?.joinOpenGroup(
             roomToken: room.token,
-            server: OpenGroupAPI.defaultServer,
-            publicKey: OpenGroupAPI.defaultServerPublicKey,
+            server: Network.SOGS.defaultServer,
+            publicKey: Network.SOGS.defaultServerPublicKey,
             shouldOpenCommunity: true,
             onError: nil
         )

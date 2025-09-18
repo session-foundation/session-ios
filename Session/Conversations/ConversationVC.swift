@@ -29,6 +29,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
     private var hasReloadedThreadDataAfterDisappearance: Bool = true
     
+    /// This flag indicates that a need for inputview keyboard presentation is needed, this is in events
+    /// where a delegate action is trigger before poping back into `ConversationVC`
+    var hasPendingInputKeyboardPresentationEvent: Bool = false
+    
     var focusedInteractionInfo: Interaction.TimestampInfo?
     var focusBehaviour: ConversationViewModel.FocusBehaviour = .none
     
@@ -581,6 +585,15 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self?.didFinishInitialLayout = true
             self?.viewIsAppearing = false
             self?.lastPresentedViewController = nil
+
+            // Show inputview keyboard
+            if self?.hasPendingInputKeyboardPresentationEvent == true {
+                // Added 0.1 delay to remove inputview stutter animation glitch while keyboard is animating up
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    _ = self?.snInputView.becomeFirstResponder()
+                }
+                self?.hasPendingInputKeyboardPresentationEvent = false
+            }
         }
     }
 
@@ -2104,6 +2117,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self.highlightCellIfNeeded(interactionId: interactionInfo.id, behaviour: focusBehaviour)
             self.focusedInteractionInfo = nil
             self.focusBehaviour = .none
+            
+            // Check if the last known keyboard frame exists,
+            // if it does not intersect with the target rectangle (the cell to be scrolled to),
+            if let keyboardFrame = lastKnownKeyboardFrame, !keyboardFrame.intersects(targetRect) {
+                // If all conditions are met, scroll the table view to make the target rectangle visible.
+                // This is to ensure a cell is not covered by the keyboard.
+                self.tableView.scrollRectToVisible(targetRect, animated: true)
+            }
             return
         }
         

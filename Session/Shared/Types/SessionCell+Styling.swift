@@ -9,9 +9,7 @@ public extension SessionCell {
     struct TextInfo: Hashable, Equatable {
         public enum Interaction: Hashable, Equatable {
             case none
-            case editable
             case copy
-            case alwaysEditing
             case expandable
         }
         

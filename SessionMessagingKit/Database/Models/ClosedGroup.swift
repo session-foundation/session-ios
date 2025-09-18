@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
@@ -226,16 +226,22 @@ public extension ClosedGroup {
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-            try? PushNotificationAPI
-                .preparedSubscribe(
-                    db,
-                    token: Data(hex: token),
-                    sessionIds: [SessionId(.group, hex: group.id)],
-                    using: dependencies
-                )
-                .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .sinkUntilComplete()
+            let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
+                db,
+                swarmPublicKey: group.id,
+                using: dependencies
+            )
+            
+            if let authMethod: AuthenticationMethod = maybeAuthMethod {
+                try? Network.PushNotification
+                    .preparedSubscribe(
+                        token: Data(hex: token),
+                        swarms: [(SessionId(.group, hex: group.id), authMethod)],
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                    .sinkUntilComplete()
+            }
         }
     }
     
@@ -305,13 +311,20 @@ public extension ClosedGroup {
             /// Bulk unsubscripe from updated groups being removed
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    try? PushNotificationAPI
+                    try? Network.PushNotification
                         .preparedUnsubscribe(
-                            db,
                             token: Data(hex: token),
-                            sessionIds: threadVariants
+                            swarms: threadVariants
                                 .filter { $0.variant == .group }
-                                .map { SessionId(.group, hex: $0.id) },
+                                .compactMap { info in
+                                    let authMethod: AuthenticationMethod? = try? Authentication.with(
+                                        db,
+                                        swarmPublicKey: info.id,
+                                        using: dependencies
+                                    )
+                                    
+                                    return authMethod.map { (SessionId(.group, hex: info.id), $0) }
+                                },
                             using: dependencies
                         )
                         .send(using: dependencies)
@@ -334,19 +347,7 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.messages) {
-            struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
-                let id: Int64
-                let threadId: String
-            }
-            
-            let interactionInfo: Set<InteractionThreadInfo> = try Interaction
-                .select(.id, .threadId)
-                .filter(threadIds.contains(Interaction.Columns.threadId))
-                .asRequest(of: InteractionThreadInfo.self)
-                .fetchSet(db)
-            try Interaction.deleteAll(db, ids: interactionInfo.map { $0.id })
-            
-            interactionInfo.forEach { db.addMessageEvent(id: $0.id, threadId: $0.threadId, type: .deleted) }
+            try Interaction.deleteWhere(db, .filter(threadIds.contains(Interaction.Columns.threadId)))
             
             /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
@@ -381,6 +382,7 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.thread) {
+            try Interaction.deleteWhere(db, .filter(threadIds.contains(Interaction.Columns.threadId)))
             try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
                 .filter(ids: threadIds)
                 .deleteAll(db)

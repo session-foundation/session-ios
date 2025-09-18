@@ -165,6 +165,21 @@ public extension UserDefaults.BoolKey {
     
     /// Indicates whether the local notification for token bonus is scheduled
     static let isSessionNetworkPageNotificationScheduled: UserDefaults.BoolKey = "isSessionNetworkPageNotificationScheduled"
+    
+    /// Indicates whether the user visited the Path screen
+    static let hasVisitedPathScreen: UserDefaults.BoolKey = "hasVisitedPathScreen"
+    
+    /// Indicates whether the user changed the app theme
+    static let hasChangedTheme: UserDefaults.BoolKey = "hasChangedTheme"
+    
+    /// Indicates whether the user pressed the donate button
+    static let hasPressedDonateButton: UserDefaults.BoolKey = "hasPressedDonateButton"
+    
+    /// Indicates wheter app has already presented the user the app review prompt dialog
+    static let didShowAppReviewPrompt: UserDefaults.BoolKey = "didShowAppReviewPrompt"
+    
+    /// Idicates whether app review prompt was ignored or no iteraction was done to dismiss it (closed app)
+    static let didActionAppReviewPrompt: UserDefaults.BoolKey = "didActionAppReviewPrompt"
 }
 
 public extension UserDefaults.DateKey {
@@ -180,6 +195,9 @@ public extension UserDefaults.DateKey {
     
     /// The date/time when we received a call pre-offer (used to suppress call notifications which are too old)
     static let lastCallPreOffer: UserDefaults.DateKey = "lastCallPreOffer"
+    
+    /// The date/time when app review prompt will appear again
+    static let rateAppRetryDate: UserDefaults.DateKey = "rateAppRetryDate"
 }
 
 public extension UserDefaults.DoubleKey {
@@ -196,6 +214,9 @@ public extension UserDefaults.IntKey {
     
     /// The id of the message that was just shared to
     static let lastSharedMessageId: UserDefaults.IntKey = "lastSharedMessageId"
+    
+    /// The number of attempts made to retry showing of app rating prompt
+    static let rateAppRetryAttemptCount: UserDefaults.IntKey = "rateAppRetryAttemptCount"
 }
 
 public extension UserDefaults.StringKey {
@@ -207,6 +228,9 @@ public extension UserDefaults.StringKey {
     
     /// The id of the thread that a message was just shared to
     static let lastSharedThreadId: UserDefaults.StringKey = "lastSharedThreadId"
+    
+    /// The app-icon name of the previously selected app icon disguise
+    static let lastSelectedAppIconDisguise: UserDefaults.StringKey = "lastSelectedAppIconDisguise"
 }
 
 // MARK: - Keys

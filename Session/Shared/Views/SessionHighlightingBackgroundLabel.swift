@@ -15,6 +15,11 @@ public class SessionHighlightingBackgroundLabel: UIView {
         set { label.themeTextColor = newValue }
     }
     
+    var preferredMaxLayoutWidth: CGFloat {
+        get { label.preferredMaxLayoutWidth - (Values.smallSpacing * 2) }
+        set { label.preferredMaxLayoutWidth = (newValue - (Values.smallSpacing * 2)) }
+    }
+    
     // MARK: - Components
     
     private let label: UILabel = {
@@ -24,6 +29,7 @@ public class SessionHighlightingBackgroundLabel: UIView {
         result.themeTextColor = .textPrimary
         result.setContentHugging(to: .required)
         result.setCompressionResistance(to: .required)
+        result.numberOfLines = 0
         
         return result
     }()

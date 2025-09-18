@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -182,7 +182,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(openGroup[.threadId])
                             WHERE (
                                 \(thread[.id]) IS NULL AND
-                                \(SQL("\(openGroup[.server]) != \(OpenGroupAPI.defaultServer.lowercased())"))
+                                \(SQL("\(openGroup[.server]) != \(Network.SOGS.defaultServer.lowercased())"))
                             )
                         )
                     """)
@@ -309,11 +309,12 @@ public enum GarbageCollectionJob: JobExecutor {
                 
                 /// Remove interactions which should be disappearing after read but never be read within 14 days
                 if finalTypesToCollect.contains(.expiredUnreadDisappearingMessages) {
-                    _ = try Interaction
-                        .filter(Interaction.Columns.expiresInSeconds != 0)
-                        .filter(Interaction.Columns.expiresStartedAtMs == nil)
+                    try Interaction.deleteWhere(
+                        db,
+                        .filter(Interaction.Columns.expiresInSeconds != 0),
+                        .filter(Interaction.Columns.expiresStartedAtMs == nil),
                         .filter(Interaction.Columns.timestampMs < (timestampNow - fourteenDaysInSeconds) * 1000)
-                        .deleteAll(db)
+                    )
                 }
 
                 if finalTypesToCollect.contains(.expiredPendingReadReceipts) {

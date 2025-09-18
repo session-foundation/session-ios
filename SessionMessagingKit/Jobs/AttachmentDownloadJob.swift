@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public enum AttachmentDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 3
@@ -112,7 +112,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 switch maybeRoomToken {
                     case .some(let roomToken):
-                        return try OpenGroupAPI
+                        return try Network.SOGS
                             .preparedDownload(
                                 url: info.downloadUrl,
                                 roomToken: roomToken,

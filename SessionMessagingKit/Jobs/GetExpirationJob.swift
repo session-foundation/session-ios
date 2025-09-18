@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum GetExpirationJob: JobExecutor {
@@ -39,7 +39,7 @@ public enum GetExpirationJob: JobExecutor {
         
         dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<GetExpiriesResponse> in
-                try SnodeAPI.preparedGetExpiries(
+                try Network.SnodeAPI.preparedGetExpiries(
                     of: expirationInfo.map { $0.key },
                     authMethod: try Authentication.with(
                         db,
@@ -90,9 +90,10 @@ public enum GetExpirationJob: JobExecutor {
                         hashesWithNoExiprationInfo = hashesWithNoExiprationInfo.subtracting(inferredExpiredMessageHashes)
                         
                         if !inferredExpiredMessageHashes.isEmpty {
-                            try Interaction
+                            try Interaction.deleteWhere(
+                                db,
                                 .filter(inferredExpiredMessageHashes.contains(Interaction.Columns.serverHash))
-                                .deleteAll(db)
+                            )
                         }
                         
                         try Interaction

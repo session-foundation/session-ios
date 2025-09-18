@@ -1,7 +1,7 @@
 // stringlint:disable
 
 import Foundation
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum MessageWrapper {

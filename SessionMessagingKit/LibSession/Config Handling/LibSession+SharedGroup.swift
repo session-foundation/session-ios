@@ -3,7 +3,7 @@
 import UIKit
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtil
 import SessionUtilitiesKit
 

@@ -9,7 +9,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import Session
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class OnboardingSpec: AsyncSpec {
@@ -24,12 +24,7 @@ class OnboardingSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -43,6 +38,14 @@ class OnboardingSpec: AsyncSpec {
                 crypto
                     .when { $0.generate(.randomBytes(.any)) }
                     .thenReturn(Data([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]))
+                crypto
+                    .when { $0.generate(.ed25519Seed(ed25519SecretKey: .any)) }
+                    .thenReturn(Data([
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                        1, 2
+                    ]))
                 crypto
                     .when { $0.generate(.ed25519KeyPair(seed: .any)) }
                     .thenReturn(
@@ -73,7 +76,8 @@ class OnboardingSpec: AsyncSpec {
         )
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: .any) }.thenReturn(true)
+                defaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                defaults.when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }.thenReturn(false)
                 defaults.when { $0.integer(forKey: .any) }.thenReturn(2)
                 defaults.when { $0.set(true, forKey: .any) }.thenReturn(())
                 defaults.when { $0.set(false, forKey: .any) }.thenReturn(())
@@ -117,7 +121,7 @@ class OnboardingSpec: AsyncSpec {
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
-                                SnodeAPI.Endpoint.getMessages,
+                                Network.SnodeAPI.Endpoint.getMessages,
                                 GetMessagesResponse(
                                     messages: (pendingPushes?
                                         .pushData
@@ -190,9 +194,10 @@ class OnboardingSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- without a stored key pair
-            context("without a stored key pair") {
+            // MARK: -- without a stored secret key
+            context("without a stored secret key") {
                 beforeEach {
+                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     mockCrypto
                         .when { $0.generate(.ed25519KeyPair(seed: .any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
@@ -214,19 +219,20 @@ class OnboardingSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- with a stored key pair
-            context("with a stored key pair") {
+            // MARK: -- with a stored secret key
+            context("with a stored secret key") {
                 beforeEach {
-                    mockStorage.write { db in
-                        try Identity(
-                            variant: .ed25519PublicKey,
-                            data: Data(hex: TestConstants.edPublicKey)
-                        ).insert(db)
-                        try Identity(
-                            variant: .ed25519SecretKey,
-                            data: Data(hex: TestConstants.edSecretKey)
-                        ).insert(db)
-                    }
+                    mockGeneralCache
+                        .when { $0.ed25519SecretKey }
+                        .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                    mockCrypto
+                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .thenReturn(
+                            KeyPair(
+                                publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                                secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                            )
+                        )
                 }
                 
                 // MARK: ---- does not generate a seed
@@ -266,22 +272,23 @@ class OnboardingSpec: AsyncSpec {
                 // MARK: ---- and failing to generate an x25519KeyPair
                 context("and failing to generate an x25519KeyPair") {
                     beforeEach {
-                        mockStorage.write { db in
-                            try Identity.deleteAll(db)
-                            try Identity(
-                                variant: .ed25519PublicKey,
-                                data: Data(hex: "090807")
-                            ).insert(db)
-                            try Identity(
-                                variant: .ed25519SecretKey,
-                                data: Data(hex: TestConstants.edSecretKey)
-                            ).insert(db)
-                        }
+                        mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: .any)) }
                         mockCrypto
-                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
-                            .thenReturn(nil)
+                            .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: .any)) }
+                            .thenThrow(MockError.mockedData)
                         mockCrypto
-                            .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                            .when {
+                                $0.generate(.ed25519KeyPair(
+                                    seed: Array(Data(hex: TestConstants.edSecretKey))
+                                ))
+                            }
+                            .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
+                        mockCrypto
+                            .when {
+                                $0.generate(.ed25519KeyPair(
+                                    seed: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]
+                                )) }
                             .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                         mockCrypto
                             .when { $0.generate(.x25519(ed25519Pubkey: [1, 2, 3])) }
@@ -289,6 +296,9 @@ class OnboardingSpec: AsyncSpec {
                         mockCrypto
                             .when { $0.generate(.x25519(ed25519Seckey: [4, 5, 6])) }
                             .thenReturn([7, 6, 5, 4])
+                        mockCrypto
+                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
+                            .thenReturn(nil)
                     }
                     
                     // MARK: ------ generates new credentials
@@ -321,6 +331,9 @@ class OnboardingSpec: AsyncSpec {
                 // MARK: ---- and an existing display name
                 context("and an existing display name") {
                     beforeEach {
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(true)
                         mockLibSession
                             .when {
                                 $0.profile(
@@ -359,26 +372,33 @@ class OnboardingSpec: AsyncSpec {
                     // MARK: ------ after generating new credentials
                     context("after generating new credentials") {
                         beforeEach {
-                            mockStorage.write { db in
-                                try Identity.deleteAll(db)
-                                try Identity(
-                                    variant: .ed25519PublicKey,
-                                    data: Data(hex: "090807")
-                                ).insert(db)
-                                try Identity(
-                                    variant: .ed25519SecretKey,
-                                    data: Data(hex: TestConstants.edSecretKey)
-                                ).insert(db)
-                            }
+                            mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: .any)) }
+                            mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: .any)) }
                             mockCrypto
-                                .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
-                                .thenReturn(nil)
+                                .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: .any)) }
+                                .thenThrow(MockError.mockedData)
+                            mockCrypto
+                                .when {
+                                    $0.generate(.ed25519KeyPair(
+                                        seed: Array(Data(hex: TestConstants.edSecretKey))
+                                    ))
+                                }
+                                .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
+                            mockCrypto
+                                .when {
+                                    $0.generate(.ed25519KeyPair(
+                                        seed: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]
+                                    )) }
+                                .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                             mockCrypto
                                 .when { $0.generate(.x25519(ed25519Pubkey: [1, 2, 3])) }
                                 .thenReturn([4, 3, 2, 1])
                             mockCrypto
                                 .when { $0.generate(.x25519(ed25519Seckey: [4, 5, 6])) }
                                 .thenReturn([7, 6, 5, 4])
+                            mockCrypto
+                                .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
+                                .thenReturn(nil)
                         }
                         
                         // MARK: -------- has an empty display name
@@ -390,6 +410,12 @@ class OnboardingSpec: AsyncSpec {
                 
                 // MARK: ---- and a missing display name
                 context("and a missing display name") {
+                    beforeEach {
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(true)
+                    }
+                    
                     // MARK: ------ has an empty display name
                     it("has an empty display name") {
                         expect(cache.displayName).to(equal(""))

@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public struct SessionThread: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
     public static var databaseTableName: String { "thread" }
@@ -582,9 +582,10 @@ public extension SessionThread {
                 
             case .hideContactConversationAndDeleteContentDirectly:
                 // Clear any interactions for the deleted thread
-                _ = try Interaction
+                try Interaction.deleteWhere(
+                    db,
                     .filter(threadIds.contains(Interaction.Columns.threadId))
-                    .deleteAll(db)
+                )
                 
                 // Hide the threads
                 try SessionThread.updateVisibility(
@@ -598,7 +599,13 @@ public extension SessionThread {
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             case .deleteContactConversationAndMarkHidden:
-                _ = try SessionThread
+                // Clear any interactions for the deleted thread
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(remainingThreadIds.contains(Interaction.Columns.threadId))
+                )
+                
+                try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
@@ -620,9 +627,10 @@ public extension SessionThread {
                 // hidden locally rather than deleted)
                 if threadIds.contains(userSessionId.hexString) {
                     // Clear any interactions for the deleted thread
-                    _ = try Interaction
+                    try Interaction.deleteWhere(
+                        db,
                         .filter(Interaction.Columns.threadId == userSessionId.hexString)
-                        .deleteAll(db)
+                    )
                     
                     try SessionThread.updateVisibility(
                         db,
@@ -643,15 +651,20 @@ public extension SessionThread {
                 // custom data for this contact)
                 try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
-                _ = try Profile
+                try Profile
                     .filter(ids: remainingThreadIds)
                     .updateAll(db, Profile.Columns.nickname.set(to: nil))
                 
-                _ = try Contact
+                try Contact
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
-                _ = try SessionThread
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(remainingThreadIds.contains(Interaction.Columns.threadId))
+                )
+                
+                try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 

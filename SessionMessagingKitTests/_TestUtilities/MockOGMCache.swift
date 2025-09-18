@@ -11,7 +11,7 @@ class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
         mock()
     }
     
-    var pendingChanges: [OpenGroupAPI.PendingChange] {
+    var pendingChanges: [OpenGroupManager.PendingChange] {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
     }

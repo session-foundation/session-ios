@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Combine
 import NVActivityIndicatorView
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUIKit
 import SessionUtilitiesKit
@@ -354,7 +355,7 @@ extension OpenGroupSuggestionGrid {
             snContentView.pin(to: self)
         }
         
-        fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
+        fileprivate func update(with room: Network.SOGS.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
             label.text = room.name
             
             let maybePath: String? = openGroup.displayPictureOriginalUrl
@@ -380,7 +381,7 @@ extension OpenGroupSuggestionGrid {
 // MARK: - Delegate
 
 protocol OpenGroupSuggestionGridDelegate {
-    func join(_ room: OpenGroupAPI.Room)
+    func join(_ room: Network.SOGS.Room)
 }
 
 // MARK: - LastRowCenteredLayout

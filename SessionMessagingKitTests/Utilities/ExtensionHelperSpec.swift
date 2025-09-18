@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 import Quick
@@ -24,10 +24,7 @@ class ExtensionHelperSpec: AsyncSpec {
         @TestState(singleton: .extensionHelper, in: dependencies) var extensionHelper: ExtensionHelper! = ExtensionHelper(using: dependencies)
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -738,7 +735,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2332,7 +2329,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2369,7 +2366,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2385,7 +2382,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2422,7 +2419,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2438,7 +2435,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )
@@ -2480,7 +2477,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             categories: [
                                 Log.Category.create(
                                     "ExtensionHelper",
-                                    customPrefix: "",
+                                    group: nil,
                                     customSuffix: "",
                                     defaultLevel: .info
                                 )

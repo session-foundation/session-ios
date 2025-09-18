@@ -1,14 +1,14 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension Message {
     enum Origin: Codable, Hashable {
         case swarm(
             publicKey: String,
-            namespace: SnodeAPI.Namespace,
+            namespace: Network.SnodeAPI.Namespace,
             serverHash: String,
             serverTimestampMs: Int64,
             serverExpirationTimestamp: TimeInterval
@@ -16,7 +16,7 @@ public extension Message {
         case community(
             openGroupId: String,
             sender: String,
-            timestamp: TimeInterval,
+            timestamp: TimeInterval?,
             messageServerId: Int64,
             whisper: Bool,
             whisperMods: Bool,
