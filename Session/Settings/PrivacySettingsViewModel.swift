@@ -12,7 +12,6 @@ import SessionUtilitiesKit
 class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let editableState: EditableState<TableItem> = EditableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let shouldShowCloseButton: Bool

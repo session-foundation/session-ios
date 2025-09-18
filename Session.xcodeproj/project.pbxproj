@@ -455,7 +455,6 @@
 		FD10AF122AF85D11007709E5 /* Feature+ServiceNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD10AF112AF85D11007709E5 /* Feature+ServiceNetwork.swift */; };
 		FD11E22D2CA4D12C001BAF58 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286782C38D4FF00BC06F7 /* DifferenceKit */; };
 		FD11E22E2CA4D12C001BAF58 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = FDEF57292C3CF50B00131302 /* WebRTC */; };
-		FD12A83D2AD63BCC00EEBA0D /* EditableState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12A83C2AD63BCC00EEBA0D /* EditableState.swift */; };
 		FD12A83F2AD63BDF00EEBA0D /* Navigatable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12A83E2AD63BDF00EEBA0D /* Navigatable.swift */; };
 		FD12A8412AD63BEA00EEBA0D /* NavigatableState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12A8402AD63BEA00EEBA0D /* NavigatableState.swift */; };
 		FD12A8432AD63BF600EEBA0D /* ObservableTableSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12A8422AD63BF600EEBA0D /* ObservableTableSource.swift */; };
@@ -1837,7 +1836,6 @@
 		FD10AF0B2AF32B9A007709E5 /* SessionListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListViewModel.swift; sourceTree = "<group>"; };
 		FD10AF112AF85D11007709E5 /* Feature+ServiceNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Feature+ServiceNetwork.swift"; sourceTree = "<group>"; };
 		FD11E22F2CA4F498001BAF58 /* DestinationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationSpec.swift; sourceTree = "<group>"; };
-		FD12A83C2AD63BCC00EEBA0D /* EditableState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditableState.swift; sourceTree = "<group>"; };
 		FD12A83E2AD63BDF00EEBA0D /* Navigatable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navigatable.swift; sourceTree = "<group>"; };
 		FD12A8402AD63BEA00EEBA0D /* NavigatableState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatableState.swift; sourceTree = "<group>"; };
 		FD12A8422AD63BF600EEBA0D /* ObservableTableSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableTableSource.swift; sourceTree = "<group>"; };
@@ -4631,7 +4629,6 @@
 			isa = PBXGroup;
 			children = (
 				FD71164928E3EA5B00B47552 /* DismissType.swift */,
-				FD12A83C2AD63BCC00EEBA0D /* EditableState.swift */,
 				FD12A83E2AD63BDF00EEBA0D /* Navigatable.swift */,
 				FD12A8402AD63BEA00EEBA0D /* NavigatableState.swift */,
 				FD12A8422AD63BF600EEBA0D /* ObservableTableSource.swift */,
@@ -6849,7 +6846,6 @@
 				FD3FAB5F2AE9BC2200DC5421 /* EditGroupViewModel.swift in Sources */,
 				7BA37AFB2AEB64CA002438F8 /* DisappearingMessageTimerView.swift in Sources */,
 				FD12A8492AD63C4700EEBA0D /* SessionNavItem.swift in Sources */,
-				FD12A83D2AD63BCC00EEBA0D /* EditableState.swift in Sources */,
 				FD37EA0528AA00C1003AE748 /* NotificationSettingsViewModel.swift in Sources */,
 				C328255225CA64470062D0A7 /* ContextMenuVC+ActionView.swift in Sources */,
 				C3548F0824456AB6009433A8 /* UIView+Wrapping.swift in Sources */,
