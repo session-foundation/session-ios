@@ -533,7 +533,7 @@ class OnboardingSpec: AsyncSpec {
                                                 swarmId: 1
                                             ),
                                             lastHash: nil,
-                                            maxSize: 1,
+                                            maxSize: -1,
                                             authMethod: Authentication.standard(
                                                 sessionId: SessionId(.standard, hex: TestConstants.publicKey),
                                                 ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),

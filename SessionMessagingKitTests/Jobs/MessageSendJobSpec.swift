@@ -401,7 +401,7 @@ class MessageSendJobSpec: AsyncSpec {
                                 using: dependencies
                             )
                             
-                            expect(didDefer).to(beTrue())
+                            await expect(didDefer).toEventually(beTrue())
                         }
                         
                         // MARK: -------- inserts an attachment upload job before the message send job

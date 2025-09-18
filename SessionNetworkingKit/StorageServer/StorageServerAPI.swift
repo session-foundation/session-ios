@@ -65,6 +65,7 @@ public extension Network.StorageServer {
         let request: Network.PreparedRequest<Network.BatchResponse> = try StorageServer.preparedBatch(
             requests: requests,
             requireAllBatchResponses: true,
+            snode: snode,
             swarmPublicKey: try authMethod.swarmPublicKey,
             using: dependencies
         )
