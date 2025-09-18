@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - AttachmentUploader
@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public final class AttachmentUploader {
     private enum Destination {
         case fileServer
-        case community(LibSession.OpenGroupCapabilityInfo)
+        case community(roomToken: String, server: String)
         
         var shouldEncrypt: Bool {
             switch self {
@@ -78,7 +78,9 @@ public final class AttachmentUploader {
         // Generate the correct upload info based on the state of the attachment
         let destination: AttachmentUploader.Destination = {
             switch authMethod {
-                case let auth as Authentication.community: return .community(auth.openGroupCapabilityInfo)
+                case let auth as Authentication.community:
+                    return .community(roomToken: auth.roomToken, server: auth.server)
+                
                 default: return .fileServer
             }
         }()
@@ -86,14 +88,14 @@ public final class AttachmentUploader {
             let endpoint: (any EndpointType) = {
                 switch destination {
                     case .fileServer: return Network.FileServer.Endpoint.file
-                    case .community(let info): return OpenGroupAPI.Endpoint.roomFile(info.roomToken)
+                    case .community(let roomToken, _): return Network.SOGS.Endpoint.roomFile(roomToken)
                 }
             }()
             
             // This can occur if an AttachmentUploadJob was explicitly created for a message
             // dependant on the attachment being uploaded (in this case the attachment has
             // already been uploaded so just succeed)
-            if attachment.state == .uploaded, let fileId: String = Attachment.fileId(for: attachment.downloadUrl) {
+            if attachment.state == .uploaded, let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl) {
                 return (
                     attachment,
                     try Network.PreparedRequest<FileUploadResponse>.cached(
@@ -114,7 +116,7 @@ public final class AttachmentUploader {
             // Note: The most common cases for this will be for LinkPreviews or Quotes
             if
                 attachment.state == .downloaded,
-                let fileId: String = Attachment.fileId(for: attachment.downloadUrl),
+                let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
                 (
                     !destination.shouldEncrypt || (
                         attachment.encryptionKey != nil &&
@@ -174,13 +176,13 @@ public final class AttachmentUploader {
                         digest
                     )
                 
-                case .community(let info):
+                case .community(let roomToken, _):
                     return (
                         attachment,
-                        try OpenGroupAPI.preparedUpload(
+                        try Network.SOGS.preparedUpload(
                             data: finalData,
-                            roomToken: info.roomToken,
-                            authMethod: Authentication.community(info: info),
+                            roomToken: roomToken,
+                            authMethod: authMethod,
                             using: dependencies
                         ),
                         encryptionKey,
@@ -211,11 +213,11 @@ public final class AttachmentUploader {
                             case (_, _, .fileServer):
                                 return Network.FileServer.downloadUrlString(for: response.id)
                                 
-                            case (_, _, .community(let info)):
-                                return OpenGroupAPI.downloadUrlString(
+                            case (_, _, .community(let roomToken, let server)):
+                                return Network.SOGS.downloadUrlString(
                                     for: response.id,
-                                    server: info.server,
-                                    roomToken: info.roomToken
+                                    server: server,
+                                    roomToken: roomToken
                                 )
                         }
                     }(),

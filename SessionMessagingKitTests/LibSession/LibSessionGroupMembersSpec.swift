@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 import Quick
 import Nimble
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class LibSessionGroupMembersSpec: QuickSpec {
@@ -27,10 +27,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)

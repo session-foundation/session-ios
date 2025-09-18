@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -70,7 +70,7 @@ extension MessageReceiver {
             case .contact:
                 dependencies[singleton: .storage]
                     .readPublisher { db in
-                        try SnodeAPI.preparedDeleteMessages(
+                        try Network.SnodeAPI.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
                             authMethod: try Authentication.with(

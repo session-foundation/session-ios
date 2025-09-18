@@ -2,7 +2,7 @@
 
 import Foundation
 import Combine
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
@@ -39,7 +39,7 @@ class MockSwarmPoller: Mock<SwarmPollerType & PollerType>, SwarmPollerType & Pol
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
         pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,

@@ -14,7 +14,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SwiftUI
-import SessionSnodeKit
+import SessionNetworkingKit
 
 extension ConversationVC:
     InputViewDelegate,
@@ -871,6 +871,9 @@ extension ConversationVC:
     }
 
     func showLinkPreviewSuggestionModal() {
+        // Hides accessory view while link preview confirmation is presented
+        hideInputAccessoryView()
+        
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "linkPreviewsEnable".localized(),
@@ -881,12 +884,17 @@ extension ConversationVC:
                 ),
                 confirmTitle: "enable".localized(),
                 confirmStyle: .danger,
-                cancelStyle: .alert_text
-            ) { [weak self, dependencies = viewModel.dependencies] _ in
-                dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                    self?.snInputView.autoGenerateLinkPreview()
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
+                    dependencies.setAsync(.areLinkPreviewsEnabled, true) {
+                        self?.snInputView.autoGenerateLinkPreview()
+                    }
+                },
+                afterClosed: { [weak self] in
+                    // Bring back accessory view after confirmation action
+                    self?.showInputAccessoryView()
                 }
-            }
+            )
         )
         
         present(linkPreviewModal, animated: true, completion: nil)
@@ -1757,7 +1765,7 @@ extension ConversationVC:
             let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
         else { return }
         
-        let pendingChange: OpenGroupAPI.PendingChange = viewModel.dependencies[singleton: .openGroupManager]
+        let pendingChange: OpenGroupManager.PendingChange = viewModel.dependencies[singleton: .openGroupManager]
             .addPendingReaction(
                 emoji: emoji,
                 id: openGroupServerMessageId,
@@ -1767,7 +1775,7 @@ extension ConversationVC:
             )
         
         Result {
-            try OpenGroupAPI.preparedReactionDeleteAll(
+            try Network.SOGS.preparedReactionDeleteAll(
                 emoji: emoji,
                 id: openGroupServerMessageId,
                 roomToken: roomToken,
@@ -1842,14 +1850,14 @@ extension ConversationVC:
         
         typealias OpenGroupInfo = (
             pendingReaction: Reaction?,
-            pendingChange: OpenGroupAPI.PendingChange,
+            pendingChange: OpenGroupManager.PendingChange,
             preparedRequest: Network.PreparedRequest<Int64?>
         )
         
         /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
         /// cache from blocking either the main thread or the database write thread
         Deferred { [dependencies = viewModel.dependencies] in
-            Future<OpenGroupAPI.PendingChange?, Error> { resolver in
+            Future<OpenGroupManager.PendingChange?, Error> { resolver in
                 guard
                     threadVariant == .community,
                     let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
@@ -1870,7 +1878,7 @@ extension ConversationVC:
             }
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-        .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupAPI.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
+        .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupManager.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
             // Update the thread to be visible (if it isn't already)
             if self?.viewModel.threadData.threadShouldBeVisible == false {
                 try SessionThread.updateVisibility(
@@ -1948,12 +1956,12 @@ extension ConversationVC:
                         let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
                         let openGroupServer: String = cellViewModel.threadOpenGroupServer,
                         let openGroupRoom: String = openGroupRoom,
-                        let pendingChange: OpenGroupAPI.PendingChange = pendingChange
+                        let pendingChange: OpenGroupManager.PendingChange = pendingChange
                     else { throw MessageSenderError.invalidMessage }
                     
                     let preparedRequest: Network.PreparedRequest<Int64?> = try {
                         guard !remove else {
-                            return try OpenGroupAPI
+                            return try Network.SOGS
                                 .preparedReactionDelete(
                                     emoji: emoji,
                                     id: serverMessageId,
@@ -1964,7 +1972,7 @@ extension ConversationVC:
                                 .map { _, response in response.seqNo }
                         }
                         
-                        return try OpenGroupAPI
+                        return try Network.SOGS
                             .preparedReactionAdd(
                                 emoji: emoji,
                                 id: serverMessageId,
@@ -2261,10 +2269,26 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        if isShowingSearchUI == true { willManuallyCancelSearchUI() }
-        _ = snInputView.becomeFirstResponder()
+        // If the `MessageInfoViewController` is visible then we want to show the keyboard after
+        // the pop transition completes (and don't want to delay triggering the completion closure)
+        let messageInfoScreenVisible: Bool = (self.navigationController?.viewControllers.last is MessageInfoViewController)
+
+        guard !messageInfoScreenVisible else {
+            if self.isShowingSearchUI == true { self.willManuallyCancelSearchUI() }
+            self.hasPendingInputKeyboardPresentationEvent = true
+            completion?()
+            return
+        }
         
-        completion?()
+        // Add delay before doing any ui updates
+        // Delay added to give time for long press actions to dismiss
+        let delay = completion == nil ? 0 : ContextMenuVC.dismissDuration
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
+            _ = self?.snInputView.becomeFirstResponder()
+            completion?()
+        }
     }
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
@@ -2590,7 +2614,7 @@ extension ConversationVC:
                     }
                     .publisher
                     .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
-                        try OpenGroupAPI.preparedUserBan(
+                        try Network.SOGS.preparedUserBan(
                             sessionId: cellViewModel.authorId,
                             from: [roomToken],
                             authMethod: authMethod,
@@ -2668,7 +2692,7 @@ extension ConversationVC:
                     }
                     .publisher
                     .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
-                        try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
+                        try Network.SOGS.preparedUserBanAndDeleteAllMessages(
                             sessionId: cellViewModel.authorId,
                             roomToken: roomToken,
                             authMethod: authMethod,
