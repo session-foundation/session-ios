@@ -29,6 +29,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
     private var hasReloadedThreadDataAfterDisappearance: Bool = true
     
+    /// This flag indicates that a need for inputview keyboard presentation is needed, this is in events
+    /// where a delegate action is trigger before poping back into `ConversationVC`
+    var hasPendingInputKeyboardPresentationEvent: Bool = false
+    
     var focusedInteractionInfo: Interaction.TimestampInfo?
     var focusBehaviour: ConversationViewModel.FocusBehaviour = .none
     
@@ -382,6 +386,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         return result
     }()
+    
+    // Handle taps outside of tableview cell
+    private lazy var tableViewTapGesture: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.delegate = self
+        result.addTarget(self, action: #selector(dismissKeyboardOnTap))
+        result.cancelsTouchesInView = false
+        
+        return result
+    }()
 
     // MARK: - Settings
     
@@ -533,6 +547,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 object: nil
             )
         }
+        
+        // Gesture
+        view.addGestureRecognizer(tableViewTapGesture)
 
         self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
@@ -581,6 +598,15 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self?.didFinishInitialLayout = true
             self?.viewIsAppearing = false
             self?.lastPresentedViewController = nil
+
+            // Show inputview keyboard
+            if self?.hasPendingInputKeyboardPresentationEvent == true {
+                // Added 0.1 delay to remove inputview stutter animation glitch while keyboard is animating up
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    _ = self?.snInputView.becomeFirstResponder()
+                }
+                self?.hasPendingInputKeyboardPresentationEvent = false
+            }
         }
     }
 
@@ -1567,7 +1593,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // value will break things)
         let tableViewBottom: CGFloat = (tableView.contentSize.height - tableView.bounds.height + tableView.contentInset.bottom)
         
-        if tableView.contentOffset.y < (tableViewBottom - 5) {
+        // Added `insetDifference > 0` to remove sudden table collapse and overscroll
+        if tableView.contentOffset.y < (tableViewBottom - 5) && insetDifference > 0 {
             tableView.contentOffset.y += insetDifference
         }
         

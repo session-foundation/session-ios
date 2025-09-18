@@ -72,6 +72,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, Network.SOGS.CapabilitiesAndRoomsResponse), Error> in
                 try Network.SOGS.preparedCapabilitiesAndRooms(
                     authMethod: authMethod,
+                    skipAuthentication: true,
                     using: dependencies
                 ).send(using: dependencies)
             }
@@ -157,7 +158,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                         target: .community(
                                             imageId: imageId,
                                             roomToken: room.token,
-                                            server: Network.SOGS.defaultServer
+                                            server: Network.SOGS.defaultServer,
+                                            skipAuthentication: true
                                         ),
                                         timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                                     )
