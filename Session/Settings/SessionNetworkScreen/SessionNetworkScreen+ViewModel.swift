@@ -5,7 +5,7 @@ import SwiftUI
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
@@ -78,8 +78,8 @@ extension SessionNetworkScreenContent {
             self.isRefreshing.toggle()
             self.lastRefreshWasSuccessful = false
             
-            SessionNetworkAPI.client.getInfo(using: dependencies)
-                .subscribe(on: SessionNetworkAPI.workQueue, using: dependencies)
+            Network.SessionNetwork.client.getInfo(using: dependencies)
+                .subscribe(on: Network.SessionNetwork.workQueue, using: dependencies)
                 .receive(on: DispatchQueue.main)
                 .sink(
                     receiveCompletion: { _ in },

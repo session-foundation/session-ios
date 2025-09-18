@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -182,7 +182,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(openGroup[.threadId])
                             WHERE (
                                 \(thread[.id]) IS NULL AND
-                                \(SQL("\(openGroup[.server]) != \(OpenGroupAPI.defaultServer.lowercased())"))
+                                \(SQL("\(openGroup[.server]) != \(Network.SOGS.defaultServer.lowercased())"))
                             )
                         )
                     """)

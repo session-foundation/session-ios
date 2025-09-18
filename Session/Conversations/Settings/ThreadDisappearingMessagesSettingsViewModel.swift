@@ -7,7 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = String
@@ -359,7 +359,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             
             let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             let interactionId = try updatedConfig
-                .saved(db)
+                .upserted(db)
                 .insertControlMessage(
                     db,
                     threadVariant: threadVariant,

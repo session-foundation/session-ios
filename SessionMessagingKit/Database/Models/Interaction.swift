@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public struct Interaction: Codable, Identifiable, Equatable, Hashable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "interaction" }
@@ -403,6 +403,26 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
                         canStartJob: true
                     )
                 }
+        }
+    }
+    
+    public func aroundUpdate(_ db: Database, columns: Set<String>, update: () throws -> PersistenceSuccess) throws {
+        _ = try update()
+        
+        // Start the disappearing messages timer if needed
+        guard columns.contains(Columns.expiresStartedAtMs.name) else { return }
+        
+        switch ObservationContext.observingDb {
+            case .none: Log.error("[Interaction] Could not process 'aroundUpdate' due to missing observingDb.")
+            case .some(let observingDb):
+                observingDb.dependencies[singleton: .jobRunner].upsert(
+                    observingDb,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        observingDb,
+                        using: observingDb.dependencies
+                    ),
+                    canStartJob: true
+                )
         }
     }
     
