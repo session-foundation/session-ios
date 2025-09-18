@@ -190,8 +190,12 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
 
         paletteView.delegate = self
         self.view.addSubview(paletteView)
-        paletteView.center(.horizontal, in: textView)
-        paletteView.pin(.trailing, to: .trailing, of: self.view)
+        paletteView.center(.vertical, in: self.view, withInset: -((bottomInset / 2) + Values.largeSpacing))
+        paletteView.pin(.trailing, to: .trailing, of: self.view, withInset: -Values.smallSpacing)
+        
+        // Size of gradient image and touchable area
+        paletteView.set(.width, to: Values.gradientPaletteWidth)
+        
         // This will determine the text view's size.
         paletteView.pin(.leading, to: .trailing, of: textView)
 

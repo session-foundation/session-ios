@@ -31,6 +31,8 @@ public enum Values {
     public static let accentLineThickness = CGFloat(4)
     
     public static let searchBarHeight = CGFloat(36)
+    
+    public static let gradientPaletteWidth = CGFloat(12)
 
     public static var separatorThickness: CGFloat { return 1 / UIScreen.main.scale }
     
