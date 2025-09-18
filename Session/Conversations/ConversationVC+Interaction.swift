@@ -22,7 +22,8 @@ extension ConversationVC:
     ContextMenuActionDelegate,
     SendMediaNavDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    UIGestureRecognizerDelegate
 {
     // MARK: - Open Settings
     
@@ -31,6 +32,11 @@ extension ConversationVC:
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
+    }
+    
+    // Handle taps outside of tableview cell to dismiss keyboard
+    @MainActor @objc func dismissKeyboardOnTap() {
+        _ = self.snInputView.resignFirstResponder()
     }
     
     @MainActor func openSettingsFromTitleView() {
@@ -252,6 +258,11 @@ extension ConversationVC:
         )
         present(sessionProModal, animated: true, completion: nil)
         
+        return true
+    }
+    
+    // MARK: - UIGestureRecognizerDelegate
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 
@@ -1055,7 +1066,7 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
-
+    
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
         guard self.viewModel.threadData.threadIsBlocked != true else {
@@ -2250,9 +2261,9 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        if isShowingSearchUI { willManuallyCancelSearchUI() }
-        
+        if isShowingSearchUI == true { willManuallyCancelSearchUI() }
         _ = snInputView.becomeFirstResponder()
+        
         completion?()
     }
 

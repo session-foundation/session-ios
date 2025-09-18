@@ -16,6 +16,13 @@ final class CallMessageCell: MessageCell {
     
     override var contextSnapshotView: UIView? { return container }
     
+    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
+        return [
+            .longPress,
+            .tap
+        ]
+    }
+    
     // MARK: - UI
     
     private lazy var topConstraint: NSLayoutConstraint = mainStackView.pin(.top, to: .top, of: self, withInset: CallMessageCell.inset)
@@ -113,15 +120,6 @@ final class CallMessageCell: MessageCell {
         mainStackView.pin(.bottom, to: .bottom, of: self, withInset: -CallMessageCell.inset)
     }
     
-    override func setUpGestureRecognizers() {
-        let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
-        addGestureRecognizer(longPressRecognizer)
-        
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        tapGestureRecognizer.numberOfTapsRequired = 1
-        addGestureRecognizer(tapGestureRecognizer)
-    }
-    
     // MARK: - Updating
     
     override func update(
@@ -205,7 +203,7 @@ final class CallMessageCell: MessageCell {
     
     // MARK: - Interaction
     
-    @objc func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -216,7 +214,7 @@ final class CallMessageCell: MessageCell {
         isHandlingLongPress = true
     }
     
-    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard
             let dependencies: Dependencies = self.dependencies,
             let cellViewModel: MessageViewModel = self.viewModel,
