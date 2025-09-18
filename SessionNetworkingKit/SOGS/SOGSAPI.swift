@@ -156,9 +156,10 @@ public extension Network.SOGS {
     private static func preparedSequence(
         requests: [any ErasedPreparedRequest],
         authMethod: AuthenticationMethod,
+        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
-        return try Network.PreparedRequest(
+        let preparedRequest = try Network.PreparedRequest(
             request: Request(
                 method: .post,
                 endpoint: Endpoint.sequence,
@@ -170,7 +171,10 @@ public extension Network.SOGS {
             using: dependencies
         )
 
-        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     // MARK: - Capabilities
@@ -184,6 +188,7 @@ public extension Network.SOGS {
     /// could return: `{"capabilities": ["sogs", "batch"], "missing": ["magic"]}`
     static func preparedCapabilities(
         authMethod: AuthenticationMethod,
+        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<CapabilitiesResponse> {
         let preparedRequest = try Network.PreparedRequest(
@@ -196,7 +201,10 @@ public extension Network.SOGS {
             using: dependencies
         )
 
-        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     // MARK: - Room
@@ -206,9 +214,10 @@ public extension Network.SOGS {
     /// Rooms to which the user does not have access (e.g. because they are banned, or the room has restricted access permissions) are not included
     static func preparedRooms(
         authMethod: AuthenticationMethod,
+        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[Room]> {
-        return try Network.PreparedRequest(
+        let preparedRequest = try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .rooms,
                 authMethod: authMethod
@@ -218,7 +227,10 @@ public extension Network.SOGS {
             using: dependencies
         )
 
-        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     /// Returns the details of a single room
@@ -320,6 +332,7 @@ public extension Network.SOGS {
     /// methods for the documented behaviour of each method
     static func preparedCapabilitiesAndRooms(
         authMethod: AuthenticationMethod,
+        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<CapabilitiesAndRoomsResponse> {
         let preparedRequest = try Network.SOGS
@@ -327,14 +340,17 @@ public extension Network.SOGS {
                 requests: [
                     // Get the latest capabilities for the server (in case it's a new server or the
                     // cached ones are stale)
-                    preparedCapabilities(authMethod: authMethod, using: dependencies),
-                    preparedRooms(authMethod: authMethod, using: dependencies)
+                    preparedCapabilities(authMethod: authMethod, skipAuthentication: skipAuthentication, using: dependencies),
+                    preparedRooms(authMethod: authMethod, skipAuthentication: skipAuthentication, using: dependencies)
                 ],
                 authMethod: authMethod,
+                skipAuthentication: skipAuthentication,
                 using: dependencies
             )
-
-        let finalRequest = (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
+        let finalRequest = (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
         
         return finalRequest
             .tryMap { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
@@ -841,9 +857,10 @@ public extension Network.SOGS {
         fileId: String,
         roomToken: String,
         authMethod: AuthenticationMethod,
+        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Data> {
-        return try Network.PreparedRequest(
+        let preparedRequest = try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
                 authMethod: authMethod
@@ -854,7 +871,10 @@ public extension Network.SOGS {
             using: dependencies
         )
         
-        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     // MARK: - Inbox/Outbox (Message Requests)

@@ -72,6 +72,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .tryFlatMap { [dependencies] authMethod -> AnyPublisher<(ResponseInfoType, Network.SOGS.CapabilitiesAndRoomsResponse), Error> in
                 try Network.SOGS.preparedCapabilitiesAndRooms(
                     authMethod: authMethod,
+                    skipAuthentication: true,
                     using: dependencies
                 ).send(using: dependencies)
             }
