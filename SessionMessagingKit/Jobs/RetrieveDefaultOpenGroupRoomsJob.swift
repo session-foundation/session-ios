@@ -157,7 +157,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                         target: .community(
                                             imageId: imageId,
                                             roomToken: room.token,
-                                            server: Network.SOGS.defaultServer
+                                            server: Network.SOGS.defaultServer,
+                                            skipAuthentication: true
                                         ),
                                         timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                                     )

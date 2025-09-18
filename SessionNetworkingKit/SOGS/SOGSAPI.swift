@@ -169,7 +169,8 @@ public extension Network.SOGS {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        .signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
     }
     
     // MARK: - Capabilities
@@ -185,7 +186,7 @@ public extension Network.SOGS {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<CapabilitiesResponse> {
-        return try Network.PreparedRequest(
+        let preparedRequest = try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .capabilities,
                 authMethod: authMethod
@@ -194,7 +195,8 @@ public extension Network.SOGS {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        .signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
     }
     
     // MARK: - Room
@@ -215,7 +217,8 @@ public extension Network.SOGS {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        .signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
     }
     
     /// Returns the details of a single room
@@ -319,7 +322,7 @@ public extension Network.SOGS {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<CapabilitiesAndRoomsResponse> {
-        return try Network.SOGS
+        let preparedRequest = try Network.SOGS
             .preparedSequence(
                 requests: [
                     // Get the latest capabilities for the server (in case it's a new server or the
@@ -330,7 +333,10 @@ public extension Network.SOGS {
                 authMethod: authMethod,
                 using: dependencies
             )
-            .signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        let finalRequest = (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
+        
+        return finalRequest
             .tryMap { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
                 let maybeCapabilities: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>? = (response[.capabilities] as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>)
                 let maybeRooms: Network.BatchSubResponse<[Room]>? = response.data
@@ -847,7 +853,8 @@ public extension Network.SOGS {
             requestTimeout: Network.fileDownloadTimeout,
             using: dependencies
         )
-        .signed(with: Network.SOGS.signRequest, using: dependencies)
+        
+        return (skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies))
     }
     
     // MARK: - Inbox/Outbox (Message Requests)
