@@ -5,6 +5,14 @@
 import Foundation
 
 public extension ObservableKey {
+    static func appLifecycle(_ event: AppLifecycle) -> ObservableKey {
+        ObservableKey("appLifecycle-\(event)", .appLifecycle)
+    }
+    
+    static func databaseLifecycle(_ event: DatabaseLifecycle) -> ObservableKey {
+        ObservableKey("databaseLifecycle-\(event)", .databaseLifecycle)
+    }
+    
     static func feature<T: FeatureOption>(_ key: FeatureConfig<T>) -> ObservableKey {
         ObservableKey(key.identifier, .feature)
     }
@@ -17,6 +25,26 @@ public extension ObservableKey {
 }
 
 public extension GenericObservableKey {
+    static let appLifecycle: GenericObservableKey = "appLifecycle"
+    static let databaseLifecycle: GenericObservableKey = "databaseLifecycle"
     static let feature: GenericObservableKey = "feature"
     static let featureGroup: GenericObservableKey = "featureGroup"
+}
+
+// MARK: - AppLifecycle
+
+public enum AppLifecycle: String, Sendable {
+    case didEnterBackground
+    case willEnterForeground
+    case didBecomeActive
+    case willResignActive
+    case didReceiveMemoryWarning
+    case willTerminate
+}
+
+// MARK: - DatabaseLifecycle
+
+public enum DatabaseLifecycle: String, Sendable {
+    case suspended
+    case resumed
 }

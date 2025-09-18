@@ -764,14 +764,13 @@ class SOGSAPISpec: QuickSpec {
                 // MARK: ---- generates the request correctly and skips adding request headers
                 it("generates the request correctly and skips adding request headers") {
                     expect {
-                        preparedRequest = try OpenGroupAPI.preparedCapabilitiesAndRooms(
+                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: "testserver",
-                                    publicKey: TestConstants.publicKey,
-                                    capabilities: []
-                                ),
+                                roomToken: "",
+                                server: "testserver",
+                                publicKey: TestConstants.publicKey,
+                                hasCapabilities: false,
+                                supportsBlinding: false,
                                 forceBlinded: false
                             ),
                             skipAuthentication: true,
@@ -780,9 +779,9 @@ class SOGSAPISpec: QuickSpec {
                     }.toNot(throwError())
                     
                     expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(OpenGroupAPI.Endpoint.self))
+                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(OpenGroupAPI.Endpoint.self))
+                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.rooms))
                     
                     expect(preparedRequest?.path).to(equal("/sequence"))
@@ -1619,16 +1618,15 @@ class SOGSAPISpec: QuickSpec {
                 // MARK: ---- generates the download destination correctly when given an id and skips adding request headers
                 it("generates the download destination correctly when given an id and skips adding request headers") {
                     expect {
-                        preparedRequest = try OpenGroupAPI.preparedDownload(
+                        preparedRequest = try Network.SOGS.preparedDownload(
                             fileId: "1",
                             roomToken: "roomToken",
                             authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: "testserver",
-                                    publicKey: TestConstants.publicKey,
-                                    capabilities: []
-                                ),
+                                roomToken: "",
+                                server: "testserver",
+                                publicKey: TestConstants.publicKey,
+                                hasCapabilities: false,
+                                supportsBlinding: false,
                                 forceBlinded: false
                             ),
                             skipAuthentication: true,
@@ -2275,17 +2273,16 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- triggers sending correctly without headers
                 it("triggers sending correctly without headers") {
-                    var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
+                    var response: (info: ResponseInfoType, data: [Network.SOGS.Room])?
                     
                     expect {
-                        preparedRequest = try OpenGroupAPI.preparedRooms(
+                        preparedRequest = try Network.SOGS.preparedRooms(
                             authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: "testserver",
-                                    publicKey: TestConstants.publicKey,
-                                    capabilities: []
-                                ),
+                                roomToken: "",
+                                server: "testserver",
+                                publicKey: TestConstants.publicKey,
+                                hasCapabilities: false,
+                                supportsBlinding: false,
                                 forceBlinded: false
                             ),
                             skipAuthentication: true,

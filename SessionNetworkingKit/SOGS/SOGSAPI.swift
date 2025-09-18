@@ -170,7 +170,11 @@ public extension Network.SOGS {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     // MARK: - Capabilities
@@ -196,7 +200,11 @@ public extension Network.SOGS {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     // MARK: - Room
@@ -218,7 +226,11 @@ public extension Network.SOGS {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     /// Returns the details of a single room
@@ -335,8 +347,10 @@ public extension Network.SOGS {
                 skipAuthentication: skipAuthentication,
                 using: dependencies
             )
-
-        let finalRequest = skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        let finalRequest = (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
         
         return finalRequest
             .tryMap { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
@@ -856,7 +870,11 @@ public extension Network.SOGS {
             requestTimeout: Network.fileDownloadTimeout,
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        
+        return (skipAuthentication ?
+            preparedRequest :
+            try preparedRequest.signed(with: Network.SOGS.signRequest, using: dependencies)
+        )
     }
     
     // MARK: - Inbox/Outbox (Message Requests)
